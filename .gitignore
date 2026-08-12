@@ -1,0 +1,6 @@
+*.exe
+*.zip
+state.json
+.DS_Store
+.vscode/
+.idea/

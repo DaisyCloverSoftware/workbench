@@ -1,0 +1,106 @@
+# Workbench
+
+**The AI coder's control plane: use chat for brains, give it safe eyes and hands, and spend scarce agentic usage only when the job genuinely needs an autonomous worker.**
+
+Workbench is an open-source, standalone developer IDE/control plane for coordinating AI accounts, local models and agent harnesses.
+
+The core idea is deliberately simple:
+
+> Tell Workbench the outcome. It chooses the cheapest eligible route, keeps going without constant supervision, and interrupts only for a decision that genuinely requires a human.
+
+## Why Workbench exists
+
+Modern AI-assisted development has a strange bottleneck: the models can do a huge amount of the intellectual work, but the human still ends up as the clipboard, dispatcher and babysitter between chats, coding agents, terminals and servers.
+
+Workbench separates **intelligence** from **agency**:
+
+1. Use ordinary chat for brains whenever possible.
+2. Use safe repository eyes so Chat can inspect source without spending an autonomous-agent run.
+3. Use safe hands for exact patches, tests and builds.
+4. Route true autonomous coding work to zero-marginal or included workers first.
+5. Escalate to scarce agentic capacity only when cheaper eligible routes have not solved the task.
+6. Keep metered APIs opt-in.
+7. Interrupt the human only for a real permission or decision boundary.
+
+## What works today
+
+- Native standalone Windows application.
+- Headless Linux/cluster runner with cost-aware routing.
+- Adapter discovery for local models, coding CLIs and external harnesses.
+- Model-safe repository `list_files`, `search_text`, and `read_file` tools.
+- Safe hands for exact patch application and allowlisted build/test/status commands.
+- Durable autonomous task delegation, retries, reports and attention boundaries.
+- Secret-like note detection and a local encrypted vault whose plaintext is not exposed through MCP.
+- Harness-agnostic architecture: OpenClaw is an adapter, not the foundation.
+- Private MCP/tunnel and Git-backed relay transports for dogfood environments.
+
+## Desired user experience
+
+You say:
+
+> Implement the next Workbench task.
+
+Then you go do something else.
+
+Workbench returns either:
+
+- **Done** — with a concise verified report; or
+- **Needs you** — one concise decision or permission request that genuinely could not be resolved autonomously.
+
+No progress babysitting. No human acting as a message bus between AIs.
+
+## Architecture
+
+```text
+Human intent
+    |
+lead chat / Workbench desktop
+    |
+MCP / relay / structured task transport
+    |
+Workbench router
+    |-- local / zero-marginal
+    |-- included-subscription workers
+    |-- scarce agentic fallback
+    `-- metered fallback (opt-in)
+    |
+runner / harness adapters
+```
+
+Workbench is intentionally provider- and harness-agnostic. Private infrastructure, machine names, account inventories, credentials and dogfood topology are configuration, **not public source material**.
+
+## Build
+
+Workbench has no third-party Go dependencies.
+
+```bash
+go test ./...
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -H=windowsgui" -o Workbench.exe ./cmd/workbench
+go build -o workbench-runner ./cmd/workbench-runner
+go build -o workbench-server ./cmd/workbench-server
+go build -o workbench-relay ./cmd/workbench-relay
+```
+
+## Private deployment
+
+The repository contains generic installers for the runner, MCP service, tunnel sidecar and Git-backed relay. They intentionally store runtime credentials only in local protected files and do not include any maintainer-specific hostnames, usernames, addresses, account inventories or secrets.
+
+For real workloads, use private authenticated transport. Never place private task intent into a public relay repository.
+
+## Security posture
+
+Workbench assumes developers may paste secrets by accident. AI-facing tools are deliberately narrow, secret-like content is refused in exposed paths, private MCP services bind loopback, credentials remain local, and metered/scarce routes are protected by policy.
+
+See [SECURITY.md](SECURITY.md).
+
+## Public-source privacy rule
+
+Public source, issues, pull requests, release notes and examples must remain environment-agnostic. Do not publish machine or tailnet names, local usernames or home-directory paths, private addresses, deployment topology, provider-account inventory, entitlement state, runtime credentials, private task content, or private dogfood logs.
+
+Maintainer-specific deployment information belongs only in local protected configuration or a private authenticated repository.
+
+The public project is periodically republished from a sanitized source snapshot when required, so private dogfood metadata does not become part of its durable history.
+
+## Licence
+
+MIT.
