@@ -151,6 +151,11 @@ func poll(ctx context.Context, repo, remote, branch, mcpURL, authFile, resultMod
 		}
 	}
 
+	if !publicTransport {
+		if err := syncPrivateControl(ctx, repo, remote, branch, ref, mcpURL, authFile); err != nil {
+			return err
+		}
+	}
 	return syncOutbox(ctx, repo, remote, branch, mcpURL, authFile, resultMode, publicTransport)
 }
 
