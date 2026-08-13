@@ -2,8 +2,8 @@ name: release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -16,16 +16,37 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
+      - name: Resolve release version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $match = Select-String -Path internal/core/version.go -Pattern 'const Version = "([^"]+)"'
+          if (-not $match) { throw 'Could not read Workbench version.' }
+          $version = $match.Matches[0].Groups[1].Value
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid Workbench version: $version" }
+          $tag = "v$version"
+          "WORKBENCH_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "WORKBENCH_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "WORKBENCH_RELEASE_EXISTS=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            "WORKBENCH_RELEASE_EXISTS=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
       - name: Test
+        if: env.WORKBENCH_RELEASE_EXISTS != 'true'
         run: go test ./...
       - name: Build native Windows app
+        if: env.WORKBENCH_RELEASE_EXISTS != 'true'
         shell: pwsh
         run: |
           go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
           (Get-FileHash -Algorithm SHA256 Workbench.exe).Hash.ToLower() + '  Workbench.exe' | Set-Content -Encoding ascii Workbench.exe.sha256
       - name: Publish GitHub release
+        if: env.WORKBENCH_RELEASE_EXISTS != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create '${{ github.ref_name }}' Workbench.exe Workbench.exe.sha256 --title 'Workbench ${{ github.ref_name }}' --generate-notes
+          gh release create $env:WORKBENCH_TAG Workbench.exe Workbench.exe.sha256 --target '${{ github.sha }}' --title "Workbench $env:WORKBENCH_TAG" --generate-notes
