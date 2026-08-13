@@ -194,7 +194,7 @@ func runGitMutation(ctx context.Context, dir string, args ...string) error {
 }
 
 func localRefSHA(ctx context.Context, root, ref string) (string, bool, error) {
-	cmd := exec.CommandContext(ctx, "git", "-C", root, "show-ref", "--verify", "--hash", ref)
+	cmd := exec.CommandContext(ctx, "git", "-C", root, "rev-parse", "--verify", "--quiet", ref)
 	configureChildProcess(cmd, false)
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
@@ -202,8 +202,12 @@ func localRefSHA(ctx context.Context, root, ref string) (string, bool, error) {
 	if err == nil {
 		return strings.TrimSpace(out.String()), true, nil
 	}
-	if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+	if _, ok := err.(*exec.ExitError); ok && strings.TrimSpace(out.String()) == "" {
 		return "", false, nil
 	}
-	return "", false, err
+	message := strings.TrimSpace(out.String())
+	if message == "" {
+		message = err.Error()
+	}
+	return "", false, errors.New(message)
 }
