@@ -161,10 +161,10 @@ func inspectPreparedBlob(ctx context.Context, root, commit, rel string) error {
 		return err
 	}
 	size, err := strconv.ParseInt(strings.TrimSpace(sizeText), 10, 64)
-	if err != nil || size < 0 || size > maxChangesetFileBytes {
+	if err != nil || size < 0 || size > maxChangedFileBytes {
 		return fmt.Errorf("prepared file is too large or invalid: %s", rel)
 	}
-	content, err := runGitLimited(ctx, root, maxChangesetFileBytes+1, "show", commit+":"+rel)
+	content, err := runGitLimited(ctx, root, maxChangedFileBytes+1, "show", commit+":"+rel)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,12 @@ func isolatedPublishGitDir(ctx context.Context, root string) (string, error) {
 		os.RemoveAll(dir)
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "objects", "info", "alternates"), []byte(objects+"\n"), 0o600); err != nil {
+	infoDir := filepath.Join(dir, "objects", "info")
+	if err := os.MkdirAll(infoDir, 0o700); err != nil {
+		os.RemoveAll(dir)
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(infoDir, "alternates"), []byte(filepath.ToSlash(objects)+"\n"), 0o600); err != nil {
 		os.RemoveAll(dir)
 		return "", err
 	}
