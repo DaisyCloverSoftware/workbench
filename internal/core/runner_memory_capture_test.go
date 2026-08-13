@@ -33,6 +33,7 @@ func TestParseWorkerMemoryCandidatesRejectsUnsafeMalformedAndGlobalControl(t *te
 		`WORKBENCH_MEMORY: {"kind":"routine","title":"Good","content":"Reuse the tested parser helper."}`,
 		`WORKBENCH_MEMORY: {"kind":"routine","title":"Bad secret","content":"` + secretish + `"}`,
 		`WORKBENCH_MEMORY: {"kind":"routine","title":"Unknown field","content":"x","scope":"global"}`,
+		`WORKBENCH_MEMORY: {"kind":"routine","title":"Trailing","content":"x"} garbage`,
 		`WORKBENCH_MEMORY: not-json`,
 		"done",
 	}, "\n")
