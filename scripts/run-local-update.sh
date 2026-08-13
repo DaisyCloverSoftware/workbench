@@ -1,9 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_dir="${WORKBENCH_SOURCE_DIR:-}"
-relay_url="${WORKBENCH_RELAY_URL:-}"
-public_url="${WORKBENCH_PUBLIC_REPO_URL:-}"
+config_root="${XDG_CONFIG_HOME:-$HOME/.config}/workbench"
+read_config() {
+  local env_value="$1"
+  local file="$2"
+  if [ -n "$env_value" ]; then
+    printf '%s' "$env_value"
+    return 0
+  fi
+  if [ ! -f "$file" ]; then
+    return 1
+  fi
+  local value
+  IFS= read -r value < "$file" || true
+  printf '%s' "$value"
+}
+
+source_dir="$(read_config "${WORKBENCH_SOURCE_DIR:-}" "$config_root/local-update-source" || true)"
+relay_url="$(read_config "${WORKBENCH_RELAY_URL:-}" "$config_root/local-update-relay" || true)"
+public_url="$(read_config "${WORKBENCH_PUBLIC_REPO_URL:-}" "$config_root/local-update-public" || true)"
 
 if [ -z "$source_dir" ] || [ -z "$relay_url" ] || [ -z "$public_url" ]; then
   echo "workbench local updater: configured source, relay, and public repository are required" >&2
@@ -15,7 +31,6 @@ if [ ! -d "$source_dir/.git" ]; then
   exit 1
 fi
 
-config_root="${XDG_CONFIG_HOME:-$HOME/.config}/workbench"
 mkdir -p "$config_root"
 lock_dir="$config_root/local-update.lock"
 if ! mkdir "$lock_dir" 2>/dev/null; then
