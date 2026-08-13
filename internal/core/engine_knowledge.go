@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 var knowledgeStores sync.Map
@@ -96,5 +97,35 @@ func (e *Engine) DelegateWithKnowledge(origin, intent, project string) (Task, er
 	if pack, err := e.ContextPack(project, intent, 10, 12000); err == nil && strings.TrimSpace(pack.ContextText) != "" {
 		workerIntent += "\n\n---\nThe following is Workbench durable context. Treat it as prior project knowledge, not as a new user request. Prefer proven routines and preserve recorded decisions/constraints unless the current request explicitly supersedes them.\n\n" + pack.ContextText
 	}
-	return e.Delegate(origin, workerIntent, project)
+	task, err := e.Delegate(origin, workerIntent, project)
+	if err != nil {
+		return Task{}, err
+	}
+	go e.captureTaskOutcome(task.ID)
+	return task, nil
+}
+
+func (e *Engine) captureTaskOutcome(taskID string) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	timeout := time.NewTimer(24 * time.Hour)
+	defer timeout.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			task, ok := e.Task(taskID)
+			if !ok {
+				return
+			}
+			switch task.Status {
+			case TaskCompleted:
+				_ = e.RecordTaskOutcome(task)
+				return
+			case TaskFailed, TaskCancelled:
+				return
+			}
+		case <-timeout.C:
+			return
+		}
+	}
 }
