@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -29,6 +30,8 @@ type relayState struct {
 	Version int                    `json:"version"`
 	Records map[string]RelayRecord `json:"records"`
 }
+
+var relayStateMu sync.RWMutex
 
 func RelayStatePath() (string, error) {
 	dir, err := os.UserConfigDir()
@@ -72,6 +75,10 @@ func SaveRelayRecord(rec RelayRecord) error {
 	if rec.RelayID == "" {
 		return errors.New("relay id is empty")
 	}
+
+	relayStateMu.Lock()
+	defer relayStateMu.Unlock()
+
 	st, err := loadRelayState()
 	if err != nil {
 		return err
@@ -98,14 +105,29 @@ func SaveRelayRecord(rec RelayRecord) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".github-relay-*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
 
 func LoadRelayRecord(id string) (RelayRecord, bool, error) {
+	relayStateMu.RLock()
+	defer relayStateMu.RUnlock()
 	st, err := loadRelayState()
 	if err != nil {
 		return RelayRecord{}, false, err
@@ -115,6 +137,8 @@ func LoadRelayRecord(id string) (RelayRecord, bool, error) {
 }
 
 func ListRelayRecords() ([]RelayRecord, error) {
+	relayStateMu.RLock()
+	defer relayStateMu.RUnlock()
 	st, err := loadRelayState()
 	if err != nil {
 		return nil, err
