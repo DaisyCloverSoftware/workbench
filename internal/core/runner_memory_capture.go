@@ -14,10 +14,11 @@ const workerMemoryPrefix = "WORKBENCH_MEMORY:"
 // durable knowledge discovered while completing a task, but they never get to
 // silently promote it to global scope.
 type workerMemoryCandidate struct {
-	Kind    KnowledgeKind `json:"kind"`
-	Title   string        `json:"title"`
-	Content string        `json:"content"`
-	Tags    []string      `json:"tags,omitempty"`
+	Kind         KnowledgeKind `json:"kind"`
+	Title        string        `json:"title"`
+	Content      string        `json:"content"`
+	Tags         []string      `json:"tags,omitempty"`
+	Verification string        `json:"verification,omitempty"`
 }
 
 // persistWorkerMemories removes structured memory-candidate lines from the
@@ -28,13 +29,14 @@ func persistWorkerMemories(task Task, output string) string {
 	clean, candidates := parseWorkerMemoryCandidates(output)
 	for _, c := range candidates {
 		_, _ = SaveKnowledge(KnowledgeItem{
-			Scope:   ScopeProject,
-			Project: task.ProjectPath,
-			Kind:    c.Kind,
-			Title:   c.Title,
-			Content: c.Content,
-			Tags:    c.Tags,
-			Source:  task.ID,
+			Scope:        ScopeProject,
+			Project:      task.ProjectPath,
+			Kind:         c.Kind,
+			Title:        c.Title,
+			Content:      c.Content,
+			Tags:         c.Tags,
+			Source:       task.ID,
+			Verification: c.Verification,
 		})
 	}
 	return clean
@@ -74,13 +76,17 @@ func parseWorkerMemoryCandidates(output string) (string, []workerMemoryCandidate
 		}
 		c.Title = strings.TrimSpace(c.Title)
 		c.Content = strings.TrimSpace(c.Content)
-		if c.Title == "" || c.Content == "" || len(c.Title) > 240 || len(c.Content) > 8000 {
+		c.Verification = strings.TrimSpace(c.Verification)
+		if c.Title == "" || c.Content == "" || len(c.Title) > 240 || len(c.Content) > 8000 || len(c.Verification) > 1000 {
 			continue
 		}
 		if !validWorkerMemoryKind(c.Kind) {
 			continue
 		}
-		if LooksSecret(c.Title + "\n" + c.Content + "\n" + strings.Join(c.Tags, "\n")) {
+		if c.Verification != "" && !isReusableAssetKind(c.Kind) {
+			continue
+		}
+		if LooksSecret(c.Title + "\n" + c.Content + "\n" + c.Verification + "\n" + strings.Join(c.Tags, "\n")) {
 			continue
 		}
 		if len(c.Tags) > 12 {
