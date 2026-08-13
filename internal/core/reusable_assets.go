@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -195,6 +194,10 @@ func SaveReusableAsset(item KnowledgeItem, verification string) (KnowledgeItem, 
 	return item, meta, nil
 }
 
+// FilterActiveReusableKnowledge removes superseded routine/code revisions while
+// preserving the caller's ordering. SearchKnowledge already owns relevance
+// ranking; a filter must not silently reshuffle lower-relevance memories ahead
+// of task-specific ones.
 func FilterActiveReusableKnowledge(items []KnowledgeItem) []KnowledgeItem {
 	out := make([]KnowledgeItem, 0, len(items))
 	for _, item := range items {
@@ -203,13 +206,6 @@ func FilterActiveReusableKnowledge(items []KnowledgeItem) []KnowledgeItem {
 		}
 		out = append(out, item)
 	}
-	sort.SliceStable(out, func(i, j int) bool {
-		iv, jv := ReusableAssetVerified(out[i]), ReusableAssetVerified(out[j])
-		if iv != jv {
-			return iv
-		}
-		return ReusableAssetVersion(out[i]) > ReusableAssetVersion(out[j])
-	})
 	return out
 }
 
@@ -219,7 +215,6 @@ func ReusableAssetVersion(item KnowledgeItem) int {
 			if n, err := strconv.Atoi(strings.TrimPrefix(tag, assetVersionPrefix)); err == nil && n > 0 {
 				return n
 			}
-		}
 	}
 	if item.Kind == KindRoutine || item.Kind == KindCode {
 		return 1
