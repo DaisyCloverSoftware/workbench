@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -63,5 +64,37 @@ func TestBuildWorkerPromptFromStoredKnowledgeLoadsScopedMemoryContextAndMarksUsa
 	}
 	if usage[global.ID] != 1 || usage[projectMemory.ID] != 1 {
 		t.Fatalf("retrieved memories were not marked used: %#v", usage)
+	}
+}
+
+func TestStoredWorkerMemoryKeepsRelevanceAheadOfVerifiedAssetPreference(t *testing.T) {
+	isolateKnowledgeConfig(t)
+	project := "/workspace/project"
+	for i := 1; i <= 8; i++ {
+		if _, err := SaveKnowledge(KnowledgeItem{
+			Scope:   ScopeProject,
+			Project: project,
+			Kind:    KindDecision,
+			Title:   fmt.Sprintf("Target alpha decision %d", i),
+			Content: "Target alpha implementation detail that directly matches the task.",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := SaveReusableAsset(KnowledgeItem{
+		Scope:   ScopeGlobal,
+		Kind:    KindRoutine,
+		Title:   "Target maintenance routine",
+		Content: "General target maintenance guidance.",
+	}, "routine was previously checked"); err != nil {
+		t.Fatal(err)
+	}
+
+	prompt := BuildWorkerPromptFromStoredKnowledge(Task{ProjectPath: project, Intent: "target alpha"})
+	if strings.Contains(prompt, "Target maintenance routine") {
+		t.Fatal("lower-relevance verified asset displaced a more relevant project memory")
+	}
+	if !strings.Contains(prompt, "Target alpha decision 8") {
+		t.Fatal("expected all eight higher-relevance project memories to survive the prompt cap")
 	}
 }
