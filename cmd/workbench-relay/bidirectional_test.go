@@ -12,7 +12,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-func TestBuildOutboxPublicOmitsReportContent(t *testing.T) {
+func TestBuildOutboxPublicOmitsPrivateMetadataAndReportContent(t *testing.T) {
 	task := core.Task{
 		ID:                "task-123",
 		Status:            core.TaskCompleted,
@@ -26,8 +26,11 @@ func TestBuildOutboxPublicOmitsReportContent(t *testing.T) {
 	if out.Status != core.TaskCompleted {
 		t.Fatalf("status = %q", out.Status)
 	}
-	if out.Report != "" || out.Error != "" || out.Attention != "" {
-		t.Fatalf("public outbox leaked report content: %#v", out)
+	if out.WorkbenchTask != "" || out.ConsumesWork {
+		t.Fatalf("public outbox leaked private execution metadata: %#v", out)
+	}
+	if out.Report != "" || out.Error != "" || out.Attention != "" || out.DetailWithheld {
+		t.Fatalf("public outbox leaked report metadata/content: %#v", out)
 	}
 }
 
@@ -35,14 +38,34 @@ func TestBuildOutboxPrivateIncludesReportContent(t *testing.T) {
 	task := core.Task{
 		ID:                "task-123",
 		Status:            core.TaskNeedsAttention,
+		ConsumesWork:      true,
 		Output:            "worker report",
 		Error:             "worker error",
 		AttentionQuestion: "approve this choice?",
 		UpdatedAt:         time.Unix(456, 0).UTC(),
 	}
 	out := buildOutbox("relay-12345678", task, "report", false)
-	if out.Report != task.Output || out.Error != task.Error || out.Attention != task.AttentionQuestion {
+	if out.WorkbenchTask != task.ID || !out.ConsumesWork {
+		t.Fatalf("private outbox omitted execution metadata: %#v", out)
+	}
+	if out.Report != task.Output || out.Error != task.Error || out.Attention != task.AttentionQuestion || out.DetailWithheld {
 		t.Fatalf("private outbox did not include report content: %#v", out)
+	}
+}
+
+func TestBuildOutboxWithholdsSecretLikeReport(t *testing.T) {
+	task := core.Task{
+		ID:        "task-123",
+		Status:    core.TaskCompleted,
+		Output:    "credential accidentally echoed: " + "sk-" + "proj-" + strings.Repeat("x", 48),
+		UpdatedAt: time.Unix(789, 0).UTC(),
+	}
+	out := buildOutbox("relay-12345678", task, "report", false)
+	if !out.DetailWithheld {
+		t.Fatalf("expected secret-like detail to be withheld: %#v", out)
+	}
+	if out.Report != "" || out.Error != "" || out.Attention != "" {
+		t.Fatalf("withheld outbox still contains detail: %#v", out)
 	}
 }
 
