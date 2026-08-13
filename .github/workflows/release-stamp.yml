@@ -30,7 +30,7 @@ jobs:
               'cmd/workbench-runner/main.go': [('const runnerVersion = "0.4.0-dev"', 'const runnerVersion = "0.5.0"')],
               'cmd/workbench-server/main.go': [('const serverVersion = "0.4.0-dev"', 'const serverVersion = "0.5.0"')],
               'cmd/workbench-relay/main.go': [('const relayVersion = "0.5.0-dev"', 'const relayVersion = "0.5.0"')],
-              'internal/mcp/server.go': [('"version": "0.4.0-dev"', '"version": "0.5.0"')],
+              'internal/mcp/server.go': [('"version": "0.5.0-dev"', '"version": "0.5.0"')],
           }
 
           for filename, pairs in replacements.items():
