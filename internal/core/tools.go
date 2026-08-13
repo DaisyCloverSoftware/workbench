@@ -24,7 +24,7 @@ var safeCommandPrefixes = []string{
 }
 
 var dangerousFragments = []string{
-	"&&", "||", ";", "|", ">", "<", "`", "$(`, "\n", "\r",
+	"&&", "||", ";", "|", ">", "<", "`", "$(", "\n", "\r",
 	" push", " deploy", " publish", " release", " rm ", " rmdir ", " del ", " format ", " shutdown", " reboot", " curl ", " wget ", " invoke-webrequest",
 }
 
