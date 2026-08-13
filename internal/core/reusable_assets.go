@@ -82,8 +82,25 @@ func saveReusableAssetState(st reusableAssetState) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	f, err := os.CreateTemp(filepath.Dir(path), ".reusable-assets-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
@@ -98,8 +115,11 @@ func SaveReusableAsset(item KnowledgeItem, verification string) (KnowledgeItem, 
 		return KnowledgeItem{}, ReusableAssetMeta{}, errors.New("asset verification appears to contain secret material")
 	}
 
-	reusableAssetMu.Lock()
-	defer reusableAssetMu.Unlock()
+	release, err := lockReusableAssetWrite()
+	if err != nil {
+		return KnowledgeItem{}, ReusableAssetMeta{}, err
+	}
+	defer release()
 
 	st, err := loadReusableAssetState()
 	if err != nil {
