@@ -187,7 +187,9 @@ func validatePublishRemote(remote string) error {
 	if filepath.IsAbs(remote) {
 		return nil
 	}
-	if scpStyleGitRemote.MatchString(remote) {
+	// A scp-style SSH remote has a colon separator but no URI scheme. Check for
+	// "://" first so values such as http://... cannot be misclassified as SSH.
+	if !strings.Contains(remote, "://") && scpStyleGitRemote.MatchString(remote) {
 		return nil
 	}
 	u, err := url.Parse(remote)
