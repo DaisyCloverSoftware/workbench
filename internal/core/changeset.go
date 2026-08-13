@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -100,7 +99,7 @@ func InspectChangeset(ctx context.Context, project string) (ChangesetInspection,
 }
 
 func inspectChangedPath(root, rel string) error {
-	rel = filepath.ToSlash(filepath.Clean(filepath.FromSlash(strings.TrimSpace(rel))))
+	rel = filepath.ToSlash(filepath.Clean(filepath.FromSlash(rel)))
 	if rel == "" || rel == "." || rel == ".." || strings.HasPrefix(rel, "../") || filepath.IsAbs(filepath.FromSlash(rel)) {
 		return errors.New("changeset contains an invalid repository path")
 	}
@@ -110,7 +109,7 @@ func inspectChangedPath(root, rel string) error {
 	path := filepath.Join(root, filepath.FromSlash(rel))
 	st, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil // deleted tracked file
+		return nil
 	}
 	if err != nil {
 		return err
@@ -141,10 +140,10 @@ func splitNULPaths(raw string) []string {
 	parts := strings.Split(raw, "\x00")
 	out := make([]string, 0, len(parts))
 	for _, part := range parts {
-		part = filepath.ToSlash(strings.TrimSpace(part))
-		if part != "" {
-			out = append(out, part)
+		if part == "" {
+			continue
 		}
+		out = append(out, filepath.ToSlash(filepath.Clean(filepath.FromSlash(part))))
 	}
 	return out
 }
@@ -153,7 +152,6 @@ func uniqueSortedStrings(values []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		value = strings.TrimSpace(value)
 		if value == "" || seen[value] {
 			continue
 		}
@@ -164,38 +162,53 @@ func uniqueSortedStrings(values []string) []string {
 	return out
 }
 
+type limitedCapture struct {
+	buf      bytes.Buffer
+	limit    int64
+	exceeded bool
+}
+
+func (w *limitedCapture) Write(p []byte) (int, error) {
+	n := len(p)
+	remaining := w.limit - int64(w.buf.Len())
+	if remaining > 0 {
+		take := int64(n)
+		if take > remaining {
+			take = remaining
+		}
+		_, _ = w.buf.Write(p[:int(take)])
+	}
+	if int64(n) > remaining {
+		w.exceeded = true
+	}
+	return n, nil
+}
+
+func (w *limitedCapture) String() string { return w.buf.String() }
+
 func runGitLimited(parent context.Context, dir string, limit int64, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	configureChildProcess(cmd, false)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return "", err
+	stdout := &limitedCapture{limit: limit}
+	stderr := &limitedCapture{limit: 64 << 10}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err := cmd.Run()
+	if ctx.Err() != nil {
+		return "", ctx.Err()
 	}
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Start(); err != nil {
-		return "", err
-	}
-	b, readErr := io.ReadAll(io.LimitReader(stdout, limit+1))
-	waitErr := cmd.Wait()
-	if readErr != nil {
-		return "", readErr
-	}
-	if int64(len(b)) > limit {
+	if stdout.exceeded {
 		return "", fmt.Errorf("git output exceeded %d bytes", limit)
 	}
-	if waitErr != nil {
-		if ctx.Err() != nil {
-			return "", ctx.Err()
-		}
+	if err != nil {
 		message := strings.TrimSpace(stderr.String())
 		if message == "" {
-			message = waitErr.Error()
+			message = err.Error()
 		}
 		return "", errors.New(message)
 	}
-	return string(b), nil
+	return stdout.String(), nil
 }
