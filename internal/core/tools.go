@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -47,6 +48,12 @@ func IsSafeCommand(line string) bool {
 	if strings.HasPrefix(s, "git ") {
 		return isSafeGitInspection(s)
 	}
+	// These two fixed commands are logical Workbench read operations. The
+	// execution path below handles them in-process against the active project;
+	// they are never resolved through PATH or a shell.
+	if s == "workbench-runner inspect ." || s == "workbench-runner snapshot ." {
+		return true
+	}
 	for _, p := range safeCommandPrefixes {
 		if s == p || strings.HasPrefix(s, p+" ") {
 			return true
@@ -89,6 +96,30 @@ func RunSafeCommand(ctx context.Context, project, line string) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
+
+	switch strings.TrimSpace(strings.ToLower(line)) {
+	case "workbench-runner inspect .":
+		result, err := InspectChangeset(ctx, abs)
+		if err != nil {
+			return "", err
+		}
+		b, err := json.MarshalIndent(map[string]any{"ok": true, "changeset": result}, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	case "workbench-runner snapshot .":
+		result, err := SnapshotChangeset(ctx, abs)
+		if err != nil {
+			return "", err
+		}
+		b, err := json.MarshalIndent(map[string]any{"ok": true, "snapshot": result}, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		cmd = exec.CommandContext(ctx, "cmd.exe", "/D", "/S", "/C", line)
