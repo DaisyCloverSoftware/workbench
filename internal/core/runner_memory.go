@@ -12,7 +12,11 @@ const workerMemoryBudget = 16000
 // project/global knowledge. Memory lookup failures never block execution; the
 // repository remains the source of truth.
 func BuildWorkerPromptFromStoredKnowledge(task Task) string {
-	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 8)
+	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 16)
+	memories = FilterActiveReusableKnowledge(memories)
+	if len(memories) > 8 {
+		memories = memories[:8]
+	}
 	for _, item := range memories {
 		_ = MarkKnowledgeUsed(item.ID)
 	}
@@ -65,9 +69,9 @@ func BuildWorkerPromptWithKnowledge(task Task, memories []KnowledgeItem, capsule
 				break
 			}
 			label := fmt.Sprintf("%s/%s", item.Scope, item.Kind)
-			if isReusableAssetKind(item.Kind) {
-				label += fmt.Sprintf(" v%d", normalizedAssetVersion(item))
-				if item.VerifiedAt != nil {
+			if item.Kind == KindRoutine || item.Kind == KindCode {
+				label += fmt.Sprintf(" v%d", ReusableAssetVersion(item))
+				if ReusableAssetVerified(item) {
 					label += " verified"
 				}
 			}
