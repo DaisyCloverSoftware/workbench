@@ -44,6 +44,16 @@ type relayState struct {
 }
 
 func RelayStatePath() (string, error) {
+	if override := strings.TrimSpace(os.Getenv("WORKBENCH_RELAY_STATE_PATH")); override != "" {
+		path, err := filepath.Abs(override)
+		if err != nil {
+			return "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return "", err
+		}
+		return path, nil
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
