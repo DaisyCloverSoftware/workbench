@@ -16,7 +16,7 @@ import (
 type PreparedChangeset struct {
 	Project      string   `json:"project"`
 	BaseRevision string   `json:"base_revision"`
-	Fingerprint string   `json:"fingerprint"`
+	Fingerprint  string   `json:"fingerprint"`
 	Branch       string   `json:"branch"`
 	Commit       string   `json:"commit"`
 	Files        []string `json:"files"`
@@ -114,7 +114,7 @@ func PrepareChangeset(ctx context.Context, project, taskID string) (PreparedChan
 	return PreparedChangeset{
 		Project:      root,
 		BaseRevision: snapshot.Inspection.BaseRevision,
-		Fingerprint: snapshot.Fingerprint,
+		Fingerprint:  snapshot.Fingerprint,
 		Branch:       branch,
 		Commit:       commit,
 		Files:        append([]string(nil), snapshot.Inspection.Files...),
@@ -146,6 +146,12 @@ func reproduceSnapshotFiles(sourceRoot, destRoot string, files []string) error {
 			return err
 		}
 		if err := os.WriteFile(dest, b, st.Mode().Perm()); err != nil {
+			return err
+		}
+		// WriteFile preserves the mode of an existing destination. Apply the
+		// snapshotted mode explicitly so executable-bit-only changes survive the
+		// isolated reconstruction and fingerprint verification.
+		if err := os.Chmod(dest, st.Mode().Perm()); err != nil {
 			return err
 		}
 	}
