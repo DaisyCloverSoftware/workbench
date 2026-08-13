@@ -26,7 +26,7 @@ func TestEngineKnowledgeStoreFollowsStateDirectory(t *testing.T) {
 	}
 }
 
-func TestDelegateWithKnowledgeAttachesLatestCheckpoint(t *testing.T) {
+func TestIntentWithKnowledgeAttachesLatestCheckpoint(t *testing.T) {
 	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -42,13 +42,10 @@ func TestDelegateWithKnowledgeAttachesLatestCheckpoint(t *testing.T) {
 	if _, err := eng.SaveCheckpoint(project, "Keep the durable checkpoint attached to future autonomous work.", []string{"Do not replay entire chat transcripts."}, nil, []string{"Continue from compact context."}); err != nil {
 		t.Fatal(err)
 	}
-	task, err := eng.DelegateWithKnowledge("test", "Implement the next memory task.", project)
-	if err != nil {
-		t.Fatal(err)
-	}
+	intent := eng.IntentWithKnowledge("Implement the next memory task.", project)
 	for _, want := range []string{"Implement the next memory task.", "WORKBENCH COMPACT CONTEXT", "Do not replay entire chat transcripts."} {
-		if !strings.Contains(task.Intent, want) {
-			t.Fatalf("delegated intent missing %q:\n%s", want, task.Intent)
+		if !strings.Contains(intent, want) {
+			t.Fatalf("worker intent missing %q:\n%s", want, intent)
 		}
 	}
 }
