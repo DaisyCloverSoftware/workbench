@@ -28,16 +28,20 @@ type workerMemoryCandidate struct {
 func persistWorkerMemories(task Task, output string) string {
 	clean, candidates := parseWorkerMemoryCandidates(output)
 	for _, c := range candidates {
-		_, _ = SaveKnowledge(KnowledgeItem{
-			Scope:        ScopeProject,
-			Project:      task.ProjectPath,
-			Kind:         c.Kind,
-			Title:        c.Title,
-			Content:      c.Content,
-			Tags:         c.Tags,
-			Source:       task.ID,
-			Verification: c.Verification,
-		})
+		item := KnowledgeItem{
+			Scope:   ScopeProject,
+			Project: task.ProjectPath,
+			Kind:    c.Kind,
+			Title:   c.Title,
+			Content: c.Content,
+			Tags:    c.Tags,
+			Source:  task.ID,
+		}
+		if c.Kind == KindRoutine || c.Kind == KindCode {
+			_, _, _ = SaveReusableAsset(item, c.Verification)
+		} else {
+			_, _ = SaveKnowledge(item)
+		}
 	}
 	return clean
 }
@@ -83,7 +87,7 @@ func parseWorkerMemoryCandidates(output string) (string, []workerMemoryCandidate
 		if !validWorkerMemoryKind(c.Kind) {
 			continue
 		}
-		if c.Verification != "" && !isReusableAssetKind(c.Kind) {
+		if c.Verification != "" && c.Kind != KindRoutine && c.Kind != KindCode {
 			continue
 		}
 		if LooksSecret(c.Title + "\n" + c.Content + "\n" + c.Verification + "\n" + strings.Join(c.Tags, "\n")) {
