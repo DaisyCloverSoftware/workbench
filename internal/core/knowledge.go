@@ -26,22 +26,31 @@ const (
 	KindPattern    KnowledgeKind = "pattern"
 	KindRoutine    KnowledgeKind = "routine"
 	KindCode       KnowledgeKind = "code"
+
+	AssetStatusActive     = "active"
+	AssetStatusSuperseded = "superseded"
+	AssetStatusDeprecated = "deprecated"
 )
 
 type KnowledgeItem struct {
-	ID          string         `json:"id"`
-	Scope       KnowledgeScope `json:"scope"`
-	Project     string         `json:"project,omitempty"`
-	Kind        KnowledgeKind  `json:"kind"`
-	Title       string         `json:"title"`
-	Content     string         `json:"content"`
-	Tags        []string       `json:"tags,omitempty"`
-	Source      string         `json:"source,omitempty"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	UseCount    int            `json:"use_count,omitempty"`
-	LastUsedAt  *time.Time     `json:"last_used_at,omitempty"`
-	Fingerprint string         `json:"fingerprint,omitempty"`
+	ID           string         `json:"id"`
+	Scope        KnowledgeScope `json:"scope"`
+	Project      string         `json:"project,omitempty"`
+	Kind         KnowledgeKind  `json:"kind"`
+	Title        string         `json:"title"`
+	Content      string         `json:"content"`
+	Tags         []string       `json:"tags,omitempty"`
+	Source       string         `json:"source,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	UseCount     int            `json:"use_count,omitempty"`
+	LastUsedAt   *time.Time     `json:"last_used_at,omitempty"`
+	Fingerprint  string         `json:"fingerprint,omitempty"`
+	AssetVersion int            `json:"asset_version,omitempty"`
+	AssetStatus  string         `json:"asset_status,omitempty"`
+	Supersedes   string         `json:"supersedes,omitempty"`
+	VerifiedAt   *time.Time     `json:"verified_at,omitempty"`
+	Verification string         `json:"verification,omitempty"`
 }
 
 type ContextCapsule struct {
@@ -119,10 +128,11 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 	item.Content = strings.TrimSpace(item.Content)
 	item.Project = strings.TrimSpace(item.Project)
 	item.Source = strings.TrimSpace(item.Source)
+	item.Verification = strings.TrimSpace(item.Verification)
 	if item.Title == "" || item.Content == "" {
 		return KnowledgeItem{}, errors.New("knowledge title and content are required")
 	}
-	if LooksSecret(item.Title + "\n" + item.Content) {
+	if LooksSecret(item.Title + "\n" + item.Content + "\n" + item.Verification + "\n" + strings.Join(item.Tags, "\n")) {
 		return KnowledgeItem{}, errors.New("knowledge appears to contain secret material; store secrets in the vault")
 	}
 	if item.Scope != ScopeGlobal && item.Scope != ScopeProject {
@@ -133,6 +143,9 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 	}
 	if item.Kind == "" {
 		item.Kind = KindFact
+	}
+	if item.Verification != "" && !isReusableAssetKind(item.Kind) {
+		return KnowledgeItem{}, errors.New("verification metadata is only valid for routine or code knowledge")
 	}
 	item.Tags = normalizeTags(item.Tags)
 	if item.Fingerprint == "" {
@@ -157,6 +170,24 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 			item.CreatedAt = old.CreatedAt
 			item.UseCount = old.UseCount
 			item.LastUsedAt = old.LastUsedAt
+			if isReusableAssetKind(item.Kind) {
+				if item.AssetVersion <= 0 {
+					item.AssetVersion = normalizedAssetVersion(*old)
+				}
+				if item.AssetStatus == "" {
+					item.AssetStatus = normalizedAssetStatus(*old)
+				}
+				if item.Supersedes == "" {
+					item.Supersedes = old.Supersedes
+				}
+				if item.Verification == "" {
+					item.Verification = old.Verification
+					item.VerifiedAt = old.VerifiedAt
+				} else if item.VerifiedAt == nil {
+					verified := now
+					item.VerifiedAt = &verified
+				}
+			}
 			item.UpdatedAt = now
 			st.Items[i] = item
 			if err := saveKnowledgeState(st); err != nil {
@@ -167,6 +198,13 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 	}
 	if item.ID == "" {
 		item.ID = newID("mem")
+	}
+	if isReusableAssetKind(item.Kind) {
+		prepareReusableAssetVersion(&st, &item)
+		if item.Verification != "" && item.VerifiedAt == nil {
+			verified := now
+			item.VerifiedAt = &verified
+		}
 	}
 	item.CreatedAt = now
 	item.UpdatedAt = now
@@ -199,6 +237,9 @@ func SearchKnowledge(project, query string, limit int) ([]KnowledgeItem, error) 
 		if item.Scope == ScopeProject && item.Project != project {
 			continue
 		}
+		if isReusableAssetKind(item.Kind) && normalizedAssetStatus(item) != AssetStatusActive {
+			continue
+		}
 		hay := strings.ToLower(item.Title + "\n" + item.Content + "\n" + strings.Join(item.Tags, " "))
 		score := 0
 		for _, term := range terms {
@@ -213,6 +254,9 @@ func SearchKnowledge(project, query string, limit int) ([]KnowledgeItem, error) 
 			score = 1
 		}
 		if item.Project == project && project != "" {
+			score++
+		}
+		if item.VerifiedAt != nil {
 			score++
 		}
 		if score > 0 {
@@ -291,9 +335,9 @@ func SaveContextCapsule(c ContextCapsule) (ContextCapsule, error) {
 				c.CreatedAt = old.CreatedAt
 				break
 			}
-		}
-		if c.CreatedAt.IsZero() {
-			c.CreatedAt = now
+			if c.CreatedAt.IsZero() {
+				c.CreatedAt = now
+			}
 		}
 	}
 	c.UpdatedAt = now
@@ -368,4 +412,59 @@ func knowledgeFingerprint(item KnowledgeItem) string {
 	base := strings.ToLower(string(item.Scope) + "\n" + item.Project + "\n" + string(item.Kind) + "\n" + item.Title + "\n" + item.Content)
 	sum := sha256.Sum256([]byte(base))
 	return hex.EncodeToString(sum[:])
+}
+
+func isReusableAssetKind(kind KnowledgeKind) bool {
+	return kind == KindRoutine || kind == KindCode
+}
+
+func normalizedAssetVersion(item KnowledgeItem) int {
+	if item.AssetVersion > 0 {
+		return item.AssetVersion
+	}
+	return 1
+}
+
+func normalizedAssetStatus(item KnowledgeItem) string {
+	if !isReusableAssetKind(item.Kind) {
+		return ""
+	}
+	switch item.AssetStatus {
+	case AssetStatusSuperseded, AssetStatusDeprecated:
+		return item.AssetStatus
+	default:
+		return AssetStatusActive
+	}
+}
+
+func sameReusableAssetLineage(a, b KnowledgeItem) bool {
+	return isReusableAssetKind(a.Kind) && isReusableAssetKind(b.Kind) &&
+		a.Scope == b.Scope && a.Project == b.Project && a.Kind == b.Kind &&
+		strings.EqualFold(strings.TrimSpace(a.Title), strings.TrimSpace(b.Title))
+}
+
+func prepareReusableAssetVersion(st *knowledgeState, item *KnowledgeItem) {
+	item.AssetVersion = 1
+	item.AssetStatus = AssetStatusActive
+	item.Supersedes = ""
+	latest := -1
+	latestVersion := 0
+	for i := range st.Items {
+		old := st.Items[i]
+		if !sameReusableAssetLineage(old, *item) {
+			continue
+		}
+		version := normalizedAssetVersion(old)
+		if latest == -1 || version > latestVersion || (version == latestVersion && old.UpdatedAt.After(st.Items[latest].UpdatedAt)) {
+			latest = i
+			latestVersion = version
+		}
+	}
+	if latest < 0 {
+		return
+	}
+	item.AssetVersion = latestVersion + 1
+	item.Supersedes = st.Items[latest].ID
+	st.Items[latest].AssetVersion = normalizedAssetVersion(st.Items[latest])
+	st.Items[latest].AssetStatus = AssetStatusSuperseded
 }
