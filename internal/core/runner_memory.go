@@ -12,7 +12,11 @@ const workerMemoryBudget = 16000
 // project/global knowledge. Memory lookup failures never block execution; the
 // repository remains the source of truth.
 func BuildWorkerPromptFromStoredKnowledge(task Task) string {
-	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 8)
+	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 16)
+	memories = FilterActiveReusableKnowledge(memories)
+	if len(memories) > 8 {
+		memories = memories[:8]
+	}
 	for _, item := range memories {
 		_ = MarkKnowledgeUsed(item.ID)
 	}
@@ -29,6 +33,7 @@ func BuildWorkerPromptFromStoredKnowledge(task Task) string {
 // not to override what the worker can verify in the current tree.
 func BuildWorkerPromptWithKnowledge(task Task, memories []KnowledgeItem, capsule *ContextCapsule) string {
 	base := BuildWorkerPrompt(task)
+	base += "\nReusable-asset memory rule: for WORKBENCH_MEMORY items of kind routine or code, include an optional verification field only when you actually ran the stated build/test/check evidence. Changed routine/code content becomes a new Workbench asset version; do not emit a cosmetic rewrite as a new version.\n"
 	var extra strings.Builder
 
 	if capsule != nil && strings.TrimSpace(capsule.ID) != "" {
@@ -63,9 +68,16 @@ func BuildWorkerPromptWithKnowledge(task Task, memories []KnowledgeItem, capsule
 			if contentLimit < 128 {
 				break
 			}
-			extra.WriteString(fmt.Sprintf("- [%s/%s] %s: %s\n", item.Scope, item.Kind, compactMemoryText(item.Title, 300), compactMemoryText(item.Content, contentLimit)))
+			label := fmt.Sprintf("%s/%s", item.Scope, item.Kind)
+			if item.Kind == KindRoutine || item.Kind == KindCode {
+				label += fmt.Sprintf(" v%d", ReusableAssetVersion(item))
+				if ReusableAssetVerified(item) {
+					label += " verified"
+				}
+			}
+			extra.WriteString(fmt.Sprintf("- [%s] %s: %s\n", label, compactMemoryText(item.Title, 300), compactMemoryText(item.Content, contentLimit)))
 		}
-		extra.WriteString("Reuse before rebuilding: prefer a verified saved routine, pattern, or existing code reference over creating another equivalent implementation.\n")
+		extra.WriteString("Reuse before rebuilding: prefer the newest verified saved routine/code asset, then a relevant pattern or code reference, over creating another equivalent implementation. Repository state remains authoritative.\n")
 	}
 
 	return base + extra.String()
