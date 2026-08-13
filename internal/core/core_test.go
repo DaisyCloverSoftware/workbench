@@ -19,7 +19,15 @@ func TestLooksSecret(t *testing.T) {
 }
 
 func TestSafeCommandPolicy(t *testing.T) {
-	good := []string{"git status", "git diff --stat", "go test ./...", "npm run build", "python -m pytest -q"}
+	good := []string{
+		"git status",
+		"git diff --stat",
+		"go test ./...",
+		"npm run build",
+		"python -m pytest -q",
+		"workbench-runner inspect .",
+		"workbench-runner snapshot .",
+	}
 	for _, c := range good {
 		if !IsSafeCommand(c) {
 			t.Fatalf("expected safe: %s", c)
