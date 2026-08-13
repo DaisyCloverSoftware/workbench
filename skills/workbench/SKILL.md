@@ -11,7 +11,7 @@ Workbench exists so the human specifies intent instead of operating the AI switc
 
 **Use chat for brains. Use Workbench for eyes and hands. Spend scarce agentic capacity only for autonomy.**
 
-Start development work by calling `get_workspace` so you know the active repository, routing policy, and available workers.
+Start development work by calling `get_workspace` when direct Workbench read tools are available so you know the active repository, routing policy, and available workers.
 
 ## Preferred execution ladder
 
@@ -26,13 +26,13 @@ If a read/search tool refuses a file because it appears sensitive, do not ask th
 
 ## Personal ChatGPT Pro relay
 
-At the time this skill was authored, personal ChatGPT Pro can connect custom MCP servers for read/fetch but full custom-MCP write/modify actions are restricted to eligible workspace plans. Workbench therefore has a supported fallback that does not automate or scrape ChatGPT.
+At the time this skill was authored, personal ChatGPT Pro can connect custom MCP servers for read/fetch but full custom-MCP write/modify actions are restricted to eligible workspace plans. Workbench therefore has a Git-backed fallback that does not automate or scrape ChatGPT.
 
 When a Workbench write tool is unavailable because of the ChatGPT plan **and the GitHub app is connected with write permission**:
 
-1. Use the Workbench read-only tools to inspect the active workspace and decide the exact outcome.
+1. Choose a configured relay repository. For real work it must be private; a public relay is only for harmless dogfood.
 2. Create a unique relay ID such as `wb_20260812_201500_a1b2c3`.
-3. Through the GitHub app, create exactly one UTF-8 JSON file in the configured relay repository at `relay/inbox/<relay-id>.json` with this schema:
+3. Through the GitHub app, create exactly one UTF-8 JSON file at `relay/inbox/<relay-id>.json`:
 
 ```json
 {
@@ -43,20 +43,34 @@ When a Workbench write tool is unavailable because of the ChatGPT plan **and the
 }
 ```
 
-4. The cluster-side Workbench relay fetches that Git ref, validates the envelope, maps `project` only beneath `WORKBENCH_RUNNER_ROOT`, and hands the request to the authenticated loopback Workbench MCP server.
-5. Poll the read-only `list_tasks` tool until a task whose intent begins `[relay:<relay-id>]` appears, then poll that task with `get_task` until terminal.
-6. Do not ask the human to check progress. The transport distinction is an implementation detail.
+4. Poll `relay/outbox/<relay-id>.json` through the GitHub app. Do not ask the human to check progress.
+5. For `queued`, `routing`, or `running`, keep polling without progress chatter.
+6. For `completed`, consume the returned report when private report mode is configured, verify important claims when useful, and continue the original request.
+7. For `failed`, diagnose and recover automatically when another safe route exists.
+8. For `needs_attention`, present only the concise Workbench question. After the human answers, create or replace `relay/answers/<relay-id>.json`:
 
-A **public** relay repository is only for non-sensitive dogfood tasks. Never put private source, credentials, customer information, internal incident details, unreleased product strategy, or other sensitive task text into a public relay. For real private work, Workbench must be configured against a private relay clone with appropriate Git credentials. If the available relay is public and the task is sensitive, request private-relay setup instead of leaking the task.
+```json
+{
+  "version": 1,
+  "id": "<relay-id>",
+  "answer": "<human decision>"
+}
+```
+
+Then resume polling the same outbox file until terminal.
+
+The cluster-side relay validates every envelope, maps `project` only beneath `WORKBENCH_RUNNER_ROOT`, hands requests/answers into the authenticated loopback Workbench MCP server, and publishes result envelopes back through Git. The transport distinction is an implementation detail; do not make the human act as the message bus.
+
+A **public** relay repository is only for non-sensitive dogfood tasks and publishes status-only output. Never put private source, credentials, customer information, internal incident details, unreleased product strategy, private task intent, or other sensitive text into a public relay. For real private work, Workbench must be configured against a private relay clone with appropriate Git credentials. If only a public relay is available and the task is sensitive, that is a genuine setup boundary and must be surfaced rather than leaked.
 
 ## Delegated tasks
 
-After `delegate_task`, or after a task appears from the GitHub relay, keep working. Poll `get_task` yourself until the task reaches a terminal state.
+After `delegate_task`, or after submitting through the Git relay, keep working. Poll the relevant status mechanism yourself until the task reaches a terminal state.
 
 - `queued`, `routing`, `running`: keep polling. Do not ask the user to check it.
 - `completed`: inspect the report, verify important claims with safe tools when useful, then continue the original request.
 - `failed`: diagnose the report and recover automatically when another safe approach exists.
-- `needs_attention`: this is the only normal reason to interrupt the human. Present the concise Workbench question without progress chatter. After the human answers, call `resolve_attention` if that write action is available. On a read-only personal-plan connection, use the configured supported relay/approval transport rather than disguising a write as a read tool.
+- `needs_attention`: this is the only normal reason to interrupt the human. Present the concise Workbench question without progress chatter. After the human answers, use `resolve_attention` when available or the relay answer envelope on personal-plan transport, then continue polling.
 
 A provider's local login, permission-mode, tool-denial, quota or setup problem is not by itself a human decision. Workbench should route around eligible worker failures where possible.
 

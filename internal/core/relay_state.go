@@ -5,23 +5,24 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
 // RelayRecord links a transport-level relay message to the durable Workbench task
-// that was created from it. The relay process writes this file; the MCP server
-// only reads it, so personal ChatGPT plans can use a read-only custom MCP to
-// inspect status while GitHub provides the supported write transport.
+// that was created from it. Relay state is local/private operational metadata;
+// only explicitly generated outbox envelopes are written back to a transport.
 type RelayRecord struct {
-	RelayID         string    `json:"relay_id"`
-	Source          string    `json:"source"`
-	SourcePath      string    `json:"source_path"`
-	WorkbenchTaskID string    `json:"workbench_task_id,omitempty"`
-	Project         string    `json:"project,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	Error           string    `json:"error,omitempty"`
+	RelayID          string    `json:"relay_id"`
+	Source           string    `json:"source"`
+	SourcePath       string    `json:"source_path"`
+	WorkbenchTaskID  string    `json:"workbench_task_id,omitempty"`
+	Project          string    `json:"project,omitempty"`
+	LastAnswerDigest string    `json:"last_answer_digest,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Error            string    `json:"error,omitempty"`
 }
 
 type relayState struct {
@@ -34,8 +35,6 @@ func RelayStatePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// os.UserConfigDir is ~/.config on Linux. Relay state is operational rather
-	// than secret, but keep the file private because task titles may be sensitive.
 	dir = filepath.Join(dir, "Workbench")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
@@ -78,12 +77,16 @@ func SaveRelayRecord(rec RelayRecord) error {
 		return err
 	}
 	now := time.Now().UTC()
-	if rec.CreatedAt.IsZero() {
-		if old, ok := st.Records[rec.RelayID]; ok && !old.CreatedAt.IsZero() {
+	if old, ok := st.Records[rec.RelayID]; ok {
+		if rec.CreatedAt.IsZero() && !old.CreatedAt.IsZero() {
 			rec.CreatedAt = old.CreatedAt
-		} else {
-			rec.CreatedAt = now
 		}
+		if rec.LastAnswerDigest == "" {
+			rec.LastAnswerDigest = old.LastAnswerDigest
+		}
+	}
+	if rec.CreatedAt.IsZero() {
+		rec.CreatedAt = now
 	}
 	rec.UpdatedAt = now
 	st.Records[rec.RelayID] = rec
@@ -109,4 +112,17 @@ func LoadRelayRecord(id string) (RelayRecord, bool, error) {
 	}
 	rec, ok := st.Records[strings.TrimSpace(id)]
 	return rec, ok, nil
+}
+
+func ListRelayRecords() ([]RelayRecord, error) {
+	st, err := loadRelayState()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RelayRecord, 0, len(st.Records))
+	for _, rec := range st.Records {
+		out = append(out, rec)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].RelayID < out[j].RelayID })
+	return out, nil
 }
