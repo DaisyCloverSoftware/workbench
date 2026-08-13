@@ -1,0 +1,67 @@
+name: release-stamp
+
+on:
+  push:
+    branches:
+      - release/0.5.0
+
+permissions:
+  contents: write
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/0.5.0
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Stamp release version
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = {
+              '.codex-plugin/plugin.json': [('"version": "0.4.0"', '"version": "0.5.0"')],
+              'cmd/workbench/main_windows.go': [('const appVersion = "0.3.1"', 'const appVersion = "0.5.0"')],
+              'cmd/workbench-runner/main.go': [('const runnerVersion = "0.4.0-dev"', 'const runnerVersion = "0.5.0"')],
+              'cmd/workbench-server/main.go': [('const serverVersion = "0.4.0-dev"', 'const serverVersion = "0.5.0"')],
+              'cmd/workbench-relay/main.go': [('const relayVersion = "0.5.0-dev"', 'const relayVersion = "0.5.0"')],
+              'internal/mcp/server.go': [('"version": "0.4.0-dev"', '"version": "0.5.0"')],
+          }
+
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{filename}: expected exactly one {old!r}, found {count}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+
+          changelog = Path('CHANGELOG.md')
+          text = changelog.read_text(encoding='utf-8')
+          marker = '# Changelog\n\n'
+          if not text.startswith(marker):
+              raise SystemExit('CHANGELOG.md has unexpected heading')
+          section = '''## 0.5.0\n\n- Added the bidirectional private Git relay for request/result and genuine-attention flows.\n- Added durable project and global memory, compact continuation context, reusable routine/code knowledge, and private Personal Pro memory control.\n- Autonomous workers now retrieve relevant memory before work and can distil validated project-scoped knowledge after successful tasks.\n- Hardened unattended routing around worker-local permission/setup failures and added safe verification allowances.\n- Added concurrency protection for the shared knowledge store and strengthened public-source privacy guards.\n\n'''
+          if '## 0.5.0\n' not in text:
+              text = marker + section + text[len(marker):]
+              changelog.write_text(text, encoding='utf-8')
+      - name: Test stamped tree
+        run: go test ./...
+      - name: Commit stamped release tree
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'Workbench Release Bot'
+          git config user.email 'workbench-release@users.noreply.github.com'
+          git add .codex-plugin/plugin.json CHANGELOG.md cmd/workbench/main_windows.go cmd/workbench-runner/main.go cmd/workbench-server/main.go cmd/workbench-relay/main.go internal/mcp/server.go
+          git commit -m 'chore: unify Workbench version at 0.5.0'
+          git push origin HEAD:release/0.5.0
