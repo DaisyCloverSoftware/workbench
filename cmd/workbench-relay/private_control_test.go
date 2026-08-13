@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -56,10 +57,10 @@ func TestPrivateControlWithholdsSecretLikeResult(t *testing.T) {
 func TestExecutePrivateControlCallsLocalMCP(t *testing.T) {
 	var gotTool string
 	var gotArgs map[string]any
+	var gotAuth string
+	var decodeErr error
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer test-only" {
-			t.Fatalf("unexpected authorization header")
-		}
+		gotAuth = r.Header.Get("Authorization")
 		body, _ := io.ReadAll(r.Body)
 		var req struct {
 			Params struct {
@@ -67,9 +68,7 @@ func TestExecutePrivateControlCallsLocalMCP(t *testing.T) {
 				Arguments map[string]any `json:"arguments"`
 			} `json:"params"`
 		}
-		if err := json.Unmarshal(body, &req); err != nil {
-			t.Fatal(err)
-		}
+		decodeErr = json.Unmarshal(body, &req)
 		gotTool = req.Params.Name
 		gotArgs = req.Params.Arguments
 		w.Header().Set("Content-Type", "application/json")
@@ -87,9 +86,15 @@ func TestExecutePrivateControlCallsLocalMCP(t *testing.T) {
 		Action:  "save_memory",
 		Args:    json.RawMessage(`{"scope":"global","kind":"routine","title":"Go verification","content":"Run the repository test suite before reporting completion.","tags":["go","test"]}`),
 	}
-	result, err := executePrivateControl(t.Context(), env, ts.URL, authFile)
+	result, err := executePrivateControl(context.Background(), env, ts.URL, authFile)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if gotAuth != "Bearer test-only" {
+		t.Fatalf("unexpected authorization header %q", gotAuth)
 	}
 	if result["ok"] != true || gotTool != "save_memory" {
 		t.Fatalf("unexpected MCP result/tool: result=%#v tool=%q", result, gotTool)
@@ -121,9 +126,11 @@ func TestPrivateControlProjectStaysUnderRunnerRoot(t *testing.T) {
 	}))
 	defer ts.Close()
 	authFile := filepath.Join(t.TempDir(), "auth")
-	_ = os.WriteFile(authFile, []byte("Bearer test-only"), 0o600)
+	if err := os.WriteFile(authFile, []byte("Bearer test-only"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := executePrivateControl(t.Context(), privateControlEnvelope{Version: 1, ID: "control-12345678", Action: "get_context", Project: "sample", Args: json.RawMessage(`{}`)}, ts.URL, authFile)
+	_, err := executePrivateControl(context.Background(), privateControlEnvelope{Version: 1, ID: "control-12345678", Action: "get_context", Project: "sample", Args: json.RawMessage(`{}`)}, ts.URL, authFile)
 	if err != nil {
 		t.Fatal(err)
 	}
