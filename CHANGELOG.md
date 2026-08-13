@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Added the bidirectional private Git relay for request/result and genuine-attention flows.
+- Added durable project and global memory, compact continuation context, reusable routine/code knowledge, and private Personal Pro memory control.
+- Autonomous workers now retrieve relevant memory before work and can distil validated project-scoped knowledge after successful tasks.
+- Hardened unattended routing around worker-local permission/setup failures and added safe verification allowances.
+- Added concurrency protection for the shared knowledge store and strengthened public-source privacy guards.
+
 ## 0.3.1 — 2026-08-12
 
 First native dogfood foundation.
