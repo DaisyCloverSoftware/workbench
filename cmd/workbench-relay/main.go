@@ -38,15 +38,16 @@ type answerEnvelope struct {
 }
 
 type outboxEnvelope struct {
-	Version       int             `json:"version"`
-	ID            string          `json:"id"`
-	WorkbenchTask string          `json:"workbench_task_id,omitempty"`
-	Status        core.TaskStatus `json:"status"`
-	ConsumesWork  bool            `json:"consumes_work,omitempty"`
-	Report        string          `json:"report,omitempty"`
-	Error         string          `json:"error,omitempty"`
-	Attention     string          `json:"attention,omitempty"`
-	UpdatedAt     string          `json:"updated_at"`
+	Version        int             `json:"version"`
+	ID             string          `json:"id"`
+	WorkbenchTask  string          `json:"workbench_task_id,omitempty"`
+	Status         core.TaskStatus `json:"status"`
+	ConsumesWork   bool            `json:"consumes_work,omitempty"`
+	Report         string          `json:"report,omitempty"`
+	Error          string          `json:"error,omitempty"`
+	Attention      string          `json:"attention,omitempty"`
+	DetailWithheld bool            `json:"detail_withheld,omitempty"`
+	UpdatedAt      string          `json:"updated_at"`
 }
 
 type rpcResponse struct {
@@ -410,11 +411,18 @@ func syncOutbox(ctx context.Context, repo, remote, branch, mcpURL, authFile, res
 		if !validRelayID(rec.RelayID) {
 			continue
 		}
-		out := outboxEnvelope{Version: 1, ID: rec.RelayID, WorkbenchTask: rec.WorkbenchTaskID, UpdatedAt: rec.UpdatedAt.UTC().Format(time.RFC3339Nano)}
+		out := outboxEnvelope{Version: 1, ID: rec.RelayID, UpdatedAt: rec.UpdatedAt.UTC().Format(time.RFC3339Nano)}
+		if !publicTransport {
+			out.WorkbenchTask = rec.WorkbenchTaskID
+		}
 		if rec.Error != "" {
 			out.Status = core.TaskFailed
 			if !publicTransport && resultMode == "report" {
-				out.Error = rec.Error
+				if core.LooksSecret(rec.Error) {
+					out.DetailWithheld = true
+				} else {
+					out.Error = rec.Error
+				}
 			}
 		} else if rec.WorkbenchTaskID != "" {
 			task, taskErr := getTaskMCP(ctx, mcpURL, authFile, rec.WorkbenchTaskID)
@@ -438,17 +446,24 @@ func syncOutbox(ctx context.Context, repo, remote, branch, mcpURL, authFile, res
 
 func buildOutbox(id string, task core.Task, resultMode string, publicTransport bool) outboxEnvelope {
 	out := outboxEnvelope{
-		Version:       1,
-		ID:            id,
-		WorkbenchTask: task.ID,
-		Status:        task.Status,
-		ConsumesWork:  task.ConsumesWork,
-		UpdatedAt:     task.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		Version:   1,
+		ID:        id,
+		Status:    task.Status,
+		UpdatedAt: task.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+	if !publicTransport {
+		out.WorkbenchTask = task.ID
+		out.ConsumesWork = task.ConsumesWork
 	}
 	if !publicTransport && resultMode == "report" {
-		out.Report = task.Output
-		out.Error = task.Error
-		out.Attention = task.AttentionQuestion
+		detail := strings.Join([]string{task.Output, task.Error, task.AttentionQuestion}, "\n")
+		if core.LooksSecret(detail) {
+			out.DetailWithheld = true
+		} else {
+			out.Report = task.Output
+			out.Error = task.Error
+			out.Attention = task.AttentionQuestion
+		}
 	}
 	return out
 }
@@ -472,7 +487,6 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 			return fmt.Errorf("create relay publish worktree: %s", strings.TrimSpace(string(out)))
 		}
 
-		changed := false
 		for path, content := range files {
 			dest := filepath.Join(tmp, filepath.FromSlash(path))
 			if old, readErr := os.ReadFile(dest); readErr == nil && bytes.Equal(old, content) {
@@ -486,15 +500,20 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 				cleanupWorktree(repo, tmp)
 				return err
 			}
-			changed = true
-		}
-		if !changed {
-			cleanupWorktree(repo, tmp)
-			return nil
 		}
 		if out, err := exec.Command("git", "-C", tmp, "add", "relay/outbox").CombinedOutput(); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("stage relay outbox: %s", strings.TrimSpace(string(out)))
+		}
+		diffCmd := exec.Command("git", "-C", tmp, "diff", "--cached", "--quiet", "--", "relay/outbox")
+		diffOut, diffErr := diffCmd.CombinedOutput()
+		if diffErr == nil {
+			cleanupWorktree(repo, tmp)
+			return nil
+		}
+		if exitErr, ok := diffErr.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
+			cleanupWorktree(repo, tmp)
+			return fmt.Errorf("check staged relay outbox: %s", strings.TrimSpace(string(diffOut)))
 		}
 		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update task status")
 		if out, err := commit.CombinedOutput(); err != nil {
