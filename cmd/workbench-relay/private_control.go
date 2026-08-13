@@ -65,7 +65,7 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 				out.Error = decodeErr.Error()
 			} else {
 				out.Action = env.Action
-				result, execErr := executePrivateControl(ctx, env, mcpURL, authFile)
+				result, execErr := executePrivateControlForRepo(ctx, env, repo, mcpURL, authFile)
 				if execErr != nil {
 					out.Error = execErr.Error()
 				} else {
@@ -101,7 +101,7 @@ func decodePrivateControl(raw []byte, idFromPath string) (privateControlEnvelope
 		return env, errors.New("private control id/version mismatch")
 	}
 	switch env.Action {
-	case "save_memory", "search_memory", "save_context", "get_context":
+	case "save_memory", "search_memory", "save_context", "get_context", "update_workbench":
 	default:
 		return env, fmt.Errorf("unsupported private control action %q", env.Action)
 	}
@@ -111,7 +111,14 @@ func decodePrivateControl(raw []byte, idFromPath string) (privateControlEnvelope
 	return env, nil
 }
 
+// executePrivateControl is kept as the unit-test-friendly MCP-only entry point.
+// Relay execution uses executePrivateControlForRepo so maintenance actions can
+// reuse the already-configured private transport without accepting a remote URL.
 func executePrivateControl(ctx context.Context, env privateControlEnvelope, mcpURL, authFile string) (map[string]any, error) {
+	return executePrivateControlForRepo(ctx, env, "", mcpURL, authFile)
+}
+
+func executePrivateControlForRepo(ctx context.Context, env privateControlEnvelope, relayRepo, mcpURL, authFile string) (map[string]any, error) {
 	switch env.Action {
 	case "save_memory":
 		var a struct {
@@ -204,6 +211,15 @@ func executePrivateControl(ctx context.Context, env privateControlEnvelope, mcpU
 			return nil, err
 		}
 		return callMCP(ctx, mcpURL, authFile, "get_context", map[string]any{"project_path": project})
+
+	case "update_workbench":
+		if env.Project != "" {
+			return nil, errors.New("update_workbench does not accept a project")
+		}
+		if err := decodePrivateControlArgs(env.Args, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return schedulePrivateWorkbenchUpdate(relayRepo)
 	}
 	return nil, errors.New("unsupported private control action")
 }
