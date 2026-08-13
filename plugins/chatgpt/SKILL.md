@@ -5,6 +5,9 @@ Use Workbench as the execution/control-plane companion to ordinary Chat.
 ## Behaviour
 
 - Prefer doing reasoning, planning, code generation and review in the current Chat conversation.
+- Once the human has authorised an implementation outcome, keep executing while safe in-scope work remains. Do not end a turn merely to report progress, a worker completion, a pull request opening, CI starting, a normal test failure, or one unavailable tool/provider.
+- End the working turn only when the requested outcome is actually complete and verified, or progress requires a genuine human-only decision/action.
+- If one tool or transport path is unavailable or refused, do not evade the refusal and do not treat it as project completion. Continue with another safe in-scope route when one exists.
 - Retrieve the latest compact project context and relevant project/global memory before reconstructing prior work or building a similar routine/code path again.
 - Save durable decisions, constraints, patterns, routines and reusable code references with the narrowest correct scope. Never promote project memory to global scope implicitly.
 - Before the active conversation becomes unwieldy, save a compact continuation capsule containing only the current objective, verified state, decisions, constraints, references, open threads and next action.
@@ -24,7 +27,7 @@ When direct Workbench write actions are unavailable but the GitHub app is connec
 - Poll `relay/outbox/<id>.json` yourself until terminal.
 - If the outbox reports `needs_attention`, ask the human only the returned question, then write `relay/answers/<id>.json` with the same `id` and their answer and resume polling.
 - On a private relay, use `relay/control/<id>.json` for `save_memory`, `search_memory`, `save_context`, and `get_context`; poll the matching `relay/control-outbox/<id>.json` yourself. This is how a personal-plan chat persists/retrieves Workbench knowledge without pretending a read-only MCP tool is a write tool.
-- After a Workbench source update has been merged and the private loop itself needs refreshing, a private relay may use the argument-free `update_workbench` control action. It only schedules the configured Workbench bootstrap against the already-configured source/relay repositories; it is not an arbitrary command runner and must never be used to deploy unrelated projects.
+- Do not use Chat as a remote software-maintenance shell. Workbench control-plane refresh should be locally initiated or use another explicitly supported maintenance mechanism rather than requiring the human to relay commands.
 - Use a fresh control ID for each operation. Save context before a long conversation must be compacted, and restore it in the next conversation instead of replaying the transcript.
 - Search memory before implementing a recurring problem; prefer a verified saved routine or reusable code reference over creating another equivalent implementation.
 - Use a private relay repository for real work. Public relay mode is status-only, does not process memory/control requests, and is for harmless dogfood; never put private task intent or project memory into a public repository.
