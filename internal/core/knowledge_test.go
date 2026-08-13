@@ -63,7 +63,8 @@ func TestKnowledgeDeduplicatesExactReusableItem(t *testing.T) {
 
 func TestKnowledgeRejectsSecretLikeContent(t *testing.T) {
 	isolateKnowledgeConfig(t)
-	_, err := SaveKnowledge(KnowledgeItem{Scope: ScopeGlobal, Kind: KindFact, Title: "credential", Content: "sk-abcdefghijklmnopqrstuvwxyz123456"})
+	fakeCredential := "sk-" + "abcdefghijklmnopqrstuvwxyz123456"
+	_, err := SaveKnowledge(KnowledgeItem{Scope: ScopeGlobal, Kind: KindFact, Title: "credential", Content: fakeCredential})
 	if err == nil {
 		t.Fatal("expected secret-like knowledge to be rejected")
 	}
