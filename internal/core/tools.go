@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const maxSafeCommandOutputBytes = 2 << 20
+
 var safeCommandPrefixes = []string{
 	"go test", "go vet", "go build",
 	"npm test", "npm run test", "npm run build", "npm run lint",
@@ -29,7 +31,7 @@ var dangerousFragments = []string{
 }
 
 var unsafeGitInspectionFragments = []string{
-	"--output", "--ext-diff", "--textconv", "--exec", "--paginate", "--config-env",
+	"--output", "--ext-diff", "--textconv", "--exec", "--paginate", "--config-env", "--no-index",
 }
 
 func IsSafeCommand(line string) bool {
@@ -63,7 +65,7 @@ func isSafeGitInspection(s string) bool {
 	}
 	if !allowed {
 		// Branch inspection is useful, but the generic `git branch` command also
-		// deletes, renames and edits branches. Permit only its explicit read form.
+		// changes branch refs. Permit only its explicit read form.
 		return s == "git branch --show-current"
 	}
 	for _, bad := range unsafeGitInspectionFragments {
@@ -96,14 +98,17 @@ func RunSafeCommand(ctx context.Context, project, line string) (string, error) {
 	cmd.Dir = abs
 	cmd.Env = append(os.Environ(), "GIT_PAGER=cat", "PAGER=cat", "GIT_OPTIONAL_LOCKS=0")
 	configureChildProcess(cmd, false)
-	var buf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &buf, &buf
+	output := &limitedCapture{limit: maxSafeCommandOutputBytes}
+	cmd.Stdout, cmd.Stderr = output, output
 	err = cmd.Run()
-	out := strings.TrimSpace(buf.String())
-	if err != nil {
-		return out, fmt.Errorf("command failed: %w", err)
+	out := strings.TrimSpace(output.String())
+	if output.exceeded {
+		out += "\n… output truncated by Workbench …"
 	}
-	return out, nil
+	if err != nil {
+		return strings.TrimSpace(out), fmt.Errorf("command failed: %w", err)
+	}
+	return strings.TrimSpace(out), nil
 }
 
 func ApplyPatch(ctx context.Context, project, patch string) (string, error) {
