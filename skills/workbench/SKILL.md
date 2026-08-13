@@ -75,9 +75,17 @@ When a Workbench write tool is unavailable because of the ChatGPT plan **and the
 
 Then resume polling the same outbox file until terminal.
 
-The cluster-side relay validates every envelope, maps `project` only beneath `WORKBENCH_RUNNER_ROOT`, hands requests/answers into the authenticated loopback Workbench MCP server, and publishes result envelopes back through Git. The transport distinction is an implementation detail; do not make the human act as the message bus.
+### Private relay memory/control
 
-A **public** relay repository is only for non-sensitive dogfood tasks and publishes status-only output. Never put private source, credentials, customer information, internal incident details, unreleased product strategy, private task intent, or other sensitive text into a public relay. For real private work, Workbench must be configured against a private relay clone with appropriate Git credentials. If only a public relay is available and the task is sensitive, that is a genuine setup boundary and must be surfaced rather than leaked.
+When the relay is private, use its control channel for memory and compaction whenever direct `save_memory`/`save_context` MCP actions are unavailable. Create one unique request at `relay/control/<control-id>.json`, then poll `relay/control-outbox/<control-id>.json` yourself. Supported actions are `save_memory`, `search_memory`, `save_context`, and `get_context`.
+
+Use `save_context` before a long conversation loses useful state, then use `get_context` in a fresh conversation rather than asking the human to recap it. Use `search_memory` before rebuilding similar logic. Save verified reusable routines/code with `save_memory` at project scope unless they are genuinely cross-project, in which case global scope is explicit.
+
+The private control channel is one-shot per ID, project paths are resolved beneath the runner root, and secret-like results are withheld. **Never create or process memory/control requests through a public relay.**
+
+The runner-side relay validates every envelope, maps `project` only beneath `WORKBENCH_RUNNER_ROOT`, hands requests/answers/control actions into the authenticated loopback Workbench MCP server, and publishes result envelopes back through Git. The transport distinction is an implementation detail; do not make the human act as the message bus.
+
+A **public** relay repository is only for non-sensitive dogfood tasks and publishes status-only output. Never put private source, credentials, customer information, internal incident details, unreleased product strategy, private task intent, memory/context, or other sensitive text into a public relay. For real private work, Workbench must be configured against a private relay clone with appropriate Git credentials. If only a public relay is available and the task is sensitive, that is a genuine setup boundary and must be surfaced rather than leaked.
 
 ## Delegated tasks
 
