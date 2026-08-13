@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -144,7 +145,7 @@ func canonicalPublicationProject(project string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	gitRoot, err := runGitLimited(nilContext(), root, 16<<10, "rev-parse", "--show-toplevel")
+	gitRoot, err := runGitLimited(context.Background(), root, 16<<10, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", errors.New("publication policy requires a Git repository root")
 	}
@@ -264,7 +265,3 @@ func lockPublicationPolicyWrite() (func(), error) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
-
-// nilContext provides a stable background context without making policy APIs
-// accept caller-controlled cancellation for the tiny local Git root check.
-func nilContext() context.Context { return context.Background() }
