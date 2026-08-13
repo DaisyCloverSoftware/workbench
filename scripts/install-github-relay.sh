@@ -66,8 +66,9 @@ if [ "$public_transport" = true ] && [ "$result_mode" = report ]; then
 fi
 case "$result_mode" in status|report) ;; *) echo "WORKBENCH_RELAY_RESULT_MODE must be status or report." >&2; exit 1 ;; esac
 
-# The daemon needs read + write Git transport: Chat writes inbox/answers and the
-# runner writes outbox status/results. It never creates or stores a GitHub token.
+# The daemon needs read + write Git transport: Chat writes inbox/answers/control
+# envelopes and the runner writes task/control outboxes. Workbench never creates
+# or stores a GitHub token.
 echo "Checking relay git transport..."
 git -C "$relay_repo" fetch --quiet "$relay_remote" "$relay_branch"
 if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
@@ -96,22 +97,15 @@ if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_re
   exit 1
 fi
 
-# Report mode can contain source/task detail. For GitHub transports, fail closed
-# unless the repository can be verified as private. Fetch already proved the
-# repository exists, so an unauthenticated GitHub API 404 means it is private.
-if [ "$result_mode" = report ]; then
+# Private mode can contain task reports, compact context, memories, routines and
+# code. Fail closed unless the transport can be verified as private.
+if [ "$public_transport" = false ]; then
   relay_url="$(git -C "$relay_repo" remote get-url "$relay_remote")"
   github_slug=""
   case "$relay_url" in
-    https://github.com/*)
-      github_slug="${relay_url#https://github.com/}"
-      ;;
-    git@github.com:*)
-      github_slug="${relay_url#git@github.com:}"
-      ;;
-    ssh://git@github.com/*)
-      github_slug="${relay_url#ssh://git@github.com/}"
-      ;;
+    https://github.com/*) github_slug="${relay_url#https://github.com/}" ;;
+    git@github.com:*) github_slug="${relay_url#git@github.com:}" ;;
+    ssh://git@github.com/*) github_slug="${relay_url#ssh://git@github.com/}" ;;
   esac
   github_slug="${github_slug%.git}"
   if [ -n "$github_slug" ]; then
@@ -127,11 +121,11 @@ if [ "$result_mode" = report ]; then
       esac
     fi
     if [ "$visibility" != PRIVATE ]; then
-      echo "Refusing relay report mode: GitHub transport could not be verified as PRIVATE." >&2
+      echo "Refusing private relay mode: GitHub transport could not be verified as PRIVATE." >&2
       exit 1
     fi
   elif [ "${WORKBENCH_RELAY_ASSUME_PRIVATE:-0}" != 1 ]; then
-    echo "Refusing report mode for an unverified non-GitHub transport." >&2
+    echo "Refusing private mode for an unverified non-GitHub transport." >&2
     echo "Set WORKBENCH_RELAY_ASSUME_PRIVATE=1 only after independently verifying repository privacy." >&2
     exit 1
   fi
@@ -153,8 +147,8 @@ relay_args=(
   --public-transport="$public_transport"
 )
 
-# Smoke the full daemon path once before installing supervision. An empty inbox
-# is healthy; existing relay state may publish an idempotent outbox.
+# Smoke the full daemon path once before installing supervision. Existing task
+# and private control state may publish idempotent outboxes.
 "$bin_dir/workbench-relay" "${relay_args[@]}" --once
 
 start_fallback() {
@@ -204,7 +198,11 @@ echo "WORKBENCH GIT RELAY READY"
 echo "  transport repo: $relay_repo"
 echo "  inbox: relay/inbox/*.json on $relay_remote/$relay_branch"
 echo "  answers: relay/answers/*.json"
-echo "  outbox: relay/outbox/*.json"
+echo "  task outbox: relay/outbox/*.json"
+if [ "$public_transport" = false ]; then
+  echo "  memory/context controls: relay/control/*.json"
+  echo "  control outbox: relay/control-outbox/*.json"
+fi
 echo "  poll interval: $relay_interval"
 echo "  local handoff: authenticated Workbench MCP"
 echo "  result mode: $result_mode"
@@ -212,7 +210,7 @@ echo "  public-safe transport: $public_transport"
 echo "  supervisor: $service_mode"
 echo
 if [ "$public_transport" = true ]; then
-  echo "Public relay mode publishes task status only. Use it for harmless dogfood, never private task intent."
+  echo "Public relay mode publishes task status only and ignores memory/context controls. Use it only for harmless dogfood."
 else
-  echo "Private relay mode publishes reports and attention questions back to Chat."
+  echo "Verified private relay mode publishes reports/attention and enables durable memory, routine and compact-context controls."
 fi
