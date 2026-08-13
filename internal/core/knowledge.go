@@ -135,6 +135,9 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 		item.Kind = KindFact
 	}
 	item.Tags = normalizeTags(item.Tags)
+	if err := checkKnowledgeLimits(item); err != nil {
+		return KnowledgeItem{}, err
+	}
 	if item.Fingerprint == "" {
 		item.Fingerprint = knowledgeFingerprint(item)
 	}
@@ -263,8 +266,12 @@ func SaveContextCapsule(c ContextCapsule) (ContextCapsule, error) {
 	c.Objective = strings.TrimSpace(c.Objective)
 	c.State = strings.TrimSpace(c.State)
 	c.Project = strings.TrimSpace(c.Project)
+	c.NextAction = strings.TrimSpace(c.NextAction)
 	if c.Objective == "" || c.State == "" {
 		return ContextCapsule{}, errors.New("context capsule objective and state are required")
+	}
+	if err := checkContextLimits(c); err != nil {
+		return ContextCapsule{}, err
 	}
 	combined := strings.Join([]string{
 		c.Objective,
