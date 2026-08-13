@@ -68,6 +68,9 @@ func (e *Engine) State() State {
 func cloneState(s State) State {
 	x := s
 	x.Tasks = append([]Task(nil), s.Tasks...)
+	for i := range x.Tasks {
+		x.Tasks[i].Attempts = append([]string(nil), s.Tasks[i].Attempts...)
+	}
 	x.Secrets = append([]SecretRef(nil), s.Secrets...)
 	return x
 }
@@ -292,7 +295,10 @@ func (e *Engine) execute(taskID string) {
 func routeCandidates(providers []Provider, prefs Preferences, t Task) []Provider {
 	var out []Provider
 	for _, p := range providers {
-		if !p.Installed || !p.CanWrite || strings.TrimSpace(p.Command) == "" {
+		if !p.Installed || !p.Authenticated || !p.CanWrite || strings.TrimSpace(p.Command) == "" {
+			continue
+		}
+		if p.ID == "workbench-runner" && strings.TrimSpace(prefs.OpenClawSSHHost) == "" {
 			continue
 		}
 		if p.ID == "openclaw" && strings.TrimSpace(p.Command) == "" && strings.TrimSpace(prefs.OpenClawCommand) == "" && strings.TrimSpace(prefs.OpenClawSSHHost) == "" {
