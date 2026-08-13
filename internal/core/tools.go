@@ -14,7 +14,7 @@ import (
 )
 
 var safeCommandPrefixes = []string{
-	"git status", "git diff", "git log", "git show", "git branch",
+	"git status", "git diff", "git log", "git show",
 	"go test", "go vet", "go build",
 	"npm test", "npm run test", "npm run build", "npm run lint",
 	"pnpm test", "pnpm run test", "pnpm run build", "pnpm run lint",
@@ -29,6 +29,10 @@ var dangerousFragments = []string{
 	" push", " deploy", " publish", " release", " rm ", " rmdir ", " del ", " format ", " shutdown", " reboot", " curl ", " wget ", " invoke-webrequest",
 }
 
+var unsafeGitInspectionArgs = []string{
+	"--no-index", "--ext-diff", "--textconv", "--output",
+}
+
 func IsSafeCommand(line string) bool {
 	s := strings.TrimSpace(strings.ToLower(line))
 	if s == "" {
@@ -39,8 +43,30 @@ func IsSafeCommand(line string) bool {
 			return false
 		}
 	}
+	if strings.HasPrefix(s, "git ") {
+		for _, bad := range unsafeGitInspectionArgs {
+			if commandHasArg(s, bad) {
+				return false
+			}
+		}
+		if s == "git branch" || s == "git branch --show-current" {
+			return true
+		}
+		if strings.HasPrefix(s, "git branch ") {
+			return false
+		}
+	}
 	for _, p := range safeCommandPrefixes {
 		if s == p || strings.HasPrefix(s, p+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+func commandHasArg(line, arg string) bool {
+	for _, field := range strings.Fields(line) {
+		if field == arg || strings.HasPrefix(field, arg+"=") {
 			return true
 		}
 	}
