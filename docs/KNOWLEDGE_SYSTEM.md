@@ -19,6 +19,7 @@ The knowledge system has four layers:
 - Retrieval is relevance-first and budgeted: the lead AI asks for the small set of memories/routines most likely to help the current task.
 - Routines should be versionable and testable. A successful routine can be promoted from project scope to global scope explicitly.
 - Generated code should be searched for reusable prior implementations before a new version is created.
+- Autonomous workers receive a bounded advisory slice of the latest project context plus relevant project/global memory before they start. Repository state remains authoritative, so stale memory cannot silently override the current tree.
 
 ## Context capsule
 
@@ -51,4 +52,4 @@ This makes prior successful work cheaper than re-discovery.
 
 ## Initial implementation
 
-The first implementation provides a local JSON-backed knowledge store with project/global memories, routines, context capsules, secret-like-content refusal and deterministic text/tag search. A future embedding index can improve retrieval without changing the durable data model.
+The current implementation provides a local JSON-backed knowledge store with project/global memories, routines, context capsules, secret-like-content refusal and deterministic text/tag search. MCP exposes read/write tools for lead chats, and autonomous worker prompts automatically include a bounded selection of relevant memory and the latest project capsule. A future embedding index can improve retrieval without changing the durable data model.
