@@ -193,7 +193,11 @@ Environment=WORKBENCH_RUNNER_ROOT=$HOME/src
 WantedBy=default.target
 EOF
   systemctl --user daemon-reload
-  systemctl --user enable --now workbench-github-relay.service
+  # `enable --now` does not restart an already-active unit after its ExecStart
+  # changes. Explicitly restart so rerunning the installer actually switches an
+  # existing relay process to the newly configured repository/mode.
+  systemctl --user enable workbench-github-relay.service >/dev/null
+  systemctl --user restart workbench-github-relay.service
   service_mode="systemd --user"
 else
   start_fallback
