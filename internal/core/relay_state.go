@@ -10,9 +10,8 @@ import (
 	"time"
 )
 
-// RelayRecord links a transport-level relay message to the durable Workbench task
-// that was created from it. Relay state is local/private operational metadata;
-// only explicitly generated outbox envelopes are written back to a transport.
+// RelayRecord links a transport-level relay task message to the durable
+// Workbench task that was created from it.
 type RelayRecord struct {
 	RelayID          string    `json:"relay_id"`
 	Source           string    `json:"source"`
@@ -25,9 +24,23 @@ type RelayRecord struct {
 	Error            string    `json:"error,omitempty"`
 }
 
+// RelayControlRecord makes private relay control envelopes idempotent. Response
+// contains only the already-filtered model-facing MCP result that can be written
+// back to a verified private relay transport.
+type RelayControlRecord struct {
+	RelayID    string          `json:"relay_id"`
+	SourcePath string          `json:"source_path"`
+	Digest     string          `json:"digest"`
+	Action     string          `json:"action"`
+	Response   json.RawMessage `json:"response"`
+	CreatedAt  time.Time       `json:"created_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+}
+
 type relayState struct {
-	Version int                    `json:"version"`
-	Records map[string]RelayRecord `json:"records"`
+	Version  int                           `json:"version"`
+	Records  map[string]RelayRecord        `json:"records"`
+	Controls map[string]RelayControlRecord `json:"controls,omitempty"`
 }
 
 func RelayStatePath() (string, error) {
@@ -49,7 +62,7 @@ func loadRelayState() (relayState, error) {
 	}
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return relayState{Version: 1, Records: map[string]RelayRecord{}}, nil
+		return relayState{Version: 2, Records: map[string]RelayRecord{}, Controls: map[string]RelayControlRecord{}}, nil
 	}
 	if err != nil {
 		return relayState{}, err
@@ -61,10 +74,30 @@ func loadRelayState() (relayState, error) {
 	if st.Records == nil {
 		st.Records = map[string]RelayRecord{}
 	}
-	if st.Version == 0 {
-		st.Version = 1
+	if st.Controls == nil {
+		st.Controls = map[string]RelayControlRecord{}
+	}
+	if st.Version < 2 {
+		st.Version = 2
 	}
 	return st, nil
+}
+
+func saveRelayState(st relayState) error {
+	path, err := RelayStatePath()
+	if err != nil {
+		return err
+	}
+	st.Version = 2
+	b, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 func SaveRelayRecord(rec RelayRecord) error {
@@ -90,19 +123,7 @@ func SaveRelayRecord(rec RelayRecord) error {
 	}
 	rec.UpdatedAt = now
 	st.Records[rec.RelayID] = rec
-	path, err := RelayStatePath()
-	if err != nil {
-		return err
-	}
-	b, err := json.MarshalIndent(st, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return saveRelayState(st)
 }
 
 func LoadRelayRecord(id string) (RelayRecord, bool, error) {
@@ -121,6 +142,51 @@ func ListRelayRecords() ([]RelayRecord, error) {
 	}
 	out := make([]RelayRecord, 0, len(st.Records))
 	for _, rec := range st.Records {
+		out = append(out, rec)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].RelayID < out[j].RelayID })
+	return out, nil
+}
+
+func SaveRelayControlRecord(rec RelayControlRecord) error {
+	rec.RelayID = strings.TrimSpace(rec.RelayID)
+	rec.Digest = strings.TrimSpace(rec.Digest)
+	rec.Action = strings.TrimSpace(rec.Action)
+	if rec.RelayID == "" || rec.Digest == "" || rec.Action == "" {
+		return errors.New("relay control id, digest and action are required")
+	}
+	st, err := loadRelayState()
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if old, ok := st.Controls[rec.RelayID]; ok && rec.CreatedAt.IsZero() {
+		rec.CreatedAt = old.CreatedAt
+	}
+	if rec.CreatedAt.IsZero() {
+		rec.CreatedAt = now
+	}
+	rec.UpdatedAt = now
+	st.Controls[rec.RelayID] = rec
+	return saveRelayState(st)
+}
+
+func LoadRelayControlRecord(id string) (RelayControlRecord, bool, error) {
+	st, err := loadRelayState()
+	if err != nil {
+		return RelayControlRecord{}, false, err
+	}
+	rec, ok := st.Controls[strings.TrimSpace(id)]
+	return rec, ok, nil
+}
+
+func ListRelayControlRecords() ([]RelayControlRecord, error) {
+	st, err := loadRelayState()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RelayControlRecord, 0, len(st.Controls))
+	for _, rec := range st.Controls {
 		out = append(out, rec)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].RelayID < out[j].RelayID })
