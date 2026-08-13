@@ -1,6 +1,8 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -143,7 +145,7 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 	now := time.Now().UTC()
 	for i := range st.Items {
 		old := &st.Items[i]
-		if item.ID != "" && old.ID == item.ID || item.ID == "" && old.Fingerprint == item.Fingerprint {
+		if (item.ID != "" && old.ID == item.ID) || (item.ID == "" && old.Fingerprint == item.Fingerprint) {
 			item.ID = old.ID
 			item.CreatedAt = old.CreatedAt
 			item.UseCount = old.UseCount
@@ -213,7 +215,11 @@ func SearchKnowledge(project, query string, limit int) ([]KnowledgeItem, error) 
 		}
 		return found[i].item.UpdatedAt.After(found[j].item.UpdatedAt)
 	})
-	out := make([]KnowledgeItem, 0, min(limit, len(found)))
+	capacity := limit
+	if len(found) < capacity {
+		capacity = len(found)
+	}
+	out := make([]KnowledgeItem, 0, capacity)
 	for i := 0; i < len(found) && i < limit; i++ {
 		out = append(out, found[i].item)
 	}
@@ -334,5 +340,6 @@ func searchTerms(q string) []string {
 
 func knowledgeFingerprint(item KnowledgeItem) string {
 	base := strings.ToLower(string(item.Scope) + "\n" + item.Project + "\n" + string(item.Kind) + "\n" + item.Title + "\n" + item.Content)
-	return simpleHash(base)
+	sum := sha256.Sum256([]byte(base))
+	return hex.EncodeToString(sum[:])
 }
