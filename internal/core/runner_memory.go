@@ -13,6 +13,9 @@ const workerMemoryBudget = 16000
 // repository remains the source of truth.
 func BuildWorkerPromptFromStoredKnowledge(task Task) string {
 	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 8)
+	for _, item := range memories {
+		_ = MarkKnowledgeUsed(item.ID)
+	}
 	var capsule *ContextCapsule
 	if c, ok, err := LatestContextCapsule(task.ProjectPath); err == nil && ok {
 		capsule = &c

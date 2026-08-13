@@ -33,13 +33,15 @@ func TestBuildWorkerPromptWithKnowledgeBoundsMemoryContent(t *testing.T) {
 	}
 }
 
-func TestBuildWorkerPromptFromStoredKnowledgeLoadsScopedMemoryAndContext(t *testing.T) {
+func TestBuildWorkerPromptFromStoredKnowledgeLoadsScopedMemoryContextAndMarksUsage(t *testing.T) {
 	isolateKnowledgeConfig(t)
 	project := "/workspace/project"
-	if _, err := SaveKnowledge(KnowledgeItem{Scope: ScopeGlobal, Kind: KindRoutine, Title: "Retry routine", Content: "Use bounded backoff when retrying idempotent requests."}); err != nil {
+	global, err := SaveKnowledge(KnowledgeItem{Scope: ScopeGlobal, Kind: KindRoutine, Title: "Retry routine", Content: "Use bounded backoff when retrying idempotent requests."})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SaveKnowledge(KnowledgeItem{Scope: ScopeProject, Project: project, Kind: KindCode, Title: "Existing helper", Content: "Reuse internal/retry."}); err != nil {
+	projectMemory, err := SaveKnowledge(KnowledgeItem{Scope: ScopeProject, Project: project, Kind: KindCode, Title: "Existing helper", Content: "Reuse internal/retry."})
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := SaveContextCapsule(ContextCapsule{Project: project, Objective: "Finish retry support", State: "HTTP client already exists.", NextAction: "Add retry handling."}); err != nil {
@@ -50,5 +52,16 @@ func TestBuildWorkerPromptFromStoredKnowledgeLoadsScopedMemoryAndContext(t *test
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("stored worker prompt missing %q:\n%s", want, prompt)
 		}
+	}
+	items, err := SearchKnowledge(project, "retry helper", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usage := map[string]int{}
+	for _, item := range items {
+		usage[item.ID] = item.UseCount
+	}
+	if usage[global.ID] != 1 || usage[projectMemory.ID] != 1 {
+		t.Fatalf("retrieved memories were not marked used: %#v", usage)
 	}
 }

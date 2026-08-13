@@ -44,6 +44,7 @@ func BuildWorkerPrompt(task Task) string {
 	b.WriteString("- If your own local harness, login, quota, sandbox, command approval, or tool permission prevents requested work, do not ask the human to approve the worker. End with WORKER_UNAVAILABLE: followed by one concise reason so Workbench can route another eligible worker.\n")
 	b.WriteString("- If and only if a genuinely human product decision/permission is required, stop and output a final line beginning exactly ATTENTION_REQUIRED: followed by one concise question.\n")
 	b.WriteString("- Otherwise finish the work and provide a concise completion report: changes, verification, and any non-blocking warnings.\n")
+	b.WriteString("- If successful work reveals genuinely durable project-specific knowledge that should prevent future rediscovery, append up to three final lines using exactly WORKBENCH_MEMORY: followed by one JSON object with kind, title, content, and optional tags. Allowed kinds: fact, decision, constraint, pattern, routine, code. Do not include secrets, raw logs, transient status, account details, machine identifiers, or a scope field; Workbench stores worker memories at project scope only.\n")
 	if strings.TrimSpace(task.HumanAnswer) != "" {
 		b.WriteString("\nHuman answer to the previous attention request:\n")
 		b.WriteString(task.HumanAnswer)
@@ -94,13 +95,21 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		name = p.Command
 		args = []string{"--ask-for-approval", "never", "exec", "--sandbox", "workspace-write", "--json", prompt}
 	case "workbench-runner":
-		return RunClusterRunnerSSH(ctx, prefs.OpenClawSSHHost, task, prefs)
+		res, runErr := RunClusterRunnerSSH(ctx, prefs.OpenClawSSHHost, task, prefs)
+		if runErr == nil {
+			res.Output = persistWorkerMemories(task, res.Output)
+		}
+		return res, runErr
 	case "openclaw":
 		if host := strings.TrimSpace(prefs.OpenClawSSHHost); host != "" {
 			name = "ssh"
 			args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", host, "openclaw", "agent", "--message", prompt, "--headless"}
 		} else if strings.TrimSpace(prefs.OpenClawCommand) != "" {
-			return runCommandTemplate(ctx, prefs.OpenClawCommand, abs, prompt)
+			res, runErr := runCommandTemplate(ctx, prefs.OpenClawCommand, abs, prompt)
+			if runErr == nil {
+				res.Output = persistWorkerMemories(task, res.Output)
+			}
+			return res, runErr
 		} else if strings.TrimSpace(p.Command) != "" {
 			name = p.Command
 			args = []string{"agent", "--message", prompt, "--headless"}
@@ -108,7 +117,11 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 			return RunResult{}, errors.New("OpenClaw adapter is not configured")
 		}
 	case "ollama":
-		return runOllama(ctx, prompt)
+		res, runErr := runOllama(ctx, prompt)
+		if runErr == nil {
+			res.Output = persistWorkerMemories(task, res.Output)
+		}
+		return res, runErr
 	default:
 		return RunResult{}, fmt.Errorf("provider %s is not an executable worker", p.ID)
 	}
@@ -151,6 +164,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		}
 		return res, fmt.Errorf("%s exited with error: %w", p.Name, err)
 	}
+	res.Output = persistWorkerMemories(task, res.Output)
 	return res, nil
 }
 
