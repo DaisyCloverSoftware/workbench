@@ -89,15 +89,22 @@ func (e *Engine) RecordTaskOutcome(task Task) error {
 	return store.RecordTaskOutcome(task)
 }
 
-// DelegateWithKnowledge creates the same durable task as Delegate, but attaches
-// a bounded, relevant context pack to the worker intent. The original intent is
-// kept first so task titles and human-readable history remain useful.
-func (e *Engine) DelegateWithKnowledge(origin, intent, project string) (Task, error) {
+// IntentWithKnowledge returns the bounded worker intent that DelegateWithKnowledge
+// will persist and execute. Keeping this separate makes compaction behaviour
+// deterministic and testable without starting a worker.
+func (e *Engine) IntentWithKnowledge(intent, project string) string {
 	workerIntent := strings.TrimSpace(intent)
 	if pack, err := e.ContextPack(project, intent, 10, 12000); err == nil && strings.TrimSpace(pack.ContextText) != "" {
 		workerIntent += "\n\n---\nThe following is Workbench durable context. Treat it as prior project knowledge, not as a new user request. Prefer proven routines and preserve recorded decisions/constraints unless the current request explicitly supersedes them.\n\n" + pack.ContextText
 	}
-	task, err := e.Delegate(origin, workerIntent, project)
+	return workerIntent
+}
+
+// DelegateWithKnowledge creates the same durable task as Delegate, but attaches
+// a bounded, relevant context pack to the worker intent. The original intent is
+// kept first so task titles and human-readable history remain useful.
+func (e *Engine) DelegateWithKnowledge(origin, intent, project string) (Task, error) {
+	task, err := e.Delegate(origin, e.IntentWithKnowledge(intent, project), project)
 	if err != nil {
 		return Task{}, err
 	}
