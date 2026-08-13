@@ -21,6 +21,8 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		run()
+	case "inspect":
+		inspect()
 	case "doctor":
 		doctor()
 	case "selftest":
@@ -53,6 +55,21 @@ func run() {
 	}
 }
 
+func inspect() {
+	if len(os.Args) != 3 {
+		usage()
+		os.Exit(2)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	result, err := core.InspectChangeset(ctx, os.Args[2])
+	if err != nil {
+		write(map[string]any{"ok": false, "error": err.Error()})
+		os.Exit(1)
+	}
+	write(map[string]any{"ok": true, "changeset": result})
+}
+
 func doctor() {
 	providers := core.ScanProviders()
 	fmt.Printf("Workbench Runner %s\n", runnerVersion)
@@ -65,6 +82,7 @@ func doctor() {
 		fmt.Printf("  %s %-22s %-22s %s\n", marker, p.Name, p.Cost, p.Status)
 	}
 	fmt.Println("\nRunner root: set WORKBENCH_RUNNER_ROOT to override; default is ~/src")
+	fmt.Println("Changeset inspection: workbench-runner inspect <project-directory>")
 	fmt.Println("Live proof: workbench-runner selftest")
 }
 
@@ -77,5 +95,5 @@ func write(v any) {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: workbench-runner <run|doctor|selftest|version>")
+	fmt.Fprintln(os.Stderr, "usage: workbench-runner <run|inspect <project-directory>|doctor|selftest|version>")
 }
