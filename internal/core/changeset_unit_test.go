@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestChangesetPathParsingPreservesWhitespace(t *testing.T) {
 	got := splitNULPaths(" spaced name .txt\x00normal.txt\x00")
@@ -17,5 +20,11 @@ func TestLimitedCaptureKeepsDrainingPastLimit(t *testing.T) {
 	}
 	if !w.exceeded || w.String() != "abcd" {
 		t.Fatalf("unexpected capture: exceeded=%t text=%q", w.exceeded, w.String())
+	}
+}
+
+func TestInspectChangesetRequiresRepositoryRoot(t *testing.T) {
+	if _, err := InspectChangeset(context.Background(), "."); err == nil {
+		t.Fatal("expected repository subdirectory to be rejected")
 	}
 }
