@@ -151,7 +151,25 @@ func poll(ctx context.Context, repo, remote, branch, mcpURL, authFile, resultMod
 		}
 	}
 
-	return syncOutbox(ctx, repo, remote, branch, mcpURL, authFile, resultMode, publicTransport)
+	if !publicTransport {
+		controls, err := relayPaths(repo, ref, "relay/control")
+		if err != nil {
+			return err
+		}
+		for _, path := range controls {
+			if err := processControlPath(ctx, repo, ref, path, mcpURL, authFile); err != nil {
+				fmt.Fprintf(os.Stderr, "%s: %v\n", path, err)
+			}
+		}
+	}
+
+	if err := syncOutbox(ctx, repo, remote, branch, mcpURL, authFile, resultMode, publicTransport); err != nil {
+		return err
+	}
+	if !publicTransport {
+		return syncControlOutbox(ctx, repo, remote, branch)
+	}
+	return nil
 }
 
 func fetchRemote(ctx context.Context, repo, remote, branch string) error {
@@ -395,7 +413,13 @@ func callMCP(ctx context.Context, url, authFile, tool string, args map[string]an
 	if err := json.Unmarshal(body, &rr); err != nil {
 		return nil, err
 	}
-	if rr.Error != nil || rr.Result.IsError {
+	if rr.Error != nil {
+		return nil, fmt.Errorf("local MCP rejected %s", tool)
+	}
+	if rr.Result.IsError {
+		if message, ok := rr.Result.StructuredContent["error"].(string); ok && strings.TrimSpace(message) != "" {
+			return nil, errors.New(strings.TrimSpace(message))
+		}
 		return nil, fmt.Errorf("local MCP rejected %s", tool)
 	}
 	return rr.Result.StructuredContent, nil
@@ -501,11 +525,11 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 				return err
 			}
 		}
-		if out, err := exec.Command("git", "-C", tmp, "add", "relay/outbox").CombinedOutput(); err != nil {
+		if out, err := exec.Command("git", "-C", tmp, "add", "relay").CombinedOutput(); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("stage relay outbox: %s", strings.TrimSpace(string(out)))
 		}
-		diffCmd := exec.Command("git", "-C", tmp, "diff", "--cached", "--quiet", "--", "relay/outbox")
+		diffCmd := exec.Command("git", "-C", tmp, "diff", "--cached", "--quiet", "--", "relay")
 		diffOut, diffErr := diffCmd.CombinedOutput()
 		if diffErr == nil {
 			cleanupWorktree(repo, tmp)
@@ -515,7 +539,7 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("check staged relay outbox: %s", strings.TrimSpace(string(diffOut)))
 		}
-		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update task status")
+		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update transport outbox")
 		if out, err := commit.CombinedOutput(); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("commit relay outbox: %s", strings.TrimSpace(string(out)))
