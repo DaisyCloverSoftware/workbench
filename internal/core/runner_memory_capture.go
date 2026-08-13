@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 )
 
@@ -67,7 +69,7 @@ func parseWorkerMemoryCandidates(output string) (string, []workerMemoryCandidate
 			continue
 		}
 		var trailing any
-		if dec.Decode(&trailing) == nil {
+		if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
 			continue
 		}
 		c.Title = strings.TrimSpace(c.Title)
