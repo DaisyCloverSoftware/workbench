@@ -11,7 +11,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-const runnerVersion = "0.5.0"
+const runnerVersion = "0.5.1"
 
 func main() {
 	if len(os.Args) < 2 {
