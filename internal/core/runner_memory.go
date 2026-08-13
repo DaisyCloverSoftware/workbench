@@ -7,6 +7,19 @@ import (
 
 const workerMemoryBudget = 16000
 
+// BuildWorkerPromptFromStoredKnowledge assembles an autonomous worker prompt from
+// the current task plus the latest compact project context and the most relevant
+// project/global knowledge. Memory lookup failures never block execution; the
+// repository remains the source of truth.
+func BuildWorkerPromptFromStoredKnowledge(task Task) string {
+	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 8)
+	var capsule *ContextCapsule
+	if c, ok, err := LatestContextCapsule(task.ProjectPath); err == nil && ok {
+		capsule = &c
+	}
+	return BuildWorkerPromptWithKnowledge(task, memories, capsule)
+}
+
 // BuildWorkerPromptWithKnowledge adds a bounded, explicitly advisory memory layer
 // to the ordinary worker prompt. Repository state remains authoritative: saved
 // routines, decisions and code references are there to prevent needless reinvention,
