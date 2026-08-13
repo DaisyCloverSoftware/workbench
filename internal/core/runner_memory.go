@@ -29,6 +29,7 @@ func BuildWorkerPromptFromStoredKnowledge(task Task) string {
 // not to override what the worker can verify in the current tree.
 func BuildWorkerPromptWithKnowledge(task Task, memories []KnowledgeItem, capsule *ContextCapsule) string {
 	base := BuildWorkerPrompt(task)
+	base += "\nReusable-asset memory rule: for WORKBENCH_MEMORY items of kind routine or code, include an optional verification field only when you actually ran the stated build/test/check evidence. Changed routine/code content becomes a new Workbench asset version; do not emit a cosmetic rewrite as a new version.\n"
 	var extra strings.Builder
 
 	if capsule != nil && strings.TrimSpace(capsule.ID) != "" {
@@ -63,9 +64,16 @@ func BuildWorkerPromptWithKnowledge(task Task, memories []KnowledgeItem, capsule
 			if contentLimit < 128 {
 				break
 			}
-			extra.WriteString(fmt.Sprintf("- [%s/%s] %s: %s\n", item.Scope, item.Kind, compactMemoryText(item.Title, 300), compactMemoryText(item.Content, contentLimit)))
+			label := fmt.Sprintf("%s/%s", item.Scope, item.Kind)
+			if isReusableAssetKind(item.Kind) {
+				label += fmt.Sprintf(" v%d", normalizedAssetVersion(item))
+				if item.VerifiedAt != nil {
+					label += " verified"
+				}
+			}
+			extra.WriteString(fmt.Sprintf("- [%s] %s: %s\n", label, compactMemoryText(item.Title, 300), compactMemoryText(item.Content, contentLimit)))
 		}
-		extra.WriteString("Reuse before rebuilding: prefer a verified saved routine, pattern, or existing code reference over creating another equivalent implementation.\n")
+		extra.WriteString("Reuse before rebuilding: prefer the newest verified saved routine/code asset, then a relevant pattern or code reference, over creating another equivalent implementation. Repository state remains authoritative.\n")
 	}
 
 	return base + extra.String()
