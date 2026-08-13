@@ -7,6 +7,7 @@ config_dir="$HOME/.config/workbench"
 state_dir="$HOME/.local/state/workbench"
 auth_file="$config_dir/mcp-loopback-auth-value"
 mcp_url="${WORKBENCH_MCP_URL:-http://127.0.0.1:8765/mcp}"
+relay_repo="${WORKBENCH_RELAY_REPO_DIR:-$repo_root}"
 relay_remote="${WORKBENCH_RELAY_REMOTE:-origin}"
 relay_branch="${WORKBENCH_RELAY_BRANCH:-main}"
 relay_interval="${WORKBENCH_RELAY_INTERVAL:-10s}"
@@ -38,6 +39,15 @@ fi
 }
 chmod 0600 "$auth_file"
 
+relay_repo="$(cd "$relay_repo" 2>/dev/null && pwd)" || {
+  echo "Relay transport repository does not exist: $relay_repo" >&2
+  exit 1
+}
+[ -d "$relay_repo/.git" ] || {
+  echo "Relay transport must be a git clone: $relay_repo" >&2
+  exit 1
+}
+
 case "$relay_private" in
   1|true|yes)
     public_transport=false
@@ -51,20 +61,17 @@ case "$relay_private" in
 esac
 
 if [ "$public_transport" = true ] && [ "$result_mode" = report ]; then
-  echo "Refusing report mode on a public relay transport. Set WORKBENCH_RELAY_PRIVATE=1 only for a genuinely private relay repository." >&2
+  echo "Refusing report mode on a public relay transport." >&2
   exit 1
 fi
 case "$result_mode" in status|report) ;; *) echo "WORKBENCH_RELAY_RESULT_MODE must be status or report." >&2; exit 1 ;; esac
 
 # The daemon needs read + write Git transport: Chat writes inbox/answers and the
-# cluster writes outbox status/results. Prefer the configured remote. If a
-# github.com HTTPS remote is readable but has no non-interactive push credential,
-# automatically use an SSH sibling remote when the operator already has SSH Git
-# access. No token is created or stored by Workbench.
+# runner writes outbox status/results. It never creates or stores a GitHub token.
 echo "Checking relay git transport..."
-git -C "$repo_root" fetch --quiet "$relay_remote" "$relay_branch"
-if ! git -C "$repo_root" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
-  relay_url="$(git -C "$repo_root" remote get-url "$relay_remote")"
+git -C "$relay_repo" fetch --quiet "$relay_remote" "$relay_branch"
+if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
+  relay_url="$(git -C "$relay_repo" remote get-url "$relay_remote")"
   case "$relay_url" in
     https://github.com/*)
       slug="${relay_url#https://github.com/}"
@@ -72,21 +79,62 @@ if ! git -C "$repo_root" push --dry-run "$relay_remote" "refs/remotes/$relay_rem
       ssh_url="git@github.com:${slug}.git"
       if git ls-remote "$ssh_url" HEAD >/dev/null 2>&1; then
         relay_remote="workbench-relay-write"
-        if git -C "$repo_root" remote get-url "$relay_remote" >/dev/null 2>&1; then
-          git -C "$repo_root" remote set-url "$relay_remote" "$ssh_url"
+        if git -C "$relay_repo" remote get-url "$relay_remote" >/dev/null 2>&1; then
+          git -C "$relay_repo" remote set-url "$relay_remote" "$ssh_url"
         else
-          git -C "$repo_root" remote add "$relay_remote" "$ssh_url"
+          git -C "$relay_repo" remote add "$relay_remote" "$ssh_url"
         fi
-        git -C "$repo_root" fetch --quiet "$relay_remote" "$relay_branch"
+        git -C "$relay_repo" fetch --quiet "$relay_remote" "$relay_branch"
       fi
       ;;
   esac
 fi
 
-if ! git -C "$repo_root" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
+if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
   echo "Relay repository is readable but no non-interactive Git push credential was found." >&2
   echo "Configure an authenticated Git remote (SSH is recommended) or set WORKBENCH_RELAY_REMOTE to one." >&2
   exit 1
+fi
+
+# Report mode can contain source/task detail. For GitHub transports, fail closed
+# unless the repository can be verified as private. Fetch already proved the
+# repository exists, so an unauthenticated GitHub API 404 means it is private.
+if [ "$result_mode" = report ]; then
+  relay_url="$(git -C "$relay_repo" remote get-url "$relay_remote")"
+  github_slug=""
+  case "$relay_url" in
+    https://github.com/*)
+      github_slug="${relay_url#https://github.com/}"
+      ;;
+    git@github.com:*)
+      github_slug="${relay_url#git@github.com:}"
+      ;;
+    ssh://git@github.com/*)
+      github_slug="${relay_url#ssh://git@github.com/}"
+      ;;
+  esac
+  github_slug="${github_slug%.git}"
+  if [ -n "$github_slug" ]; then
+    visibility=""
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      visibility="$(gh repo view "$github_slug" --json visibility --jq .visibility 2>/dev/null || true)"
+    fi
+    if [ -z "$visibility" ] && command -v curl >/dev/null 2>&1; then
+      code="$(curl -sS -o /dev/null -w '%{http_code}' "https://api.github.com/repos/$github_slug" || true)"
+      case "$code" in
+        200) visibility="PUBLIC" ;;
+        404) visibility="PRIVATE" ;;
+      esac
+    fi
+    if [ "$visibility" != PRIVATE ]; then
+      echo "Refusing relay report mode: GitHub transport could not be verified as PRIVATE." >&2
+      exit 1
+    fi
+  elif [ "${WORKBENCH_RELAY_ASSUME_PRIVATE:-0}" != 1 ]; then
+    echo "Refusing report mode for an unverified non-GitHub transport." >&2
+    echo "Set WORKBENCH_RELAY_ASSUME_PRIVATE=1 only after independently verifying repository privacy." >&2
+    exit 1
+  fi
 fi
 
 echo "Building Workbench Git relay with $($go_bin version)..."
@@ -96,7 +144,7 @@ cd "$repo_root"
 chmod 0755 "$bin_dir/workbench-relay"
 
 relay_args=(
-  --repo-dir "$repo_root"
+  --repo-dir "$relay_repo"
   --remote "$relay_remote"
   --branch "$relay_branch"
   --mcp-url "$mcp_url"
@@ -106,7 +154,7 @@ relay_args=(
 )
 
 # Smoke the full daemon path once before installing supervision. An empty inbox
-# is healthy; any existing relay state may also publish an idempotent outbox.
+# is healthy; existing relay state may publish an idempotent outbox.
 "$bin_dir/workbench-relay" "${relay_args[@]}" --once
 
 start_fallback() {
@@ -136,7 +184,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=$bin_dir/workbench-relay --repo-dir=$repo_root --remote=$relay_remote --branch=$relay_branch --interval=$relay_interval --mcp-url=$mcp_url --auth-file=$auth_file --result-mode=$result_mode --public-transport=$public_transport
+ExecStart=$bin_dir/workbench-relay --repo-dir=$relay_repo --remote=$relay_remote --branch=$relay_branch --interval=$relay_interval --mcp-url=$mcp_url --auth-file=$auth_file --result-mode=$result_mode --public-transport=$public_transport
 Restart=always
 RestartSec=3
 Environment=WORKBENCH_RUNNER_ROOT=$HOME/src
@@ -153,6 +201,7 @@ fi
 
 echo
 echo "WORKBENCH GIT RELAY READY"
+echo "  transport repo: $relay_repo"
 echo "  inbox: relay/inbox/*.json on $relay_remote/$relay_branch"
 echo "  answers: relay/answers/*.json"
 echo "  outbox: relay/outbox/*.json"
@@ -165,5 +214,5 @@ echo
 if [ "$public_transport" = true ]; then
   echo "Public relay mode publishes task status only. Use it for harmless dogfood, never private task intent."
 else
-  echo "Private relay mode can publish task reports and attention questions back to Chat."
+  echo "Private relay mode publishes reports and attention questions back to Chat."
 fi
