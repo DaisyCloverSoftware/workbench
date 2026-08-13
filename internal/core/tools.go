@@ -13,8 +13,9 @@ import (
 	"time"
 )
 
+const maxSafeCommandOutputBytes = 2 << 20
+
 var safeCommandPrefixes = []string{
-	"git status", "git diff", "git log", "git show", "git branch",
 	"go test", "go vet", "go build",
 	"npm test", "npm run test", "npm run build", "npm run lint",
 	"pnpm test", "pnpm run test", "pnpm run build", "pnpm run lint",
@@ -25,8 +26,12 @@ var safeCommandPrefixes = []string{
 }
 
 var dangerousFragments = []string{
-	"&&", "||", ";", "|", ">", "<", "`", "$(`", "\n", "\r",
+	"&&", "||", ";", "|", ">", "<", "`", "$(", "\n", "\r",
 	" push", " deploy", " publish", " release", " rm ", " rmdir ", " del ", " format ", " shutdown", " reboot", " curl ", " wget ", " invoke-webrequest",
+}
+
+var unsafeGitInspectionFragments = []string{
+	"--output", "--ext-diff", "--textconv", "--exec", "--paginate", "--config-env", "--no-index",
 }
 
 func IsSafeCommand(line string) bool {
@@ -39,12 +44,36 @@ func IsSafeCommand(line string) bool {
 			return false
 		}
 	}
+	if strings.HasPrefix(s, "git ") {
+		return isSafeGitInspection(s)
+	}
 	for _, p := range safeCommandPrefixes {
 		if s == p || strings.HasPrefix(s, p+" ") {
 			return true
 		}
 	}
 	return false
+}
+
+func isSafeGitInspection(s string) bool {
+	allowed := false
+	for _, prefix := range []string{"git status", "git diff", "git log", "git show"} {
+		if s == prefix || strings.HasPrefix(s, prefix+" ") {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		// Branch inspection is useful, but the generic `git branch` command also
+		// changes branch refs. Permit only its explicit read form.
+		return s == "git branch --show-current"
+	}
+	for _, bad := range unsafeGitInspectionFragments {
+		if strings.Contains(s, bad) {
+			return false
+		}
+	}
+	return true
 }
 
 func RunSafeCommand(ctx context.Context, project, line string) (string, error) {
@@ -67,15 +96,19 @@ func RunSafeCommand(ctx context.Context, project, line string) (string, error) {
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-lc", line)
 	}
 	cmd.Dir = abs
+	cmd.Env = append(os.Environ(), "GIT_PAGER=cat", "PAGER=cat", "GIT_OPTIONAL_LOCKS=0")
 	configureChildProcess(cmd, false)
-	var buf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &buf, &buf
+	output := &limitedCapture{limit: maxSafeCommandOutputBytes}
+	cmd.Stdout, cmd.Stderr = output, output
 	err = cmd.Run()
-	out := strings.TrimSpace(buf.String())
-	if err != nil {
-		return out, fmt.Errorf("command failed: %w", err)
+	out := strings.TrimSpace(output.String())
+	if output.exceeded {
+		out += "\n… output truncated by Workbench …"
 	}
-	return out, nil
+	if err != nil {
+		return strings.TrimSpace(out), fmt.Errorf("command failed: %w", err)
+	}
+	return strings.TrimSpace(out), nil
 }
 
 func ApplyPatch(ctx context.Context, project, patch string) (string, error) {
