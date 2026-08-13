@@ -19,6 +19,11 @@ func TestIsWorkerSetupAttention(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "interactive command approval from dogfood",
+			in:   "Running go test ./... and any other go/toolchain command in this session requires interactive approval that isn't available in this unattended relay.",
+			want: true,
+		},
+		{
 			name: "real production approval",
 			in:   "May I restart the production service now?",
 			want: false,
@@ -35,5 +40,15 @@ func TestIsWorkerSetupAttention(t *testing.T) {
 				t.Fatalf("isWorkerSetupAttention(%q)=%v want %v", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestClassifyWorkerUnavailableSentinel(t *testing.T) {
+	got := classifyRunOutput("work attempted\nWORKER_UNAVAILABLE: local Bash policy denied go test")
+	if got.WorkerUnavailable == "" || !got.Retryable {
+		t.Fatalf("expected retryable worker-unavailable result: %#v", got)
+	}
+	if got.Attention != "" {
+		t.Fatalf("worker-local limitation must not become human attention: %#v", got)
 	}
 }
