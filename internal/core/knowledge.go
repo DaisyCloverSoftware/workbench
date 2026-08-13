@@ -122,7 +122,7 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 	if item.Title == "" || item.Content == "" {
 		return KnowledgeItem{}, errors.New("knowledge title and content are required")
 	}
-	if LooksSecret(item.Title + "\n" + item.Content) {
+	if LooksSecret(item.Title + "\n" + item.Content + "\n" + item.Source + "\n" + strings.Join(item.Tags, "\n")) {
 		return KnowledgeItem{}, errors.New("knowledge appears to contain secret material; store secrets in the vault")
 	}
 	if item.Scope != ScopeGlobal && item.Scope != ScopeProject {
@@ -266,7 +266,15 @@ func SaveContextCapsule(c ContextCapsule) (ContextCapsule, error) {
 	if c.Objective == "" || c.State == "" {
 		return ContextCapsule{}, errors.New("context capsule objective and state are required")
 	}
-	combined := c.Objective + "\n" + c.State + "\n" + strings.Join(c.Decisions, "\n") + "\n" + strings.Join(c.Constraints, "\n") + "\n" + c.NextAction
+	combined := strings.Join([]string{
+		c.Objective,
+		c.State,
+		strings.Join(c.Decisions, "\n"),
+		strings.Join(c.Constraints, "\n"),
+		strings.Join(c.References, "\n"),
+		strings.Join(c.OpenThreads, "\n"),
+		c.NextAction,
+	}, "\n")
 	if LooksSecret(combined) {
 		return ContextCapsule{}, errors.New("context capsule appears to contain secret material")
 	}
