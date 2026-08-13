@@ -124,8 +124,8 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.4.0-dev"},
-			"instructions": "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers. Start with get_workspace. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. After delegation, poll get_task yourself until completed, failed, or needs_attention. Never ask the human to watch progress. Surface needs_attention only when Workbench reports a genuine human decision boundary.",
+			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.5.0-dev"},
+			"instructions": "Workbench gives ordinary Chat safe repository eyes and hands, durable compact context, reusable routines, and autonomous workers. Start with get_workspace and get_context_pack. Use list_files, search_text, and read_file before spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomy is useful; Workbench automatically attaches relevant durable memory. Save a compact checkpoint at meaningful milestones or before conversation context becomes unwieldy. Save proven cross-task procedures with save_routine instead of rebuilding them. After delegation, poll get_task yourself until completed, failed, or needs_attention. Never ask the human to watch progress. Surface needs_attention only for a genuine human decision boundary.",
 		}
 	case "ping":
 		result = map[string]any{}
@@ -176,16 +176,25 @@ func tool(name, title, description string, input, output map[string]any, ann map
 func toolsList() []map[string]any {
 	project := strProp("Absolute project/repository path. Omit to use the active Workbench workspace.")
 	subdir := strProp("Optional relative subdirectory within the active project.")
+	scope := enumStringProp("Memory scope. Project memory follows the repository identity; global memory is reusable across projects.", "project", "global")
+	kind := enumStringProp("Durable memory kind.", "decision", "constraint", "lesson", "pattern")
+	stringsProp := func(desc string) map[string]any { return stringArrayProp(desc) }
 	return []map[string]any{
-		tool("get_workspace", "Get Workbench workspace", "Inspect the active project, routing policy, and available workers before deciding how to execute a development request.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("get_workspace", "Get Workbench workspace", "Inspect the active project, routing policy, available workers, and current compact checkpoint before deciding how to execute a development request.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("get_context_pack", "Get compact durable context", "Build a bounded context pack containing the latest project checkpoint plus relevant project/global memory and reusable routines. Use this when starting or resuming work so conversation length does not become the source of truth.", objSchema(map[string]any{"project_path": project, "query": strProp("Current task or topic used to rank relevant memory."), "max_items": intProp("Maximum relevant memory/routine items."), "max_chars": intProp("Maximum rendered context characters (up to 48000).")}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("recall_memory", "Recall durable memory", "Search project-specific and cross-project durable memory without replaying old chat transcripts.", objSchema(map[string]any{"project_path": project, "query": strProp("Topic to recall."), "limit": intProp("Maximum memory items (1-50).")}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("find_routines", "Find reusable routines", "Find saved procedures and code patterns that may solve the current task without rebuilding them from scratch.", objSchema(map[string]any{"project_path": project, "query": strProp("Problem, technology, or trigger to match."), "limit": intProp("Maximum routines (1-30).")}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_files", "List repository files", "List model-safe source files under the active project without traversing generated trees or credential directories. Use this before delegating merely to discover the repository layout.", objSchema(map[string]any{"project_path": project, "subdir": subdir, "limit": intProp("Maximum files to return (1-1000).")}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("search_text", "Search repository text", "Search model-safe source files for text. Binary, oversized, generated, credential-like, and probable-secret files are skipped.", objSchema(map[string]any{"project_path": project, "query": strProp("Text to find, case-insensitive"), "subdir": subdir, "limit": intProp("Maximum matching lines to return (1-200).")}, []string{"query"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("read_file", "Read repository file", "Read a line range from one model-safe source file. Paths must stay inside the active project; credential files, binary files, oversized files, and files containing probable secret material are refused.", objSchema(map[string]any{"project_path": project, "path": strProp("Relative file path inside the project"), "start_line": intProp("Optional 1-based first line"), "end_line": intProp("Optional 1-based last line")}, []string{"path"}), anyObjectSchema(), annotations(true, false, false)),
-		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench routes zero-marginal and included-subscription workers before scarce Work/Codex and leaves metered APIs disabled unless explicitly enabled.", objSchema(map[string]any{"intent": strProp("Outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench attaches a bounded relevant context pack and routes zero-marginal and included-subscription workers before scarce Work/Codex.", objSchema(map[string]any{"intent": strProp("Outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("get_task", "Get task status", "Read durable task status. Poll this yourself after delegation; only surface a needs_attention question to the human.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_tasks", "List Workbench tasks", "List recent Workbench tasks and their statuses.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ordinary Chat. Prefer this no-Work path when Chat can reason out the code and Workbench only needs to provide hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("run_safe_command", "Run safe development command", "Run a non-destructive local build, test, lint, status, or diff command under Workbench's allowlist. No deploy, push, network shell, or destructive commands.", objSchema(map[string]any{"project_path": project, "command": strProp("Safe command, e.g. git diff, npm test, go test ./...")}, []string{"command"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("remember", "Save durable memory", "Save a distilled decision, constraint, lesson, or reusable pattern. Store conclusions, not chat transcripts. Secret-like content is refused.", objSchema(map[string]any{"project_path": project, "scope": scope, "kind": kind, "title": strProp("Short memory title."), "summary": strProp("Compact durable summary."), "content": strProp("Optional supporting detail."), "tags": stringsProp("Optional search tags.")}, []string{"title", "summary"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("save_checkpoint", "Save compact project checkpoint", "Persist the compact state needed to resume a project in a fresh conversation: current summary, decisions, open loops, and next actions.", objSchema(map[string]any{"project_path": project, "summary": strProp("Compact current project state."), "decisions": stringsProp("Decisions that should survive compaction."), "open_loops": stringsProp("Unresolved threads."), "next_actions": stringsProp("Likely next actions.")}, []string{"summary"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("save_routine", "Save reusable routine or code", "Save a proven project/global procedure, steps, and optional code so similar work is reused rather than rebuilt. Secret-like content is refused.", objSchema(map[string]any{"project_path": project, "scope": scope, "name": strProp("Stable routine name; saving the same scoped name updates it."), "description": strProp("What the routine solves and when to use it."), "triggers": stringsProp("Problems/phrases that should retrieve this routine."), "steps": stringsProp("Reusable ordered procedure."), "code": strProp("Optional reusable code/template."), "language": strProp("Optional code language."), "tags": stringsProp("Optional search tags.")}, []string{"name", "description"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("save_note", "Save project note", "Save a non-secret project note in Workbench. Secret-like text is refused and must be stored through the local encrypted vault instead.", objSchema(map[string]any{"project_path": project, "note": strProp("Note text")}, []string{"note"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("resolve_attention", "Resolve human attention request", "Resume a paused task after the human has answered a genuine Workbench decision or permission request.", objSchema(map[string]any{"task_id": strProp("Task id"), "answer": strProp("Human decision")}, []string{"task_id", "answer"}), anyObjectSchema(), annotations(false, false, false)),
 	}
@@ -197,6 +206,18 @@ func strProp(desc string) map[string]any {
 
 func intProp(desc string) map[string]any {
 	return map[string]any{"type": "integer", "description": desc}
+}
+
+func stringArrayProp(desc string) map[string]any {
+	return map[string]any{"type": "array", "description": desc, "items": map[string]any{"type": "string"}}
+}
+
+func enumStringProp(desc string, values ...string) map[string]any {
+	items := make([]any, len(values))
+	for i := range values {
+		items[i] = values[i]
+	}
+	return map[string]any{"type": "string", "description": desc, "enum": items}
 }
 
 func objSchema(props map[string]any, req []string) map[string]any {
@@ -239,6 +260,23 @@ func intArg(a map[string]any, k string) int {
 	}
 }
 
+func stringListArg(a map[string]any, k string) []string {
+	switch v := a[k].(type) {
+	case []string:
+		return append([]string(nil), v...)
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if text, ok := item.(string); ok && strings.TrimSpace(text) != "" {
+				out = append(out, strings.TrimSpace(text))
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
 func (s *Server) projectArg(a map[string]any) string {
 	if p := arg(a, "project_path"); p != "" {
 		return p
@@ -272,13 +310,45 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 				"priority":      p.Priority,
 			})
 		}
+		var checkpoint any
+		if st.ProjectPath != "" {
+			if cp, err := s.engine.LatestCheckpoint(st.ProjectPath); err == nil && cp != nil {
+				checkpoint = cp
+			}
+		}
 		return textContent(map[string]any{
 			"project_path":      st.ProjectPath,
 			"avoid_work_usage":  st.Preferences.AvoidWorkUsage,
 			"allow_metered_api": st.Preferences.AllowMeteredAPI,
 			"autonomy_mode":     st.Preferences.AutonomyMode,
 			"connected_workers": workers,
+			"checkpoint":        checkpoint,
 		}, false)
+
+	case "get_context_pack":
+		project, errResult := s.requireProject(a)
+		if errResult != nil {
+			return errResult
+		}
+		pack, err := s.engine.ContextPack(project, arg(a, "query"), intArg(a, "max_items"), intArg(a, "max_chars"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(pack, false)
+
+	case "recall_memory":
+		items, err := s.engine.Recall(s.projectArg(a), arg(a, "query"), intArg(a, "limit"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"memories": items, "count": len(items)}, false)
+
+	case "find_routines":
+		routines, err := s.engine.FindRoutines(s.projectArg(a), arg(a, "query"), intArg(a, "limit"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"routines": routines, "count": len(routines)}, false)
 
 	case "list_files":
 		project, errResult := s.requireProject(a)
@@ -318,7 +388,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		t, err := s.engine.Delegate("chatgpt-mcp", arg(a, "intent"), project)
+		t, err := s.engine.DelegateWithKnowledge("chatgpt-mcp", arg(a, "intent"), project)
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
@@ -365,6 +435,51 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			return textContent(map[string]any{"error": err.Error(), "output": out}, true)
 		}
 		return textContent(map[string]any{"ok": true, "project_path": project, "output": out}, false)
+
+	case "remember":
+		scope := core.MemoryScope(arg(a, "scope"))
+		if scope == "" {
+			scope = core.MemoryProject
+		}
+		kind := core.MemoryKind(arg(a, "kind"))
+		if kind == "" {
+			kind = core.MemoryLesson
+		}
+		project := s.projectArg(a)
+		if scope == core.MemoryProject && project == "" {
+			return textContent(map[string]any{"error": "project memory requires an active project or project_path"}, true)
+		}
+		item, err := s.engine.Remember(project, scope, kind, arg(a, "title"), arg(a, "summary"), arg(a, "content"), stringListArg(a, "tags"), "chatgpt-mcp")
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"ok": true, "memory": item}, false)
+
+	case "save_checkpoint":
+		project, errResult := s.requireProject(a)
+		if errResult != nil {
+			return errResult
+		}
+		checkpoint, err := s.engine.SaveCheckpoint(project, arg(a, "summary"), stringListArg(a, "decisions"), stringListArg(a, "open_loops"), stringListArg(a, "next_actions"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"ok": true, "checkpoint": checkpoint}, false)
+
+	case "save_routine":
+		scope := core.MemoryScope(arg(a, "scope"))
+		if scope == "" {
+			scope = core.MemoryProject
+		}
+		project := s.projectArg(a)
+		if scope == core.MemoryProject && project == "" {
+			return textContent(map[string]any{"error": "project routine requires an active project or project_path"}, true)
+		}
+		routine, err := s.engine.SaveRoutine(project, scope, arg(a, "name"), arg(a, "description"), stringListArg(a, "triggers"), stringListArg(a, "steps"), arg(a, "code"), arg(a, "language"), stringListArg(a, "tags"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"ok": true, "routine": routine}, false)
 
 	case "save_note":
 		note := arg(a, "note")
