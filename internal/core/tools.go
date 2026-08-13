@@ -27,7 +27,7 @@ var safeCommandPrefixes = []string{
 }
 
 var dangerousFragments = []string{
-	"&&", "||", ";", "|", ">", "<", "`", "$(", "\n", "\r",
+	"&", "||", ";", "|", ">", "<", "`", "$(", "\n", "\r",
 	" push", " deploy", " publish", " release", " rm ", " rmdir ", " del ", " format ", " shutdown", " reboot", " curl ", " wget ", " invoke-webrequest",
 }
 
@@ -44,6 +44,13 @@ func IsSafeCommand(line string) bool {
 		if strings.Contains(s, bad) {
 			return false
 		}
+	}
+	// Safe commands run through cmd.exe on Windows. Percent expansion happens
+	// before command execution and caret is cmd's escape character, so reject
+	// both rather than allowing environment-controlled text to reshape a command
+	// after Workbench has approved it.
+	if runtime.GOOS == "windows" && strings.ContainsAny(s, "%^") {
+		return false
 	}
 	if strings.HasPrefix(s, "git ") {
 		return isSafeGitInspection(s)
