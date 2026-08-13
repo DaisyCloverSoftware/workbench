@@ -30,7 +30,7 @@ refresh_clone() {
 
     if git -C "$dir" merge-base HEAD origin/main >/dev/null 2>&1; then
       git -C "$dir" switch --quiet main
-      git -C "$dir" pull --ff-only --quiet origin main
+      git -C "$dir" merge --ff-only --quiet origin/main
       return 0
     fi
 
