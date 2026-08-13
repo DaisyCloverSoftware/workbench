@@ -12,10 +12,16 @@ const workerMemoryBudget = 16000
 // project/global knowledge. Memory lookup failures never block execution; the
 // repository remains the source of truth.
 func BuildWorkerPromptFromStoredKnowledge(task Task) string {
-	memories, _ := SearchKnowledge(task.ProjectPath, task.Intent, 16)
-	memories = FilterActiveReusableKnowledge(memories)
-	if len(memories) > 8 {
-		memories = memories[:8]
+	found, _ := SearchKnowledge(task.ProjectPath, task.Intent, 16)
+	memories := make([]KnowledgeItem, 0, 8)
+	for _, item := range found {
+		if (item.Kind == KindRoutine || item.Kind == KindCode) && hasTag(item.Tags, assetTagSuperseded) {
+			continue
+		}
+		memories = append(memories, item)
+		if len(memories) == 8 {
+			break
+		}
 	}
 	for _, item := range memories {
 		_ = MarkKnowledgeUsed(item.ID)
