@@ -113,6 +113,65 @@ relay/answers/<relay-id>.json
 
 Workbench consumes each distinct answer once, calls `resolve_attention`, and continues the same durable task. Ordinary worker/setup failures are still routed around automatically and do not become human questions.
 
+## Private memory/context control
+
+A **private** relay can also carry small Workbench control requests for durable memory and conversation compaction. This gives personal-plan chats a supported write path for project/global memory without exposing a fake read-only MCP mutation.
+
+Requests go to:
+
+```text
+relay/control/<control-id>.json
+```
+
+Results appear at:
+
+```text
+relay/control-outbox/<control-id>.json
+```
+
+Each control ID is one-shot and idempotent. Supported actions are `save_memory`, `search_memory`, `save_context`, and `get_context`. The relay validates the JSON shape, resolves project names beneath `WORKBENCH_RUNNER_ROOT`, calls the normal authenticated local MCP tools, caps results, and withholds any result that resembles secret material.
+
+Example compact-context save:
+
+```json
+{
+  "version": 1,
+  "id": "ctxsave_20260812_a1b2c3",
+  "action": "save_context",
+  "project": "workbench",
+  "args": {
+    "objective": "Finish the current feature",
+    "state": "Implementation is complete and tests are green.",
+    "decisions": ["Keep the transport provider-neutral."],
+    "constraints": ["Do not expose private deployment data."],
+    "references": ["task-or-memory-id"],
+    "open_threads": ["Package the next native build."],
+    "next_action": "Prepare the release candidate."
+  }
+}
+```
+
+Example reusable global routine:
+
+```json
+{
+  "version": 1,
+  "id": "memsave_20260812_d4e5f6",
+  "action": "save_memory",
+  "args": {
+    "scope": "global",
+    "kind": "routine",
+    "title": "Verification before completion",
+    "content": "Run the repository's relevant tests and inspect the final diff before reporting completion.",
+    "tags": ["verification", "routine"]
+  }
+}
+```
+
+A project-scoped memory additionally supplies the repository directory name in `project`. `search_memory` may supply `project` plus `args.query`/`args.limit`; `get_context` supplies the project and an empty `args` object.
+
+**Public relay mode never processes the control channel.** Memory/context may contain private project knowledge, so this transport exists only when the relay is explicitly configured as private.
+
 ## Public vs private relay repositories
 
 A public relay is for **harmless dogfood only**. Public mode deliberately publishes status only. Never place private implementation details, credentials, unreleased product information, customer data, incident details, private task intent or other sensitive text in a public relay repository.
