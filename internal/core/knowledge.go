@@ -291,6 +291,7 @@ func SaveContextCapsule(c ContextCapsule) (ContextCapsule, error) {
 				c.CreatedAt = old.CreatedAt
 				break
 			}
+		}
 		if c.CreatedAt.IsZero() {
 			c.CreatedAt = now
 		}
