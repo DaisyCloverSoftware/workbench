@@ -138,6 +138,13 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 	if item.Fingerprint == "" {
 		item.Fingerprint = knowledgeFingerprint(item)
 	}
+
+	release, err := lockKnowledgeWrite()
+	if err != nil {
+		return KnowledgeItem{}, err
+	}
+	defer release()
+
 	st, err := loadKnowledgeState()
 	if err != nil {
 		return KnowledgeItem{}, err
@@ -171,6 +178,9 @@ func SaveKnowledge(item KnowledgeItem) (KnowledgeItem, error) {
 }
 
 func SearchKnowledge(project, query string, limit int) ([]KnowledgeItem, error) {
+	knowledgeMu.RLock()
+	defer knowledgeMu.RUnlock()
+
 	st, err := loadKnowledgeState()
 	if err != nil {
 		return nil, err
@@ -227,6 +237,12 @@ func SearchKnowledge(project, query string, limit int) ([]KnowledgeItem, error) 
 }
 
 func MarkKnowledgeUsed(id string) error {
+	release, err := lockKnowledgeWrite()
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	st, err := loadKnowledgeState()
 	if err != nil {
 		return err
@@ -254,6 +270,13 @@ func SaveContextCapsule(c ContextCapsule) (ContextCapsule, error) {
 	if LooksSecret(combined) {
 		return ContextCapsule{}, errors.New("context capsule appears to contain secret material")
 	}
+
+	release, err := lockKnowledgeWrite()
+	if err != nil {
+		return ContextCapsule{}, err
+	}
+	defer release()
+
 	st, err := loadKnowledgeState()
 	if err != nil {
 		return ContextCapsule{}, err
@@ -292,6 +315,9 @@ func SaveContextCapsule(c ContextCapsule) (ContextCapsule, error) {
 }
 
 func LatestContextCapsule(project string) (ContextCapsule, bool, error) {
+	knowledgeMu.RLock()
+	defer knowledgeMu.RUnlock()
+
 	st, err := loadKnowledgeState()
 	if err != nil {
 		return ContextCapsule{}, false, err
