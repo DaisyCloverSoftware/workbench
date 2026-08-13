@@ -52,6 +52,12 @@ func main() {
 	if err := srv.Start(); err != nil {
 		fatal(err)
 	}
+	if err := eng.ResumeInterruptedTasks(); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_ = srv.Close(ctx)
+		cancel()
+		fatal(err)
+	}
 
 	fmt.Printf("Workbench MCP Server %s\n", serverVersion)
 	fmt.Printf("MCP: %s\n", srv.URL())
