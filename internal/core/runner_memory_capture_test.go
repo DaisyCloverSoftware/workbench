@@ -56,3 +56,12 @@ func TestParseWorkerMemoryCandidatesCapsAtThree(t *testing.T) {
 		t.Fatalf("expected three candidates, got %d", len(candidates))
 	}
 }
+
+func TestWorkerPromptInvitesBoundedProjectMemoryDistillation(t *testing.T) {
+	prompt := BuildWorkerPrompt(Task{ProjectPath: "/workspace/sample", Intent: "implement feature"})
+	for _, want := range []string{"WORKBENCH_MEMORY:", "up to three", "project scope only", "Do not include secrets"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("worker prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
