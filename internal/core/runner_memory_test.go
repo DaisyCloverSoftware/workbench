@@ -32,3 +32,23 @@ func TestBuildWorkerPromptWithKnowledgeBoundsMemoryContent(t *testing.T) {
 		t.Fatal("expected oversized memory to be truncated")
 	}
 }
+
+func TestBuildWorkerPromptFromStoredKnowledgeLoadsScopedMemoryAndContext(t *testing.T) {
+	isolateKnowledgeConfig(t)
+	project := "/workspace/project"
+	if _, err := SaveKnowledge(KnowledgeItem{Scope: ScopeGlobal, Kind: KindRoutine, Title: "Retry routine", Content: "Use bounded backoff when retrying idempotent requests."}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SaveKnowledge(KnowledgeItem{Scope: ScopeProject, Project: project, Kind: KindCode, Title: "Existing helper", Content: "Reuse internal/retry."}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SaveContextCapsule(ContextCapsule{Project: project, Objective: "Finish retry support", State: "HTTP client already exists.", NextAction: "Add retry handling."}); err != nil {
+		t.Fatal(err)
+	}
+	prompt := BuildWorkerPromptFromStoredKnowledge(Task{ProjectPath: project, Intent: "Add retry handling"})
+	for _, want := range []string{"Retry routine", "Existing helper", "Finish retry support", "Reuse before rebuilding"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("stored worker prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
