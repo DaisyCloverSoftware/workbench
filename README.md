@@ -15,12 +15,13 @@ Modern AI-assisted development has a strange bottleneck: the models can do a hug
 Workbench separates **intelligence** from **agency**:
 
 1. Use ordinary chat for brains whenever possible.
-2. Use safe repository eyes so Chat can inspect source without spending an autonomous-agent run.
-3. Use safe hands for exact patches, tests and builds.
-4. Route true autonomous coding work to zero-marginal or included workers first.
-5. Escalate to scarce agentic capacity only when cheaper eligible routes have not solved the task.
-6. Keep metered APIs opt-in.
-7. Interrupt the human only for a real permission or decision boundary.
+2. Reuse compact project context, durable memory and proven routines before rediscovering work.
+3. Use safe repository eyes so Chat can inspect source without spending an autonomous-agent run.
+4. Use safe hands for exact patches, tests and builds.
+5. Route true autonomous coding work to zero-marginal or included workers first.
+6. Escalate to scarce agentic capacity only when cheaper eligible routes have not solved the task.
+7. Keep metered APIs opt-in.
+8. Interrupt the human only for a real permission or decision boundary.
 
 ## What works today
 
@@ -28,11 +29,13 @@ Workbench separates **intelligence** from **agency**:
 - Headless Linux/cluster runner with cost-aware routing.
 - Adapter discovery for local models, coding CLIs and external harnesses.
 - Model-safe repository `list_files`, `search_text`, and `read_file` tools.
+- Persistent project/global knowledge for facts, decisions, constraints, patterns, routines and reusable code.
+- Compact continuation capsules so a fresh conversation can resume without replaying a long transcript.
 - Safe hands for exact patch application and allowlisted build/test/status commands.
 - Durable autonomous task delegation, retries, reports and attention boundaries.
-- Secret-like note detection and a local encrypted vault whose plaintext is not exposed through MCP.
+- Secret-like content protection for model-readable memory plus a local encrypted vault whose plaintext is not exposed through MCP.
 - Harness-agnostic architecture: OpenClaw is an adapter, not the foundation.
-- Private MCP/tunnel and Git-backed relay transports for dogfood environments.
+- Bidirectional Git relay transport for Personal Pro-style workflows, with status-only public mode and report-capable private mode.
 
 ## Desired user experience
 
@@ -47,6 +50,8 @@ Workbench returns either:
 - **Done** — with a concise verified report; or
 - **Needs you** — one concise decision or permission request that genuinely could not be resolved autonomously.
 
+A new conversation can pick up the same project from its compact context and durable memory. Similar tasks can retrieve an existing routine or code pattern instead of starting from scratch.
+
 No progress babysitting. No human acting as a message bus between AIs.
 
 ## Architecture
@@ -55,6 +60,8 @@ No progress babysitting. No human acting as a message bus between AIs.
 Human intent
     |
 lead chat / Workbench desktop
+    |
+context capsule + project/global memory + reusable routines
     |
 MCP / relay / structured task transport
     |
@@ -68,6 +75,8 @@ runner / harness adapters
 ```
 
 Workbench is intentionally provider- and harness-agnostic. Private infrastructure, machine names, account inventories, credentials and dogfood topology are configuration, **not public source material**.
+
+See [docs/KNOWLEDGE_SYSTEM.md](docs/KNOWLEDGE_SYSTEM.md) for the persistent-memory and compaction model.
 
 ## Build
 
