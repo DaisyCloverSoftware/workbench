@@ -21,6 +21,7 @@ import (
 type RunResult struct {
 	Output             string    `json:"output,omitempty"`
 	Attention          string    `json:"attention,omitempty"`
+	WorkerUnavailable  string    `json:"worker_unavailable,omitempty"`
 	Retryable          bool      `json:"retryable,omitempty"`
 	Authentication     bool      `json:"authentication,omitempty"`
 	WorkerProviderID   string    `json:"worker_provider_id,omitempty"`
@@ -40,7 +41,8 @@ func BuildWorkerPrompt(task Task) string {
 	b.WriteString("- You may inspect files, edit source, and run local build/test/lint commands.\n")
 	b.WriteString("- Do NOT deploy, push to remotes, change production, spend money, reveal credentials, or perform destructive operations.\n")
 	b.WriteString("- Prefer fixing and retesting over stopping for ordinary implementation choices.\n")
-	b.WriteString("- If and only if a genuinely human decision/permission is required, stop and output a final line beginning exactly ATTENTION_REQUIRED: followed by one concise question.\n")
+	b.WriteString("- If your own local harness, login, quota, sandbox, command approval, or tool permission prevents requested work, do not ask the human to approve the worker. End with WORKER_UNAVAILABLE: followed by one concise reason so Workbench can route another eligible worker.\n")
+	b.WriteString("- If and only if a genuinely human product decision/permission is required, stop and output a final line beginning exactly ATTENTION_REQUIRED: followed by one concise question.\n")
 	b.WriteString("- Otherwise finish the work and provide a concise completion report: changes, verification, and any non-blocking warnings.\n")
 	if strings.TrimSpace(task.HumanAnswer) != "" {
 		b.WriteString("\nHuman answer to the previous attention request:\n")
@@ -66,7 +68,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 			return RunResult{}, fmt.Errorf("project path is not a directory: %s", abs)
 		}
 	}
-	prompt := BuildWorkerPrompt(task)
+	prompt := BuildWorkerPromptFromStoredKnowledge(task)
 
 	var name string
 	var args []string
@@ -82,12 +84,12 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		args = []string{"-p", prompt, "-s", "--no-ask-user"}
 	case "claude":
 		name = p.Command
-		// acceptEdits is the supported non-interactive mode for autonomous file
-		// edits. Shell/tool permissions remain provider-controlled; if Claude
-		// reports that its own tool permissions prevent execution, Workbench
-		// treats that as an ineligible worker and transparently tries the next
-		// route rather than bothering the human.
-		args = []string{"-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits"}
+		// acceptEdits handles repository writes non-interactively. A narrow
+		// --allowedTools set covers common local verification commands without
+		// granting unrestricted Bash; everything else remains provider-controlled
+		// and can be routed around as a worker-local limitation.
+		args = []string{"-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits", "--allowedTools"}
+		args = append(args, claudeAllowedTools()...)
 	case "codex":
 		name = p.Command
 		args = []string{"--ask-for-approval", "never", "exec", "--sandbox", "workspace-write", "--json", prompt}
@@ -129,6 +131,10 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 	}
 	out = normalizeProviderOutput(p.ID, out)
 	res := classifyRunOutput(out)
+	if strings.TrimSpace(res.WorkerUnavailable) != "" {
+		res.Retryable = true
+		return res, fmt.Errorf("%s is unavailable for this task: %s", p.Name, res.WorkerUnavailable)
+	}
 	if strings.TrimSpace(res.Attention) != "" && isWorkerSetupAttention(res.Attention) {
 		q := res.Attention
 		res.Attention = ""
@@ -264,7 +270,16 @@ func classifyRunOutput(out string) RunResult {
 	res := RunResult{Output: out}
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(strings.ToUpper(line), "ATTENTION_REQUIRED:") {
+		upper := strings.ToUpper(line)
+		if strings.HasPrefix(upper, "WORKER_UNAVAILABLE:") {
+			res.WorkerUnavailable = strings.TrimSpace(line[len("WORKER_UNAVAILABLE:"):])
+			if res.WorkerUnavailable == "" {
+				res.WorkerUnavailable = "worker-local setup or tool policy prevented execution"
+			}
+			res.Retryable = true
+			continue
+		}
+		if strings.HasPrefix(upper, "ATTENTION_REQUIRED:") {
 			res.Attention = strings.TrimSpace(line[len("ATTENTION_REQUIRED:"):])
 			if res.Attention == "" {
 				res.Attention = "The worker needs a human decision."
@@ -275,17 +290,21 @@ func classifyRunOutput(out string) RunResult {
 }
 
 // isWorkerSetupAttention distinguishes a worker's local permission/configuration
-// problem from a genuine product decision. A tool refusing to Write/Bash is not
-// something the user should be paged for; Workbench should try another worker.
-// Deliberately require both a tool/edit signal and a permission/config signal so
-// real questions such as "may I restart production?" still reach the human.
+// problem from a genuine product decision. A tool refusing shell/edit execution
+// is not something the user should be paged for; Workbench should try another
+// eligible worker. Explicit production/destructive/credential boundaries remain
+// human attention even when the word "permission" appears.
 func isWorkerSetupAttention(text string) bool {
 	low := strings.ToLower(strings.TrimSpace(text))
 	if low == "" {
 		return false
 	}
-	toolSignal := strings.Contains(low, "tool") || strings.Contains(low, "bash") || strings.Contains(low, "write") || strings.Contains(low, "edit")
-	permissionSignal := strings.Contains(low, "permission mode") || strings.Contains(low, "tool calls are denied") || strings.Contains(low, "grant permission") || strings.Contains(low, "permission settings") || strings.Contains(low, "adjust settings") || strings.Contains(low, "not allowed to use")
+	humanBoundary := strings.Contains(low, "production") || strings.Contains(low, "deploy") || strings.Contains(low, "publish") || strings.Contains(low, "spend") || strings.Contains(low, "payment") || strings.Contains(low, "delete") || strings.Contains(low, "destroy") || strings.Contains(low, "credential") || strings.Contains(low, "secret")
+	if humanBoundary {
+		return false
+	}
+	toolSignal := strings.Contains(low, "tool") || strings.Contains(low, "bash") || strings.Contains(low, "shell") || strings.Contains(low, "command") || strings.Contains(low, "sandbox") || strings.Contains(low, "write") || strings.Contains(low, "edit") || strings.Contains(low, "toolchain")
+	permissionSignal := strings.Contains(low, "permission mode") || strings.Contains(low, "tool calls are denied") || strings.Contains(low, "grant permission") || strings.Contains(low, "permission settings") || strings.Contains(low, "adjust settings") || strings.Contains(low, "not allowed to use") || strings.Contains(low, "requires approval") || strings.Contains(low, "interactive approval") || strings.Contains(low, "approval required") || strings.Contains(low, "requires interactive")
 	return toolSignal && permissionSignal
 }
 
