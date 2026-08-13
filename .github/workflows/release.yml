@@ -28,11 +28,20 @@ jobs:
           $tag = "v$version"
           "WORKBENCH_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
           "WORKBENCH_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
-          gh release view $tag *> $null
-          if ($LASTEXITCODE -eq 0) {
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          $uri = "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag"
+          $response = Invoke-WebRequest -Uri $uri -Headers $headers -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) {
             "WORKBENCH_RELEASE_EXISTS=true" | Out-File -FilePath $env:GITHUB_ENV -Append
-          } else {
+          } elseif ($response.StatusCode -eq 404) {
             "WORKBENCH_RELEASE_EXISTS=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            throw "GitHub release lookup returned HTTP $($response.StatusCode)."
           }
       - name: Test
         if: env.WORKBENCH_RELEASE_EXISTS != 'true'
