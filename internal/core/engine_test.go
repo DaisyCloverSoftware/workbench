@@ -57,3 +57,34 @@ func TestRouterUsesCheaperWorkerBeforeCodex(t *testing.T) {
 	}
 	t.Fatal("timed out waiting for task")
 }
+
+func TestRouteCandidatesSkipKnownUnavailableWorkers(t *testing.T) {
+	providers := []Provider{
+		{ID: "signed-out", Installed: true, Authenticated: false, CanWrite: true, Command: "worker", Cost: CostIncluded, Priority: 10},
+		{ID: "ready", Installed: true, Authenticated: true, CanWrite: true, Command: "worker", Cost: CostIncluded, Priority: 20},
+		{ID: "workbench-runner", Installed: true, Authenticated: true, CanWrite: true, Command: "ssh", Cost: CostIncluded, Priority: 5},
+	}
+	got := routeCandidates(providers, Preferences{}, Task{})
+	if len(got) != 1 || got[0].ID != "ready" {
+		t.Fatalf("unexpected candidates: %#v", got)
+	}
+}
+
+func TestRouteCandidatesAllowConfiguredRunnerTransport(t *testing.T) {
+	providers := []Provider{{ID: "workbench-runner", Installed: true, Authenticated: true, CanWrite: true, Command: "ssh", Cost: CostIncluded, Priority: 5}}
+	got := routeCandidates(providers, Preferences{OpenClawSSHHost: "runner.example.invalid"}, Task{})
+	if len(got) != 1 || got[0].ID != "workbench-runner" {
+		t.Fatalf("configured runner was not eligible: %#v", got)
+	}
+}
+
+func TestCloneStateDeepCopiesTaskAttempts(t *testing.T) {
+	state := DefaultState()
+	state.Tasks = []Task{{ID: "task-one", Attempts: []string{"first"}}}
+	clone := cloneState(state)
+	clone.Tasks[0].Attempts[0] = "changed"
+	clone.Tasks[0].Attempts = append(clone.Tasks[0].Attempts, "second")
+	if state.Tasks[0].Attempts[0] != "first" || len(state.Tasks[0].Attempts) != 1 {
+		t.Fatalf("clone mutated original attempts: %#v", state.Tasks[0].Attempts)
+	}
+}
