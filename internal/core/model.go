@@ -57,6 +57,12 @@ type Task struct {
 	ConsumesWork      bool       `json:"consumes_work"`
 	StartedAt         *time.Time `json:"started_at,omitempty"`
 	FinishedAt        *time.Time `json:"finished_at,omitempty"`
+
+	// memoryProjectPath is transient execution metadata. Isolated worker copies
+	// keep ProjectPath pointed at the task worktree while memory lookup/capture
+	// remains scoped to the real source project. It is intentionally unexported
+	// so it is never persisted, relayed, or exposed to model-facing JSON.
+	memoryProjectPath string
 }
 
 type Preferences struct {
