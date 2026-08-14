@@ -24,17 +24,17 @@ func StartProviderLogin(providerID string) error {
 }
 
 func TestOpenClawSSH(host string) (string, error) {
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return "", fmt.Errorf("OpenClaw SSH host is not configured")
+	validatedHost, err := validateSSHHostTarget(host)
+	if err != nil {
+		return "", fmt.Errorf("OpenClaw SSH host is invalid: %w", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=6", "-o", "StrictHostKeyChecking=accept-new", host, "openclaw", "--version")
+	cmd := exec.CommandContext(ctx, "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=6", "-o", "StrictHostKeyChecking=accept-new", validatedHost, "openclaw", "--version")
 	configureChildProcess(cmd, false)
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &buf, &buf
-	err := cmd.Run()
+	err = cmd.Run()
 	out := strings.TrimSpace(buf.String())
 	if err != nil {
 		if ctx.Err() != nil {

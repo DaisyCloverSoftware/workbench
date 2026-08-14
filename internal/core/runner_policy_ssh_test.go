@@ -36,3 +36,11 @@ func TestClusterRunnerRejectsUnsafeSSHHostBeforeExecution(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestOpenClawConnectionTestRejectsUnsafeSSHHostBeforeExecution(t *testing.T) {
+	if _, err := TestOpenClawSSH("-oProxyCommand=evil"); err == nil {
+		t.Fatal("unsafe OpenClaw SSH host was not rejected")
+	} else if !strings.Contains(err.Error(), "unsafe") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
