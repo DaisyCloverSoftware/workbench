@@ -12,7 +12,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-const runnerVersion = "0.5.0"
+const runnerVersion = "0.6.0"
 const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|doctor|selftest|version>"
 
 func main() {

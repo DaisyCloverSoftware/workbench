@@ -15,16 +15,29 @@
 - encrypted Windows vault whose raw values are not exposed through model-facing tools
 - generic bootstrap/install paths and automated Windows/Linux CI
 
+## v0.6 — isolated review execution and controlled publication
+
+- durable Git worktree isolation per autonomous coding task
+- restart recovery for queued/routing/running durable tasks
+- bounded changeset inspection and stable fingerprints
+- deterministic Workbench-owned review commits and local review branches
+- safe publication of prepared review branches without worker push authority
+- private local publication policy plus operator-only runner policy controls
+- typed out-of-band runner policy synchronisation over SSH
+- portable desktop-to-runner repository mapping with symlink-safe runner-root containment
+- native Windows controls for prepare-only versus explicit review-branch publication
+- isolated-worker memory correctly scoped to the real source repository
+- first-class durable parked ideas
+- Windows single-instance protection and additional model-safe command hardening
+- release packaging for the Windows app and matching Linux runner/server/relay binaries
+
 ## Next
 
-- safe changeset publisher: verified local task output becomes a reviewable branch/PR without granting coding workers direct push authority
 - locally initiated maintenance/update flow that can refresh Workbench without turning Chat into a remote command channel
-- restart recovery for durable queued/routing/running tasks so service restarts do not strand work
 - provider health/readiness telemetry and short-lived failure cooldowns so known-unavailable workers are not retried on every task
 - first-class structured OpenClaw/harness jobs rather than a command-template adapter
-- Git worktree/branch isolation per autonomous task
 - richer retry/recovery policies and resumable provider sessions
-- structured parked ideas, searchable decisions and a project knowledge graph
+- searchable decisions and a project knowledge graph
 - automatic cross-model review policies for higher-risk changes
 - desktop/tablet/phone preview and test targets
 - screenshot and Playwright result surfaces

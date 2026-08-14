@@ -46,16 +46,29 @@ jobs:
       - name: Test
         if: env.WORKBENCH_RELEASE_EXISTS != 'true'
         run: go test ./...
-      - name: Build native Windows app
+      - name: Build release assets
         if: env.WORKBENCH_RELEASE_EXISTS != 'true'
         shell: pwsh
         run: |
           go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
           (Get-FileHash -Algorithm SHA256 Workbench.exe).Hash.ToLower() + '  Workbench.exe' | Set-Content -Encoding ascii Workbench.exe.sha256
+
+          $env:CGO_ENABLED = '0'
+          $env:GOOS = 'linux'
+          $env:GOARCH = 'amd64'
+          go build -trimpath -ldflags='-s -w' -o workbench-runner-linux-amd64 ./cmd/workbench-runner
+          go build -trimpath -ldflags='-s -w' -o workbench-server-linux-amd64 ./cmd/workbench-server
+          go build -trimpath -ldflags='-s -w' -o workbench-relay-linux-amd64 ./cmd/workbench-relay
+          Remove-Item Env:GOOS -ErrorAction SilentlyContinue
+          Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
+          Remove-Item Env:CGO_ENABLED -ErrorAction SilentlyContinue
+
+          Compress-Archive -Path workbench-runner-linux-amd64,workbench-server-linux-amd64,workbench-relay-linux-amd64 -DestinationPath Workbench-Cluster-linux-amd64.zip
+          (Get-FileHash -Algorithm SHA256 Workbench-Cluster-linux-amd64.zip).Hash.ToLower() + '  Workbench-Cluster-linux-amd64.zip' | Set-Content -Encoding ascii Workbench-Cluster-linux-amd64.zip.sha256
       - name: Publish GitHub release
         if: env.WORKBENCH_RELEASE_EXISTS != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create $env:WORKBENCH_TAG Workbench.exe Workbench.exe.sha256 --target '${{ github.sha }}' --title "Workbench $env:WORKBENCH_TAG" --generate-notes
+          gh release create $env:WORKBENCH_TAG Workbench.exe Workbench.exe.sha256 Workbench-Cluster-linux-amd64.zip Workbench-Cluster-linux-amd64.zip.sha256 --target '${{ github.sha }}' --title "Workbench $env:WORKBENCH_TAG" --generate-notes

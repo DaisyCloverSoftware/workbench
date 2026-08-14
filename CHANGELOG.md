@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-08-14
+
+- Autonomous coding now runs in durable Workbench-owned Git worktrees, keeping the user's source checkout and active index untouched.
+- Added bounded changeset inspection/snapshots, deterministic Workbench review commits, Git-semantic file-mode handling and protected/binary/secret publication guards.
+- Added safe publication of prepared `workbench/...` review branches without giving coding workers direct push authority.
+- Added private per-project publication policy with operator-only runner configuration, portable desktop-to-runner project mapping and explicit native Windows review-publication settings.
+- Publication targets remain outside task state, `RunnerRequest`, MCP/model-facing state, worker prompts and worker memory; optional runner sync uses a separate typed operator SSH channel.
+- Isolated workers now read and write durable memory under the real source project rather than ephemeral worktree paths.
+- Added restart recovery for interrupted durable tasks, first-class parked ideas, Windows single-instance protection and additional safe-command shell hardening.
+- Hardened runner-root containment against symlink escape and SSH-host option/whitespace injection.
+- Fixed the asynchronous router-test persistence teardown race exposed by repeated cluster installer/smoke validation.
+- GitHub releases now include both the native Windows app and the matching Linux runner/server/relay cluster package with SHA-256 checksums.
+
 ## 0.5.0
 
 - Added the bidirectional private Git relay for request/result and genuine-attention flows.
