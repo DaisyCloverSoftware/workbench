@@ -123,50 +123,56 @@ func applyPublicationPolicyCommand(args []string) (map[string]any, error) {
 		return nil, errors.New("publication policy requires an action and project directory")
 	}
 	action := strings.ToLower(strings.TrimSpace(args[0]))
-	project := args[1]
+	var expected int
+	switch action {
+	case "get", "prepare", "delete":
+		expected = 2
+	case "publish":
+		expected = 3
+	default:
+		return nil, errors.New("publication policy action must be get, prepare, publish or delete")
+	}
+	if len(args) != expected {
+		if action == "publish" {
+			return nil, errors.New("usage: workbench-runner policy publish <project-directory> <remote-url>")
+		}
+		return nil, fmt.Errorf("usage: workbench-runner policy %s <project-directory>", action)
+	}
+	project, err := core.ResolveRunnerProject(args[1])
+	if err != nil {
+		return nil, err
+	}
+
 	switch action {
 	case "get":
-		if len(args) != 2 {
-			return nil, errors.New("usage: workbench-runner policy get <project-directory>")
-		}
 		p, configured, err := core.PublicationPolicyFor(project)
 		if err != nil {
 			return nil, err
 		}
-		result := map[string]any{"configured": configured}
+		result := map[string]any{"configured": configured, "project": project}
 		if configured {
 			result["policy"] = p
 		}
 		return result, nil
 	case "prepare":
-		if len(args) != 2 {
-			return nil, errors.New("usage: workbench-runner policy prepare <project-directory>")
-		}
 		p, err := core.SavePublicationPolicy(core.PublicationPolicy{Project: project, Mode: core.PublicationPrepare})
 		if err != nil {
 			return nil, err
 		}
 		return map[string]any{"policy": p}, nil
 	case "publish":
-		if len(args) != 3 {
-			return nil, errors.New("usage: workbench-runner policy publish <project-directory> <remote-url>")
-		}
 		p, err := core.SavePublicationPolicy(core.PublicationPolicy{Project: project, Mode: core.PublicationPublish, RemoteURL: args[2]})
 		if err != nil {
 			return nil, err
 		}
 		return map[string]any{"policy": p}, nil
 	case "delete":
-		if len(args) != 2 {
-			return nil, errors.New("usage: workbench-runner policy delete <project-directory>")
-		}
 		if err := core.DeletePublicationPolicy(project); err != nil {
 			return nil, err
 		}
-		return map[string]any{"deleted": true}, nil
-	default:
-		return nil, errors.New("publication policy action must be get, prepare, publish or delete")
+		return map[string]any{"deleted": true, "project": project}, nil
 	}
+	panic("validated publication policy action was not handled")
 }
 
 func doctor() {

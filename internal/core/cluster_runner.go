@@ -107,7 +107,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 // before scarce Work/Codex, while leaving metered APIs disabled unless opted in.
 func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse {
 	task := req.Task
-	resolved, err := resolveRunnerProject(task.ProjectPath)
+	resolved, err := ResolveRunnerProject(task.ProjectPath)
 	if err != nil {
 		return RunnerResponse{Error: err.Error()}
 	}
@@ -149,17 +149,17 @@ func runnerRoot() (string, error) {
 	return filepath.Join(home, "src"), nil
 }
 
-func resolveRunnerProject(requested string) (string, error) {
+// ResolveRunnerProject maps a desktop or runner-local project identifier to the
+// repository directory under WORKBENCH_RUNNER_ROOT. Operator control commands
+// use the same resolver as task execution so publication policy can be
+// configured without knowing a different host-specific project path.
+func ResolveRunnerProject(requested string) (string, error) {
 	root, err := runnerRoot()
 	if err != nil {
 		return "", err
 	}
-	root, err = filepath.Abs(root)
+	root, err = canonicalRunnerDirectory(root)
 	if err != nil {
-		return "", err
-	}
-	rootInfo, err := os.Stat(root)
-	if err != nil || !rootInfo.IsDir() {
 		return "", fmt.Errorf("runner root is not a directory: %s", root)
 	}
 
@@ -168,14 +168,14 @@ func resolveRunnerProject(requested string) (string, error) {
 		return "", errors.New("project path is empty")
 	}
 
-	// First accept a real path on the runner host, but only if it stays inside
-	// the configured root.
+	// First accept a real path on the runner host, but only after resolving
+	// symlinks so an in-root link cannot escape the authorised runner root.
 	if abs, absErr := filepath.Abs(requested); absErr == nil {
-		if st, statErr := os.Stat(abs); statErr == nil && st.IsDir() {
-			if withinRoot(root, abs) {
-				return abs, nil
+		if resolved, resolveErr := canonicalRunnerDirectory(abs); resolveErr == nil {
+			if withinRoot(root, resolved) {
+				return resolved, nil
 			}
-			return "", fmt.Errorf("project is outside WORKBENCH_RUNNER_ROOT: %s", abs)
+			return "", fmt.Errorf("project is outside WORKBENCH_RUNNER_ROOT: %s", resolved)
 		}
 	}
 
@@ -188,11 +188,34 @@ func resolveRunnerProject(requested string) (string, error) {
 		return "", fmt.Errorf("cannot derive repository name from %q", requested)
 	}
 	candidate := filepath.Join(root, name)
-	st, statErr := os.Stat(candidate)
-	if statErr != nil || !st.IsDir() {
+	resolved, err := canonicalRunnerDirectory(candidate)
+	if err != nil {
 		return "", fmt.Errorf("runner cannot find project %q; expected %s", requested, candidate)
 	}
-	return candidate, nil
+	if !withinRoot(root, resolved) {
+		return "", fmt.Errorf("project is outside WORKBENCH_RUNNER_ROOT: %s", resolved)
+	}
+	return resolved, nil
+}
+
+func canonicalRunnerDirectory(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	resolved, err = filepath.Abs(resolved)
+	if err != nil {
+		return "", err
+	}
+	info, err := os.Stat(resolved)
+	if err != nil || !info.IsDir() {
+		return "", errors.New("path is not a directory")
+	}
+	return filepath.Clean(resolved), nil
 }
 
 func withinRoot(root, path string) bool {
