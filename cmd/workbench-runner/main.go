@@ -168,7 +168,7 @@ func applyPublicationPolicyCommand(args []string) (core.RunnerPolicyResponse, er
 }
 
 func doctor() {
-	providers := core.ScanProviders()
+	providers := core.ApplyProviderHealth(core.ScanProviders(), time.Now())
 	fmt.Printf("Workbench Runner %s\n", runnerVersion)
 	fmt.Println("Provider scan:")
 	for _, p := range providers {
@@ -179,6 +179,7 @@ func doctor() {
 		fmt.Printf("  %s %-22s %-22s %s\n", marker, p.Name, p.Cost, p.Status)
 	}
 	fmt.Println("\nRunner root: set WORKBENCH_RUNNER_ROOT to override; default is ~/src")
+	fmt.Println("Provider cooldowns: retryable provider/setup failures are skipped briefly; Rescan in the native app clears local cooldowns after fixing setup")
 	fmt.Println("Changeset inspection: workbench-runner inspect <project-directory>")
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
