@@ -14,7 +14,7 @@ func TestResolveRunnerProjectMapsWindowsPathByRepoName(t *testing.T) {
 	}
 	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
 
-	got, err := resolveRunnerProject(`C:\workspace\workbench`)
+	got, err := ResolveRunnerProject(`C:\workspace\workbench`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestResolveRunnerProjectRejectsOutsideRoot(t *testing.T) {
 	outside := t.TempDir()
 	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
 
-	if _, err := resolveRunnerProject(outside); err == nil {
+	if _, err := ResolveRunnerProject(outside); err == nil {
 		t.Fatal("expected outside-root path to be rejected")
 	}
 }
