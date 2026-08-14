@@ -46,6 +46,17 @@ func sameChangesetShape(a, b ChangesetInspection) bool {
 	return a.Project == b.Project && a.BaseRevision == b.BaseRevision && a.Clean == b.Clean && a.Safe == b.Safe && a.Diff == b.Diff && reflect.DeepEqual(a.Files, b.Files) && reflect.DeepEqual(a.Untracked, b.Untracked)
 }
 
+// changesetGitFileMode records only the regular-file permission information
+// Git can preserve. Group/other write bits are affected by the process umask
+// and are not represented in Git trees, so hashing them makes identical
+// changesets differ across otherwise-valid worktrees.
+func changesetGitFileMode(mode os.FileMode) string {
+	if mode.Perm()&0o111 != 0 {
+		return "100755"
+	}
+	return "100644"
+}
+
 func fingerprintChangeset(in ChangesetInspection) (string, error) {
 	if in.Project == "" || in.BaseRevision == "" || !in.Safe {
 		return "", errors.New("changeset inspection is incomplete or unsafe")
@@ -74,7 +85,7 @@ func fingerprintChangeset(in ChangesetInspection) (string, error) {
 		if st.Size() > maxChangedFileBytes {
 			return "", fmt.Errorf("changed file is too large: %s", rel)
 		}
-		writeField(fmt.Sprintf("%#o", st.Mode().Perm()))
+		writeField(changesetGitFileMode(st.Mode()))
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return "", err
