@@ -18,9 +18,10 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepared, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || prepared.Mode != core.PublicationPrepare || prepared.RemoteURL != "" || prepared.Project != repo {
+	if !ok || prepared.Mode != core.PublicationPrepare || prepared.RemoteURL != "" {
 		t.Fatalf("unexpected prepare policy: %#v", result)
 	}
+	assertSamePolicyPath(t, prepared.Project, repo)
 
 	getResult, err := applyPublicationPolicyCommand([]string{"get", repo})
 	if err != nil {
@@ -37,9 +38,10 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	published, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || published.Mode != core.PublicationPublish || published.RemoteURL != remote || published.Project != repo {
+	if !ok || published.Mode != core.PublicationPublish || published.RemoteURL != remote {
 		t.Fatalf("unexpected publish policy: %#v", result)
 	}
+	assertSamePolicyPath(t, published.Project, repo)
 
 	if _, err := applyPublicationPolicyCommand([]string{"delete", repo}); err != nil {
 		t.Fatal(err)
@@ -62,9 +64,10 @@ func TestApplyPublicationPolicyCommandMapsDesktopProjectPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepared, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || prepared.Project != repo || prepared.Mode != core.PublicationPrepare {
+	if !ok || prepared.Mode != core.PublicationPrepare {
 		t.Fatalf("desktop project did not map to runner repository: %#v", result)
 	}
+	assertSamePolicyPath(t, prepared.Project, repo)
 }
 
 func TestApplyPublicationPolicyCommandRejectsUnsafePublishTarget(t *testing.T) {
@@ -99,6 +102,21 @@ func initPolicyRepo(t *testing.T) string {
 	runPolicyGit(t, "-C", repo, "add", "tracked.txt")
 	runPolicyGit(t, "-C", repo, "commit", "-q", "-m", "baseline")
 	return repo
+}
+
+func assertSamePolicyPath(t *testing.T, got, want string) {
+	t.Helper()
+	gotInfo, err := os.Stat(got)
+	if err != nil {
+		t.Fatalf("stat policy project %q: %v", got, err)
+	}
+	wantInfo, err := os.Stat(want)
+	if err != nil {
+		t.Fatalf("stat expected project %q: %v", want, err)
+	}
+	if !os.SameFile(gotInfo, wantInfo) {
+		t.Fatalf("policy project %q does not identify expected repository %q", got, want)
+	}
 }
 
 func runPolicyGit(t *testing.T, args ...string) {
