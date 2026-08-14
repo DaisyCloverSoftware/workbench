@@ -123,7 +123,7 @@ func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse
 		if p.ID == "workbench-runner" {
 			continue
 		}
-		res, runErr := RunProvider(ctx, p, task, prefs)
+		res, runErr := RunProviderIsolated(ctx, p, task, prefs)
 		attempts = append(attempts, fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, runErr)))
 		if strings.TrimSpace(res.Attention) != "" {
 			return RunnerResponse{Result: res, ProviderID: p.ID, ProviderName: p.Name, ProviderCost: p.Cost, Attempts: attempts}
