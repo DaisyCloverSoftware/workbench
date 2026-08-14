@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 	"github.com/DaisyCloverSoftware/workbench/internal/mcp"
@@ -30,5 +29,4 @@ func main() {
 	fmt.Println("Workbench headless MCP", s.URL())
 	fmt.Println("Desktop UI is available in the Windows build.")
 	select {}
-	_ = os.Stdout
 }
