@@ -18,7 +18,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/platform"
 )
 
-const appVersion = "0.5.0"
+const appVersion = "0.6.0"
 
 const (
 	WS_OVERLAPPEDWINDOW = 0x00CF0000
