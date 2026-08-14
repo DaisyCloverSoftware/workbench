@@ -13,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.6.0"
-const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|doctor|selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|doctor|selftest|live-selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -38,6 +38,11 @@ func main() {
 	case "selftest":
 		if err := selftest(); err != nil {
 			fmt.Fprintln(os.Stderr, "SELFTEST FAILED:", err)
+			os.Exit(1)
+		}
+	case "live-selftest":
+		if err := liveSelftest(); err != nil {
+			fmt.Fprintln(os.Stderr, "LIVE SELFTEST FAILED:", err)
 			os.Exit(1)
 		}
 	case "version", "--version", "-v":
@@ -178,7 +183,8 @@ func doctor() {
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
 	fmt.Println("Publication policy (operator-only): workbench-runner policy <get|prepare|publish|delete> ...")
-	fmt.Println("Live proof: workbench-runner selftest")
+	fmt.Println("Deterministic Workbench health proof: workbench-runner selftest")
+	fmt.Println("External AI worker availability proof: workbench-runner live-selftest")
 }
 
 func write(v any) {

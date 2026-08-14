@@ -56,7 +56,7 @@ func CreateTaskWorkspace(ctx context.Context, project, taskID string) (TaskWorks
 	if existing, ok, err := loadTaskWorkspace(metadataPath); err != nil {
 		return TaskWorkspace{}, err
 	} else if ok {
-		if existing.Project != root || existing.TaskID != taskID || existing.BaseRevision != base || existing.Workspace != path {
+		if existing.TaskID != taskID || existing.BaseRevision != base || !sameDirectoryIdentity(existing.Project, root) || !sameDirectoryIdentity(existing.Workspace, path) {
 			return TaskWorkspace{}, errors.New("existing task workspace metadata does not match this task")
 		}
 		if validTaskWorkspace(ctx, existing) {
@@ -107,7 +107,7 @@ func OpenTaskWorkspace(project, taskID string) (TaskWorkspace, bool, error) {
 	if err != nil || !ok {
 		return ws, ok, err
 	}
-	if ws.Project != root || ws.TaskID != strings.TrimSpace(taskID) || !validTaskWorkspace(context.Background(), ws) {
+	if ws.TaskID != strings.TrimSpace(taskID) || !sameDirectoryIdentity(ws.Project, root) || !validTaskWorkspace(context.Background(), ws) {
 		return TaskWorkspace{}, false, errors.New("recorded task workspace is invalid")
 	}
 	return ws, true, nil
@@ -131,7 +131,7 @@ func RemoveTaskWorkspace(ctx context.Context, project, taskID string) error {
 	if !ok {
 		return nil
 	}
-	if ws.Project != root || ws.TaskID != strings.TrimSpace(taskID) || ws.Workspace != path {
+	if ws.TaskID != strings.TrimSpace(taskID) || !sameDirectoryIdentity(ws.Project, root) || !sameDirectoryIdentity(ws.Workspace, path) {
 		return errors.New("task workspace metadata mismatch; refusing cleanup")
 	}
 	cmd := exec.CommandContext(ctx, "git", "-C", root, "worktree", "remove", "--force", path)
@@ -162,7 +162,7 @@ func canonicalTaskWorkspaceProject(ctx context.Context, project string) (string,
 	if err != nil {
 		return "", err
 	}
-	if filepath.Clean(resolved) != filepath.Clean(root) {
+	if !sameDirectoryIdentity(resolved, root) {
 		return "", errors.New("task workspace project must be the Git repository root")
 	}
 	return root, nil
@@ -199,7 +199,26 @@ func validTaskWorkspace(ctx context.Context, ws TaskWorkspace) bool {
 		return false
 	}
 	resolved, err = filepath.Abs(resolved)
-	return err == nil && filepath.Clean(resolved) == filepath.Clean(ws.Workspace)
+	if err != nil {
+		return false
+	}
+	return sameDirectoryIdentity(resolved, ws.Workspace)
+}
+
+// sameDirectoryIdentity compares the actual filesystem objects rather than path
+// strings. Git and Windows may describe the same directory using different case
+// or canonical path spellings; os.SameFile also keeps symlink aliases from
+// weakening Workbench's repository/worktree identity checks.
+func sameDirectoryIdentity(a, b string) bool {
+	aInfo, err := os.Stat(a)
+	if err != nil || !aInfo.IsDir() {
+		return false
+	}
+	bInfo, err := os.Stat(b)
+	if err != nil || !bInfo.IsDir() {
+		return false
+	}
+	return os.SameFile(aInfo, bInfo)
 }
 
 func loadTaskWorkspace(path string) (TaskWorkspace, bool, error) {
