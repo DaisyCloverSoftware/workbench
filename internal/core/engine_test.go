@@ -48,12 +48,31 @@ func TestRouterUsesCheaperWorkerBeforeCodex(t *testing.T) {
 			if cur.ConsumesWork {
 				t.Fatal("cheaper route should not consume Work")
 			}
+			waitForPersistedTaskStatus(t, store, task.ID, TaskCompleted, deadline)
 			return
 		}
 		if cur.Status == TaskFailed {
+			waitForPersistedTaskStatus(t, store, task.ID, TaskFailed, deadline)
 			t.Fatalf("task failed: %s", cur.Error)
 		}
 		time.Sleep(30 * time.Millisecond)
 	}
 	t.Fatal("timed out waiting for task")
+}
+
+func waitForPersistedTaskStatus(t *testing.T, store *Store, taskID string, want TaskStatus, deadline time.Time) {
+	t.Helper()
+	for time.Now().Before(deadline) {
+		st, err := store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, task := range st.Tasks {
+			if task.ID == taskID && task.Status == want {
+				return
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for task %s to persist status %s", taskID, want)
 }
