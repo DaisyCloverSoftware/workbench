@@ -15,7 +15,7 @@ func TestRouterUsesCheaperWorkerBeforeCodex(t *testing.T) {
 		t.Skip("shell fixture")
 	}
 	bin := t.TempDir()
-	project := t.TempDir()
+	project := initPrepareTestRepo(t)
 	writeExe := func(name, body string) {
 		p := filepath.Join(bin, name)
 		if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
