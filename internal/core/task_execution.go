@@ -38,6 +38,7 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 		return RunResult{}, fmt.Errorf("create isolated task workspace: %w", err)
 	}
 	workerTask := task
+	workerTask.memoryProjectPath = taskMemoryProject(task)
 	workerTask.ProjectPath = ws.Workspace
 	res, runErr := RunProvider(ctx, p, workerTask, prefs)
 	if strings.TrimSpace(res.Attention) != "" || runErr != nil {
