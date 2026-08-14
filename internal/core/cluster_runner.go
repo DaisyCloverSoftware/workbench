@@ -107,7 +107,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 // before scarce Work/Codex, while leaving metered APIs disabled unless opted in.
 func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse {
 	task := req.Task
-	resolved, err := resolveRunnerProject(task.ProjectPath)
+	resolved, err := ResolveRunnerProject(task.ProjectPath)
 	if err != nil {
 		return RunnerResponse{Error: err.Error()}
 	}
@@ -149,7 +149,11 @@ func runnerRoot() (string, error) {
 	return filepath.Join(home, "src"), nil
 }
 
-func resolveRunnerProject(requested string) (string, error) {
+// ResolveRunnerProject maps a desktop or runner-local project identifier to the
+// repository directory under WORKBENCH_RUNNER_ROOT. Operator control commands
+// use the same resolver as task execution so publication policy can be
+// configured without knowing a different host-specific project path.
+func ResolveRunnerProject(requested string) (string, error) {
 	root, err := runnerRoot()
 	if err != nil {
 		return "", err
