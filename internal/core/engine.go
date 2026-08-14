@@ -267,7 +267,7 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 		runCtx, runCancel := context.WithTimeout(ctx, 45*time.Minute)
-		res, err := RunProvider(runCtx, p, current, prefs)
+		res, err := RunProviderIsolated(runCtx, p, current, prefs)
 		runCancel()
 		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, err))
 		e.appendAttempt(taskID, attempt)
