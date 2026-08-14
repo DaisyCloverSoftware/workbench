@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 — 2026-08-14
+
+- Split runner verification into a deterministic `selftest` for Workbench control-plane health and an explicit `live-selftest` for external AI-worker availability.
+- Fixed the live worker self-test to use a committed Git baseline and verify successful work in a Workbench-owned review commit while the source checkout remains clean.
+- Fixed Windows task-worktree validation and cleanup to compare filesystem identity instead of case-sensitive/canonical path strings.
+- Added host-local provider health telemetry with short-lived exponential cooldowns so recently unavailable workers are routed around instead of retried on every task.
+- Provider cooldown state stores only safe categorical reasons and timestamps; raw worker output, task content, credentials and account identifiers are not persisted.
+- Successful provider runs clear their cooldown immediately, non-retryable project failures do not poison provider health, and explicit local Rescan clears cooldowns after operator remediation.
+
 ## 0.6.0 — 2026-08-14
 
 - Autonomous coding now runs in durable Workbench-owned Git worktrees, keeping the user's source checkout and active index untouched.

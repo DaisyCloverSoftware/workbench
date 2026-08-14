@@ -31,10 +31,18 @@
 - Windows single-instance protection and additional model-safe command hardening
 - release packaging for the Windows app and matching Linux runner/server/relay binaries
 
+## v0.6.1 — trustworthy health checks and provider readiness
+
+- deterministic runner self-test separated from external AI-worker availability probing
+- valid committed live-worker test fixture with isolated review-commit verification
+- filesystem-identity-safe task worktree validation on Windows and path aliases
+- persistent host-local provider health telemetry for desktop and one-shot runner processes
+- short-lived exponential cooldowns for retryable authentication, quota, permission, adapter and timeout failures
+- safe categorical cooldown status in provider UI/runner doctor without persisting raw provider output
+
 ## Next
 
 - locally initiated maintenance/update flow that can refresh Workbench without turning Chat into a remote command channel
-- provider health/readiness telemetry and short-lived failure cooldowns so known-unavailable workers are not retried on every task
 - first-class structured OpenClaw/harness jobs rather than a command-template adapter
 - richer retry/recovery policies and resumable provider sessions
 - searchable decisions and a project knowledge graph
