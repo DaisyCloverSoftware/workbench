@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // RunnerRequest is the structured task envelope sent from a Workbench desktop
@@ -106,6 +107,9 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 // ExecuteRunnerRequest is the cluster-side routing loop. It uses the same cost
 // policy as the desktop and therefore prefers zero-marginal/included workers
 // before scarce Work/Codex, while leaving metered APIs disabled unless opted in.
+// Provider-level retryable failures are persisted in the local health cache so
+// one-shot SSH runner invocations do not immediately hammer the same known-bad
+// worker again on the next task.
 func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse {
 	task := req.Task
 	resolved, err := ResolveRunnerProject(task.ProjectPath)
@@ -116,8 +120,9 @@ func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse
 	prefs := Preferences{AvoidWorkUsage: req.AvoidWorkUsage, AllowMeteredAPI: req.AllowMeteredAPI}
 	providers := ScanProviders()
 	candidates := routeCandidates(providers, prefs, task)
+	candidates, cooling := FilterProviderCooldowns(candidates, time.Now())
 
-	var attempts []string
+	attempts := append([]string(nil), cooling...)
 	for _, p := range candidates {
 		// A runner must never recursively delegate to another remote Workbench
 		// runner through the same SSH configuration.
@@ -125,7 +130,12 @@ func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse
 			continue
 		}
 		res, runErr := RunProviderIsolated(ctx, p, task, prefs)
-		attempts = append(attempts, fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, runErr)))
+		record, coolingNow := RecordProviderRunOutcome(p.ID, res, runErr)
+		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, runErr))
+		if coolingNow {
+			attempt += fmt.Sprintf("; cooldown until %s (%s)", record.CooldownUntil.UTC().Format(time.RFC3339), record.Reason)
+		}
+		attempts = append(attempts, attempt)
 		if strings.TrimSpace(res.Attention) != "" {
 			return RunnerResponse{Result: res, ProviderID: p.ID, ProviderName: p.Name, ProviderCost: p.Cost, Attempts: attempts}
 		}
@@ -134,6 +144,9 @@ func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse
 		}
 	}
 	if len(candidates) == 0 {
+		if len(cooling) > 0 {
+			return RunnerResponse{Error: "all eligible coding workers are temporarily cooling down after recent provider-level failures", Attempts: attempts}
+		}
 		return RunnerResponse{Error: "no eligible coding worker is installed on the runner host"}
 	}
 	return RunnerResponse{Error: "every eligible runner worker failed", Attempts: attempts}
