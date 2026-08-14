@@ -10,9 +10,7 @@ import (
 )
 
 func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
-	config := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", config)
-	t.Setenv("APPDATA", config)
+	isolatePolicyConfig(t)
 	repo := initPolicyRepo(t)
 
 	result, err := applyPublicationPolicyCommand([]string{"prepare", repo})
@@ -20,7 +18,7 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepared, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || prepared.Mode != core.PublicationPrepare || prepared.RemoteURL != "" {
+	if !ok || prepared.Mode != core.PublicationPrepare || prepared.RemoteURL != "" || prepared.Project != repo {
 		t.Fatalf("unexpected prepare policy: %#v", result)
 	}
 
@@ -39,7 +37,7 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	published, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || published.Mode != core.PublicationPublish || published.RemoteURL != remote {
+	if !ok || published.Mode != core.PublicationPublish || published.RemoteURL != remote || published.Project != repo {
 		t.Fatalf("unexpected publish policy: %#v", result)
 	}
 
@@ -55,19 +53,43 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 	}
 }
 
+func TestApplyPublicationPolicyCommandMapsDesktopProjectPath(t *testing.T) {
+	isolatePolicyConfig(t)
+	repo := initPolicyRepo(t)
+
+	result, err := applyPublicationPolicyCommand([]string{"prepare", `C:\workspace\workbench`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, ok := result["policy"].(core.PublicationPolicy)
+	if !ok || prepared.Project != repo || prepared.Mode != core.PublicationPrepare {
+		t.Fatalf("desktop project did not map to runner repository: %#v", result)
+	}
+}
+
 func TestApplyPublicationPolicyCommandRejectsUnsafePublishTarget(t *testing.T) {
-	config := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", config)
-	t.Setenv("APPDATA", config)
+	isolatePolicyConfig(t)
 	repo := initPolicyRepo(t)
 	if _, err := applyPublicationPolicyCommand([]string{"publish", repo, "https://user:secret@example.invalid/repo.git"}); err == nil {
 		t.Fatal("expected embedded credentials to be rejected")
 	}
 }
 
+func isolatePolicyConfig(t *testing.T) {
+	t.Helper()
+	config := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", config)
+	t.Setenv("APPDATA", config)
+}
+
 func initPolicyRepo(t *testing.T) string {
 	t.Helper()
-	repo := t.TempDir()
+	root := t.TempDir()
+	repo := filepath.Join(root, "workbench")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
 	runPolicyGit(t, "-C", repo, "init", "-q")
 	runPolicyGit(t, "-C", repo, "config", "user.name", "Workbench Test")
 	runPolicyGit(t, "-C", repo, "config", "user.email", "workbench-test@example.invalid")
