@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.5.0"
-const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|doctor|selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|doctor|selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -28,6 +29,8 @@ func main() {
 		snapshot()
 	case "prepare":
 		prepare()
+	case "policy":
+		policy()
 	case "doctor":
 		doctor()
 	case "selftest":
@@ -105,6 +108,67 @@ func prepare() {
 	write(map[string]any{"ok": true, "prepared": result})
 }
 
+func policy() {
+	result, err := applyPublicationPolicyCommand(os.Args[2:])
+	if err != nil {
+		write(map[string]any{"ok": false, "error": err.Error()})
+		os.Exit(1)
+	}
+	result["ok"] = true
+	write(result)
+}
+
+func applyPublicationPolicyCommand(args []string) (map[string]any, error) {
+	if len(args) < 2 {
+		return nil, errors.New("publication policy requires an action and project directory")
+	}
+	action := strings.ToLower(strings.TrimSpace(args[0]))
+	project := args[1]
+	switch action {
+	case "get":
+		if len(args) != 2 {
+			return nil, errors.New("usage: workbench-runner policy get <project-directory>")
+		}
+		p, configured, err := core.PublicationPolicyFor(project)
+		if err != nil {
+			return nil, err
+		}
+		result := map[string]any{"configured": configured}
+		if configured {
+			result["policy"] = p
+		}
+		return result, nil
+	case "prepare":
+		if len(args) != 2 {
+			return nil, errors.New("usage: workbench-runner policy prepare <project-directory>")
+		}
+		p, err := core.SavePublicationPolicy(core.PublicationPolicy{Project: project, Mode: core.PublicationPrepare})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"policy": p}, nil
+	case "publish":
+		if len(args) != 3 {
+			return nil, errors.New("usage: workbench-runner policy publish <project-directory> <remote-url>")
+		}
+		p, err := core.SavePublicationPolicy(core.PublicationPolicy{Project: project, Mode: core.PublicationPublish, RemoteURL: args[2]})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"policy": p}, nil
+	case "delete":
+		if len(args) != 2 {
+			return nil, errors.New("usage: workbench-runner policy delete <project-directory>")
+		}
+		if err := core.DeletePublicationPolicy(project); err != nil {
+			return nil, err
+		}
+		return map[string]any{"deleted": true}, nil
+	default:
+		return nil, errors.New("publication policy action must be get, prepare, publish or delete")
+	}
+}
+
 func doctor() {
 	providers := core.ScanProviders()
 	fmt.Printf("Workbench Runner %s\n", runnerVersion)
@@ -120,6 +184,7 @@ func doctor() {
 	fmt.Println("Changeset inspection: workbench-runner inspect <project-directory>")
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
+	fmt.Println("Publication policy (operator-only): workbench-runner policy <get|prepare|publish|delete> ...")
 	fmt.Println("Live proof: workbench-runner selftest")
 }
 
