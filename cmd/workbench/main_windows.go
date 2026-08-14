@@ -78,45 +78,49 @@ const (
 )
 
 const (
-	idProviderList     = 1001
-	idConnect          = 1002
-	idRescan           = 1003
-	idCopyMCP          = 1004
-	idProject          = 1101
-	idBrowse           = 1102
-	idIntent           = 1103
-	idDelegate         = 1104
-	idCancel           = 1105
-	idTaskList         = 1106
-	idOutput           = 1107
-	idAnswer           = 1108
-	idResume           = 1109
-	idNotes            = 1201
-	idSaveNotes        = 1202
-	idSecretName       = 1203
-	idSecretValue      = 1204
-	idSaveSecret       = 1205
-	idSecretList       = 1206
-	idProtectWork      = 1207
-	idAllowMetered     = 1208
-	idHarnessCmd       = 1209
-	idNotifyCmd        = 1210
-	idSaveSettings     = 1211
-	idHarnessHost      = 1212
-	idTitle            = 1301
-	idLabelRouter      = 1302
-	idLabelProject     = 1303
-	idLabelIntent      = 1304
-	idLabelTasks       = 1305
-	idLabelReport      = 1306
-	idLabelAttention   = 1307
-	idLabelKnowledge   = 1308
-	idLabelNotes       = 1309
-	idLabelVault       = 1310
-	idLabelHarness     = 1311
-	idLabelNotify      = 1312
-	idMCPStatus        = 1313
-	idLabelHarnessHost = 1314
+	idProviderList      = 1001
+	idConnect           = 1002
+	idRescan            = 1003
+	idCopyMCP           = 1004
+	idProject           = 1101
+	idBrowse            = 1102
+	idIntent            = 1103
+	idDelegate          = 1104
+	idCancel            = 1105
+	idTaskList          = 1106
+	idOutput            = 1107
+	idAnswer            = 1108
+	idResume            = 1109
+	idNotes             = 1201
+	idSaveNotes         = 1202
+	idSecretName        = 1203
+	idSecretValue       = 1204
+	idSaveSecret        = 1205
+	idSecretList        = 1206
+	idProtectWork       = 1207
+	idAllowMetered      = 1208
+	idHarnessCmd        = 1209
+	idNotifyCmd         = 1210
+	idSaveSettings      = 1211
+	idHarnessHost       = 1212
+	idPublishReviews    = 1213
+	idReviewRemote      = 1214
+	idSaveReviewPolicy  = 1215
+	idTitle             = 1301
+	idLabelRouter       = 1302
+	idLabelProject      = 1303
+	idLabelIntent       = 1304
+	idLabelTasks        = 1305
+	idLabelReport       = 1306
+	idLabelAttention    = 1307
+	idLabelKnowledge    = 1308
+	idLabelNotes        = 1309
+	idLabelVault        = 1310
+	idLabelHarness      = 1311
+	idLabelNotify       = 1312
+	idMCPStatus         = 1313
+	idLabelHarnessHost  = 1314
+	idLabelReviewPolicy = 1315
 )
 
 var (
@@ -188,16 +192,17 @@ type browseInfo struct {
 }
 
 type app struct {
-	hwnd        uintptr
-	eng         *core.Engine
-	mcp         *mcp.Server
-	mcpURL      string
-	mcpErr      string
-	font        uintptr
-	brush       uintptr
-	controls    map[int]uintptr
-	providerIDs []string
-	taskIDs     []string
+	hwnd          uintptr
+	eng           *core.Engine
+	mcp           *mcp.Server
+	mcpURL        string
+	mcpErr        string
+	font          uintptr
+	brush         uintptr
+	controls      map[int]uintptr
+	providerIDs   []string
+	taskIDs       []string
+	policyProject string
 }
 
 var g *app
@@ -335,6 +340,7 @@ func (a *app) createControls() {
 	a.static("OpenClaw SSH host · optional", idLabelHarnessHost)
 	a.static("Custom harness command template · optional", idLabelHarness)
 	a.static("Human interrupt command · optional · {message}", idLabelNotify)
+	a.static("Review publication · explicit policy · kept outside AI/task state", idLabelReviewPolicy)
 	a.static("", idMCPStatus)
 	a.ctrl(idProviderList, "LISTBOX", "", WS_CHILD|WS_VISIBLE|WS_BORDER|WS_VSCROLL|LBS_NOTIFY)
 	a.ctrl(idConnect, "BUTTON", "Connect selected", WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON)
@@ -361,6 +367,9 @@ func (a *app) createControls() {
 	a.ctrl(idHarnessCmd, "EDIT", "", WS_CHILD|WS_VISIBLE|WS_BORDER|WS_TABSTOP|ES_AUTOHSCROLL)
 	a.ctrl(idNotifyCmd, "EDIT", "", WS_CHILD|WS_VISIBLE|WS_BORDER|WS_TABSTOP|ES_AUTOHSCROLL)
 	a.ctrl(idSaveSettings, "BUTTON", "Save routing settings", WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON)
+	a.ctrl(idPublishReviews, "BUTTON", "Publish prepared review branches", WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_AUTOCHECKBOX)
+	a.ctrl(idReviewRemote, "EDIT", "", WS_CHILD|WS_VISIBLE|WS_BORDER|WS_TABSTOP|ES_AUTOHSCROLL)
+	a.ctrl(idSaveReviewPolicy, "BUTTON", "Save review policy", WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_PUSHBUTTON)
 	cue(a.controls[idProject], "Choose a local repository folder")
 	cue(a.controls[idIntent], "Describe the outcome. Workbench chooses the cheapest eligible worker and keeps going.")
 	cue(a.controls[idAnswer], "Only type here when the task above says NEEDS YOU")
@@ -369,6 +378,7 @@ func (a *app) createControls() {
 	cue(a.controls[idHarnessHost], "e.g. user@your-agent-host.tailnet.ts.net")
 	cue(a.controls[idHarnessCmd], "optional advanced adapter: command {project} {prompt}")
 	cue(a.controls[idNotifyCmd], "optional: OpenClaw / WhatsApp command using {message}")
+	cue(a.controls[idReviewRemote], "explicit review remote: HTTPS, SSH, scp-style SSH, or local path · no embedded credentials")
 }
 
 func (a *app) static(text string, id int) uintptr {
@@ -446,15 +456,19 @@ func (a *app) layout() {
 	move(a.controls[idSecretValue], xR, top+286, right, 28)
 	move(a.controls[idSaveSecret], xR, top+322, right, 31)
 	move(a.controls[idSecretList], xR, top+360, right, 95)
-	move(a.controls[idProtectWork], xR, top+472, right, 26)
-	move(a.controls[idAllowMetered], xR, top+502, right, 26)
-	move(a.controls[idLabelHarnessHost], xR, top+532, right, 18)
-	move(a.controls[idHarnessHost], xR, top+552, right, 28)
-	move(a.controls[idLabelHarness], xR, top+586, right, 18)
-	move(a.controls[idHarnessCmd], xR, top+606, right, 28)
-	move(a.controls[idLabelNotify], xR, top+640, right, 18)
-	move(a.controls[idNotifyCmd], xR, top+660, right, 28)
-	move(a.controls[idSaveSettings], xR, top+698, right, 32)
+	move(a.controls[idProtectWork], xR, top+466, right, 26)
+	move(a.controls[idAllowMetered], xR, top+494, right, 26)
+	move(a.controls[idLabelHarnessHost], xR, top+524, right, 18)
+	move(a.controls[idHarnessHost], xR, top+544, right, 28)
+	move(a.controls[idLabelHarness], xR, top+578, right, 18)
+	move(a.controls[idHarnessCmd], xR, top+598, right, 28)
+	move(a.controls[idLabelNotify], xR, top+632, right, 18)
+	move(a.controls[idNotifyCmd], xR, top+652, right, 28)
+	move(a.controls[idSaveSettings], xR, top+686, right, 32)
+	move(a.controls[idLabelReviewPolicy], xR, top+724, right, 18)
+	move(a.controls[idPublishReviews], xR, top+744, right, 26)
+	move(a.controls[idReviewRemote], xR, top+774, right, 28)
+	move(a.controls[idSaveReviewPolicy], xR, top+808, right, 32)
 	move(a.controls[idMCPStatus], xL, h-bottom-67, left, 42)
 }
 func move(h uintptr, x, y, w, hgt int) {
@@ -480,6 +494,7 @@ func (a *app) refreshAll() {
 	} else {
 		procSendMessageW.Call(a.controls[idAllowMetered], BM_SETCHECK, 0, 0)
 	}
+	a.refreshPublicationPolicy(st.ProjectPath)
 	a.refreshProviders()
 	a.refreshTasks()
 	a.refreshSecrets()
@@ -489,6 +504,27 @@ func (a *app) refreshAll() {
 	}
 	setText(a.controls[idMCPStatus], status)
 }
+func (a *app) refreshPublicationPolicy(project string) {
+	project = strings.TrimSpace(project)
+	if project == a.policyProject {
+		return
+	}
+	a.policyProject = project
+	procSendMessageW.Call(a.controls[idPublishReviews], BM_SETCHECK, 0, 0)
+	setText(a.controls[idReviewRemote], "")
+	if project == "" {
+		return
+	}
+	policy, configured, err := core.PublicationPolicyFor(project)
+	if err != nil || !configured {
+		return
+	}
+	if policy.Mode == core.PublicationPublish {
+		procSendMessageW.Call(a.controls[idPublishReviews], BM_SETCHECK, BST_CHECKED, 0)
+		setText(a.controls[idReviewRemote], policy.RemoteURL)
+	}
+}
+
 func (a *app) refreshProviders() {
 	ps := a.eng.Providers()
 	procSendMessageW.Call(a.controls[idProviderList], LB_RESETCONTENT, 0, 0)
@@ -595,6 +631,8 @@ func (a *app) command(id int, notify uint16) {
 		}
 	case idSaveSettings:
 		a.saveSettings()
+	case idSaveReviewPolicy:
+		a.saveReviewPolicy()
 	}
 }
 func (a *app) showProvider() {
@@ -716,6 +754,52 @@ func (a *app) saveSettings() {
 	}
 	msgbox(a.hwnd, "Routing saved", "Router policy updated. Workbench will continue without asking unless a genuine attention boundary is reached.", MB_ICONINFORMATION)
 }
+func (a *app) saveReviewPolicy() {
+	project := strings.TrimSpace(getText(a.controls[idProject]))
+	if project == "" {
+		msgbox(a.hwnd, "Review policy", "Choose a project repository first.", MB_ICONINFORMATION)
+		return
+	}
+
+	mode := core.PublicationPrepare
+	remote := ""
+	if buttonChecked(a.controls[idPublishReviews]) {
+		mode = core.PublicationPublish
+		remote = strings.TrimSpace(getText(a.controls[idReviewRemote]))
+		if remote == "" {
+			msgbox(a.hwnd, "Review policy", "Enter the explicit review remote before enabling automatic review-branch publication.", MB_ICONINFORMATION)
+			return
+		}
+	}
+
+	st := a.eng.State()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	result, err := core.SavePublicationPolicyForExecutionHosts(ctx, project, mode, remote, st.Preferences.OpenClawSSHHost)
+	if err != nil {
+		if strings.TrimSpace(result.Local.Project) != "" {
+			msgbox(a.hwnd, "Runner policy sync failed", err.Error()+"\n\nThe local review policy was saved. The configured runner was not changed.", MB_ICONWARNING)
+			return
+		}
+		msgbox(a.hwnd, "Review policy failed", err.Error(), MB_ICONERROR)
+		return
+	}
+
+	a.policyProject = project
+	if mode == core.PublicationPrepare {
+		setText(a.controls[idReviewRemote], "")
+	}
+	scope := "Saved for local Workbench execution."
+	if result.Runner != nil {
+		scope = "Saved locally and synchronised to the configured Workbench runner."
+	}
+	detail := "Successful coding tasks will create Workbench-owned local review branches. Coding workers still cannot push or publish."
+	if mode == core.PublicationPublish {
+		detail = "Successful coding tasks may publish only their Workbench-owned review branch to the explicit target. Coding workers still cannot push or choose the target."
+	}
+	msgbox(a.hwnd, "Review policy saved", scope+"\n\n"+detail, MB_ICONINFORMATION)
+}
+
 func (a *app) showTask(idx int) {
 	st := a.eng.State()
 	if idx < 0 || idx >= len(st.Tasks) {
