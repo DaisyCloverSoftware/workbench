@@ -30,7 +30,7 @@ func persistWorkerMemories(task Task, output string) string {
 	for _, c := range candidates {
 		item := KnowledgeItem{
 			Scope:   ScopeProject,
-			Project: task.ProjectPath,
+			Project: taskMemoryProject(task),
 			Kind:    c.Kind,
 			Title:   c.Title,
 			Content: c.Content,
