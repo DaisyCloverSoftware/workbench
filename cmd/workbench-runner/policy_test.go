@@ -17,17 +17,16 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || prepared.Mode != core.PublicationPrepare || prepared.RemoteURL != "" {
+	if !result.OK || result.Policy == nil || result.Policy.Mode != core.PublicationPrepare || result.Policy.RemoteURL != "" {
 		t.Fatalf("unexpected prepare policy: %#v", result)
 	}
-	assertSamePolicyPath(t, prepared.Project, repo)
+	assertSamePolicyPath(t, result.Policy.Project, repo)
 
 	getResult, err := applyPublicationPolicyCommand([]string{"get", repo})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if configured, _ := getResult["configured"].(bool); !configured {
+	if !getResult.OK || !getResult.Configured || getResult.Policy == nil {
 		t.Fatalf("prepare policy was not persisted: %#v", getResult)
 	}
 
@@ -37,20 +36,23 @@ func TestApplyPublicationPolicyCommandRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	published, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || published.Mode != core.PublicationPublish || published.RemoteURL != remote {
+	if !result.OK || result.Policy == nil || result.Policy.Mode != core.PublicationPublish || result.Policy.RemoteURL != remote {
 		t.Fatalf("unexpected publish policy: %#v", result)
 	}
-	assertSamePolicyPath(t, published.Project, repo)
+	assertSamePolicyPath(t, result.Policy.Project, repo)
 
-	if _, err := applyPublicationPolicyCommand([]string{"delete", repo}); err != nil {
+	deleted, err := applyPublicationPolicyCommand([]string{"delete", repo})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !deleted.OK || !deleted.Deleted {
+		t.Fatalf("unexpected delete response: %#v", deleted)
 	}
 	getResult, err = applyPublicationPolicyCommand([]string{"get", repo})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if configured, _ := getResult["configured"].(bool); configured {
+	if getResult.Configured || getResult.Policy != nil {
 		t.Fatalf("policy was not deleted: %#v", getResult)
 	}
 }
@@ -63,11 +65,10 @@ func TestApplyPublicationPolicyCommandMapsDesktopProjectPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, ok := result["policy"].(core.PublicationPolicy)
-	if !ok || prepared.Mode != core.PublicationPrepare {
+	if !result.OK || result.Policy == nil || result.Policy.Mode != core.PublicationPrepare {
 		t.Fatalf("desktop project did not map to runner repository: %#v", result)
 	}
-	assertSamePolicyPath(t, prepared.Project, repo)
+	assertSamePolicyPath(t, result.Policy.Project, repo)
 }
 
 func TestApplyPublicationPolicyCommandRejectsUnsafePublishTarget(t *testing.T) {

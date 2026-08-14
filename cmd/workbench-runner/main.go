@@ -31,6 +31,8 @@ func main() {
 		prepare()
 	case "policy":
 		policy()
+	case "policy-json":
+		policyJSON()
 	case "doctor":
 		doctor()
 	case "selftest":
@@ -109,18 +111,33 @@ func prepare() {
 }
 
 func policy() {
-	result, err := applyPublicationPolicyCommand(os.Args[2:])
+	response, err := applyPublicationPolicyCommand(os.Args[2:])
 	if err != nil {
-		write(map[string]any{"ok": false, "error": err.Error()})
+		write(core.RunnerPolicyResponse{OK: false, Error: err.Error()})
 		os.Exit(1)
 	}
-	result["ok"] = true
-	write(result)
+	write(response)
 }
 
-func applyPublicationPolicyCommand(args []string) (map[string]any, error) {
+func policyJSON() {
+	dec := json.NewDecoder(os.Stdin)
+	dec.DisallowUnknownFields()
+	var req core.RunnerPolicyRequest
+	if err := dec.Decode(&req); err != nil {
+		write(core.RunnerPolicyResponse{OK: false, Error: "invalid runner policy request: " + err.Error()})
+		os.Exit(2)
+	}
+	response, err := core.ApplyRunnerPublicationPolicy(req)
+	if err != nil {
+		write(core.RunnerPolicyResponse{OK: false, Error: err.Error()})
+		os.Exit(1)
+	}
+	write(response)
+}
+
+func applyPublicationPolicyCommand(args []string) (core.RunnerPolicyResponse, error) {
 	if len(args) < 2 {
-		return nil, errors.New("publication policy requires an action and project directory")
+		return core.RunnerPolicyResponse{}, errors.New("publication policy requires an action and project directory")
 	}
 	action := strings.ToLower(strings.TrimSpace(args[0]))
 	var expected int
@@ -130,49 +147,19 @@ func applyPublicationPolicyCommand(args []string) (map[string]any, error) {
 	case "publish":
 		expected = 3
 	default:
-		return nil, errors.New("publication policy action must be get, prepare, publish or delete")
+		return core.RunnerPolicyResponse{}, errors.New("publication policy action must be get, prepare, publish or delete")
 	}
 	if len(args) != expected {
 		if action == "publish" {
-			return nil, errors.New("usage: workbench-runner policy publish <project-directory> <remote-url>")
+			return core.RunnerPolicyResponse{}, errors.New("usage: workbench-runner policy publish <project-directory> <remote-url>")
 		}
-		return nil, fmt.Errorf("usage: workbench-runner policy %s <project-directory>", action)
+		return core.RunnerPolicyResponse{}, fmt.Errorf("usage: workbench-runner policy %s <project-directory>", action)
 	}
-	project, err := core.ResolveRunnerProject(args[1])
-	if err != nil {
-		return nil, err
+	req := core.RunnerPolicyRequest{Action: action, Project: args[1]}
+	if action == "publish" {
+		req.RemoteURL = args[2]
 	}
-
-	switch action {
-	case "get":
-		p, configured, err := core.PublicationPolicyFor(project)
-		if err != nil {
-			return nil, err
-		}
-		result := map[string]any{"configured": configured, "project": project}
-		if configured {
-			result["policy"] = p
-		}
-		return result, nil
-	case "prepare":
-		p, err := core.SavePublicationPolicy(core.PublicationPolicy{Project: project, Mode: core.PublicationPrepare})
-		if err != nil {
-			return nil, err
-		}
-		return map[string]any{"policy": p}, nil
-	case "publish":
-		p, err := core.SavePublicationPolicy(core.PublicationPolicy{Project: project, Mode: core.PublicationPublish, RemoteURL: args[2]})
-		if err != nil {
-			return nil, err
-		}
-		return map[string]any{"policy": p}, nil
-	case "delete":
-		if err := core.DeletePublicationPolicy(project); err != nil {
-			return nil, err
-		}
-		return map[string]any{"deleted": true, "project": project}, nil
-	}
-	panic("validated publication policy action was not handled")
+	return core.ApplyRunnerPublicationPolicy(req)
 }
 
 func doctor() {

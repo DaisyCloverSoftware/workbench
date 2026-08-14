@@ -36,10 +36,11 @@ type RunnerResponse struct {
 // stdin rather than shell arguments. That avoids prompt quoting bugs and keeps
 // the SSH transport useful even for very large worker instructions.
 func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Preferences) (RunResult, error) {
-	host = strings.TrimSpace(host)
-	if host == "" {
-		return RunResult{Retryable: true}, errors.New("cluster runner SSH host is not configured")
+	validatedHost, err := validateSSHHostTarget(host)
+	if err != nil {
+		return RunResult{Retryable: true}, err
 	}
+	host = validatedHost
 	reqBody, err := json.Marshal(RunnerRequest{
 		Task:            task,
 		AvoidWorkUsage:  prefs.AvoidWorkUsage,
@@ -154,13 +155,13 @@ func runnerRoot() (string, error) {
 // use the same resolver as task execution so publication policy can be
 // configured without knowing a different host-specific project path.
 func ResolveRunnerProject(requested string) (string, error) {
-	root, err := runnerRoot()
+	configuredRoot, err := runnerRoot()
 	if err != nil {
 		return "", err
 	}
-	root, err = canonicalRunnerDirectory(root)
+	root, err := canonicalRunnerDirectory(configuredRoot)
 	if err != nil {
-		return "", fmt.Errorf("runner root is not a directory: %s", root)
+		return "", fmt.Errorf("runner root is not a directory: %s", configuredRoot)
 	}
 
 	requested = strings.TrimSpace(requested)
