@@ -48,14 +48,13 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 	if err != nil {
 		return res, fmt.Errorf("finalize isolated task workspace: %w", err)
 	}
-	res.ReviewBranch = review.Branch
-	res.ReviewCommit = review.Commit
-	res.Published = review.Published
-	res.AlreadyPublished = review.AlreadyPresent
 	if review.Changed {
 		status := fmt.Sprintf("Workbench prepared review branch %s at %s.", review.Branch, review.Commit)
 		if review.Published {
 			status = fmt.Sprintf("Workbench published review branch %s at %s.", review.Branch, review.Commit)
+		}
+		if review.AlreadyPresent {
+			status += " The same prepared commit was already present on the publication target."
 		}
 		if strings.TrimSpace(res.Output) == "" {
 			res.Output = status
