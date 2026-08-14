@@ -41,7 +41,7 @@ func PrepareChangeset(ctx context.Context, project, taskID string) (PreparedChan
 	root := snapshot.Inspection.Project
 	branch := preparedBranchName(taskID, snapshot.Fingerprint)
 
-	parent, err := os.MkdirTemp("", "workbench-prepare-")
+	parent, err := NewScratchDirectory("prepare-")
 	if err != nil {
 		return PreparedChangeset{}, err
 	}
