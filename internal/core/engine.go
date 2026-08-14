@@ -56,7 +56,7 @@ func (e *Engine) notify() {
 		if fn != nil {
 			fn()
 		}
-}
+	}
 }
 
 func (e *Engine) State() State {
@@ -284,7 +284,9 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 		errorsSeen = append(errorsSeen, attempt)
+		// To preserve scarce Work, only escalate past included workers if allowed by policy.
 		if p.Cost == CostScarce && prefs.AvoidWorkUsage {
+			// We reached Work only because no lower-cost candidate succeeded; trying once is intentional.
 		}
 	}
 	e.finishFailed(taskID, "Every eligible worker failed.\n\n"+strings.Join(errorsSeen, "\n"))
