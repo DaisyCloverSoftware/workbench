@@ -7,12 +7,20 @@ import (
 
 const workerMemoryBudget = 16000
 
+func taskMemoryProject(task Task) string {
+	if project := strings.TrimSpace(task.memoryProjectPath); project != "" {
+		return project
+	}
+	return task.ProjectPath
+}
+
 // BuildWorkerPromptFromStoredKnowledge assembles an autonomous worker prompt from
 // the current task plus the latest compact project context and the most relevant
 // project/global knowledge. Memory lookup failures never block execution; the
 // repository remains the source of truth.
 func BuildWorkerPromptFromStoredKnowledge(task Task) string {
-	found, _ := SearchKnowledge(task.ProjectPath, task.Intent, 16)
+	memoryProject := taskMemoryProject(task)
+	found, _ := SearchKnowledge(memoryProject, task.Intent, 16)
 	memories := make([]KnowledgeItem, 0, 8)
 	for _, item := range found {
 		if (item.Kind == KindRoutine || item.Kind == KindCode) && hasTag(item.Tags, assetTagSuperseded) {
@@ -27,7 +35,7 @@ func BuildWorkerPromptFromStoredKnowledge(task Task) string {
 		_ = MarkKnowledgeUsed(item.ID)
 	}
 	var capsule *ContextCapsule
-	if c, ok, err := LatestContextCapsule(task.ProjectPath); err == nil && ok {
+	if c, ok, err := LatestContextCapsule(memoryProject); err == nil && ok {
 		capsule = &c
 	}
 	return BuildWorkerPromptWithKnowledge(task, memories, capsule)
