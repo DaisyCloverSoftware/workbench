@@ -77,11 +77,13 @@ func cloneState(s State) State {
 
 func (e *Engine) Providers() []Provider {
 	e.mu.RLock()
-	defer e.mu.RUnlock()
-	return append([]Provider(nil), e.providers...)
+	providers := append([]Provider(nil), e.providers...)
+	e.mu.RUnlock()
+	return ApplyProviderHealth(providers, time.Now())
 }
 
 func (e *Engine) RescanProviders() {
+	_ = ClearAllProviderCooldowns()
 	p := ScanProviders()
 	e.mu.Lock()
 	e.providers = p
@@ -251,12 +253,20 @@ func (e *Engine) execute(taskID string) {
 	defer func() { e.mu.Lock(); delete(e.cancel, taskID); e.mu.Unlock(); cancel() }()
 
 	candidates := routeCandidates(providers, prefs, t)
+	candidates, cooling := FilterProviderCooldowns(candidates, time.Now())
+	for _, skipped := range cooling {
+		e.appendAttempt(taskID, skipped)
+	}
 	if len(candidates) == 0 {
+		if len(cooling) > 0 {
+			e.finishFailed(taskID, "All eligible coding workers are temporarily cooling down after recent provider-level failures. Use Rescan after fixing provider setup, or retry after the cooldown.\n\n"+strings.Join(cooling, "\n"))
+			return
+		}
 		e.finishFailed(taskID, "No eligible coding worker is connected. Connect Gemini, Copilot, Claude, OpenClaw, or Codex; Workbench will keep metered APIs disabled unless you opt in.")
 		return
 	}
 
-	var errorsSeen []string
+	errorsSeen := append([]string(nil), cooling...)
 	for _, p := range candidates {
 		if ctx.Err() != nil {
 			return
@@ -269,7 +279,11 @@ func (e *Engine) execute(taskID string) {
 		runCtx, runCancel := context.WithTimeout(ctx, 45*time.Minute)
 		res, err := RunProviderIsolated(runCtx, p, current, prefs)
 		runCancel()
+		record, coolingNow := RecordProviderRunOutcome(p.ID, res, err)
 		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, err))
+		if coolingNow {
+			attempt += fmt.Sprintf("; cooldown until %s (%s)", record.CooldownUntil.UTC().Format(time.RFC3339), record.Reason)
+		}
 		e.appendAttempt(taskID, attempt)
 		if ctx.Err() != nil {
 			return
