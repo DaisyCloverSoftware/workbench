@@ -12,6 +12,7 @@ import (
 )
 
 const runnerVersion = "0.5.0"
+const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|doctor|selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -25,6 +26,8 @@ func main() {
 		inspect()
 	case "snapshot":
 		snapshot()
+	case "prepare":
+		prepare()
 	case "doctor":
 		doctor()
 	case "selftest":
@@ -87,6 +90,21 @@ func snapshot() {
 	write(map[string]any{"ok": true, "snapshot": result})
 }
 
+func prepare() {
+	if len(os.Args) != 4 {
+		usage()
+		os.Exit(2)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	result, err := core.PrepareChangeset(ctx, os.Args[2], os.Args[3])
+	if err != nil {
+		write(map[string]any{"ok": false, "error": err.Error()})
+		os.Exit(1)
+	}
+	write(map[string]any{"ok": true, "prepared": result})
+}
+
 func doctor() {
 	providers := core.ScanProviders()
 	fmt.Printf("Workbench Runner %s\n", runnerVersion)
@@ -101,6 +119,7 @@ func doctor() {
 	fmt.Println("\nRunner root: set WORKBENCH_RUNNER_ROOT to override; default is ~/src")
 	fmt.Println("Changeset inspection: workbench-runner inspect <project-directory>")
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
+	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
 	fmt.Println("Live proof: workbench-runner selftest")
 }
 
@@ -113,5 +132,5 @@ func write(v any) {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|doctor|selftest|version>")
+	fmt.Fprintln(os.Stderr, runnerUsage)
 }
