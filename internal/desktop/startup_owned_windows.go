@@ -11,10 +11,10 @@ import (
 )
 
 // RunOwned is the production desktop startup path. processOwnershipConfirmed is
-// supplied by cmd/workbench after its per-user named mutex init has run. MCP
-// listener ownership is an independent fallback if mutex creation was not
-// available on an unusual Windows host. Durable interrupted work is recovered
-// only after at least one ownership proof exists.
+// supplied by cmd/workbench after its per-user named mutex init has run. The MCP
+// bridge may move to another free port, so listener acquisition is deliberately
+// not treated as an exclusivity lock. Durable interrupted work is recovered only
+// when the named-mutex ownership proof exists.
 func RunOwned(version string, processOwnershipConfirmed bool) error {
 	store, err := core.NewStore()
 	if err != nil {
@@ -43,10 +43,10 @@ func RunOwned(version string, processOwnershipConfirmed bool) error {
 		}
 	}
 
-	if CanRecoverInterruptedTasks(processOwnershipConfirmed, srv != nil) {
+	if CanRecoverInterruptedTasks(processOwnershipConfirmed) {
 		_ = eng.ResumeInterruptedTasks()
 	} else {
-		warning := "Interrupted tasks were not resumed because Workbench could not confirm exclusive control-plane ownership."
+		warning := "Interrupted tasks were not resumed because Workbench could not acquire its per-user desktop ownership mutex."
 		if strings.TrimSpace(mcpErr) == "" {
 			mcpErr = warning
 		} else {
