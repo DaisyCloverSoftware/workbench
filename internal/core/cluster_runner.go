@@ -118,7 +118,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 		default:
 		}
 
-		stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, nil, "job", "status", submitted.ID)
+		stdout, _, runErr := runRunnerSSHCommand(ctx, host, nil, "job", "status", submitted.ID)
 		if runErr != nil {
 			// The durable job may still be running even if the SSH account,
 			// network or host is temporarily unreachable. Returning an error here
