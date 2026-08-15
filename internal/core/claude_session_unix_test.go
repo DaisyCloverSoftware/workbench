@@ -19,12 +19,13 @@ func TestRunProviderClaudeCapturesAndResumesSameTaskSession(t *testing.T) {
 	sessionID := "550e8400-e29b-41d4-a716-446655440000"
 	script := `#!/bin/sh
 set -eu
-printf '%s\n' "$*" >> "$CLAUDE_CALL_LOG"
 case " $* " in
   *" --resume ` + sessionID + ` "*)
+    printf '%s\n' 'resume:` + sessionID + `' >> "$CLAUDE_CALL_LOG"
     printf '%s\n' '{"type":"result","subtype":"success","result":"resumed completion","session_id":"` + sessionID + `"}'
     ;;
   *)
+    printf '%s\n' 'fresh' >> "$CLAUDE_CALL_LOG"
     printf '%s\n' '{"type":"result","subtype":"success","result":"fresh completion","session_id":"` + sessionID + `"}'
     ;;
 esac
@@ -66,10 +67,10 @@ esac
 	if len(lines) != 2 {
 		t.Fatalf("Claude invocation count=%d want 2: %s", len(lines), calls)
 	}
-	if strings.Contains(lines[0], "--resume") {
+	if lines[0] != "fresh" {
 		t.Fatalf("first Claude invocation unexpectedly resumed: %s", lines[0])
 	}
-	if !strings.Contains(lines[1], "--resume "+sessionID) {
+	if lines[1] != "resume:"+sessionID {
 		t.Fatalf("second Claude invocation did not resume exact task session: %s", lines[1])
 	}
 }
@@ -83,13 +84,14 @@ func TestRunProviderClaudeFallsBackFreshOnceWhenStoredSessionIsGone(t *testing.T
 	freshID := "123e4567-e89b-12d3-a456-426614174000"
 	script := `#!/bin/sh
 set -eu
-printf '%s\n' "$*" >> "$CLAUDE_CALL_LOG"
 case " $* " in
   *" --resume ` + staleID + ` "*)
+    printf '%s\n' 'resume:` + staleID + `' >> "$CLAUDE_CALL_LOG"
     printf '%s\n' 'Session not found' >&2
     exit 2
     ;;
   *)
+    printf '%s\n' 'fresh' >> "$CLAUDE_CALL_LOG"
     printf '%s\n' '{"type":"result","subtype":"success","result":"fresh fallback completed","session_id":"` + freshID + `"}'
     ;;
 esac
@@ -126,7 +128,7 @@ esac
 	if len(lines) != 2 {
 		t.Fatalf("stale-session fallback invoked Claude %d times, want exactly 2: %s", len(lines), calls)
 	}
-	if !strings.Contains(lines[0], "--resume "+staleID) || strings.Contains(lines[1], "--resume") {
+	if lines[0] != "resume:"+staleID || lines[1] != "fresh" {
 		t.Fatalf("unexpected stale-session fallback sequence: %#v", lines)
 	}
 }
