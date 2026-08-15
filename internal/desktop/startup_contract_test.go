@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestProductionEntryUsesOwnershipAwareDesktopStartup(t *testing.T) {
+func TestProductionEntryUsesFailClosedOwnershipAwareStartup(t *testing.T) {
 	_, here, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot resolve test source path")
@@ -19,11 +19,11 @@ func TestProductionEntryUsesOwnershipAwareDesktopStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(body)
-	if !strings.Contains(text, "workbenchSingleInstanceHandle != 0") {
-		t.Fatal("production entry does not pass the named-mutex ownership proof")
+	if !strings.Contains(text, "workbenchSingleInstanceHandle == 0") {
+		t.Fatal("production entry does not fail closed when named-mutex ownership is unavailable")
 	}
-	if !strings.Contains(text, "desktop.RunOwned(appVersion, processOwnershipConfirmed)") {
-		t.Fatal("production entry is not bound to ownership-aware desktop startup")
+	if !strings.Contains(text, "desktop.RunOwned(appVersion, true)") {
+		t.Fatal("production entry is not bound to confirmed ownership-aware desktop startup")
 	}
 	if strings.Contains(text, "desktop.Run(appVersion)") {
 		t.Fatal("production entry still calls the legacy unconditional recovery startup")
