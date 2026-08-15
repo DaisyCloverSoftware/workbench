@@ -27,6 +27,7 @@ func (s *Shell) paintProductionWorkSettingsPanels() {
 	contentW := width - x - pad
 	contentH := height - productionHeaderHeight - pad - 8
 
+	var controls []int
 	switch s.page {
 	case pageWork:
 		left := 270
@@ -39,16 +40,23 @@ func (s *Shell) paintProductionWorkSettingsPanels() {
 		roundedPanel(hdc, rectWH(x-8, y-4, left+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
 		roundedPanel(hdc, rectWH(x+left+gap-8, y-4, center+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
 		roundedPanel(hdc, rectWH(x+left+gap+center+gap-8, y-4, right+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
+		controls = s.workControlIDs()
 	case pageSettings:
 		gap := 18
 		left := (contentW - gap) / 2
 		right := contentW - left - gap
 		roundedPanel(hdc, rectWH(x-8, y-4, left+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
 		roundedPanel(hdc, rectWH(x+left+gap-8, y-4, right+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
+		controls = s.settingsControlIDs()
 	}
 
-	// Child windows are real native controls. Repaint them after drawing the
-	// parent card surfaces so the decoration can never obscure an interactive
-	// control or replace its native focus/input behaviour.
-	procRedrawWindow.Call(s.hwnd, 0, 0, rdwInvalidate|rdwAllChildren|rdwUpdateNow)
+	// Child windows remain the actual interactive controls. Invalidate only the
+	// children after painting the parent card surfaces; never invalidate the
+	// parent here, otherwise its normal background paint would erase the cards.
+	for _, id := range controls {
+		if hwnd := s.controls[id]; hwnd != 0 {
+			procInvalidateRect.Call(hwnd, 0, 1)
+			procUpdateWindow.Call(hwnd)
+		}
+	}
 }
