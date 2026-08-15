@@ -105,6 +105,85 @@ func TestBuildSnapshotPreservesValidSelectionBeforeAttentionPriority(t *testing.
 	}
 }
 
+func TestFirstAttentionTargetUsesSidebarProjectOrder(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unpinned, err := eng.SelectProject(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	pinned, err := eng.SelectProject(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := eng.SetProjectPinned(pinned.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.SelectProject(unpinned.Path); err != nil {
+		t.Fatal(err)
+	}
+
+	st := eng.State()
+	st.Tasks = []core.Task{
+		{ID: "unpinned-attention", ProjectPath: unpinned.Path, Status: core.TaskNeedsAttention},
+		{ID: "pinned-done", ProjectPath: pinned.Path, Status: core.TaskCompleted},
+		{ID: "pinned-attention", ProjectPath: pinned.Path, Status: core.TaskNeedsAttention},
+	}
+	if err := store.Save(st); err != nil {
+		t.Fatal(err)
+	}
+	eng, err = core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target, ok := FirstAttentionTarget(eng)
+	if !ok {
+		t.Fatal("expected a global human-attention target")
+	}
+	if target.ProjectID != pinned.ID || target.TaskID != "pinned-attention" {
+		t.Fatalf("attention target=%#v want pinned project/task", target)
+	}
+	active, ok := eng.ActiveProject()
+	if !ok || active.ID != unpinned.ID {
+		t.Fatalf("read-only attention lookup changed active project: %#v ok=%t", active, ok)
+	}
+}
+
+func TestFirstAttentionTargetReturnsFalseWithoutHumanBoundary(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	project, err := eng.SelectProject(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := eng.State()
+	st.Tasks = []core.Task{{ID: "working", ProjectPath: project.Path, Status: core.TaskRunning}}
+	if err := store.Save(st); err != nil {
+		t.Fatal(err)
+	}
+	eng, err = core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target, ok := FirstAttentionTarget(eng); ok {
+		t.Fatalf("unexpected attention target: %#v", target)
+	}
+}
+
 func TestTaskItemCarriesStructuredReviewAndPullRequestFacts(t *testing.T) {
 	task := core.Task{
 		ID:          "review",
