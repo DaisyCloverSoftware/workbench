@@ -209,7 +209,6 @@ func validatePublishRemote(remote string) error {
 			if _, hasPassword := u.User.Password(); hasPassword {
 				return errors.New("SSH publication target must not contain a password")
 			}
-		}
 	case "file":
 		if u.Path == "" || u.Host != "" {
 			return errors.New("file publication target must be a local absolute URL")
@@ -221,7 +220,7 @@ func validatePublishRemote(remote string) error {
 }
 
 func isolatedPublishGitDir(ctx context.Context, root string) (string, error) {
-	dir, err := os.MkdirTemp("", "workbench-publish-git-")
+	dir, err := NewScratchDirectory("publish-git-")
 	if err != nil {
 		return "", err
 	}
