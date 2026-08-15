@@ -1,0 +1,94 @@
+name: ui-responsiveness
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-ui-responsiveness:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Build production Workbench
+        shell: pwsh
+        run: go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
+      - name: Prove Dashboard Work and Settings stay responsive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:APPDATA = Join-Path $pwd '.responsive-appdata'
+          $env:LOCALAPPDATA = Join-Path $pwd '.responsive-localappdata'
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:APPDATA 'Workbench'),$env:LOCALAPPDATA | Out-Null
+
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class WorkbenchResponsiveness {
+              [DllImport("user32.dll", SetLastError=true)]
+              public static extern IntPtr SendMessageTimeout(
+                  IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam,
+                  uint flags, uint timeout, out UIntPtr result);
+              [DllImport("user32.dll")]
+              public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+          }
+          '@
+
+          function Assert-Responsive([IntPtr]$handle, [string]$label) {
+            $result = [UIntPtr]::Zero
+            $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
+              $handle, 0, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
+            if ($sent -eq [IntPtr]::Zero) {
+              throw "Workbench stopped responding while checking $label."
+            }
+          }
+
+          function Click-Control([IntPtr]$parent, [int]$id, [string]$label) {
+            $control = [WorkbenchResponsiveness]::GetDlgItem($parent, $id)
+            if ($control -eq [IntPtr]::Zero) {
+              throw "Could not find $label control ($id)."
+            }
+            $result = [UIntPtr]::Zero
+            $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
+              $control, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
+            if ($sent -eq [IntPtr]::Zero) {
+              throw "$label navigation did not return within 2 seconds."
+            }
+          }
+
+          $process = Start-Process -FilePath (Join-Path $pwd 'Workbench.exe') -PassThru
+          try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(12)
+            do {
+              Start-Sleep -Milliseconds 250
+              $process.Refresh()
+            } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline -and -not $process.HasExited)
+
+            if ($process.HasExited) { throw 'Workbench exited before creating its production window.' }
+            if ($process.MainWindowHandle -eq 0) { throw 'Workbench did not expose a production window handle.' }
+            $window = [IntPtr]$process.MainWindowHandle
+
+            Assert-Responsive $window 'startup Dashboard'
+            for ($i = 0; $i -lt 8; $i++) {
+              Click-Control $window 3002 'Settings'
+              Start-Sleep -Milliseconds 150
+              Assert-Responsive $window "Settings pass $i"
+
+              Click-Control $window 3001 'Work'
+              Start-Sleep -Milliseconds 150
+              Assert-Responsive $window "Work pass $i"
+
+              Click-Control $window 3301 'Dashboard'
+              Start-Sleep -Milliseconds 150
+              Assert-Responsive $window "Dashboard pass $i"
+            }
+          } finally {
+            if ($process -and -not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
