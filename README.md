@@ -25,17 +25,21 @@ Workbench separates **intelligence** from **agency**:
 
 ## What works today
 
-- Native standalone Windows application.
-- Headless Linux/cluster runner with cost-aware routing.
+- One production task-first Windows application with a first-class multi-project sidebar, project-scoped notes/tasks, global attention navigation and advanced controls under Settings.
+- Headless Linux/cluster runner with cost-aware routing, durable detached jobs and operator-only verified updates.
 - Adapter discovery for local models, coding CLIs and external harnesses.
 - Model-safe repository `list_files`, `search_text`, and `read_file` tools.
 - Persistent project/global knowledge for facts, decisions, constraints, patterns, routines and reusable code.
 - Compact continuation capsules so a fresh conversation can resume without replaying a long transcript.
 - Safe hands for exact patch application and allowlisted build/test/status commands.
-- Durable autonomous task delegation, retries, reports and attention boundaries.
+- Durable autonomous task delegation, retries, reports and genuine attention boundaries.
+- Workbench-owned isolated task worktrees, deterministic review commits, controlled review-branch publication and retryable GitHub PR delivery without recoding.
+- Project-aware MCP workspace discovery that exposes safe routing facts without exposing project notes, secrets or publication targets.
+- Bounded worker and runner output so noisy CLIs cannot grow Workbench memory/state without limit while final attention/unavailable signals remain detectable.
 - Secret-like content protection for model-readable memory plus a local encrypted vault whose plaintext is not exposed through MCP.
 - Harness-agnostic architecture: OpenClaw is an adapter, not the foundation.
 - Bidirectional Git relay transport for Personal Pro-style workflows, with status-only public mode and report-capable private mode.
+- Verified `Workbench-Updater.exe` plus transactional Linux cluster maintenance with checksum/architecture validation and rollback.
 
 ## Desired user experience
 
@@ -61,7 +65,7 @@ Human intent
     |
 lead chat / Workbench desktop
     |
-context capsule + project/global memory + reusable routines
+project registry + context capsule + project/global memory + reusable routines
     |
 MCP / relay / structured task transport
     |

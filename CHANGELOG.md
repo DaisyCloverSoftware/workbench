@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.0 — 2026-08-15
+
+- Replaced the remaining prototype/dogfood desktop split with one production `Workbench.exe`: a task-first multi-project workspace plus explicit Settings for workers, MCP, runner/harness configuration, review policy, encrypted vault and verified maintenance.
+- Added a durable first-class project registry with pinned/recent ordering, per-project notes and task views, legacy-state migration, Windows filesystem-identity canonicalisation, and safeguards against project duplication through short-path/symlink aliases.
+- Background delegation and cross-project notes no longer steal the human's active desktop project; MCP `get_workspace` exposes only privacy-minimal registered-project routing facts so connected chat can target `project_path` explicitly.
+- Project removal now refuses to hide queued, routing, running or needs-attention work while preserving terminal task history after explicit removal.
+- Hardened production desktop lifecycle ownership: the per-user Windows mutex is required before durable state opens or interrupted work recovers, eliminating a rare fail-open concurrent-state path.
+- Bounded local worker stdout/stderr, custom-harness capture, Ollama replies, runner responses and SSH transport; durable reports are capped separately while preserving prefix and rolling tail so final `ATTENTION_REQUIRED` / `WORKER_UNAVAILABLE` control markers remain detectable.
+- Durable runner transport now treats malformed or oversized submit/status replies as ambiguous transport state and stays attached to the same idempotent task ID rather than routing a second coder onto the repository.
+- Added global human-attention navigation across projects and a native minimum window geometry so required answer/review controls cannot be resized off-screen.
+- Removed `Workbench-Dogfood.exe` from production packaging and deleted the obsolete dogfood command; Windows CI now produces only the production app and verified updater.
+
 ## 0.7.0 — 2026-08-15
 
 - Moved Workbench-owned review and relay scratch worktrees out of system `/tmp` and into a private cache-backed scratch area, with `WORKBENCH_SCRATCH_ROOT` available for a deliberately chosen larger volume.
