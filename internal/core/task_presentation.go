@@ -12,20 +12,23 @@ import (
 // MCP and future companion surfaces cannot drift on what the user should do
 // next. Publication targets/URLs remain private policy data.
 type TaskPresentation struct {
-	StatusLabel       string                  `json:"status_label"`
-	NextAction        string                  `json:"next_action"`
-	ProviderLabel     string                  `json:"provider_label"`
-	RetryAt           *time.Time              `json:"retry_at,omitempty"`
-	ReviewBranch      string                  `json:"review_branch,omitempty"`
-	ReviewCommit      string                  `json:"review_commit,omitempty"`
-	ReviewFiles       int                     `json:"review_files,omitempty"`
-	PublicationStatus ReviewPublicationStatus `json:"publication_status,omitempty"`
-	Published         bool                    `json:"published,omitempty"`
-	PullRequestStatus ReviewPullRequestStatus `json:"pull_request_status,omitempty"`
-	PullRequestNumber int                     `json:"pull_request_number,omitempty"`
-	PullRequestState  string                  `json:"pull_request_state,omitempty"`
-	NeedsHuman        bool                    `json:"needs_human"`
-	Terminal          bool                    `json:"terminal"`
+	StatusLabel             string                  `json:"status_label"`
+	NextAction              string                  `json:"next_action"`
+	ProviderLabel          string                  `json:"provider_label"`
+	RetryAt                *time.Time              `json:"retry_at,omitempty"`
+	DependencyKind         DependencyKind            `json:"dependency_kind,omitempty"`
+	DependencyState         string                  `json:"dependency_state,omitempty"`
+	DependencyNextCheckAt *time.Time              `json:"dependency_next_check_at,omitempty"`
+	ReviewBranch            string                  `json:"review_branch,omitempty"`
+	ReviewCommit            string                  `json:"review_commit,omitempty"`
+	ReviewFiles             int                    `json:"review_files,omitempty"`
+	PublicationStatus       ReviewPublicationStatus `json:"publication_status,omitempty"`
+	Published               bool                    `json:"published,omitempty"`
+	PullRequestStatus       ReviewPullRequestStatus `json:"pull_request_status,omitempty"`
+	PullRequestNumber       int                    `json:"pull_request_number,omitempty"`
+	PullRequestState         string                  `json:"pull_request_state,omitempty"`
+	NeedsHuman               bool                    `json:"needs_human"`
+	Terminal                bool                    `json:"terminal"`
 }
 
 type TaskDashboardSummary struct {
@@ -38,7 +41,7 @@ type TaskDashboardSummary struct {
 // preparedReviewLine is retained only for v0.7-era persisted task history.
 // New executions persist Task.Review and must never depend on parsing worker
 // prose to decide whether a review artifact exists.
-var preparedReviewLine = regexp.MustCompile(`(?m)Workbench (prepared|published) review branch ([^\s]+) at ([0-9a-fA-F]{7,64})\.`)
+var preparedReviewLine = regexp.MustCompile`((?m)Workbench (prepared|published) review branch ([^\s]+) at ([0-9a-fA-F]{7,64})\.`)
 
 func PresentTask(t Task) TaskPresentation {
 	provider := strings.TrimSpace(t.ProviderID)
@@ -49,6 +52,14 @@ func PresentTask(t Task) TaskPresentation {
 	if t.RetryAt != nil {
 		retryAt := t.RetryAt.UTC()
 		p.RetryAt = &retryAt
+	}
+	if dependency := t.Dependency; dependency != nil {
+		p.DependencyKind = dependency.Kind
+		p.DependencyState = strings.TrimSpace(dependency.State)
+		next := dependency.NextCheckAt.UTC()
+		if !next.IsZero() {
+			p.DependencyNextCheckAt = &next
+		}
 	}
 	if review := t.Review; review != nil && review.Changed {
 		p.ReviewBranch = review.Branch
@@ -85,6 +96,13 @@ func PresentTask(t Task) TaskPresentation {
 	case TaskWaitingRetry:
 		p.StatusLabel = "Waiting to retry"
 		p.NextAction = "A low-cost worker hit a temporary availability limit. Workbench will retry automatically after its cooldown; you do not need to supervise it."
+	case TaskWaitingDependency:
+		p.StatusLabel = "Waiting on dependency"
+		if strings.EqualFold(p.DependencyState, "probe_unavailable") {
+			p.NextAction = "The dependency status check is temporarily unavailable. Workbench is backing off and will keep monitoring in the background. No coding worker is held while it waits."
+		} else {
+			p.NextAction = "Workbench is monitoring this external dependency with progressive backoff and will resume the task automatically when it finishes. No coding worker is held; other Workbench work can continue."
+		}
 	case TaskNeedsAttention:
 		p.StatusLabel = "Needs you"
 		p.NeedsHuman = true
@@ -98,7 +116,7 @@ func PresentTask(t Task) TaskPresentation {
 			if state == "" {
 				state = "ready"
 			}
-			p.NextAction = fmt.Sprintf("Review GitHub PR #%d (%s). Workbench has finished the coding and delivery work.", p.PullRequestNumber, state)
+			p.NextAction = fmt.Sprintf("Review GitHub PR #d (%s). Workbench has finished the coding and delivery work.", p.PullRequestNumber, state)
 		case p.ReviewBranch != "" && p.PublicationStatus == ReviewPublicationFailed:
 			p.NextAction = fmt.Sprintf("Code is ready for review on %s at %s. Automatic publication did not complete; the prepared review is preserved and does not need to be recoded. Retry review delivery; coding will not run again.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "" && p.Published && p.PullRequestStatus == ReviewPullRequestUnavailable:
@@ -119,7 +137,7 @@ func PresentTask(t Task) TaskPresentation {
 		p.Terminal = true
 		p.NextAction = "This task is stopped. Start a new task when you want to continue."
 	default:
-		p.StatusLabel = strings.Title(strings.ReplaceAll(string(t.Status), "_", " "))
+		p.StatusLabel = strings.Title(strings.ReplaceAll(string(t.Status), "_", " ))
 		p.NextAction = "Review the task details below."
 	}
 	return p
@@ -129,7 +147,7 @@ func SummarizeTasks(tasks []Task) TaskDashboardSummary {
 	var s TaskDashboardSummary
 	for _, t := range tasks {
 		switch t.Status {
-		case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry:
+		case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry, TaskWaitingDependency:
 			s.Active++
 		case TaskNeedsAttention:
 			s.NeedsHuman++

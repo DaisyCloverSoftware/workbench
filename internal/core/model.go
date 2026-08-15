@@ -29,15 +29,37 @@ type Provider struct {
 type TaskStatus string
 
 const (
-	TaskQueued         TaskStatus = "queued"
-	TaskRouting        TaskStatus = "routing"
-	TaskRunning        TaskStatus = "running"
-	TaskWaitingRetry   TaskStatus = "waiting_retry"
-	TaskNeedsAttention TaskStatus = "needs_attention"
-	TaskCompleted      TaskStatus = "completed"
-	TaskFailed         TaskStatus = "failed"
-	TaskCancelled      TaskStatus = "cancelled"
+	TaskQueued            TaskStatus = "queued"
+	TaskRouting           TaskStatus = "routing"
+	TaskRunning           TaskStatus = "running"
+	TaskWaitingRetry      TaskStatus = "waiting_retry"
+	TaskWaitingDependency TaskStatus = "waiting_dependency"
+	TaskNeedsAttention    TaskStatus = "needs_attention"
+	TaskCompleted         TaskStatus = "completed"
+	TaskFailed            TaskStatus = "failed"
+	TaskCancelled         TaskStatus = "cancelled"
 )
+
+type DependencyKind string
+
+const DependencyGitHubActions DependencyKind = "github_actions"
+
+// TaskDependency is a Workbench-owned external wait. It deliberately stores
+// only the minimum durable locator/state required to resume work without
+// keeping an AI worker alive. Secrets and raw provider/API responses do not
+// belong here.
+type TaskDependency struct {
+	Kind          DependencyKind `json:"kind"`
+	Reason        string         `json:"reason,omitempty"`
+	Repository    string         `json:"repository,omitempty"`
+	RunID         int64          `json:"run_id,omitempty"`
+	State         string         `json:"state,omitempty"`
+	Conclusion    string         `json:"conclusion,omitempty"`
+	CheckCount    int            `json:"check_count,omitempty"`
+	StartedAt     time.Time      `json:"started_at"`
+	LastCheckedAt time.Time      `json:"last_checked_at,omitempty"`
+	NextCheckAt   time.Time      `json:"next_check_at"`
+}
 
 type Task struct {
 	ID                string            `json:"id"`
@@ -59,6 +81,8 @@ type Task struct {
 	ConsumesWork      bool              `json:"consumes_work"`
 	AutoRetryCount    int               `json:"auto_retry_count,omitempty"`
 	RetryAt           *time.Time        `json:"retry_at,omitempty"`
+	Dependency        *TaskDependency   `json:"dependency,omitempty"`
+	DependencyResult  string            `json:"dependency_result,omitempty"`
 	StartedAt         *time.Time        `json:"started_at,omitempty"`
 	FinishedAt        *time.Time        `json:"finished_at,omitempty"`
 
