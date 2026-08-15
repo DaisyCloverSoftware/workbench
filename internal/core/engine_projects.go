@@ -165,6 +165,11 @@ func (e *Engine) TasksForProject(projectID string) []Task {
 	return tasks
 }
 
+// touchProjectState records that a project was used by a task without treating
+// background delegation as a human navigation command. The existing active
+// project remains active; only the first task in an otherwise empty registry
+// establishes an active project. Explicit SelectProject remains the sole way to
+// switch an already-established human workspace selection.
 func touchProjectState(st *State, path string) {
 	if st == nil || strings.TrimSpace(path) == "" {
 		return
@@ -173,7 +178,16 @@ func touchProjectState(st *State, path string) {
 	if err != nil {
 		return
 	}
-	st.ActiveProjectID = project.ID
+	activeExists := false
+	for _, existing := range st.Projects {
+		if existing.ID == st.ActiveProjectID {
+			activeExists = true
+			break
+		}
+	}
+	if !activeExists {
+		st.ActiveProjectID = project.ID
+	}
 	mirrorActiveProject(st)
 }
 
