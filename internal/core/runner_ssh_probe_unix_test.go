@@ -35,3 +35,16 @@ esac`)
 		t.Fatalf("runner probe invoked OpenClaw instead of Workbench Runner: %s", text)
 	}
 }
+
+func TestWorkbenchRunnerSSHRejectsOversizedVersionResponse(t *testing.T) {
+	_, _ = installFakeRunnerSSH(t, `
+case "$*" in
+  *"\$HOME/.local/bin/workbench-runner version") head -c 5000000 /dev/zero | tr '\000' x ;;
+  *) exit 2 ;;
+esac`)
+
+	_, err := TestWorkbenchRunnerSSH("runner.example")
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "bounded ssh transport") {
+		t.Fatalf("expected bounded-transport rejection, got %v", err)
+	}
+}
