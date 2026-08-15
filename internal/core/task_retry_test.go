@@ -56,8 +56,7 @@ func TestDeferAutomaticRetryIsBoundedAndCancellationDisarmsTimer(t *testing.T) {
 	}
 	e := &Engine{store: store, state: st, cancel: map[string]context.CancelFunc{}}
 
-	retryAt := time.Now().UTC().Add(75 * time.Millisecond)
-	scheduled, err := e.deferAutomaticRetry("task-retry", retryAt)
+	scheduled, err := e.deferAutomaticRetry("task-retry", time.Now().UTC().Add(time.Minute))
 	if err != nil || !scheduled {
 		t.Fatalf("scheduled=%t err=%v", scheduled, err)
 	}
@@ -65,10 +64,13 @@ func TestDeferAutomaticRetryIsBoundedAndCancellationDisarmsTimer(t *testing.T) {
 	if !ok || task.Status != TaskWaitingRetry || task.AutoRetryCount != 1 || task.RetryAt == nil {
 		t.Fatalf("task was not durably deferred: %#v", task)
 	}
+	persistedRetryAt := *task.RetryAt
 	if err := e.Cancel("task-retry"); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(125 * time.Millisecond)
+	// Simulate the exact persisted timer firing after cancellation. The state
+	// check must ignore it rather than queueing/executing the task again.
+	e.fireAutomaticRetry("task-retry", persistedRetryAt)
 	task, _ = e.Task("task-retry")
 	if task.Status != TaskCancelled || task.RetryAt != nil {
 		t.Fatalf("cancelled retry timer resurrected task: %#v", task)
