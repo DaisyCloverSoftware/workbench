@@ -12,7 +12,7 @@ func TestWorkbenchRunnerSSHUsesFixedRunnerVersionCommand(t *testing.T) {
 	_, logPath := installFakeRunnerSSH(t, `
 printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
 case "$*" in
-  *"$HOME/.local/bin/workbench-runner version") printf '%s\n' '0.8.0' ;;
+  *"\$HOME/.local/bin/workbench-runner version") printf '%s\n' '0.8.0' ;;
   *) exit 2 ;;
 esac`)
 
