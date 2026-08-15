@@ -14,7 +14,7 @@ import (
 
 func TestTerminateRunnerJobProcessStopsWholeDetachedGroup(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "orphan-marker")
-	cmd := exec.Command("sh", "-c", `(sleep 1; printf orphan > "$1") & wait`, "sh", marker)
+	cmd := exec.Command("sh", "-c", `(sleep 1; printf orphan > ${1}) & wait`, "sh", marker)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
