@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,6 +119,25 @@ func TestProviderSessionStoreContainsNoTaskPayloadOrProjectMetadata(t *testing.T
 	for _, forbidden := range []string{"project_path", "intent", "prompt", "output", "transcript", "remote_url", "credential", "account"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("provider-session store exposed forbidden field %q: %s", forbidden, body)
+		}
+	}
+}
+
+func TestProviderSessionIdentityNeverEntersTaskOrRunnerRequestJSON(t *testing.T) {
+	task := Task{ID: "task-private", ProjectPath: "/project", Intent: "work"}
+	for name, value := range map[string]any{
+		"task":           task,
+		"runner_request": RunnerRequest{Task: task, AvoidWorkUsage: true},
+	} {
+		body, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := strings.ToLower(string(body))
+		for _, forbidden := range []string{"session_id", "provider_session", "provider_sessions"} {
+			if strings.Contains(text, forbidden) {
+				t.Fatalf("%s exposed private provider session field %q: %s", name, forbidden, body)
+			}
 		}
 	}
 }
