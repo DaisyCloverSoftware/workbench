@@ -100,7 +100,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		if runErr == nil {
 			res.Output = persistWorkerMemories(task, res.Output)
 		}
-		return res, runErr
+		return boundRunResultForPersistence(res), runErr
 	case "openclaw":
 		if host := strings.TrimSpace(prefs.OpenClawSSHHost); host != "" {
 			name = "ssh"
@@ -110,7 +110,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 			if runErr == nil {
 				res.Output = persistWorkerMemories(task, res.Output)
 			}
-			return res, runErr
+			return boundRunResultForPersistence(res), runErr
 		} else if strings.TrimSpace(p.Command) != "" {
 			name = p.Command
 			args = []string{"agent", "--message", prompt, "--headless"}
@@ -122,7 +122,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		if runErr == nil {
 			res.Output = persistWorkerMemories(task, res.Output)
 		}
-		return res, runErr
+		return boundRunResultForPersistence(res), runErr
 	default:
 		return RunResult{}, fmt.Errorf("provider %s is not an executable worker", p.ID)
 	}
@@ -132,9 +132,10 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		cmd.Dir = abs
 	}
 	configureChildProcess(cmd, false)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
+	stderr := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	err = cmd.Run()
 	out := strings.TrimSpace(stdout.String())
 	if se := strings.TrimSpace(stderr.String()); se != "" {
@@ -147,13 +148,13 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 	res := classifyRunOutput(out)
 	if strings.TrimSpace(res.WorkerUnavailable) != "" {
 		res.Retryable = true
-		return res, fmt.Errorf("%s is unavailable for this task: %s", p.Name, res.WorkerUnavailable)
+		return boundRunResultForPersistence(res), fmt.Errorf("%s is unavailable for this task: %s", p.Name, res.WorkerUnavailable)
 	}
 	if strings.TrimSpace(res.Attention) != "" && isWorkerSetupAttention(res.Attention) {
 		q := res.Attention
 		res.Attention = ""
 		res.Retryable = true
-		return res, fmt.Errorf("%s cannot act autonomously under its current local tool permissions: %s", p.Name, q)
+		return boundRunResultForPersistence(res), fmt.Errorf("%s cannot act autonomously under its current local tool permissions: %s", p.Name, q)
 	}
 	if err != nil {
 		low := strings.ToLower(out + " " + err.Error())
@@ -163,10 +164,10 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 			out = err.Error()
 			res.Output = out
 		}
-		return res, fmt.Errorf("%s exited with error: %w", p.Name, err)
+		return boundRunResultForPersistence(res), fmt.Errorf("%s exited with error: %w", p.Name, err)
 	}
 	res.Output = persistWorkerMemories(task, res.Output)
-	return res, nil
+	return boundRunResultForPersistence(res), nil
 }
 
 func runCommandTemplate(ctx context.Context, template, project, prompt string) (RunResult, error) {
@@ -182,10 +183,10 @@ func runCommandTemplate(ctx context.Context, template, project, prompt string) (
 	}
 	cmd.Dir = project
 	configureChildProcess(cmd, false)
-	var buf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &buf, &buf
+	capture := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
+	cmd.Stdout, cmd.Stderr = capture, capture
 	err := cmd.Run()
-	res := classifyRunOutput(buf.String())
+	res := classifyRunOutput(capture.String())
 	if err != nil {
 		res.Retryable = true
 		return res, err
@@ -287,7 +288,7 @@ func classifyRunOutput(out string) RunResult {
 		line = strings.TrimSpace(line)
 		upper := strings.ToUpper(line)
 		if strings.HasPrefix(upper, "WORKER_UNAVAILABLE:") {
-			res.WorkerUnavailable = strings.TrimSpace(line[len("WORKER_UNAVAILABLE:"):])
+			res.WorkerUnavailable = boundWorkerControlText(strings.TrimSpace(line[len("WORKER_UNAVAILABLE:"):]))
 			if res.WorkerUnavailable == "" {
 				res.WorkerUnavailable = "worker-local setup or tool policy prevented execution"
 			}
@@ -295,7 +296,7 @@ func classifyRunOutput(out string) RunResult {
 			continue
 		}
 		if strings.HasPrefix(upper, "ATTENTION_REQUIRED:") {
-			res.Attention = strings.TrimSpace(line[len("ATTENTION_REQUIRED:"):])
+			res.Attention = boundWorkerControlText(strings.TrimSpace(line[len("ATTENTION_REQUIRED:"):]))
 			if res.Attention == "" {
 				res.Attention = "The worker needs a human decision."
 			}
@@ -351,7 +352,7 @@ func runOllama(ctx context.Context, prompt string) (RunResult, error) {
 	var gen struct {
 		Response string `json:"response"`
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 32<<20)).Decode(&gen); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxWorkerStreamCaptureBytes+(1<<20))).Decode(&gen); err != nil {
 		return RunResult{}, err
 	}
 	return classifyRunOutput(gen.Response), nil
