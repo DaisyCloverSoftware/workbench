@@ -85,13 +85,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		name = p.Command
 		args = []string{"-p", prompt, "-s", "--no-ask-user"}
 	case "claude":
-		name = p.Command
-		// acceptEdits handles repository writes non-interactively. A narrow
-		// --allowedTools set covers common local verification commands without
-		// granting unrestricted Bash; everything else remains provider-controlled
-		// and can be routed around as a worker-local limitation.
-		args = []string{"-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits", "--allowedTools"}
-		args = append(args, claudeAllowedTools()...)
+		return runClaudeProvider(ctx, p, task, abs, prompt)
 	case StructuredHarnessProviderID:
 		res, runErr := RunHarnessAdapter(ctx, p.Command, task, prompt)
 		if runErr == nil {
