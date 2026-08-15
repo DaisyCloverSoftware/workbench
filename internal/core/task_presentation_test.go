@@ -3,6 +3,7 @@ package core
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPresentTaskMakesAutonomousNextActionExplicit(t *testing.T) {
@@ -15,6 +16,20 @@ func TestPresentTaskMakesAutonomousNextActionExplicit(t *testing.T) {
 	}
 	if p.NextAction == "" {
 		t.Fatal("running task has no next action")
+	}
+}
+
+func TestPresentTaskWaitingRetryRemainsAutonomousAndActive(t *testing.T) {
+	retryAt := time.Date(2026, 8, 15, 18, 30, 0, 0, time.UTC)
+	p := PresentTask(Task{Status: TaskWaitingRetry, RetryAt: &retryAt, AutoRetryCount: 1})
+	if p.StatusLabel != "Waiting to retry" || p.NeedsHuman || p.Terminal {
+		t.Fatalf("waiting retry presentation = %#v", p)
+	}
+	if p.RetryAt == nil || !p.RetryAt.Equal(retryAt) {
+		t.Fatalf("retry deadline missing from presentation: %#v", p)
+	}
+	if !strings.Contains(strings.ToLower(p.NextAction), "retry automatically") || !strings.Contains(strings.ToLower(p.NextAction), "do not need to supervise") {
+		t.Fatalf("waiting retry next action is not unattended: %q", p.NextAction)
 	}
 }
 
@@ -89,12 +104,13 @@ func TestSummarizeTasks(t *testing.T) {
 	s := SummarizeTasks([]Task{
 		{Status: TaskQueued},
 		{Status: TaskRunning},
+		{Status: TaskWaitingRetry},
 		{Status: TaskNeedsAttention},
 		{Status: TaskCompleted},
 		{Status: TaskFailed},
 		{Status: TaskCancelled},
 	})
-	if s.Active != 2 || s.NeedsHuman != 1 || s.Completed != 1 || s.Failed != 1 {
+	if s.Active != 3 || s.NeedsHuman != 1 || s.Completed != 1 || s.Failed != 1 {
 		t.Fatalf("summary = %#v", s)
 	}
 }
