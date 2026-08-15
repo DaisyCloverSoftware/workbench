@@ -40,6 +40,11 @@ type TaskItem struct {
 	PullRequestState    string
 }
 
+type AttentionTarget struct {
+	ProjectID string
+	TaskID    string
+}
+
 type Snapshot struct {
 	Projects        []ProjectItem
 	ActiveProjectID string
@@ -87,6 +92,23 @@ func BuildSnapshot(eng *core.Engine, selectedTaskID string) Snapshot {
 
 	snapshot.SelectedTaskID = chooseSelectedTask(snapshot.Tasks, selectedTaskID)
 	return snapshot
+}
+
+// FirstAttentionTarget returns the first genuine human-attention task in the
+// same pinned/recent project order used by the production sidebar. It is
+// deliberately read-only; the Windows action performs the explicit project
+// selection only after the human clicks Needs you.
+func FirstAttentionTarget(eng *core.Engine) (AttentionTarget, bool) {
+	if eng == nil {
+		return AttentionTarget{}, false
+	}
+	for _, project := range eng.Projects() {
+		for _, task := range eng.TasksForProject(project.ID) {
+			if task.Status == core.TaskNeedsAttention {
+				return AttentionTarget{ProjectID: project.ID, TaskID: task.ID}, true
+			}
+		}
+	return AttentionTarget{}, false
 }
 
 func taskItems(tasks []core.Task) []TaskItem {
