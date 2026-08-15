@@ -8,20 +8,32 @@ import (
 	"testing"
 )
 
-func TestProductionWorkSettingsPaintDoesNotSynchronouslyReenterChildren(t *testing.T) {
+func TestProductionPaintDoesNotCreateSynchronousChildRepaintStorms(t *testing.T) {
 	_, here, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot locate desktop source")
 	}
-	body, err := os.ReadFile(filepath.Join(filepath.Dir(here), "work_settings_panels_windows.go"))
+	dir := filepath.Dir(here)
+	panels, err := os.ReadFile(filepath.Join(dir, "work_settings_panels_windows.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := string(body)
-	if strings.Contains(text, "procUpdateWindow.Call(hwnd)") {
-		t.Fatal("production parent paint synchronously forces child UpdateWindow and can starve the Win32 message pump")
+	panelText := string(panels)
+	for _, forbidden := range []string{"procUpdateWindow.Call(hwnd)", "procInvalidateRect.Call(hwnd, 0, 1)"} {
+		if strings.Contains(panelText, forbidden) {
+			t.Fatalf("production parent paint still schedules child repaint work: %q", forbidden)
+		}
 	}
-	if !strings.Contains(text, "procInvalidateRect.Call(hwnd, 0, 1)") {
-		t.Fatal("production parent paint no longer schedules child repaint through normal message processing")
+
+	visual, err := os.ReadFile(filepath.Join(dir, "visual_windows.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	visualText := string(visual)
+	if strings.Contains(visualText, "rdwUpdateNow") || strings.Contains(visualText, "RDW_UPDATENOW") {
+		t.Fatal("production redraw path forces synchronous UpdateNow instead of returning to the Win32 message loop")
+	}
+	if !strings.Contains(visualText, "rdwInvalidate|rdwErase|rdwAllChildren") {
+		t.Fatal("production redraw no longer queues parent and child invalidation through the normal message loop")
 	}
 }
