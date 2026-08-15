@@ -23,6 +23,9 @@ func spawnDetachedRunnerJob(jobID string) (int, error) {
 	cmd.Stdin = null
 	cmd.Stdout = null
 	cmd.Stderr = null
+	// The runner worker becomes a new session/process-group leader. Provider
+	// CLIs inherit that group, so explicit cancellation can terminate the whole
+	// detached job rather than leaving an orphan coding process behind.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return 0, err
@@ -46,7 +49,10 @@ func terminateRunnerJobProcess(pid int) error {
 	if pid <= 0 {
 		return nil
 	}
-	err := syscall.Kill(pid, syscall.SIGTERM)
+	// Negative PID addresses the process group whose ID is the detached
+	// session leader's PID. This stops Workbench Runner and any provider CLI it
+	// launched for the job as one cancellation unit.
+	err := syscall.Kill(-pid, syscall.SIGTERM)
 	if errors.Is(err, syscall.ESRCH) {
 		return nil
 	}
