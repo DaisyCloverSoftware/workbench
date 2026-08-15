@@ -20,10 +20,11 @@ type TaskWorkspace struct {
 	Project      string    `json:"project"`
 	Workspace    string    `json:"workspace"`
 	BaseRevision string    `json:"base_revision"`
+	BaseBranch   string    `json:"base_branch,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-const taskWorkspaceMetadataVersion = 1
+const taskWorkspaceMetadataVersion = 2
 
 // CreateTaskWorkspace creates a detached Git worktree for one autonomous task.
 // It deliberately requires the user's source worktree to be clean: silently
@@ -49,6 +50,7 @@ func CreateTaskWorkspace(ctx context.Context, project, taskID string) (TaskWorks
 	}
 
 	base := strings.TrimSpace(inspection.BaseRevision)
+	baseBranch := currentTaskBaseBranch(ctx, root)
 	path, metadataPath, err := taskWorkspacePaths(root, taskID)
 	if err != nil {
 		return TaskWorkspace{}, err
@@ -84,6 +86,7 @@ func CreateTaskWorkspace(ctx context.Context, project, taskID string) (TaskWorks
 		Project:      root,
 		Workspace:    path,
 		BaseRevision: base,
+		BaseBranch:   baseBranch,
 		CreatedAt:    time.Now().UTC(),
 	}
 	if err := saveTaskWorkspace(metadataPath, created); err != nil {
@@ -92,6 +95,14 @@ func CreateTaskWorkspace(ctx context.Context, project, taskID string) (TaskWorks
 		return TaskWorkspace{}, err
 	}
 	return created, nil
+}
+
+func currentTaskBaseBranch(ctx context.Context, root string) string {
+	branch, err := runGitLimited(ctx, root, 16<<10, "branch", "--show-current")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(branch)
 }
 
 func OpenTaskWorkspace(project, taskID string) (TaskWorkspace, bool, error) {
@@ -183,7 +194,7 @@ func taskWorkspacePaths(project, taskID string) (string, string, error) {
 }
 
 func validTaskWorkspace(ctx context.Context, ws TaskWorkspace) bool {
-	if ws.Version != taskWorkspaceMetadataVersion || ws.Workspace == "" || ws.Project == "" || ws.BaseRevision == "" {
+	if (ws.Version != 1 && ws.Version != taskWorkspaceMetadataVersion) || ws.Workspace == "" || ws.Project == "" || ws.BaseRevision == "" {
 		return false
 	}
 	info, err := os.Stat(ws.Workspace)
