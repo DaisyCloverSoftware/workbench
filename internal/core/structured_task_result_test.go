@@ -13,12 +13,16 @@ func TestRunResultReviewSurvivesRunnerJSONRoundTrip(t *testing.T) {
 			Review: &TaskReviewResult{
 				Changed:           true,
 				BaseRevision:      "base123",
+				BaseBranch:        "main",
 				Fingerprint:       "fingerprint123",
 				Branch:            "workbench/task-123",
 				Commit:            "abcdef0123456789",
 				Files:             []string{"a.go", "b.go"},
 				PublicationStatus: ReviewPublicationPublished,
 				Published:         true,
+				PullRequestStatus: ReviewPullRequestAvailable,
+				PullRequestNumber: 42,
+				PullRequestState:  "open",
 			},
 		},
 		ProviderID:   "claude",
@@ -38,8 +42,11 @@ func TestRunResultReviewSurvivesRunnerJSONRoundTrip(t *testing.T) {
 	if decoded.Result.Review.Branch != original.Result.Review.Branch || decoded.Result.Review.Commit != original.Result.Review.Commit {
 		t.Fatalf("review identity changed across runner JSON: %#v", decoded.Result.Review)
 	}
-	if len(decoded.Result.Review.Files) != 2 || decoded.Result.Review.PublicationStatus != ReviewPublicationPublished {
+	if len(decoded.Result.Review.Files) != 2 || decoded.Result.Review.PublicationStatus != ReviewPublicationPublished || decoded.Result.Review.BaseBranch != "main" {
 		t.Fatalf("review provenance changed across runner JSON: %#v", decoded.Result.Review)
+	}
+	if decoded.Result.Review.PullRequestStatus != ReviewPullRequestAvailable || decoded.Result.Review.PullRequestNumber != 42 || decoded.Result.Review.PullRequestState != "open" {
+		t.Fatalf("PR review metadata changed across runner JSON: %#v", decoded.Result.Review)
 	}
 }
 
@@ -69,6 +76,9 @@ func TestStructuredTaskReviewNeverCarriesPublicationTarget(t *testing.T) {
 			Commit:            "abcdef0123456789",
 			PublicationStatus: ReviewPublicationPublished,
 			Published:         true,
+			PullRequestStatus: ReviewPullRequestAvailable,
+			PullRequestNumber: 42,
+			PullRequestState:  "open",
 		},
 	}
 	b, err := json.Marshal(task)
@@ -76,7 +86,7 @@ func TestStructuredTaskReviewNeverCarriesPublicationTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := strings.ToLower(string(b))
-	for _, forbidden := range []string{"remote_url", "publication_target", "github.com/", "git@"} {
+	for _, forbidden := range []string{"remote_url", "publication_target", "pull_request_url", "github.com/", "git@"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("structured task result exposed private publication target material %q: %s", forbidden, text)
 		}
