@@ -73,6 +73,101 @@ esac`)
 	}
 }
 
+func TestRunClusterRunnerSSHMalformedSubmitRetriesSameTaskID(t *testing.T) {
+	_, logPath := installFakeRunnerSSH(t, `
+printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
+case "$*" in
+  *"job submit")
+    cat >/dev/null
+    count_file="${FAKE_SSH_LOG}.submit"
+    count=0
+    [ ! -f "$count_file" ] || count=$(cat "$count_file")
+    count=$((count + 1))
+    printf '%s' "$count" > "$count_file"
+    if [ "$count" -eq 1 ]; then
+      printf '%s\n' '{this acknowledgement was interrupted'
+      exit 0
+    fi
+    printf '%s\n' '{"ok":true,"result":{"job":{"id":"task-ssh-durable","task_id":"task-ssh-durable","generation":1,"status":"running","created_at":"2026-08-15T00:00:00Z","updated_at":"2026-08-15T00:00:00Z"},"reused":true}}'
+    ;;
+  *"job status task-ssh-durable")
+    printf '%s\n' '{"ok":true,"job":{"id":"task-ssh-durable","task_id":"task-ssh-durable","generation":1,"status":"completed","created_at":"2026-08-15T00:00:00Z","updated_at":"2026-08-15T00:00:01Z","response":{"result":{"output":"same durable job recovered"},"provider_id":"claude","provider_name":"Claude"}}}'
+    ;;
+  *) exit 2 ;;
+esac`)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	res, err := RunClusterRunnerSSH(ctx, "runner.example", durableSSHTestTask(), Preferences{AvoidWorkUsage: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Output != "same durable job recovered" {
+		t.Fatalf("unexpected durable result: %+v", res)
+	}
+	calls, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(calls)
+	if strings.Count(text, "job submit") != 2 {
+		t.Fatalf("malformed acknowledgement did not retry exactly one idempotent submit:\n%s", text)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(text), "\n") {
+		if strings.Contains(line, "job submit") && !strings.Contains(line, "job submit") {
+			t.Fatalf("unexpected submit command: %s", line)
+		}
+	}
+	if strings.Count(text, "job status task-ssh-durable") != 1 {
+		t.Fatalf("durable status flow was unexpected:\n%s", text)
+	}
+}
+
+func TestRunClusterRunnerSSHOversizedStatusKeepsPollingSameJob(t *testing.T) {
+	_, logPath := installFakeRunnerSSH(t, `
+printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
+case "$*" in
+  *"job submit")
+    cat >/dev/null
+    printf '%s\n' '{"ok":true,"result":{"job":{"id":"task-ssh-durable","task_id":"task-ssh-durable","generation":1,"status":"running","created_at":"2026-08-15T00:00:00Z","updated_at":"2026-08-15T00:00:00Z"},"reused":false}}'
+    ;;
+  *"job status task-ssh-durable")
+    count_file="${FAKE_SSH_LOG}.status"
+    count=0
+    [ ! -f "$count_file" ] || count=$(cat "$count_file")
+    count=$((count + 1))
+    printf '%s' "$count" > "$count_file"
+    if [ "$count" -eq 1 ]; then
+      head -c 5000000 /dev/zero | tr '\000' x
+      exit 0
+    fi
+    printf '%s\n' '{"ok":true,"job":{"id":"task-ssh-durable","task_id":"task-ssh-durable","generation":1,"status":"completed","created_at":"2026-08-15T00:00:00Z","updated_at":"2026-08-15T00:00:02Z","response":{"result":{"output":"recovered after oversized status"},"provider_id":"claude","provider_name":"Claude"}}}'
+    ;;
+  *) exit 2 ;;
+esac`)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	res, err := RunClusterRunnerSSH(ctx, "runner.example", durableSSHTestTask(), Preferences{AvoidWorkUsage: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Output != "recovered after oversized status" {
+		t.Fatalf("unexpected durable result: %+v", res)
+	}
+	calls, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(calls)
+	if strings.Count(text, "job submit") != 1 {
+		t.Fatalf("oversized status response caused work resubmission:\n%s", text)
+	}
+	if strings.Count(text, "job status task-ssh-durable") != 2 {
+		t.Fatalf("oversized status response did not retry the same job exactly once:\n%s", text)
+	}
+}
+
 func TestRunClusterRunnerSSHExplicitCancellationCancelsRemoteJob(t *testing.T) {
 	_, logPath := installFakeRunnerSSH(t, `
 printf '%s\n' "$*" >> "$FAKE_SSH_LOG"
