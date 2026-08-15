@@ -115,18 +115,25 @@ jobs:
               if ($width -lt 800 -or $height -lt 600) { throw "Unexpected Workbench window size ${width}x${height}." }
               $bitmap = New-Object System.Drawing.Bitmap($width, $height)
               $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+              $captured = $false
               try {
-                $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size, [System.Drawing.CopyPixelOperation]::SourceCopy)
-              } catch {
+                # PrintWindow captures the actual full running window even when the
+                # hosted runner's virtual desktop is smaller than Workbench itself.
+                # Desktop pixels are only a fallback for hosts that reject PrintWindow.
                 $hdc = $graphics.GetHdc()
                 try {
-                  if (-not [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)) { throw 'Both desktop capture and PrintWindow failed on the hosted Windows runner.' }
+                  $captured = [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)
                 } finally {
                   $graphics.ReleaseHdc($hdc)
+                }
+                if (-not $captured) {
+                  $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size, [System.Drawing.CopyPixelOperation]::SourceCopy)
+                  $captured = $true
                 }
               } finally {
                 $graphics.Dispose()
               }
+              if (-not $captured) { throw 'Could not capture the running Workbench window.' }
               $bitmap.Save((Join-Path $pwd $name), [System.Drawing.Imaging.ImageFormat]::Png)
               $bitmap.Dispose()
               return "${name}:${width}x${height}"
@@ -148,7 +155,7 @@ jobs:
             Start-Sleep -Milliseconds 750
             $captured += Save-WorkbenchWindow 'Workbench-Settings-Actual.png'
 
-            ("captured actual Workbench.exe pages from the Windows desktop surface with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
+            ("captured actual Workbench.exe pages from the full running window with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
           } catch {
             "screenshot unavailable: $($_.Exception.Message)" | Set-Content -Encoding UTF8 $statusPath
           } finally {
