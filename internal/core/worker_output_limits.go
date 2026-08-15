@@ -144,7 +144,7 @@ func utf8Prefix(text string, limit int) string {
 		return text
 	}
 	end := limit
-	for end > 0 && !utf8.ValidString(text[:end]) {
+	for end > 0 && end < len(text) && !utf8.RuneStart(text[end]) {
 		end--
 	}
 	return text[:end]
