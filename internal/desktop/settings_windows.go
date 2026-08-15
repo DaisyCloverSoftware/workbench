@@ -16,6 +16,8 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/platform"
 )
 
+var loadedSettingsShell *Shell
+
 func (s *Shell) refreshSettings(snapshot Snapshot) {
 	prefs := s.eng.State().Preferences
 	setChecked(s.controls[idProtectWork], prefs.AvoidWorkUsage)
@@ -32,9 +34,12 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 
 	// Do not rewrite editable settings fields on every task/provider refresh.
 	// Reload them only when Settings is first opened or the active project changes.
-	if s.settingsProjectID == snapshot.ActiveProjectID {
+	// The shell identity sentinel matters when no project exists, because an empty
+	// project ID is still a valid first-load state for global routing settings.
+	if loadedSettingsShell == s && s.settingsProjectID == snapshot.ActiveProjectID {
 		return
 	}
+	loadedSettingsShell = s
 	s.settingsProjectID = snapshot.ActiveProjectID
 	setWindowText(s.controls[idRunnerHost], prefs.OpenClawSSHHost)
 	setWindowText(s.controls[idHarnessCommand], prefs.OpenClawCommand)
@@ -233,6 +238,7 @@ func (s *Shell) saveReviewPolicy() {
 		return
 	}
 	s.settingsProjectID = ""
+	loadedSettingsShell = nil
 	scope := "Saved for local Workbench execution."
 	if result.Runner != nil {
 		scope = "Saved locally and synchronised to the configured Workbench runner."
