@@ -108,6 +108,7 @@ func FirstAttentionTarget(eng *core.Engine) (AttentionTarget, bool) {
 				return AttentionTarget{ProjectID: project.ID, TaskID: task.ID}, true
 			}
 		}
+	}
 	return AttentionTarget{}, false
 }
 
@@ -116,22 +117,22 @@ func taskItems(tasks []core.Task) []TaskItem {
 	for _, task := range tasks {
 		presentation := core.PresentTask(task)
 		item := TaskItem{
-			ID:               task.ID,
-			Title:            task.Title,
-			Intent:           task.Intent,
-			Status:           task.Status,
-			StatusLabel:      presentation.StatusLabel,
-			ProviderLabel:    presentation.ProviderLabel,
-			NextAction:       presentation.NextAction,
-			NeedsHuman:       presentation.NeedsHuman,
-			Terminal:         presentation.Terminal,
-			Output:           task.Output,
-			Error:            task.Error,
-			AttentionQuestion: task.AttentionQuestion,
-			ReviewBranch:     presentation.ReviewBranch,
-			ReviewCommit:     presentation.ReviewCommit,
-			ReviewFiles:      presentation.ReviewFiles,
-			PublicationStatus: presentation.PublicationStatus,
+			ID:                 task.ID,
+			Title:              task.Title,
+			Intent:             task.Intent,
+			Status:             task.Status,
+			StatusLabel:        presentation.StatusLabel,
+			ProviderLabel:      presentation.ProviderLabel,
+			NextAction:         presentation.NextAction,
+			NeedsHuman:         presentation.NeedsHuman,
+			Terminal:           presentation.Terminal,
+			Output:             task.Output,
+			Error:              task.Error,
+			AttentionQuestion:  task.AttentionQuestion,
+			ReviewBranch:       presentation.ReviewBranch,
+			ReviewCommit:       presentation.ReviewCommit,
+			ReviewFiles:        presentation.ReviewFiles,
+			PublicationStatus:  presentation.PublicationStatus,
 		}
 		if task.Review != nil {
 			item.PullRequestStatus = task.Review.PullRequestStatus
