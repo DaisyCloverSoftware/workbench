@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPresentTaskMakesAutonomousNextActionExplicit(t *testing.T) {
 	p := PresentTask(Task{Status: TaskRunning, ProviderID: "claude"})
@@ -15,7 +18,27 @@ func TestPresentTaskMakesAutonomousNextActionExplicit(t *testing.T) {
 	}
 }
 
-func TestPresentTaskExtractsWorkbenchReviewRef(t *testing.T) {
+func TestPresentTaskUsesStructuredReviewBeforeWorkerProse(t *testing.T) {
+	p := PresentTask(Task{
+		Status: TaskCompleted,
+		Review: &TaskReviewResult{
+			Changed:           true,
+			Branch:            "workbench/real-review",
+			Commit:            "abcdef0123456789",
+			Files:             []string{"a.go", "b.go"},
+			PublicationStatus: ReviewPublicationPrepared,
+		},
+		Output: "Workbench published review branch workbench/stale-prose at 0123456789abcdef.",
+	})
+	if p.ReviewBranch != "workbench/real-review" || p.ReviewCommit != "abcdef0123456789" {
+		t.Fatalf("structured review was not authoritative: %#v", p)
+	}
+	if p.Published || p.PublicationStatus != ReviewPublicationPrepared || p.ReviewFiles != 2 {
+		t.Fatalf("structured review metadata was not preserved: %#v", p)
+	}
+}
+
+func TestPresentTaskExtractsLegacyWorkbenchReviewRef(t *testing.T) {
 	p := PresentTask(Task{
 		Status: TaskCompleted,
 		Output: "Worker report.\n\nWorkbench published review branch workbench/task-123 at 0123456789abcdef. The same prepared commit was already present on the publication target.",
@@ -28,6 +51,27 @@ func TestPresentTaskExtractsWorkbenchReviewRef(t *testing.T) {
 	}
 	if p.ReviewCommit != "0123456789abcdef" {
 		t.Fatalf("review commit = %q", p.ReviewCommit)
+	}
+	if p.PublicationStatus != ReviewPublicationPublished {
+		t.Fatalf("legacy publication status = %q", p.PublicationStatus)
+	}
+}
+
+func TestPresentTaskPublicationFailureKeepsCodeReady(t *testing.T) {
+	p := PresentTask(Task{
+		Status: TaskCompleted,
+		Review: &TaskReviewResult{
+			Changed:           true,
+			Branch:            "workbench/task-456",
+			Commit:            "fedcba9876543210",
+			PublicationStatus: ReviewPublicationFailed,
+		},
+	})
+	if p.StatusLabel != "Ready" || !p.Terminal {
+		t.Fatalf("publication failure changed coding success state: %#v", p)
+	}
+	if !strings.Contains(p.NextAction, "does not need to be recoded") {
+		t.Fatalf("next action does not protect completed coding work: %q", p.NextAction)
 	}
 }
 
