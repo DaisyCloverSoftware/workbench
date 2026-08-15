@@ -94,7 +94,10 @@ func (e *Engine) scheduleAutomaticRetry(taskID string, retryAt time.Time) {
 		defer timer.Stop()
 		<-timer.C
 	}
+	e.fireAutomaticRetry(taskID, retryAt)
+}
 
+func (e *Engine) fireAutomaticRetry(taskID string, retryAt time.Time) {
 	e.mu.Lock()
 	i := e.taskIndexLocked(taskID)
 	if i < 0 || e.state.Tasks[i].Status != TaskWaitingRetry || e.state.Tasks[i].RetryAt == nil || !e.state.Tasks[i].RetryAt.Equal(retryAt) {
