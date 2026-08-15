@@ -32,6 +32,7 @@ const (
 	TaskQueued         TaskStatus = "queued"
 	TaskRouting        TaskStatus = "routing"
 	TaskRunning        TaskStatus = "running"
+	TaskWaitingRetry   TaskStatus = "waiting_retry"
 	TaskNeedsAttention TaskStatus = "needs_attention"
 	TaskCompleted      TaskStatus = "completed"
 	TaskFailed         TaskStatus = "failed"
@@ -56,6 +57,8 @@ type Task struct {
 	Attempts          []string          `json:"attempts,omitempty"`
 	Review            *TaskReviewResult `json:"review,omitempty"`
 	ConsumesWork      bool              `json:"consumes_work"`
+	AutoRetryCount    int               `json:"auto_retry_count,omitempty"`
+	RetryAt           *time.Time        `json:"retry_at,omitempty"`
 	StartedAt         *time.Time        `json:"started_at,omitempty"`
 	FinishedAt        *time.Time        `json:"finished_at,omitempty"`
 
