@@ -13,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.6.1"
-const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|doctor|selftest|live-selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|update <check|apply>|doctor|selftest|live-selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -33,6 +33,8 @@ func main() {
 		policy()
 	case "policy-json":
 		policyJSON()
+	case "update":
+		update()
 	case "doctor":
 		doctor()
 	case "selftest":
@@ -184,6 +186,7 @@ func doctor() {
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
 	fmt.Println("Publication policy (operator-only): workbench-runner policy <get|prepare|publish|delete> ...")
+	fmt.Println("Local maintenance (operator-only): workbench-runner update <check|apply>")
 	fmt.Println("Deterministic Workbench health proof: workbench-runner selftest")
 	fmt.Println("External AI worker availability proof: workbench-runner live-selftest")
 }
