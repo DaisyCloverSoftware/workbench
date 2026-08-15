@@ -32,7 +32,6 @@ const (
 	rdwInvalidate  = 0x0001
 	rdwErase       = 0x0004
 	rdwAllChildren = 0x0080
-	rdwUpdateNow   = 0x0100
 )
 
 var (
@@ -116,7 +115,10 @@ func invalidateWindow(hwnd uintptr) {
 
 func redrawProductionWindow(hwnd uintptr) {
 	if hwnd != 0 {
-		procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
+		// Queue the repaint and return to the normal Win32 message loop. Forcing
+		// RDW_UPDATENOW from page-change/resize handlers can recursively paint the
+		// parent and all children before the current message has returned.
+		procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase|rdwAllChildren)
 	}
 }
 
