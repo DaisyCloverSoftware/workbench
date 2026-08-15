@@ -43,23 +43,34 @@ func (s *Store) Load() (State, error) {
 
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
-		st := DefaultState()
-		return st, nil
+		return normalizeProjectRegistryState(DefaultState()), nil
 	}
 	if err != nil {
 		return State{}, err
 	}
-	st := DefaultState()
+	// Decode exactly what is on disk before migration. Applying v3 defaults to
+	// the destination object first makes it harder to distinguish legacy fields
+	// from current defaults and is unnecessary: NewEngine already repairs
+	// runtime token/port defaults after state migration.
+	var st State
 	if err := json.Unmarshal(b, &st); err != nil {
 		return State{}, err
 	}
-	return st, nil
+	if st.Preferences.AutonomyMode == "" {
+		st.Preferences.AutonomyMode = "trusted-repo"
+	}
+	return normalizeProjectRegistryState(st), nil
 }
 
 func (s *Store) Save(st State) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Keep legacy ProjectPath/Notes callers and modern project-registry callers
+	// converged on one durable representation during the production-shell
+	// migration. Engine owns the in-memory canonical state; normalization here
+	// is a final persistence guard for older code paths and imported state.
+	st = normalizeProjectRegistryState(st)
 	b, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {
 		return err

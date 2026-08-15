@@ -67,6 +67,7 @@ func (e *Engine) State() State {
 
 func cloneState(s State) State {
 	x := s
+	x.Projects = append([]Project(nil), s.Projects...)
 	x.Tasks = append([]Task(nil), s.Tasks...)
 	for i := range x.Tasks {
 		x.Tasks[i].Attempts = append([]string(nil), s.Tasks[i].Attempts...)
@@ -94,8 +95,10 @@ func (e *Engine) RescanProviders() {
 
 func (e *Engine) SaveNotes(project, notes string) error {
 	e.mu.Lock()
-	e.state.ProjectPath = project
-	e.state.Notes = notes
+	if err := saveProjectNotesState(&e.state, project, notes); err != nil {
+		e.mu.Unlock()
+		return err
+	}
 	st := cloneState(e.state)
 	e.mu.Unlock()
 	if err := e.store.Save(st); err != nil {
@@ -151,13 +154,14 @@ func (e *Engine) Delegate(origin, intent, project string) (Task, error) {
 	if strings.TrimSpace(intent) == "" {
 		return Task{}, errors.New("tell Workbench what outcome you want")
 	}
-	if strings.TrimSpace(project) == "" {
-		return Task{}, errors.New("choose a project folder first")
+	project, err := canonicalProjectSelection(project)
+	if err != nil {
+		return Task{}, errors.New("choose a valid project folder first")
 	}
 	now := time.Now()
 	t := Task{ID: newID("task"), CreatedAt: now, UpdatedAt: now, Origin: origin, Title: TaskTitle(intent), Intent: intent, ProjectPath: project, Status: TaskQueued}
 	e.mu.Lock()
-	e.state.ProjectPath = project
+	touchProjectState(&e.state, project)
 	e.state.Tasks = append([]Task{t}, e.state.Tasks...)
 	st := cloneState(e.state)
 	e.mu.Unlock()

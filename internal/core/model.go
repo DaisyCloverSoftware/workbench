@@ -66,6 +66,19 @@ type Task struct {
 	memoryProjectPath string
 }
 
+// Project is a local Workbench workspace entry. ProjectPath/Notes remain on
+// State as a compatibility mirror for the currently selected project while the
+// product migrates from its original single-project state shape.
+type Project struct {
+	ID         string    `json:"id"`
+	Path       string    `json:"path"`
+	Name       string    `json:"name"`
+	Notes      string    `json:"notes,omitempty"`
+	Pinned     bool      `json:"pinned,omitempty"`
+	AddedAt    time.Time `json:"added_at"`
+	LastUsedAt time.Time `json:"last_used_at"`
+}
+
 type Preferences struct {
 	AvoidWorkUsage      bool   `json:"avoid_work_usage"`
 	AllowMeteredAPI     bool   `json:"allow_metered_api"`
@@ -84,17 +97,19 @@ type SecretRef struct {
 }
 
 type State struct {
-	Version     int         `json:"version"`
-	ProjectPath string      `json:"project_path"`
-	Notes       string      `json:"notes"`
-	Tasks       []Task      `json:"tasks"`
-	Secrets     []SecretRef `json:"secrets"`
-	Preferences Preferences `json:"preferences"`
+	Version         int         `json:"version"`
+	Projects        []Project   `json:"projects,omitempty"`
+	ActiveProjectID string      `json:"active_project_id,omitempty"`
+	ProjectPath     string      `json:"project_path"`
+	Notes           string      `json:"notes"`
+	Tasks           []Task      `json:"tasks"`
+	Secrets         []SecretRef `json:"secrets"`
+	Preferences     Preferences `json:"preferences"`
 }
 
 func DefaultState() State {
 	return State{
-		Version: 2,
+		Version: 3,
 		Preferences: Preferences{
 			AvoidWorkUsage:  true,
 			AllowMeteredAPI: false,
