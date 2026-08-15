@@ -16,37 +16,24 @@ func (s *Shell) paintProductionWorkSettingsPanels() {
 
 	var r nativeRect
 	procGetClientRect.Call(s.hwnd, uintptr(unsafe.Pointer(&r)))
-	width := int(r.Right-r.Left)
-	height := int(r.Bottom-r.Top)
-	if width < 1360 {
-		width = 1360
-	}
-	pad := 16
-	x := productionSidebarWidth + pad
-	y := productionHeaderHeight + 8
-	contentW := width - x - pad
-	contentH := height - productionHeaderHeight - pad - 8
+	clientW := int(r.Right - r.Left)
+	clientH := int(r.Bottom - r.Top)
+	x, y, contentW, contentH := productionContentGeometry(clientW, clientH)
 
 	var controls []int
 	switch s.page {
 	case pageWork:
-		left := 270
-		right := 320
-		gap := 16
-		center := contentW - left - right - gap*2
-		if center < 430 {
-			center = 430
-		}
-		roundedPanel(hdc, rectWH(x-8, y-4, left+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
-		roundedPanel(hdc, rectWH(x+left+gap-8, y-4, center+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
-		roundedPanel(hdc, rectWH(x+left+gap+center+gap-8, y-4, right+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
+		left, center, right, gap := productionWorkColumns(contentW)
+		roundedPanel(hdc, rectWH(x-6, y+4, left+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
+		roundedPanel(hdc, rectWH(x+left+gap-6, y+4, center+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
+		roundedPanel(hdc, rectWH(x+left+gap+center+gap-6, y+4, right+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
 		controls = s.workControlIDs()
 	case pageSettings:
-		gap := 18
+		gap := 16
 		left := (contentW - gap) / 2
 		right := contentW - left - gap
-		roundedPanel(hdc, rectWH(x-8, y-4, left+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
-		roundedPanel(hdc, rectWH(x+left+gap-8, y-4, right+16, contentH+2), productionPalette.Panel, productionPalette.Border, 12)
+		roundedPanel(hdc, rectWH(x-6, y+4, left+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
+		roundedPanel(hdc, rectWH(x+left+gap-6, y+4, right+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
 		controls = s.settingsControlIDs()
 	}
 
