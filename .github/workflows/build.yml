@@ -17,10 +17,14 @@ jobs:
           go-version: '1.23.x'
       - name: Test
         run: go test ./...
-      - name: Build native Windows app
+      - name: Build native Windows app and updater
         shell: pwsh
-        run: go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
+        run: |
+          go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
+          go build -ldflags='-s -w -H=windowsgui' -o Workbench-Updater.exe ./cmd/workbench-updater
       - uses: actions/upload-artifact@v4
         with:
           name: Workbench-Windows-amd64
-          path: Workbench.exe
+          path: |
+            Workbench.exe
+            Workbench-Updater.exe
