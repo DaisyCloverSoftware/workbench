@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -169,6 +170,14 @@ func validateHarnessAdapterPath(path string) (string, error) {
 	}
 	if !info.Mode().IsRegular() {
 		return "", errors.New("structured harness adapter must be one regular executable file")
+	}
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(resolved))
+		if ext != ".exe" && ext != ".com" {
+			return "", errors.New("structured harness adapter on Windows must be a native .exe or .com executable, not a shell/batch script")
+		}
+	} else if info.Mode().Perm()&0o111 == 0 {
+		return "", errors.New("structured harness adapter is not executable")
 	}
 	return resolved, nil
 }

@@ -22,7 +22,7 @@ func TestRouteCandidatesNeverExecutesLegacyHarnessTemplate(t *testing.T) {
 
 func TestRouteCandidatesIncludesValidStructuredHarnessBeforeScarceWork(t *testing.T) {
 	dir := t.TempDir()
-	adapter := filepath.Join(dir, "adapter")
+	adapter := testHarnessAdapterPath(dir)
 	if err := os.WriteFile(adapter, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}

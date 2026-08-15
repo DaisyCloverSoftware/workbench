@@ -22,6 +22,8 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	prefs := s.eng.State().Preferences
 	setChecked(s.controls[idProtectWork], prefs.AvoidWorkUsage)
 	setChecked(s.controls[idAllowMetered], prefs.AllowMeteredAPI)
+	setWindowText(s.controls[idHarnessLabel], "Structured harness adapter executable (optional)")
+	cueBanner(s.controls[idHarnessCommand], "absolute path to one adapter executable; no arguments or shell placeholders")
 	s.refreshProviders()
 	s.refreshSecrets()
 	mcpStatus := "Local Chat/MCP bridge is unavailable."
@@ -42,7 +44,7 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	loadedSettingsShell = s
 	s.settingsProjectID = snapshot.ActiveProjectID
 	setWindowText(s.controls[idRunnerHost], prefs.OpenClawSSHHost)
-	setWindowText(s.controls[idHarnessCommand], prefs.OpenClawCommand)
+	setWindowText(s.controls[idHarnessCommand], prefs.HarnessAdapterPath)
 	setWindowText(s.controls[idNotifyCommand], prefs.NotificationCommand)
 	setChecked(s.controls[idPublishReviews], false)
 	setWindowText(s.controls[idReviewRemote], "")
@@ -70,9 +72,13 @@ func (s *Shell) refreshProviders() {
 		if provider.Installed {
 			mark = "●"
 		}
-		if provider.ID == "openclaw" && strings.TrimSpace(prefs.OpenClawSSHHost) != "" {
-			mark = "●"
-			status = "runner configured · " + prefs.OpenClawSSHHost
+		if provider.ID == "workbench-runner" && strings.TrimSpace(prefs.OpenClawSSHHost) != "" {
+			if provider.Installed {
+				mark = "●"
+				status = "runner configured · " + prefs.OpenClawSSHHost
+			} else {
+				status = "runner configured but SSH client is unavailable · " + prefs.OpenClawSSHHost
+			}
 		}
 		line := fmt.Sprintf("%s %s  ·  %s  ·  %s", mark, provider.Name, status, provider.Cost)
 		ptr := wstr(line)
@@ -138,21 +144,40 @@ func (s *Shell) connectSelectedProvider() {
 		return
 	}
 	id := s.providerIDs[idx]
-	if id == "openclaw" {
+	switch id {
+	case "workbench-runner":
 		host := strings.TrimSpace(s.eng.State().Preferences.OpenClawSSHHost)
 		if host == "" {
-			messageBox(s.hwnd, "Workbench Runner", "Enter the runner SSH host in Settings and save routing first.", mbOK|mbIconInformation)
+			messageBox(s.hwnd, "Workbench Runner", "Enter the Workbench Runner SSH host in Settings and save routing first.", mbOK|mbIconInformation)
 			return
 		}
-		out, err := core.TestOpenClawSSH(host)
+		version, err := core.TestWorkbenchRunnerSSH(host)
 		if err != nil {
-			messageBox(s.hwnd, "Runner connection failed", err.Error()+"\r\n\r\n"+out, mbOK|mbIconWarning)
+			messageBox(s.hwnd, "Runner connection failed", err.Error()+"\r\n\r\n"+version, mbOK|mbIconWarning)
 			return
 		}
-		messageBox(s.hwnd, "Runner connected", "The configured remote harness responded over SSH.\r\n\r\n"+out, mbOK|mbIconInformation)
+		messageBox(s.hwnd, "Runner connected", "Workbench Runner "+version+" responded over the fixed runner SSH transport.", mbOK|mbIconInformation)
 		return
-	}
-	if id == "chatgpt" {
+	case core.StructuredHarnessProviderID:
+		for _, provider := range s.eng.Providers() {
+			if provider.ID != id {
+				continue
+			}
+			if !provider.Installed {
+				messageBox(s.hwnd, "Structured harness adapter", "Choose one existing adapter executable in Settings and save routing. Workbench passes a bounded JSON job on stdin and never runs this setting through a command shell.", mbOK|mbIconInformation)
+				return
+			}
+			messageBox(s.hwnd, "Structured harness ready", "The configured adapter executable is available. Workbench will use structured protocol v1 inside an isolated task workspace and will retain review/publication authority.", mbOK|mbIconInformation)
+			return
+		}
+		return
+	case "legacy-harness-command":
+		messageBox(s.hwnd, "Legacy harness command disabled", "Workbench no longer executes shell-template coding commands. Configure one structured adapter executable in Settings, then save routing to remove the obsolete legacy value.", mbOK|mbIconWarning)
+		return
+	case "openclaw":
+		messageBox(s.hwnd, "OpenClaw", "Workbench uses the detected local OpenClaw CLI with a fixed built-in invocation. Configure/authenticate OpenClaw through its own CLI if required, then click Rescan. The custom shell-template adapter path has been retired.", mbOK|mbIconInformation)
+		return
+	case "chatgpt":
 		s.copyMCPConnection()
 		return
 	}
@@ -175,6 +200,8 @@ func providerSetupHint(id string) string {
 		return "Install Google Antigravity CLI (agy), then connect it here."
 	case "gemini":
 		return "Gemini CLI is retained as a legacy enterprise/API adapter; individual Google accounts should prefer Antigravity CLI."
+	case "openclaw":
+		return "Install and configure the OpenClaw CLI. Workbench invokes the detected CLI with fixed arguments; it does not accept an OpenClaw shell command template."
 	case "grok":
 		return "Workbench does not automate consumer browser sessions. Grok remains an adapter/API route rather than a browser-login worker."
 	}
@@ -200,13 +227,29 @@ func (s *Shell) saveRoutingSettings() {
 	prefs.AvoidWorkUsage = isChecked(s.controls[idProtectWork])
 	prefs.AllowMeteredAPI = isChecked(s.controls[idAllowMetered])
 	prefs.OpenClawSSHHost = strings.TrimSpace(windowText(s.controls[idRunnerHost]))
-	prefs.OpenClawCommand = strings.TrimSpace(windowText(s.controls[idHarnessCommand]))
+	adapter := strings.TrimSpace(windowText(s.controls[idHarnessCommand]))
+	if adapter != "" {
+		resolved, err := core.ValidateHarnessAdapterPath(adapter)
+		if err != nil {
+			messageBox(s.hwnd, "Structured harness adapter", "Workbench did not save the adapter path because it is not one existing executable file.\r\n\r\n"+err.Error(), mbOK|mbIconWarning)
+			return
+		}
+		adapter = resolved
+	}
+	legacyCleared := strings.TrimSpace(prefs.OpenClawCommand) != ""
+	prefs.HarnessAdapterPath = adapter
+	prefs.OpenClawCommand = ""
 	prefs.NotificationCommand = strings.TrimSpace(windowText(s.controls[idNotifyCommand]))
 	if err := s.eng.SavePreferences(prefs); err != nil {
 		messageBox(s.hwnd, "Cannot save routing", err.Error(), mbOK|mbIconWarning)
 		return
 	}
-	messageBox(s.hwnd, "Routing saved", "Workbench will continue autonomously and protect scarce Work/Codex usage according to these settings.", mbOK|mbIconInformation)
+	setWindowText(s.controls[idHarnessCommand], adapter)
+	message := "Workbench will continue autonomously and protect scarce Work/Codex usage according to these settings."
+	if legacyCleared {
+		message += "\r\n\r\nThe obsolete shell-template harness command was disabled and removed from saved routing settings."
+	}
+	messageBox(s.hwnd, "Routing saved", message, mbOK|mbIconInformation)
 }
 
 func (s *Shell) saveReviewPolicy() {
