@@ -97,6 +97,10 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 			res.Output = strings.TrimSpace(res.Output) + "\n\n" + status
 		}
 	}
+	// Provider sessions exist only to accelerate an unfinished Workbench task.
+	// Once review finalisation succeeds, drop all host-local session pointers for
+	// this task; worker transcripts remain provider-managed and never enter Task.
+	_ = DeleteTaskProviderSessions(task.ID)
 	return boundRunResultForPersistence(res), nil
 }
 
