@@ -113,11 +113,6 @@ esac`)
 	if strings.Count(text, "job submit") != 2 {
 		t.Fatalf("malformed acknowledgement did not retry exactly one idempotent submit:\n%s", text)
 	}
-	for _, line := range strings.Split(strings.TrimSpace(text), "\n") {
-		if strings.Contains(line, "job submit") && !strings.Contains(line, "job submit") {
-			t.Fatalf("unexpected submit command: %s", line)
-		}
-	}
 	if strings.Count(text, "job status task-ssh-durable") != 1 {
 		t.Fatalf("durable status flow was unexpected:\n%s", text)
 	}
