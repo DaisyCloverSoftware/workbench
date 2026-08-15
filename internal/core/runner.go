@@ -19,14 +19,15 @@ import (
 )
 
 type RunResult struct {
-	Output             string    `json:"output,omitempty"`
-	Attention          string    `json:"attention,omitempty"`
-	WorkerUnavailable  string    `json:"worker_unavailable,omitempty"`
-	Retryable          bool      `json:"retryable,omitempty"`
-	Authentication     bool      `json:"authentication,omitempty"`
-	WorkerProviderID   string    `json:"worker_provider_id,omitempty"`
-	WorkerProviderName string    `json:"worker_provider_name,omitempty"`
-	WorkerCost         CostClass `json:"worker_cost,omitempty"`
+	Output             string            `json:"output,omitempty"`
+	Attention          string            `json:"attention,omitempty"`
+	WorkerUnavailable  string            `json:"worker_unavailable,omitempty"`
+	Retryable          bool              `json:"retryable,omitempty"`
+	Authentication     bool              `json:"authentication,omitempty"`
+	WorkerProviderID   string            `json:"worker_provider_id,omitempty"`
+	WorkerProviderName string            `json:"worker_provider_name,omitempty"`
+	WorkerCost         CostClass         `json:"worker_cost,omitempty"`
+	Review             *TaskReviewResult `json:"review,omitempty"`
 }
 
 func BuildWorkerPrompt(task Task) string {
