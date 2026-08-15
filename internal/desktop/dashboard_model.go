@@ -9,17 +9,17 @@ import (
 )
 
 type DashboardSnapshot struct {
-	GeneratedAt    time.Time
-	Summary        core.TaskDashboardSummary
-	ProjectCount   int
-	ProviderReady  int
-	ProviderTotal  int
-	SuccessRate    int
+	GeneratedAt      time.Time
+	Summary          core.TaskDashboardSummary
+	ProjectCount     int
+	ProviderReady    int
+	ProviderTotal    int
+	SuccessRate      int
 	RunnerConfigured bool
-	RecentActivity []DashboardActivityItem
-	ActiveTasks    []DashboardTaskItem
-	Projects       []DashboardProjectItem
-	Providers      []DashboardProviderItem
+	RecentActivity   []DashboardActivityItem
+	ActiveTasks      []DashboardTaskItem
+	Projects         []DashboardProjectItem
+	Providers        []DashboardProviderItem
 }
 
 type DashboardActivityItem struct {
@@ -130,6 +130,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 	})
 	for _, task := range allTasks {
 		presentation := core.PresentTask(task)
+		label := dashboardStatusLabel(task.Status, presentation.StatusLabel)
 		if len(snapshot.RecentActivity) < 6 {
 			detail := presentation.NextAction
 			if len(task.Attempts) > 0 {
@@ -140,7 +141,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 				Title:       task.Title,
 				Detail:      strings.TrimSpace(detail),
 				Status:      task.Status,
-				StatusLabel: presentation.StatusLabel,
+				StatusLabel: label,
 				UpdatedAt:   task.UpdatedAt,
 			})
 		}
@@ -154,7 +155,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 				Title:       task.Title,
 				Provider:    provider,
 				Status:      task.Status,
-				StatusLabel: presentation.StatusLabel,
+				StatusLabel: label,
 				NextAction:  presentation.NextAction,
 				NeedsHuman:  presentation.NeedsHuman,
 				RetryAt:     task.RetryAt,
@@ -170,5 +171,28 @@ func isDashboardActiveStatus(status core.TaskStatus) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func dashboardStatusLabel(status core.TaskStatus, fallback string) string {
+	switch status {
+	case core.TaskQueued:
+		return "Queued"
+	case core.TaskRouting:
+		return "Routing"
+	case core.TaskRunning:
+		return "Working"
+	case core.TaskWaitingRetry:
+		return "Waiting"
+	case core.TaskNeedsAttention:
+		return "Needs you"
+	case core.TaskCompleted:
+		return "Ready"
+	case core.TaskFailed:
+		return "Failed"
+	case core.TaskCancelled:
+		return "Cancelled"
+	default:
+		return strings.TrimSpace(fallback)
 	}
 }
