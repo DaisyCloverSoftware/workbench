@@ -64,12 +64,12 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 	workerTask.ProjectPath = ws.Workspace
 	res, runErr := RunProvider(ctx, p, workerTask, prefs)
 	if strings.TrimSpace(res.Attention) != "" || runErr != nil {
-		return res, runErr
+		return boundRunResultForPersistence(res), runErr
 	}
 
 	review, err := FinalizeTaskWorkspace(ctx, ws)
 	if err != nil {
-		return res, fmt.Errorf("finalize isolated task workspace: %w", err)
+		return boundRunResultForPersistence(res), fmt.Errorf("finalize isolated task workspace: %w", err)
 	}
 	if review.Changed {
 		if review.PublicationStatus == ReviewPublicationPublished {
@@ -97,7 +97,7 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 			res.Output = strings.TrimSpace(res.Output) + "\n\n" + status
 		}
 	}
-	return res, nil
+	return boundRunResultForPersistence(res), nil
 }
 
 // FinalizeTaskWorkspace turns successful worker edits into a Workbench-owned
