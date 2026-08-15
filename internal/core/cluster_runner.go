@@ -33,49 +33,238 @@ type RunnerResponse struct {
 	Attempts     []string  `json:"attempts,omitempty"`
 }
 
-// RunClusterRunnerSSH sends a task to the cluster-side Workbench Runner using
-// stdin rather than shell arguments. That avoids prompt quoting bugs and keeps
-// the SSH transport useful even for very large worker instructions.
+type runnerJobSubmitEnvelope struct {
+	OK     bool                  `json:"ok"`
+	Result RunnerJobSubmitResult `json:"result"`
+	Error  string                `json:"error,omitempty"`
+}
+
+type runnerJobStatusEnvelope struct {
+	OK    bool      `json:"ok"`
+	Job   RunnerJob `json:"job"`
+	Error string    `json:"error,omitempty"`
+}
+
+// RunClusterRunnerSSH submits a durable job to the cluster-side Workbench
+// Runner, then polls that job over short independent SSH calls. The worker is
+// deliberately detached from the submitting SSH session, so closing/restarting
+// desktop Workbench or losing a network connection does not discard work. A
+// later submit of the exact same task request reconnects to the existing job.
 func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Preferences) (RunResult, error) {
 	validatedHost, err := validateSSHHostTarget(host)
 	if err != nil {
 		return RunResult{Retryable: true}, err
 	}
 	host = validatedHost
-	reqBody, err := json.Marshal(RunnerRequest{
+	req := RunnerRequest{
 		Task:            task,
 		AvoidWorkUsage:  prefs.AvoidWorkUsage,
 		AllowMeteredAPI: prefs.AllowMeteredAPI,
-	})
+	}
+	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return RunResult{}, err
 	}
 
-	cmd := exec.CommandContext(ctx,
-		"ssh",
+	var submitted RunnerJob
+	for {
+		stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, reqBody, "job", "submit")
+		combined := combineRunnerSSHOutput(stdout, stderr)
+		if runErr != nil {
+			if ctx.Err() != nil {
+				// The remote side may have accepted the idempotent submit before
+				// the local SSH process was cancelled. Explicit cancellation must
+				// therefore attempt the task ID even without a submit response.
+				cancelRunnerJobBestEffort(host, task.ID)
+				return RunResult{}, ctx.Err()
+			}
+			if durableJobCommandUnsupported(combined) {
+				return runClusterRunnerLegacySSH(ctx, host, reqBody)
+			}
+			if runnerSSHAuthenticationFailure(combined, runErr) {
+				res := classifyRunOutput(combined)
+				res.Retryable = true
+				res.Authentication = true
+				return res, fmt.Errorf("cluster runner SSH authentication failed: %w", runErr)
+			}
+			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, task.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
+		}
+		var envelope runnerJobSubmitEnvelope
+		if err := json.Unmarshal(stdout, &envelope); err != nil {
+			if durableJobCommandUnsupported(combined) {
+				return runClusterRunnerLegacySSH(ctx, host, reqBody)
+			}
+			return RunResult{Retryable: true, Output: combined}, fmt.Errorf("cluster runner returned invalid durable-job submit response: %w", err)
+		}
+		if !envelope.OK {
+			return RunResult{Output: envelope.Error}, errors.New(strings.TrimSpace(envelope.Error))
+		}
+		submitted = envelope.Result.Job
+		if submitted.ID != task.ID {
+			return RunResult{}, errors.New("cluster runner durable job identity mismatch")
+		}
+		break
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			cancelRunnerJobBestEffort(host, submitted.ID)
+			return RunResult{}, ctx.Err()
+		default:
+		}
+
+		stdout, _, runErr := runRunnerSSHCommand(ctx, host, nil, "job", "status", submitted.ID)
+		if runErr != nil {
+			// The durable job may still be running even if the SSH account,
+			// network or host is temporarily unreachable. Returning an error here
+			// would make Engine hand the same repository to another coding worker.
+			// Stay attached logically until the task context is explicitly
+			// cancelled or expires.
+			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, submitted.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
+		}
+		var envelope runnerJobStatusEnvelope
+		if err := json.Unmarshal(stdout, &envelope); err != nil {
+			// A known durable job is safer to poll again than to fail over on a
+			// malformed/transient status response.
+			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, submitted.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
+		}
+		if !envelope.OK {
+			return RunResult{Output: envelope.Error}, errors.New(strings.TrimSpace(envelope.Error))
+		}
+		job := envelope.Job
+		if job.ID != submitted.ID {
+			return RunResult{}, errors.New("cluster runner durable job status identity mismatch")
+		}
+		switch job.Status {
+		case RunnerJobQueued, RunnerJobRunning:
+			if !waitRunnerRetry(ctx, time.Second) {
+				cancelRunnerJobBestEffort(host, submitted.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
+		case RunnerJobNeedsAttention, RunnerJobCompleted:
+			if job.Response == nil {
+				return RunResult{}, errors.New("cluster runner durable job is terminal without a response")
+			}
+			return runResultFromRunnerResponse(*job.Response)
+		case RunnerJobFailed:
+			if job.Response != nil {
+				res, responseErr := runResultFromRunnerResponse(*job.Response)
+				if responseErr != nil {
+					return res, responseErr
+				}
+				if strings.TrimSpace(job.Error) != "" {
+					return res, errors.New(job.Error)
+				}
+				return res, errors.New("cluster runner durable job failed")
+			}
+			return RunResult{Output: job.Error}, errors.New(strings.TrimSpace(job.Error))
+		case RunnerJobCancelled:
+			return RunResult{}, context.Canceled
+		default:
+			return RunResult{}, fmt.Errorf("cluster runner returned unknown durable job status %q", job.Status)
+		}
+	}
+}
+
+func runResultFromRunnerResponse(rr RunnerResponse) (RunResult, error) {
+	res := rr.Result
+	res.WorkerProviderID = rr.ProviderID
+	res.WorkerProviderName = rr.ProviderName
+	res.WorkerCost = rr.ProviderCost
+	if strings.TrimSpace(rr.Error) != "" {
+		res.Retryable = true
+		return res, errors.New(rr.Error)
+	}
+	return res, nil
+}
+
+func runRunnerSSHCommand(ctx context.Context, host string, stdin []byte, args ...string) ([]byte, []byte, error) {
+	remoteArgs := []string{"$HOME/.local/bin/workbench-runner"}
+	remoteArgs = append(remoteArgs, args...)
+	cmdArgs := []string{
 		"-o", "BatchMode=yes",
 		"-o", "ConnectTimeout=10",
 		"-o", "StrictHostKeyChecking=accept-new",
 		host,
-		"$HOME/.local/bin/workbench-runner", "run",
-	)
+	}
+	cmdArgs = append(cmdArgs, remoteArgs...)
+	cmd := exec.CommandContext(ctx, "ssh", cmdArgs...)
 	configureChildProcess(cmd, false)
-	cmd.Stdin = bytes.NewReader(reqBody)
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	runErr := cmd.Run()
+	err := cmd.Run()
+	return stdout.Bytes(), stderr.Bytes(), err
+}
 
+func combineRunnerSSHOutput(stdout, stderr []byte) string {
+	combined := strings.TrimSpace(string(stdout))
+	if se := strings.TrimSpace(string(stderr)); se != "" {
+		if combined != "" {
+			combined += "\n\n"
+		}
+		combined += se
+	}
+	return combined
+}
+
+func runnerSSHAuthenticationFailure(output string, err error) bool {
+	low := strings.ToLower(output)
+	if err != nil {
+		low += " " + strings.ToLower(err.Error())
+	}
+	return strings.Contains(low, "permission denied") || strings.Contains(low, "publickey") || strings.Contains(low, "authentication failed")
+}
+
+func durableJobCommandUnsupported(output string) bool {
+	low := strings.ToLower(output)
+	return strings.Contains(low, "usage: workbench-runner") && !strings.Contains(low, "job <submit|status|cancel>")
+}
+
+func waitRunnerRetry(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func cancelRunnerJobBestEffort(host, jobID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, _, _ = runRunnerSSHCommand(ctx, host, nil, "job", "cancel", jobID)
+}
+
+// runClusterRunnerLegacySSH keeps rolling upgrades compatible with a runner
+// older than the durable-job protocol. New runners never use this path.
+func runClusterRunnerLegacySSH(ctx context.Context, host string, reqBody []byte) (RunResult, error) {
+	stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, reqBody, "run")
 	var rr RunnerResponse
-	decodeErr := json.Unmarshal(stdout.Bytes(), &rr)
+	decodeErr := json.Unmarshal(stdout, &rr)
 	if decodeErr == nil {
-		res := rr.Result
-		res.WorkerProviderID = rr.ProviderID
-		res.WorkerProviderName = rr.ProviderName
-		res.WorkerCost = rr.ProviderCost
-		if strings.TrimSpace(rr.Error) != "" {
-			res.Retryable = true
-			return res, errors.New(rr.Error)
+		res, responseErr := runResultFromRunnerResponse(rr)
+		if responseErr != nil {
+			return res, responseErr
 		}
 		if runErr != nil {
 			res.Retryable = true
@@ -83,19 +272,11 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 		}
 		return res, nil
 	}
-
-	combined := strings.TrimSpace(stdout.String())
-	if se := strings.TrimSpace(stderr.String()); se != "" {
-		if combined != "" {
-			combined += "\n\n"
-		}
-		combined += se
-	}
+	combined := combineRunnerSSHOutput(stdout, stderr)
 	res := classifyRunOutput(combined)
 	res.Retryable = true
 	if runErr != nil {
-		low := strings.ToLower(combined + " " + runErr.Error())
-		res.Authentication = strings.Contains(low, "permission denied") || strings.Contains(low, "publickey") || strings.Contains(low, "authentication")
+		res.Authentication = runnerSSHAuthenticationFailure(combined, runErr)
 		if combined == "" {
 			res.Output = runErr.Error()
 		}
@@ -108,8 +289,8 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 // policy as the desktop and therefore prefers zero-marginal/included workers
 // before scarce Work/Codex, while leaving metered APIs disabled unless opted in.
 // Provider-level retryable failures are persisted in the local health cache so
-// one-shot SSH runner invocations do not immediately hammer the same known-bad
-// worker again on the next task.
+// one-shot runner workers do not immediately hammer the same known-bad worker
+// again on the next task.
 func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse {
 	task := req.Task
 	resolved, err := ResolveRunnerProject(task.ProjectPath)
