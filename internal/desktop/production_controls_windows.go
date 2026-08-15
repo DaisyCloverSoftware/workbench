@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	gwlStyle       = ^uintptr(15) // Win32 GWL_STYLE (-16)
-	gwlExStyle     = ^uintptr(19) // Win32 GWL_EXSTYLE (-20)
-	swpNoSize      = 0x0001
-	swpNoMove      = 0x0002
-	swpNoZOrder    = 0x0004
-	swpNoActivate  = 0x0010
+	gwlStyle        = ^uintptr(15) // Win32 GWL_STYLE (-16)
+	gwlExStyle      = ^uintptr(19) // Win32 GWL_EXSTYLE (-20)
+	swpNoSize       = 0x0001
+	swpNoMove       = 0x0002
+	swpNoZOrder     = 0x0004
+	swpNoActivate   = 0x0010
 	swpFrameChanged = 0x0020
-	emSetMargins   = 0x00D3
-	ecLeftMargin   = 0x0001
-	ecRightMargin  = 0x0002
+	emSetMargins    = 0x00D3
+	ecLeftMargin    = 0x0001
+	ecRightMargin   = 0x0002
 )
 
 var (
@@ -42,8 +42,9 @@ func initProductionControlSurfaces() {
 	}
 	if productionUIFont == 0 {
 		fontName := wstr("Segoe UI")
+		fontHeight := int32(-15)
 		productionUIFont, _, _ = procCreateFontW.Call(
-			uintptr(int64(-15)), 0, 0, 0, uintptr(fwNormal), 0, 0, 0,
+			uintptr(int64(fontHeight)), 0, 0, 0, uintptr(fwNormal), 0, 0, 0,
 			1, 0, 0, 5, 0, uintptr(unsafe.Pointer(fontName)),
 		)
 	}
@@ -60,18 +61,18 @@ func releaseProductionControlSurfaces() {
 
 func (s *Shell) applyProductionControlTheme() {
 	labels := map[int]string{
-		idProjectsLabel:   "Projects",
-		idTasksLabel:      "Tasks",
-		idReportLabel:     "Result & activity",
-		idNotesLabel:      "Project context",
-		idAttentionLabel:  "Human decision — only answer when Workbench genuinely needs you",
-		idProvidersLabel:  "AI workers",
-		idMCPLabel:        "Chat & MCP bridge",
-		idRunnerLabel:     "Workbench Runner SSH host",
-		idHarnessLabel:    "Structured harness adapter executable",
-		idNotifyLabel:     "Human-interrupt command · {message}",
-		idReviewLabel:     "Review delivery · active project",
-		idVaultLabel:      "Encrypted vault · Windows DPAPI · hidden from AI",
+		idProjectsLabel:    "Projects",
+		idTasksLabel:       "Tasks",
+		idReportLabel:      "Result & activity",
+		idNotesLabel:       "Project context",
+		idAttentionLabel:   "Human decision — only answer when Workbench genuinely needs you",
+		idProvidersLabel:   "AI workers",
+		idMCPLabel:         "Chat & MCP bridge",
+		idRunnerLabel:      "Workbench Runner SSH host",
+		idHarnessLabel:     "Structured harness adapter executable",
+		idNotifyLabel:      "Human-interrupt command · {message}",
+		idReviewLabel:      "Review delivery · active project",
+		idVaultLabel:       "Encrypted vault · Windows DPAPI · hidden from AI",
 		idMaintenanceLabel: "Maintenance",
 	}
 	for id, text := range labels {
