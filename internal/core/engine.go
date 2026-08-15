@@ -70,6 +70,7 @@ func cloneState(s State) State {
 	x.Tasks = append([]Task(nil), s.Tasks...)
 	for i := range x.Tasks {
 		x.Tasks[i].Attempts = append([]string(nil), s.Tasks[i].Attempts...)
+		x.Tasks[i].Review = cloneTaskReviewResult(s.Tasks[i].Review)
 	}
 	x.Secrets = append([]SecretRef(nil), s.Secrets...)
 	return x
@@ -222,6 +223,8 @@ func (e *Engine) Task(id string) (Task, bool) {
 	defer e.mu.RUnlock()
 	for _, t := range e.state.Tasks {
 		if t.ID == id {
+			t.Attempts = append([]string(nil), t.Attempts...)
+			t.Review = cloneTaskReviewResult(t.Review)
 			return t, true
 		}
 	}
@@ -294,7 +297,7 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 		if err == nil {
-			e.finishCompleted(taskID, p, res.Output)
+			e.finishCompleted(taskID, p, res)
 			return
 		}
 		errorsSeen = append(errorsSeen, attempt)
@@ -405,7 +408,7 @@ func (e *Engine) appendAttempt(id, s string) {
 	_ = e.store.Save(st)
 	e.notify()
 }
-func (e *Engine) finishCompleted(id string, p Provider, out string) {
+func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	e.mu.Lock()
 	i := e.taskIndexLocked(id)
 	if i < 0 {
@@ -415,7 +418,8 @@ func (e *Engine) finishCompleted(id string, p Provider, out string) {
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskCompleted
 	e.state.Tasks[i].ProviderID = p.ID
-	e.state.Tasks[i].Output = strings.TrimSpace(out)
+	e.state.Tasks[i].Output = strings.TrimSpace(res.Output)
+	e.state.Tasks[i].Review = cloneTaskReviewResult(res.Review)
 	e.state.Tasks[i].Error = ""
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
