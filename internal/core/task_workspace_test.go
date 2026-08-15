@@ -72,7 +72,7 @@ func TestTaskWorkspaceAcceptsLegacyV1Metadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, metadataPath, err := taskWorkspacePaths(repo, "task-legacy")
+	_, metadataPath, err := taskWorkspacePaths(ws.Project, "task-legacy")
 	if err != nil {
 		t.Fatal(err)
 	}
