@@ -82,7 +82,7 @@ func deliverGitHubPullRequestWithRunner(ctx context.Context, slug string, review
 		return attachPullRequest(result, existing)
 	}
 
-	body := "Prepared automatically by Workbench for human review.\n\nThe coding worker cannot choose the publication target or push directly; the Workbench control plane verified and published this review branch."
+	body := "Prepared automatically by Workbench for human review.\n\nWorkbench verified this review branch before publishing it. Coding workers cannot push branches or create pull requests directly."
 	if _, err := run(ctx,
 		"pr", "create",
 		"--repo", slug,
@@ -159,15 +159,17 @@ func runGHCommand(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "gh", args...)
 	cmd.Env = append(os.Environ(), "GH_PROMPT_DISABLED=1", "GIT_TERMINAL_PROMPT=0", "PAGER=cat", "GH_PAGER=cat")
 	configureChildProcess(cmd, false)
-	capture := &limitedCapture{limit: 1 << 20}
-	cmd.Stdout, cmd.Stderr = capture, capture
+	stdout := &limitedCapture{limit: 1 << 20}
+	stderr := &limitedCapture{limit: 256 << 10}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		return nil, errors.New("GitHub review delivery unavailable")
 	}
-	if capture.exceeded {
+	if stdout.exceeded || stderr.exceeded {
 		return nil, errors.New("GitHub review delivery response too large")
 	}
-	return []byte(strings.TrimSpace(capture.String())), nil
+	return []byte(strings.TrimSpace(stdout.String())), nil
 }
 
 func githubRepoSlug(remote string) (string, bool) {
