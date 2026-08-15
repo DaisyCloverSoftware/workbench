@@ -84,6 +84,7 @@ type Preferences struct {
 	AllowMeteredAPI     bool   `json:"allow_metered_api"`
 	AutonomyMode        string `json:"autonomy_mode"`
 	OpenClawSSHHost     string `json:"openclaw_ssh_host,omitempty"`
+	HarnessAdapterPath  string `json:"harness_adapter_path,omitempty"`
 	OpenClawCommand     string `json:"openclaw_command,omitempty"`
 	NotificationCommand string `json:"notification_command,omitempty"`
 	MCPPort             int    `json:"mcp_port"`
