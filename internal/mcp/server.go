@@ -177,7 +177,7 @@ func toolsList() []map[string]any {
 	project := strProp("Absolute project/repository path. Omit to use the active Workbench workspace.")
 	subdir := strProp("Optional relative subdirectory within the active project.")
 	return []map[string]any{
-		tool("get_workspace", "Get Workbench workspace", "Inspect the active project, routing policy, and available workers before deciding how to execute a development request.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("get_workspace", "Get Workbench workspace", "Inspect the active project, registered projects, routing policy, and available workers before deciding how to execute a development request.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("get_context", "Get compact project context", "Read the latest bounded context capsule for the active project. Use this when resuming work in a fresh conversation instead of replaying a long transcript.", objSchema(map[string]any{"project_path": project}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("search_memory", "Search Workbench memory", "Search project-scoped and global durable knowledge, including decisions, constraints, patterns, routines and reusable code. Search this before rebuilding something similar.", objSchema(map[string]any{"project_path": project, "query": strProp("Words describing the current problem or reusable thing needed"), "limit": intProp("Maximum memories to return (1-100).")}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_files", "List repository files", "List model-safe source files under the active project without traversing generated trees or credential directories. Use this before delegating merely to discover the repository layout.", objSchema(map[string]any{"project_path": project, "subdir": subdir, "limit": intProp("Maximum files to return (1-1000).")}, nil), anyObjectSchema(), annotations(true, false, false)),
@@ -307,6 +307,8 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		}
 		return textContent(map[string]any{
 			"project_path":      st.ProjectPath,
+			"active_project_id": st.ActiveProjectID,
+			"projects":          workspaceProjectSummaries(s.engine, st.ActiveProjectID),
 			"avoid_work_usage":  st.Preferences.AvoidWorkUsage,
 			"allow_metered_api": st.Preferences.AllowMeteredAPI,
 			"autonomy_mode":     st.Preferences.AutonomyMode,
@@ -464,9 +466,14 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if core.LooksSecret(note) {
 			return textContent(map[string]any{"error": "note appears to contain a secret; Workbench refused to expose/store it through MCP. Use the local encrypted vault."}, true)
 		}
-		project := s.projectArg(a)
-		st := s.engine.State()
-		merged := strings.TrimSpace(st.Notes)
+		project, errResult := s.requireProject(a)
+		if errResult != nil {
+			return errResult
+		}
+		merged := ""
+		if registered, ok := s.engine.ProjectByPath(project); ok {
+			merged = strings.TrimSpace(registered.Notes)
+		}
 		if merged != "" {
 			merged += "\n\n"
 		}
