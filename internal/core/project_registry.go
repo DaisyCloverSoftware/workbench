@@ -122,9 +122,23 @@ func normalizeProjectPath(path string) string {
 		return ""
 	}
 	if abs, err := filepath.Abs(path); err == nil {
-		path = abs
+		path = filepath.Clean(abs)
+	} else {
+		path = filepath.Clean(path)
 	}
-	return filepath.Clean(path)
+	// Windows may surface the same directory through both a long path and an
+	// 8.3 short-path alias (for example Users\runneradmin vs Users\RUNNER~1).
+	// EvalSymlinks asks the filesystem for a canonical existing path and also
+	// collapses symlink aliases on Unix. If the path no longer exists, retain the
+	// cleaned spelling so historic task/project records remain addressable.
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		if abs, absErr := filepath.Abs(resolved); absErr == nil {
+			path = filepath.Clean(abs)
+		} else {
+			path = filepath.Clean(resolved)
+		}
+	}
+	return path
 }
 
 func projectPathIdentity(path string) string {
@@ -243,11 +257,6 @@ func canonicalProjectSelection(path string) (string, error) {
 	}
 	if !info.IsDir() {
 		return "", errors.New("project path is not a directory")
-	}
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		if abs, absErr := filepath.Abs(resolved); absErr == nil {
-			path = filepath.Clean(abs)
-		}
 	}
 	return path, nil
 }
