@@ -27,6 +27,8 @@ func main() {
 		job()
 	case "job-execute":
 		jobExecute()
+	case "review-json":
+		reviewJSON()
 	case "inspect":
 		inspect()
 	case "snapshot":
