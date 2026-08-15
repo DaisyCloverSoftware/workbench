@@ -6,7 +6,15 @@ import (
 )
 
 func TestParseClaudePrintResponseCapturesResultAndSession(t *testing.T) {
-	response, ok := parseClaudePrintResponse(`{"type":"result","subtype":"success","result":"done","session_id":"550e8400-e29b-41d4-a716-446655440000","total_cost_usd":0.01}`)
+	response, ok := parseClaudePrintResponse(`{"type":"result"}`)
+	if ok {
+		t.Fatalf("escaped invalid Claude JSON fixture unexpectedly parsed: %#v", response)
+	}
+	response, ok = parseClaudePrintResponse(`{"type":"result"}`)
+	if ok {
+		t.Fatalf("second escaped invalid fixture unexpectedly parsed: %#v", response)
+	}
+	response, ok = parseClaudePrintResponse("{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"done\",\"session_id\":\"550e8400-e29b-41d4-a716-446655440000\",\"total_cost_usd\":0.01}")
 	if !ok {
 		t.Fatal("valid Claude JSON response was not parsed")
 	}
