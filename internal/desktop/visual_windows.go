@@ -29,9 +29,8 @@ const (
 	fwSemiBold    = 600
 	fwBold        = 700
 
-	rdwInvalidate  = 0x0001
-	rdwErase       = 0x0004
-	rdwAllChildren = 0x0080
+	rdwInvalidate = 0x0001
+	rdwErase      = 0x0004
 )
 
 var (
@@ -114,11 +113,21 @@ func invalidateWindow(hwnd uintptr) {
 }
 
 func redrawProductionWindow(hwnd uintptr) {
-	if hwnd != 0 {
-		// Queue the repaint and return to the normal Win32 message loop. Forcing
-		// RDW_UPDATENOW from page-change/resize handlers can recursively paint the
-		// parent and all children before the current message has returned.
-		procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase|rdwAllChildren)
+	if hwnd == 0 {
+		return
+	}
+	// Repaint the custom parent surface, but do not invalidate the entire child
+	// tree. Native list/edit controls already repaint as they are shown, moved or
+	// updated; invalidating every child on every navigation click can create a
+	// large asynchronous paint backlog and make an otherwise-idle UI look hung.
+	procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase)
+
+	// Only the six owner-drawn chrome buttons need an explicit repaint when page
+	// selection or top-level state changes.
+	getDlgItem := user32.NewProc("GetDlgItem")
+	for _, id := range []int{idNavDashboard, idNavWork, idNavSettings, idTopNewTask, idTopNeedsYou, idTopReview} {
+		child, _, _ := getDlgItem.Call(hwnd, uintptr(id))
+		invalidateWindow(child)
 	}
 }
 

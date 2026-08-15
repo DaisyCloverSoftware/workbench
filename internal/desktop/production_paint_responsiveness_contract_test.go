@@ -31,15 +31,20 @@ func TestProductionPaintDoesNotCreateSynchronousChildRepaintStorms(t *testing.T)
 	}
 	visualText := string(visual)
 	for _, forbidden := range []string{
-		"rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow",
-		"rdwInvalidate | rdwErase | rdwAllChildren | rdwUpdateNow",
 		"rdwUpdateNow   = 0x0100",
+		"rdwAllChildren = 0x0080",
+		"rdwInvalidate|rdwErase|rdwAllChildren",
 	} {
 		if strings.Contains(visualText, forbidden) {
-			t.Fatalf("production redraw path still forces synchronous UpdateNow: %q", forbidden)
+			t.Fatalf("production redraw still invalidates the full child tree or forces a synchronous repaint: %q", forbidden)
 		}
 	}
-	if !strings.Contains(visualText, "rdwInvalidate|rdwErase|rdwAllChildren") {
-		t.Fatal("production redraw no longer queues parent and child invalidation through the normal message loop")
+	if !strings.Contains(visualText, "procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase)") {
+		t.Fatal("production redraw no longer queues the parent surface through the normal message loop")
+	}
+	for _, chromeID := range []string{"idNavDashboard", "idNavWork", "idNavSettings", "idTopNewTask", "idTopNeedsYou", "idTopReview"} {
+		if !strings.Contains(visualText, chromeID) {
+			t.Fatalf("production redraw no longer refreshes owner-drawn chrome %s", chromeID)
+		}
 	}
 }
