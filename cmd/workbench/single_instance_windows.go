@@ -13,7 +13,9 @@ var workbenchSingleInstanceHandle uintptr
 // The desktop and its embedded MCP server share one durable state file. A second
 // native process would otherwise choose another free MCP port and could execute
 // the same durable task concurrently. Acquire a per-user named mutex before
-// main starts so only one desktop process can own that state at a time.
+// main starts so only one desktop process can own that state at a time. If the
+// mutex itself cannot be created, main fails closed rather than allowing an
+// unowned process to mutate durable Workbench state.
 func init() {
 	kernel := syscall.NewLazyDLL("kernel32.dll")
 	createMutex := kernel.NewProc("CreateMutexW")
@@ -21,8 +23,6 @@ func init() {
 	name, _ := syscall.UTF16PtrFromString(`Local\DaisyCloverSoftware.Workbench`)
 	h, _, callErr := createMutex.Call(0, 0, uintptr(unsafe.Pointer(name)))
 	if h == 0 {
-		// Do not turn an unusual mutex creation failure into a startup regression;
-		// the normal MCP bind checks still provide a second line of defence.
 		return
 	}
 	workbenchSingleInstanceHandle = h
