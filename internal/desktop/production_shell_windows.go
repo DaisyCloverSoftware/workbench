@@ -89,7 +89,11 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createControls()
 		s.createDashboardChrome()
 		s.styleProductionControls()
-		setWindowText(s.controls[idBrand], "Workbench")
+		brand := "Workbench"
+		if strings.TrimSpace(s.version) != "" {
+			brand += "  " + strings.TrimSpace(s.version)
+		}
+		setWindowText(s.controls[idBrand], brand)
 		s.refresh()
 		s.applyPageVisibility()
 		s.layoutProduction()
@@ -105,6 +109,9 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		return 1
 	case wmDrawItem:
 		if result := s.drawProductionButton(lParam); result != 0 {
+			return result
+		}
+		if result := s.drawGenericProductionButton(lParam); result != 0 {
 			return result
 		}
 	case wmAppRefresh:
@@ -153,6 +160,11 @@ func (s *Shell) layoutProduction() {
 	contentH := height - productionHeaderHeight - pad
 
 	s.layoutProductionChrome(width)
+	statusWidth := width - productionSidebarWidth - 450
+	if statusWidth < 420 {
+		statusWidth = 420
+	}
+	moveWindow(s.controls[idGlobalStatus], productionSidebarWidth+20, 22, statusWidth, 28)
 	switch s.page {
 	case pageWork:
 		s.layoutWork(contentX, productionHeaderHeight, contentW, contentH)
@@ -162,7 +174,9 @@ func (s *Shell) layoutProduction() {
 }
 
 func (s *Shell) styleProductionControls() {
-	for _, id := range []int{idNavDashboard, idNavWork, idNavSettings, idTopNewTask, idTopNeedsYou, idTopReview} {
+	ids := []int{idNavDashboard, idNavWork, idNavSettings, idTopNewTask, idTopNeedsYou, idTopReview}
+	ids = append(ids, productionActionButtonIDs()...)
+	for _, id := range ids {
 		makeOwnerDrawButton(s.controls[id])
 	}
 }
