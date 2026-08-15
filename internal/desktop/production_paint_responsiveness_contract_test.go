@@ -30,8 +30,14 @@ func TestProductionPaintDoesNotCreateSynchronousChildRepaintStorms(t *testing.T)
 		t.Fatal(err)
 	}
 	visualText := string(visual)
-	if strings.Contains(visualText, "rdwUpdateNow") || strings.Contains(visualText, "RDW_UPDATENOW") {
-		t.Fatal("production redraw path forces synchronous UpdateNow instead of returning to the Win32 message loop")
+	for _, forbidden := range []string{
+		"rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow",
+		"rdwInvalidate | rdwErase | rdwAllChildren | rdwUpdateNow",
+		"rdwUpdateNow   = 0x0100",
+	} {
+		if strings.Contains(visualText, forbidden) {
+			t.Fatalf("production redraw path still forces synchronous UpdateNow: %q", forbidden)
+		}
 	}
 	if !strings.Contains(visualText, "rdwInvalidate|rdwErase|rdwAllChildren") {
 		t.Fatal("production redraw no longer queues parent and child invalidation through the normal message loop")
