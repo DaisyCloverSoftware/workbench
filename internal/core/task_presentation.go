@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // TaskPresentation is a UI-facing interpretation of durable task state. It is
@@ -14,6 +15,7 @@ type TaskPresentation struct {
 	StatusLabel       string                  `json:"status_label"`
 	NextAction        string                  `json:"next_action"`
 	ProviderLabel     string                  `json:"provider_label"`
+	RetryAt           *time.Time              `json:"retry_at,omitempty"`
 	ReviewBranch      string                  `json:"review_branch,omitempty"`
 	ReviewCommit      string                  `json:"review_commit,omitempty"`
 	ReviewFiles       int                     `json:"review_files,omitempty"`
@@ -44,6 +46,10 @@ func PresentTask(t Task) TaskPresentation {
 		provider = "Router"
 	}
 	p := TaskPresentation{ProviderLabel: provider}
+	if t.RetryAt != nil {
+		retryAt := t.RetryAt.UTC()
+		p.RetryAt = &retryAt
+	}
 	if review := t.Review; review != nil && review.Changed {
 		p.ReviewBranch = review.Branch
 		p.ReviewCommit = review.Commit
@@ -76,6 +82,9 @@ func PresentTask(t Task) TaskPresentation {
 	case TaskRunning:
 		p.StatusLabel = "Working"
 		p.NextAction = "Leave it running. Come back when it finishes or Workbench genuinely needs you."
+	case TaskWaitingRetry:
+		p.StatusLabel = "Waiting to retry"
+		p.NextAction = "A low-cost worker hit a temporary availability limit. Workbench will retry automatically after its cooldown; you do not need to supervise it."
 	case TaskNeedsAttention:
 		p.StatusLabel = "Needs you"
 		p.NeedsHuman = true
@@ -120,7 +129,7 @@ func SummarizeTasks(tasks []Task) TaskDashboardSummary {
 	var s TaskDashboardSummary
 	for _, t := range tasks {
 		switch t.Status {
-		case TaskQueued, TaskRouting, TaskRunning:
+		case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry:
 			s.Active++
 		case TaskNeedsAttention:
 			s.NeedsHuman++

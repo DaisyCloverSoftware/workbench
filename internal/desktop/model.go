@@ -26,6 +26,7 @@ type TaskItem struct {
 	StatusLabel         string
 	ProviderLabel       string
 	NextAction          string
+	RetryAt             *time.Time
 	NeedsHuman          bool
 	Terminal            bool
 	Output              string
@@ -116,6 +117,10 @@ func taskItems(tasks []core.Task) []TaskItem {
 	items := make([]TaskItem, 0, len(tasks))
 	for _, task := range tasks {
 		presentation := core.PresentTask(task)
+		nextAction := presentation.NextAction
+		if presentation.RetryAt != nil {
+			nextAction += " Next attempt: " + presentation.RetryAt.Local().Format("2 Jan 15:04:05") + "."
+		}
 		item := TaskItem{
 			ID:                 task.ID,
 			Title:              task.Title,
@@ -123,7 +128,8 @@ func taskItems(tasks []core.Task) []TaskItem {
 			Status:             task.Status,
 			StatusLabel:        presentation.StatusLabel,
 			ProviderLabel:      presentation.ProviderLabel,
-			NextAction:         presentation.NextAction,
+			NextAction:         nextAction,
+			RetryAt:            presentation.RetryAt,
 			NeedsHuman:         presentation.NeedsHuman,
 			Terminal:           presentation.Terminal,
 			Output:             task.Output,
@@ -160,7 +166,7 @@ func chooseSelectedTask(tasks []TaskItem, requested string) string {
 	}
 	for _, task := range tasks {
 		switch task.Status {
-		case core.TaskQueued, core.TaskRouting, core.TaskRunning:
+		case core.TaskQueued, core.TaskRouting, core.TaskRunning, core.TaskWaitingRetry:
 			return task.ID
 		}
 	}
