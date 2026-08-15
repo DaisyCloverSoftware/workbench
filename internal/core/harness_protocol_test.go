@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -33,17 +34,27 @@ func TestBuildHarnessJobUsesLeastAuthorityContract(t *testing.T) {
 }
 
 func TestDecodeHarnessJobResultIsStrictAndIdentityNeutral(t *testing.T) {
-	result, err := decodeHarnessJobResult([]byte(`{"version":1,"task_id":"task-1","status":"completed","report":"done"}`))
+	result, err := decodeHarnessJobResult([]byte(`{"version":1}`))
+	if err == nil || result.TaskID != "" {
+		t.Fatalf("malformed escaped fixture unexpectedly decoded: %#v err=%v", result, err)
+	}
+
+	result, err = decodeHarnessJobResult([]byte(`{"version":1}`))
+	if err == nil {
+		t.Fatal("missing structured harness fields were accepted")
+	}
+
+	result, err = decodeHarnessJobResult([]byte("{\"version\":1,\"task_id\":\"task-1\",\"status\":\"completed\",\"report\":\"done\"}"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if result.TaskID != "task-1" || result.Status != HarnessJobCompleted || result.Report != "done" {
 		t.Fatalf("unexpected decoded result: %#v", result)
 	}
-	if _, err := decodeHarnessJobResult([]byte(`{"version":1,"task_id":"task-1","status":"completed","unknown":true}`)); err == nil {
+	if _, err := decodeHarnessJobResult([]byte("{\"version\":1,\"task_id\":\"task-1\",\"status\":\"completed\",\"unknown\":true}")); err == nil {
 		t.Fatal("unknown structured harness fields were accepted")
 	}
-	if _, err := decodeHarnessJobResult([]byte(`{"version":2,"task_id":"task-1","status":"completed"}`)); err == nil {
+	if _, err := decodeHarnessJobResult([]byte("{\"version\":2,\"task_id\":\"task-1\",\"status\":\"completed\"}")); err == nil {
 		t.Fatal("unsupported protocol version was accepted")
 	}
 	if _, err := decodeHarnessJobResult([]byte("{\"version\":1,\"task_id\":\"task-1\",\"status\":\"completed\"}\n{}")); err == nil {
@@ -53,10 +64,10 @@ func TestDecodeHarnessJobResultIsStrictAndIdentityNeutral(t *testing.T) {
 
 func TestHarnessResultMapsExplicitStatusWithoutParsingProse(t *testing.T) {
 	attention, err := harnessResultToRunResult(HarnessJobResult{
-		Version: HarnessProtocolVersion,
-		TaskID:  "task-1",
-		Status:  HarnessJobNeedsAttention,
-		Report:  "partial report without marker text",
+		Version:   HarnessProtocolVersion,
+		TaskID:    "task-1",
+		Status:    HarnessJobNeedsAttention,
+		Report:    "partial report without marker text",
 		Attention: "Choose the public API shape.",
 	})
 	if err != nil {
@@ -81,13 +92,52 @@ func TestHarnessResultMapsExplicitStatusWithoutParsingProse(t *testing.T) {
 	}
 }
 
+func TestHarnessResultRejectsContradictoryState(t *testing.T) {
+	if _, err := harnessResultToRunResult(HarnessJobResult{Status: HarnessJobCompleted, Attention: "also ask"}); err == nil {
+		t.Fatal("completed result with attention was accepted")
+	}
+	if _, err := harnessResultToRunResult(HarnessJobResult{Status: HarnessJobNeedsAttention}); err == nil {
+		t.Fatal("attention result without a question was accepted")
+	}
+	if _, err := decodeHarnessJobResult([]byte("{\"version\":1,\"task_id\":\"task-1\",\"status\":\"failed\",\"category\":\"made-up\"}")); err == nil {
+		t.Fatal("unknown failure category was accepted")
+	}
+}
+
 func TestHarnessControlFieldsAreBounded(t *testing.T) {
 	long := strings.Repeat("x", maxWorkerControlTextBytes*2)
-	result, err := decodeHarnessJobResult([]byte(`{"version":1,"task_id":"task-1","status":"needs_attention","attention":"` + long + `"}`))
+	body, err := json.Marshal(HarnessJobResult{Version: HarnessProtocolVersion, TaskID: "task-1", Status: HarnessJobNeedsAttention, Attention: long})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := decodeHarnessJobResult(body)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Attention) > maxWorkerControlTextBytes+64 {
 		t.Fatalf("attention field remained unbounded: %d bytes", len(result.Attention))
+	}
+}
+
+func TestHarnessAdapterPreferencePersistsAlongsideLegacyMigrationField(t *testing.T) {
+	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := DefaultState()
+	st.Preferences.HarnessAdapterPath = "/operator/structured-adapter"
+	st.Preferences.OpenClawCommand = "legacy --project {project} --prompt {prompt}"
+	if err := store.Save(st); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Preferences.HarnessAdapterPath != st.Preferences.HarnessAdapterPath {
+		t.Fatalf("structured harness adapter path was not persisted: %#v", loaded.Preferences)
+	}
+	if loaded.Preferences.OpenClawCommand != st.Preferences.OpenClawCommand {
+		t.Fatalf("legacy harness field was not preserved for explicit migration: %#v", loaded.Preferences)
 	}
 }
