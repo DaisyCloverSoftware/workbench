@@ -88,21 +88,21 @@ const (
 )
 
 type Shell struct {
-	hwnd             uintptr
-	eng              *core.Engine
-	mcp              *mcp.Server
-	mcpURL           string
-	mcpErr           string
-	version          string
-	font             uintptr
-	backgroundBrush  uintptr
-	controls         map[int]uintptr
-	page             shellPage
-	projectIDs       []string
-	taskIDs          []string
-	providerIDs      []string
-	selectedTaskID   string
-	editorProjectID  string
+	hwnd              uintptr
+	eng               *core.Engine
+	mcp               *mcp.Server
+	mcpURL            string
+	mcpErr            string
+	version           string
+	font              uintptr
+	backgroundBrush   uintptr
+	controls          map[int]uintptr
+	page              shellPage
+	projectIDs        []string
+	taskIDs           []string
+	providerIDs       []string
+	selectedTaskID    string
+	editorProjectID   string
 	settingsProjectID string
 }
 
@@ -160,14 +160,14 @@ func (s *Shell) run() error {
 	cursor, _, _ := user32.NewProc("LoadCursorW").Call(0, 32512)
 	s.backgroundBrush, _, _ = procCreateSolidBrush.Call(uintptr(rgb(18, 21, 26)))
 	wc := wndClassEx{
-		Size:      uint32(unsafe.Sizeof(wndClassEx{})),
-		WndProc:   syscall.NewCallback(shellWndProc),
-		Instance:  instance,
-		Icon:      icon,
-		Cursor:    cursor,
+		Size:       uint32(unsafe.Sizeof(wndClassEx{})),
+		WndProc:    syscall.NewCallback(shellWndProc),
+		Instance:   instance,
+		Icon:       icon,
+		Cursor:     cursor,
 		Background: s.backgroundBrush,
-		ClassName: uintptr(unsafe.Pointer(className)),
-		IconSm:    icon,
+		ClassName:  uintptr(unsafe.Pointer(className)),
+		IconSm:     icon,
 	}
 	if r, _, e := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
 		return e
@@ -311,7 +311,7 @@ func (s *Shell) createControls() {
 	s.control(idCopyMCP, "BUTTON", "Copy MCP connection", wsChild|wsVisible|wsTabStop|bsPushButton)
 	s.static(idRunnerLabel, "Workbench Runner SSH host")
 	s.control(idRunnerHost, "EDIT", "", wsChild|wsVisible|wsBorder|wsTabStop|esAutoHScroll)
-	s.static(idHarnessLabel, "Optional custom harness command")
+	s.static(idHarnessLabel, "Structured harness adapter executable (optional)")
 	s.control(idHarnessCommand, "EDIT", "", wsChild|wsVisible|wsBorder|wsTabStop|esAutoHScroll)
 	s.static(idNotifyLabel, "Optional human-interrupt command · {message}")
 	s.control(idNotifyCommand, "EDIT", "", wsChild|wsVisible|wsBorder|wsTabStop|esAutoHScroll)
@@ -329,7 +329,7 @@ func (s *Shell) createControls() {
 	s.control(idRunUpdater, "BUTTON", "Check / install verified update", wsChild|wsVisible|wsTabStop|bsPushButton)
 
 	cueBanner(s.controls[idRunnerHost], "user@runner-host")
-	cueBanner(s.controls[idHarnessCommand], "advanced adapter: command {project} {prompt}")
+	cueBanner(s.controls[idHarnessCommand], "absolute path to one adapter executable; no arguments or shell placeholders")
 	cueBanner(s.controls[idNotifyCommand], "command using {message}")
 	cueBanner(s.controls[idReviewRemote], "explicit HTTPS/SSH review remote; no embedded credentials")
 	cueBanner(s.controls[idSecretName], "vault name, e.g. prod/ssh")
@@ -627,7 +627,7 @@ func (s *Shell) showSelectedTask(snapshot Snapshot) {
 		}
 	}
 	setWindowText(s.controls[idReport], report.String())
-	active := item.Status == core.TaskQueued || item.Status == core.TaskRouting || item.Status == core.TaskRunning
+	active := item.Status == core.TaskQueued || item.Status == core.TaskRouting || item.Status == core.TaskRunning || item.Status == core.TaskWaitingRetry
 	procEnableWindow.Call(s.controls[idCancelTask], boolWord(active))
 	procEnableWindow.Call(s.controls[idResumeTask], boolWord(item.NeedsHuman))
 	procEnableWindow.Call(s.controls[idAnswer], boolWord(item.NeedsHuman))
