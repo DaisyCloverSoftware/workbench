@@ -24,6 +24,24 @@ func (e *Engine) ActiveProject() (Project, bool) {
 	return Project{}, false
 }
 
+// ProjectByPath resolves one registered project without changing human
+// workspace selection. It is used by read-only/multi-project control surfaces
+// that need the project's own metadata rather than the active-project mirror.
+func (e *Engine) ProjectByPath(path string) (Project, bool) {
+	path = normalizeProjectPath(path)
+	if path == "" {
+		return Project{}, false
+	}
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	for _, project := range e.state.Projects {
+		if sameProjectPath(project.Path, path) {
+			return project, true
+		}
+	}
+	return Project{}, false
+}
+
 func (e *Engine) SelectProject(path string) (Project, error) {
 	path, err := canonicalProjectSelection(path)
 	if err != nil {
@@ -212,7 +230,16 @@ func saveProjectNotesState(st *State, projectPath, notes string) error {
 			break
 		}
 	}
-	st.ActiveProjectID = project.ID
+	activeExists := false
+	for _, existing := range st.Projects {
+		if existing.ID == st.ActiveProjectID {
+			activeExists = true
+			break
+		}
+	}
+	if !activeExists {
+		st.ActiveProjectID = project.ID
+	}
 	mirrorActiveProject(st)
 	return nil
 }
