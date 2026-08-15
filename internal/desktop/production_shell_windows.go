@@ -94,6 +94,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 			brand += "  " + strings.TrimSpace(s.version)
 		}
 		setWindowText(s.controls[idBrand], brand)
+		showWindow(s.controls[idGlobalStatus], false)
 		s.refresh()
 		s.applyPageVisibility()
 		s.layoutProduction()
@@ -116,6 +117,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		}
 	case wmAppRefresh:
 		s.refresh()
+		showWindow(s.controls[idGlobalStatus], false)
 		invalidateWindow(hwnd)
 		return 0
 	case wmCommand:
@@ -126,6 +128,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 			return 0
 		}
 		s.handleCommand(id, notify)
+		showWindow(s.controls[idGlobalStatus], false)
 		invalidateWindow(hwnd)
 		return 0
 	case wmCtlColorStatic, wmCtlColorBtn, wmCtlColorEdit, wmCtlColorListBox:
@@ -160,11 +163,7 @@ func (s *Shell) layoutProduction() {
 	contentH := height - productionHeaderHeight - pad
 
 	s.layoutProductionChrome(width)
-	statusWidth := width - productionSidebarWidth - 450
-	if statusWidth < 420 {
-		statusWidth = 420
-	}
-	moveWindow(s.controls[idGlobalStatus], productionSidebarWidth+20, 22, statusWidth, 28)
+	showWindow(s.controls[idGlobalStatus], false)
 	switch s.page {
 	case pageWork:
 		s.layoutWork(contentX, productionHeaderHeight, contentW, contentH)
