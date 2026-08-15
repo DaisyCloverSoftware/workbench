@@ -52,6 +52,15 @@ type runnerJobRecord struct {
 type runnerJobLauncher func(jobID string) (int, error)
 type runnerJobExecutor func(context.Context, RunnerRequest) RunnerResponse
 
+type runnerRequestIdentity struct {
+	TaskID           string `json:"task_id"`
+	ProjectPath      string `json:"project_path"`
+	Intent           string `json:"intent"`
+	HumanAnswer      string `json:"human_answer,omitempty"`
+	AvoidWorkUsage   bool   `json:"avoid_work_usage"`
+	AllowMeteredAPI  bool   `json:"allow_metered_api"`
+}
+
 func runnerJobsRoot() (string, error) {
 	if configured := strings.TrimSpace(os.Getenv("WORKBENCH_RUNNER_JOB_ROOT")); configured != "" {
 		abs, err := filepath.Abs(configured)
@@ -101,8 +110,22 @@ func runnerJobPath(root, id string) string {
 	return filepath.Join(root, hex.EncodeToString(sum[:])+".json")
 }
 
+// runnerRequestFingerprint deliberately excludes mutable desktop lifecycle
+// fields such as Task.Status, ProviderID, Attempts and timestamps. Workbench
+// rewrites those fields when recovering after a desktop restart; including them
+// would make the same user request look like a different remote job and could
+// duplicate coding work. HumanAnswer is part of the identity so a genuine
+// attention response becomes the next durable generation.
 func runnerRequestFingerprint(req RunnerRequest) (string, error) {
-	b, err := json.Marshal(req)
+	identity := runnerRequestIdentity{
+		TaskID:          strings.TrimSpace(req.Task.ID),
+		ProjectPath:     strings.TrimSpace(req.Task.ProjectPath),
+		Intent:          strings.TrimSpace(req.Task.Intent),
+		HumanAnswer:     strings.TrimSpace(req.Task.HumanAnswer),
+		AvoidWorkUsage:  req.AvoidWorkUsage,
+		AllowMeteredAPI: req.AllowMeteredAPI,
+	}
+	b, err := json.Marshal(identity)
 	if err != nil {
 		return "", err
 	}
@@ -195,10 +218,18 @@ func submitRunnerJob(req RunnerRequest, launcher runnerJobLauncher) (RunnerJobSu
 		if loadErr != nil || !found || record.Fingerprint != fingerprint {
 			return loadErr
 		}
-		record.PID = pid
-		record.Job.UpdatedAt = time.Now().UTC()
+		// A very fast worker may already have recorded its terminal result before
+		// the submitting process gets here. Never put a stale launcher PID back
+		// onto a terminal record.
+		if runnerJobActive(record.Job.Status) && record.PID == 0 {
+			record.PID = pid
+			record.Job.UpdatedAt = time.Now().UTC()
+			if err := saveRunnerJobRecord(root, record); err != nil {
+				return err
+			}
+		}
 		created = record
-		return saveRunnerJobRecord(root, record)
+		return nil
 	})
 	return RunnerJobSubmitResult{Job: created.Job}, nil
 }
