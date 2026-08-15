@@ -18,8 +18,11 @@ func TestWorkbenchRunnerSSH(host string) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	stdout, stderr, runErr := runRunnerSSHCommand(ctx, validated, nil, "version")
+	stdout, stderr, truncated, runErr := runRunnerSSHCommand(ctx, validated, nil, "version")
 	combined := combineRunnerSSHOutput(stdout, stderr)
+	if truncated {
+		return boundPersistedWorkerText(combined), errors.New("Workbench Runner probe response exceeded the bounded SSH transport limit")
+	}
 	if runErr != nil {
 		if runnerSSHAuthenticationFailure(combined, runErr) {
 			return combined, fmt.Errorf("Workbench Runner SSH authentication failed: %w", runErr)
