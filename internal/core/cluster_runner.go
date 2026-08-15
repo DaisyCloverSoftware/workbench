@@ -68,7 +68,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 
 	var submitted RunnerJob
 	for {
-		stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, reqBody, "job", "submit")
+		stdout, stderr, truncated, runErr := runRunnerSSHCommand(ctx, host, reqBody, "job", "submit")
 		combined := combineRunnerSSHOutput(stdout, stderr)
 		if runErr != nil {
 			if ctx.Err() != nil {
@@ -85,8 +85,18 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 				res := classifyRunOutput(combined)
 				res.Retryable = true
 				res.Authentication = true
-				return res, fmt.Errorf("cluster runner SSH authentication failed: %w", runErr)
+				return boundRunResultForPersistence(res), fmt.Errorf("cluster runner SSH authentication failed: %w", runErr)
 			}
+			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, task.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
+		}
+		if truncated {
+			// The runner may have accepted the idempotent task before its reply
+			// exceeded our transport cap. Retry the same task ID instead of
+			// returning an error that could route another worker onto the repo.
 			if !waitRunnerRetry(ctx, 2*time.Second) {
 				cancelRunnerJobBestEffort(host, task.ID)
 				return RunResult{}, ctx.Err()
@@ -98,10 +108,16 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 			if durableJobCommandUnsupported(combined) {
 				return runClusterRunnerLegacySSH(ctx, host, reqBody)
 			}
-			return RunResult{Retryable: true, Output: combined}, fmt.Errorf("cluster runner returned invalid durable-job submit response: %w", err)
+			// A syntactically broken acknowledgement is also an ambiguous submit:
+			// the job may exist. Re-submit idempotently rather than fail over.
+			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, task.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
 		}
 		if !envelope.OK {
-			return RunResult{Output: envelope.Error}, errors.New(strings.TrimSpace(envelope.Error))
+			return RunResult{Output: boundPersistedWorkerText(envelope.Error)}, errors.New(strings.TrimSpace(envelope.Error))
 		}
 		submitted = envelope.Result.Job
 		if submitted.ID != task.ID {
@@ -118,13 +134,13 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 		default:
 		}
 
-		stdout, _, runErr := runRunnerSSHCommand(ctx, host, nil, "job", "status", submitted.ID)
-		if runErr != nil {
+		stdout, _, truncated, runErr := runRunnerSSHCommand(ctx, host, nil, "job", "status", submitted.ID)
+		if runErr != nil || truncated {
 			// The durable job may still be running even if the SSH account,
-			// network or host is temporarily unreachable. Returning an error here
-			// would make Engine hand the same repository to another coding worker.
-			// Stay attached logically until the task context is explicitly
-			// cancelled or expires.
+			// network/host is temporarily unreachable or its response is too
+			// large. Returning an error here would make Engine hand the same
+			// repository to another coding worker. Stay attached logically until
+			// the task context is explicitly cancelled or expires.
 			if !waitRunnerRetry(ctx, 2*time.Second) {
 				cancelRunnerJobBestEffort(host, submitted.ID)
 				return RunResult{}, ctx.Err()
@@ -142,7 +158,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 			continue
 		}
 		if !envelope.OK {
-			return RunResult{Output: envelope.Error}, errors.New(strings.TrimSpace(envelope.Error))
+			return RunResult{Output: boundPersistedWorkerText(envelope.Error)}, errors.New(strings.TrimSpace(envelope.Error))
 		}
 		job := envelope.Job
 		if job.ID != submitted.ID {
@@ -171,7 +187,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 				}
 				return res, errors.New("cluster runner durable job failed")
 			}
-			return RunResult{Output: job.Error}, errors.New(strings.TrimSpace(job.Error))
+			return RunResult{Output: boundPersistedWorkerText(job.Error)}, errors.New(strings.TrimSpace(job.Error))
 		case RunnerJobCancelled:
 			return RunResult{}, context.Canceled
 		default:
@@ -181,18 +197,18 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 }
 
 func runResultFromRunnerResponse(rr RunnerResponse) (RunResult, error) {
-	res := rr.Result
+	res := boundRunResultForPersistence(rr.Result)
 	res.WorkerProviderID = rr.ProviderID
 	res.WorkerProviderName = rr.ProviderName
 	res.WorkerCost = rr.ProviderCost
 	if strings.TrimSpace(rr.Error) != "" {
 		res.Retryable = true
-		return res, errors.New(rr.Error)
+		return res, errors.New(boundWorkerControlText(rr.Error))
 	}
 	return res, nil
 }
 
-func runRunnerSSHCommand(ctx context.Context, host string, stdin []byte, args ...string) ([]byte, []byte, error) {
+func runRunnerSSHCommand(ctx context.Context, host string, stdin []byte, args ...string) ([]byte, []byte, bool, error) {
 	remoteArgs := []string{"$HOME/.local/bin/workbench-runner"}
 	remoteArgs = append(remoteArgs, args...)
 	cmdArgs := []string{
@@ -207,11 +223,12 @@ func runRunnerSSHCommand(ctx context.Context, host string, stdin []byte, args ..
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	stdout := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
+	stderr := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	err := cmd.Run()
-	return stdout.Bytes(), stderr.Bytes(), err
+	return []byte(stdout.String()), []byte(stderr.String()), stdout.Truncated() || stderr.Truncated(), err
 }
 
 func combineRunnerSSHOutput(stdout, stderr []byte) string {
@@ -252,13 +269,19 @@ func waitRunnerRetry(ctx context.Context, delay time.Duration) bool {
 func cancelRunnerJobBestEffort(host, jobID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, _, _ = runRunnerSSHCommand(ctx, host, nil, "job", "cancel", jobID)
+	_, _, _, _ = runRunnerSSHCommand(ctx, host, nil, "job", "cancel", jobID)
 }
 
 // runClusterRunnerLegacySSH keeps rolling upgrades compatible with a runner
 // older than the durable-job protocol. New runners never use this path.
 func runClusterRunnerLegacySSH(ctx context.Context, host string, reqBody []byte) (RunResult, error) {
-	stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, reqBody, "run")
+	stdout, stderr, truncated, runErr := runRunnerSSHCommand(ctx, host, reqBody, "run")
+	combined := combineRunnerSSHOutput(stdout, stderr)
+	if truncated {
+		res := classifyRunOutput(combined)
+		res.Retryable = true
+		return boundRunResultForPersistence(res), errors.New("legacy cluster runner response exceeded Workbench's bounded transport limit")
+	}
 	var rr RunnerResponse
 	decodeErr := json.Unmarshal(stdout, &rr)
 	if decodeErr == nil {
@@ -272,7 +295,6 @@ func runClusterRunnerLegacySSH(ctx context.Context, host string, reqBody []byte)
 		}
 		return res, nil
 	}
-	combined := combineRunnerSSHOutput(stdout, stderr)
 	res := classifyRunOutput(combined)
 	res.Retryable = true
 	if runErr != nil {
@@ -280,9 +302,9 @@ func runClusterRunnerLegacySSH(ctx context.Context, host string, reqBody []byte)
 		if combined == "" {
 			res.Output = runErr.Error()
 		}
-		return res, fmt.Errorf("cluster runner SSH failed: %w", runErr)
+		return boundRunResultForPersistence(res), fmt.Errorf("cluster runner SSH failed: %w", runErr)
 	}
-	return res, fmt.Errorf("cluster runner returned invalid response: %w", decodeErr)
+	return boundRunResultForPersistence(res), fmt.Errorf("cluster runner returned invalid response: %w", decodeErr)
 }
 
 // ExecuteRunnerRequest is the cluster-side routing loop. It uses the same cost
@@ -311,6 +333,7 @@ func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse
 			continue
 		}
 		res, runErr := RunProviderIsolated(ctx, p, task, prefs)
+		res = boundRunResultForPersistence(res)
 		record, coolingNow := RecordProviderRunOutcome(p.ID, res, runErr)
 		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, runErr))
 		if coolingNow {
