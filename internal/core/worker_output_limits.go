@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -17,7 +18,10 @@ const (
 // prefix would be unsafe: a noisy worker could push ATTENTION_REQUIRED or
 // WORKER_UNAVAILABLE beyond the cap. Write always reports the original byte
 // count so the child process is never back-pressured by Workbench truncation.
+// A single capture may be shared by stdout/stderr for custom harness commands,
+// so writes and snapshots are protected against concurrent exec pipe goroutines.
 type boundedWorkerCapture struct {
+	mu          sync.Mutex
 	limit       int
 	prefixLimit int
 	tailLimit   int
@@ -40,6 +44,8 @@ func newBoundedWorkerCapture(limit int) *boundedWorkerCapture {
 
 func (c *boundedWorkerCapture) Write(p []byte) (int, error) {
 	original := len(p)
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.total += int64(original)
 	if c.limit == 0 || original == 0 {
 		return original, nil
@@ -54,12 +60,12 @@ func (c *boundedWorkerCapture) Write(p []byte) (int, error) {
 		p = p[n:]
 	}
 	if len(p) > 0 && c.tailLimit > 0 {
-		c.appendTail(p)
+		c.appendTailLocked(p)
 	}
 	return original, nil
 }
 
-func (c *boundedWorkerCapture) appendTail(p []byte) {
+func (c *boundedWorkerCapture) appendTailLocked(p []byte) {
 	if len(p) >= c.tailLimit {
 		c.tail = append(c.tail[:0], p[len(p)-c.tailLimit:]...)
 		return
@@ -72,15 +78,26 @@ func (c *boundedWorkerCapture) appendTail(p []byte) {
 	c.tail = append(c.tail, p...)
 }
 
-func (c *boundedWorkerCapture) Truncated() bool {
+func (c *boundedWorkerCapture) truncatedLocked() bool {
 	return c.total > int64(len(c.prefix)+len(c.tail))
+}
+
+func (c *boundedWorkerCapture) Truncated() bool {
+	if c == nil {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.truncatedLocked()
 }
 
 func (c *boundedWorkerCapture) String() string {
 	if c == nil {
 		return ""
 	}
-	if !c.Truncated() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.truncatedLocked() {
 		out := make([]byte, 0, len(c.prefix)+len(c.tail))
 		out = append(out, c.prefix...)
 		out = append(out, c.tail...)
