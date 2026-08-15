@@ -253,6 +253,7 @@ func stringSliceArg(a map[string]any, k string) []string {
 			if strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	}
 	return out
 }
@@ -465,9 +466,14 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if core.LooksSecret(note) {
 			return textContent(map[string]any{"error": "note appears to contain a secret; Workbench refused to expose/store it through MCP. Use the local encrypted vault."}, true)
 		}
-		project := s.projectArg(a)
-		st := s.engine.State()
-		merged := strings.TrimSpace(st.Notes)
+		project, errResult := s.requireProject(a)
+		if errResult != nil {
+			return errResult
+		}
+		merged := ""
+		if registered, ok := s.engine.ProjectByPath(project); ok {
+			merged = strings.TrimSpace(registered.Notes)
+		}
 		if merged != "" {
 			merged += "\n\n"
 		}
