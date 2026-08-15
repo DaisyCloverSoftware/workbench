@@ -71,6 +71,13 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 		stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, reqBody, "job", "submit")
 		combined := combineRunnerSSHOutput(stdout, stderr)
 		if runErr != nil {
+			if ctx.Err() != nil {
+				// The remote side may have accepted the idempotent submit before
+				// the local SSH process was cancelled. Explicit cancellation must
+				// therefore attempt the task ID even without a submit response.
+				cancelRunnerJobBestEffort(host, task.ID)
+				return RunResult{}, ctx.Err()
+			}
 			if durableJobCommandUnsupported(combined) {
 				return runClusterRunnerLegacySSH(ctx, host, reqBody)
 			}
@@ -81,6 +88,7 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 				return res, fmt.Errorf("cluster runner SSH authentication failed: %w", runErr)
 			}
 			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, task.ID)
 				return RunResult{}, ctx.Err()
 			}
 			continue
@@ -111,15 +119,12 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 		}
 
 		stdout, stderr, runErr := runRunnerSSHCommand(ctx, host, nil, "job", "status", submitted.ID)
-		combined := combineRunnerSSHOutput(stdout, stderr)
 		if runErr != nil {
-			if runnerSSHAuthenticationFailure(combined, runErr) {
-				res := classifyRunOutput(combined)
-				res.Authentication = true
-				return res, fmt.Errorf("cluster runner became unreachable due to SSH authentication: %w", runErr)
-			}
-			// The durable job may still be running. Do not return an error here:
-			// Engine failover would hand the same repository to another worker.
+			// The durable job may still be running even if the SSH account,
+			// network or host is temporarily unreachable. Returning an error here
+			// would make Engine hand the same repository to another coding worker.
+			// Stay attached logically until the task context is explicitly
+			// cancelled or expires.
 			if !waitRunnerRetry(ctx, 2*time.Second) {
 				cancelRunnerJobBestEffort(host, submitted.ID)
 				return RunResult{}, ctx.Err()
@@ -128,7 +133,13 @@ func RunClusterRunnerSSH(ctx context.Context, host string, task Task, prefs Pref
 		}
 		var envelope runnerJobStatusEnvelope
 		if err := json.Unmarshal(stdout, &envelope); err != nil {
-			return RunResult{Output: combined}, fmt.Errorf("cluster runner returned invalid durable-job status response: %w", err)
+			// A known durable job is safer to poll again than to fail over on a
+			// malformed/transient status response.
+			if !waitRunnerRetry(ctx, 2*time.Second) {
+				cancelRunnerJobBestEffort(host, submitted.ID)
+				return RunResult{}, ctx.Err()
+			}
+			continue
 		}
 		if !envelope.OK {
 			return RunResult{Output: envelope.Error}, errors.New(strings.TrimSpace(envelope.Error))
