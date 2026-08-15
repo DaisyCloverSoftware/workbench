@@ -9,7 +9,7 @@ import (
 const maxAutomaticTaskRetries = 3
 
 func automaticProviderRetryEligible(provider Provider, record ProviderHealth) bool {
-	if provider.Cost == CostScarce || provider.Cost == CostMetered || !record.CooldownUntil.After(time.Now().Add(-time.Second)) {
+	if provider.Cost == CostScarce || provider.Cost == CostMetered || record.CooldownUntil.IsZero() {
 		return false
 	}
 	switch strings.TrimSpace(record.Reason) {
