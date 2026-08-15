@@ -116,21 +116,25 @@ func TestRunnerHarnessConfigIsVisibleOnlyInRunnerInventoryMode(t *testing.T) {
 	if _, err := SaveRunnerHarnessAdapter(adapter); err != nil {
 		t.Fatal(err)
 	}
+	prefs := Preferences{AvoidWorkUsage: true}
 	base := []Provider{{ID: "codex", Name: "Codex", Command: "codex", Installed: true, Authenticated: true, Cost: CostScarce, Priority: 80, CanWrite: true}}
 
-	desktop := providerInventoryWithConfiguredHarnessMode(base, Preferences{}, false)
+	desktop := providerInventoryWithConfiguredHarnessMode(base, prefs, false)
 	if len(desktop) != 1 || desktop[0].ID != "codex" {
 		t.Fatalf("runner-private adapter leaked into desktop inventory: %#v", desktop)
 	}
 
-	runner := providerInventoryWithConfiguredHarnessMode(base, Preferences{}, true)
+	runner := providerInventoryWithConfiguredHarnessMode(base, prefs, true)
 	if len(runner) != 2 {
 		t.Fatalf("runner inventory=%#v want adapter + Codex", runner)
 	}
 	if runner[1].ID != StructuredHarnessProviderID && runner[0].ID != StructuredHarnessProviderID {
 		t.Fatalf("runner inventory did not contain structured adapter: %#v", runner)
 	}
-	candidates := routeCandidatesWithHarnessMode(base, Preferences{AvoidWorkUsage: true}, Task{}, true)
+	// routeCandidates sees an already-materialised structured provider and must
+	// still preserve the normal included-before-scarce ordering. Production
+	// workbench-runner materialises it through the same mode helper above.
+	candidates := routeCandidates(runner, prefs, Task{})
 	if len(candidates) != 2 || candidates[0].ID != StructuredHarnessProviderID || candidates[1].ID != "codex" {
 		t.Fatalf("runner-private adapter was not routed before scarce Work: %#v", candidates)
 	}
