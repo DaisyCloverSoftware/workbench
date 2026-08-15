@@ -51,12 +51,26 @@
 - Windows PE32+ AMD64 and post-swap checksum verification with rollback on launch failure
 - release packaging contract for the Windows app, updater and Linux cluster binaries
 
+## v0.8 — multi-project production workspace and unattended safety
+
+- one production task-first Windows desktop; obsolete dogfood executable and command removed
+- durable multi-project registry with pinned/recent ordering, per-project notes/tasks, legacy migration and Windows filesystem-identity path canonicalisation
+- background delegation and cross-project notes preserve the human's active project selection
+- privacy-minimal multi-project MCP workspace projection for explicit `project_path` targeting without project-selection authority
+- cross-project note isolation and unfinished-project removal guard
+- fail-closed Windows desktop ownership before durable state opens or interrupted work recovers
+- bounded local/remote worker output and durable reports while preserving final attention/unavailable control markers
+- durable runner transport stays attached to the same idempotent task across malformed or oversized submit/status responses
+- global human-attention navigation and native minimum desktop geometry
+
 ## Next
 
 - first-class structured OpenClaw/harness jobs rather than a command-template adapter
 - richer retry/recovery policies and resumable provider sessions
 - searchable decisions and a project knowledge graph
 - automatic cross-model review policies for higher-risk changes
+- task-history filtering/archiving without deleting durable task records
+- complete per-monitor DPI-aware desktop layout/font scaling
 - desktop/tablet/phone preview and test targets
 - screenshot and Playwright result surfaces
 - WhatsApp/Signal/Telegram/Slack adapters as human-interrupt channels
