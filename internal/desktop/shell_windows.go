@@ -88,21 +88,21 @@ const (
 )
 
 type Shell struct {
-	hwnd              uintptr
-	eng               *core.Engine
-	mcp               *mcp.Server
-	mcpURL            string
-	mcpErr            string
-	version           string
-	font              uintptr
-	backgroundBrush   uintptr
-	controls          map[int]uintptr
-	page              shellPage
-	projectIDs        []string
-	taskIDs           []string
-	providerIDs       []string
-	selectedTaskID    string
-	editorProjectID   string
+	hwnd             uintptr
+	eng              *core.Engine
+	mcp              *mcp.Server
+	mcpURL           string
+	mcpErr           string
+	version          string
+	font             uintptr
+	backgroundBrush  uintptr
+	controls         map[int]uintptr
+	page             shellPage
+	projectIDs       []string
+	taskIDs          []string
+	providerIDs      []string
+	selectedTaskID   string
+	editorProjectID  string
 	settingsProjectID string
 }
 
@@ -160,14 +160,14 @@ func (s *Shell) run() error {
 	cursor, _, _ := user32.NewProc("LoadCursorW").Call(0, 32512)
 	s.backgroundBrush, _, _ = procCreateSolidBrush.Call(uintptr(rgb(18, 21, 26)))
 	wc := wndClassEx{
-		Size:       uint32(unsafe.Sizeof(wndClassEx{})),
-		WndProc:    syscall.NewCallback(shellWndProc),
-		Instance:   instance,
-		Icon:       icon,
-		Cursor:     cursor,
+		Size:      uint32(unsafe.Sizeof(wndClassEx{})),
+		WndProc:   syscall.NewCallback(shellWndProc),
+		Instance:  instance,
+		Icon:      icon,
+		Cursor:    cursor,
 		Background: s.backgroundBrush,
-		ClassName:  uintptr(unsafe.Pointer(className)),
-		IconSm:     icon,
+		ClassName: uintptr(unsafe.Pointer(className)),
+		IconSm:    icon,
 	}
 	if r, _, e := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
 		return e
