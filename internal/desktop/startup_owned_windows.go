@@ -61,9 +61,9 @@ func RunOwned(version string, processOwnershipConfirmed bool) error {
 		mcpErr:   mcpErr,
 		version:  strings.TrimSpace(version),
 		controls: map[int]uintptr{},
-		page:     pageWork,
+		page:     pageDashboard,
 	}
 	runningShell = shell
 	defer func() { runningShell = nil }()
-	return shell.run()
+	return runProductionShell(shell)
 }
