@@ -209,6 +209,7 @@ func validatePublishRemote(remote string) error {
 			if _, hasPassword := u.User.Password(); hasPassword {
 				return errors.New("SSH publication target must not contain a password")
 			}
+		}
 	case "file":
 		if u.Path == "" || u.Host != "" {
 			return errors.New("file publication target must be a local absolute URL")
