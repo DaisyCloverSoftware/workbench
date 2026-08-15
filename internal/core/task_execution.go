@@ -9,15 +9,22 @@ import (
 
 type ReviewPublicationStatus string
 
+type ReviewPullRequestStatus string
+
 const (
 	ReviewPublicationPrepared ReviewPublicationStatus = "prepared"
 	ReviewPublicationPublished ReviewPublicationStatus = "published"
 	ReviewPublicationFailed ReviewPublicationStatus = "publication_failed"
+
+	ReviewPullRequestNotApplicable ReviewPullRequestStatus = "not_applicable"
+	ReviewPullRequestAvailable ReviewPullRequestStatus = "available"
+	ReviewPullRequestUnavailable ReviewPullRequestStatus = "unavailable"
 )
 
 type TaskReviewResult struct {
 	Changed           bool                    `json:"changed"`
 	BaseRevision      string                  `json:"base_revision,omitempty"`
+	BaseBranch        string                  `json:"base_branch,omitempty"`
 	Fingerprint       string                  `json:"fingerprint,omitempty"`
 	Branch            string                  `json:"branch,omitempty"`
 	Commit            string                  `json:"commit,omitempty"`
@@ -25,6 +32,9 @@ type TaskReviewResult struct {
 	PublicationStatus ReviewPublicationStatus `json:"publication_status,omitempty"`
 	Published         bool                    `json:"published,omitempty"`
 	AlreadyPresent    bool                    `json:"already_present,omitempty"`
+	PullRequestStatus ReviewPullRequestStatus `json:"pull_request_status,omitempty"`
+	PullRequestNumber int                     `json:"pull_request_number,omitempty"`
+	PullRequestState  string                  `json:"pull_request_state,omitempty"`
 }
 
 // RunProviderIsolated gives a local coding worker a durable Workbench-owned
@@ -62,6 +72,9 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 		return res, fmt.Errorf("finalize isolated task workspace: %w", err)
 	}
 	if review.Changed {
+		if review.PublicationStatus == ReviewPublicationPublished {
+			review = DeliverGitHubPullRequest(ctx, task.ProjectPath, review)
+		}
 		res.Review = cloneTaskReviewResult(&review)
 		status := fmt.Sprintf("Workbench prepared review branch %s at %s.", review.Branch, review.Commit)
 		switch review.PublicationStatus {
@@ -72,6 +85,11 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 			}
 		case ReviewPublicationFailed:
 			status += " Automatic review publication did not complete; the verified prepared review remains available locally and coding will not be rerun."
+		}
+		if review.PullRequestStatus == ReviewPullRequestAvailable && review.PullRequestNumber > 0 {
+			status += fmt.Sprintf(" GitHub review PR #%d is available.", review.PullRequestNumber)
+		} else if review.PullRequestStatus == ReviewPullRequestUnavailable {
+			status += " The review branch is safe, but GitHub PR delivery is currently unavailable and can be retried without recoding."
 		}
 		if strings.TrimSpace(res.Output) == "" {
 			res.Output = status
@@ -117,6 +135,7 @@ func FinalizeTaskWorkspace(ctx context.Context, ws TaskWorkspace) (TaskReviewRes
 	result := TaskReviewResult{
 		Changed:           true,
 		BaseRevision:      prepared.BaseRevision,
+		BaseBranch:        ws.BaseBranch,
 		Fingerprint:       prepared.Fingerprint,
 		Branch:            prepared.Branch,
 		Commit:            prepared.Commit,
