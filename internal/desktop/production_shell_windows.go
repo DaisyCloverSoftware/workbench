@@ -105,7 +105,11 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		redrawProductionWindow(hwnd)
 		return 0
 	case wmPaint:
-		return s.paintProductionWindow()
+		result := s.paintProductionWindow()
+		if s.page != pageDashboard {
+			s.paintProductionWorkSettingsPanels()
+		}
+		return result
 	case wmEraseBkgnd:
 		return 1
 	case wmDrawItem:
