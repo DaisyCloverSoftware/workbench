@@ -191,24 +191,50 @@ func decodeHarnessJobResult(body []byte) (HarnessJobResult, error) {
 		return HarnessJobResult{}, fmt.Errorf("unsupported structured harness protocol version %d", result.Version)
 	}
 	result.TaskID = strings.TrimSpace(result.TaskID)
+	if result.TaskID == "" {
+		return HarnessJobResult{}, errors.New("structured harness result is missing task_id")
+	}
+	if !validHarnessFailureCategory(result.Category) {
+		return HarnessJobResult{}, fmt.Errorf("unknown structured harness failure category %q", result.Category)
+	}
 	result.Report = boundPersistedWorkerText(result.Report)
 	result.Attention = boundWorkerControlText(result.Attention)
 	result.Unavailable = boundWorkerControlText(result.Unavailable)
 	return result, nil
 }
 
+func validHarnessFailureCategory(category HarnessFailureCategory) bool {
+	switch category {
+	case "", HarnessFailureAuthentication, HarnessFailureQuota, HarnessFailurePermissions, HarnessFailureTimeout, HarnessFailureTemporary, HarnessFailureAdapter:
+		return true
+	default:
+		return false
+	}
+}
+
 func harnessResultToRunResult(result HarnessJobResult) (RunResult, error) {
 	res := RunResult{Output: result.Report, Retryable: result.Retryable}
 	switch result.Status {
 	case HarnessJobCompleted:
+		if result.Attention != "" || result.Unavailable != "" || result.Category != "" {
+			return RunResult{Retryable: true}, errors.New("completed structured harness result contains failure or attention fields")
+		}
+		res.Retryable = false
 		return res, nil
 	case HarnessJobNeedsAttention:
 		if result.Attention == "" {
 			return RunResult{Retryable: true}, errors.New("structured harness requested attention without a question")
 		}
+		if result.Unavailable != "" || result.Category != "" {
+			return RunResult{Retryable: true}, errors.New("structured harness attention result also contains unavailable/failure fields")
+		}
+		res.Retryable = false
 		res.Attention = result.Attention
 		return res, nil
 	case HarnessJobUnavailable:
+		if result.Attention != "" {
+			return RunResult{Retryable: true}, errors.New("structured harness unavailable result also contains an attention question")
+		}
 		if result.Unavailable == "" {
 			result.Unavailable = "structured harness is unavailable for this task"
 		}
@@ -217,6 +243,9 @@ func harnessResultToRunResult(result HarnessJobResult) (RunResult, error) {
 		res.Authentication = result.Category == HarnessFailureAuthentication
 		return res, errors.New(result.Unavailable)
 	case HarnessJobFailed:
+		if result.Attention != "" || result.Unavailable != "" {
+			return RunResult{Retryable: true}, errors.New("failed structured harness result contains attention/unavailable fields")
+		}
 		return res, errors.New("structured harness reported task failure")
 	default:
 		return RunResult{Retryable: true}, fmt.Errorf("unknown structured harness status %q", result.Status)
