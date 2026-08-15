@@ -145,9 +145,14 @@ func canonicalPublicationProject(project string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	gitRoot, err := runGitLimited(context.Background(), root, 16<<10, "rev-parse", "--show-toplevel")
+	// Publication policy is consulted from the Windows UI thread when Settings
+	// opens. A repository living on a stalled filesystem must not make the whole
+	// desktop appear hung for the generic 30-second git command limit.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	gitRoot, err := runGitLimited(ctx, root, 16<<10, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", errors.New("publication policy requires a Git repository root")
+		return "", errors.New("publication policy requires a responsive Git repository root")
 	}
 	gitRoot = strings.TrimSpace(gitRoot)
 	resolvedGitRoot, err := filepath.EvalSymlinks(gitRoot)
