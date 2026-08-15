@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0 — 2026-08-15
+
+- Moved Workbench-owned review and relay scratch worktrees out of system `/tmp` and into a private cache-backed scratch area, with `WORKBENCH_SCRATCH_ROOT` available for a deliberately chosen larger volume.
+- Added a strict official-release trust client bound to `DaisyCloverSoftware/workbench`: stable-tag validation, exact asset URL binding, bounded downloads, GitHub-declared SHA-256 verification and published checksum verification.
+- Added operator-only `workbench-runner update check` and transactional Linux/amd64 `update apply`; update commands remain outside model-safe hands and MCP.
+- Cluster self-update accepts only the exact runner/server/relay archive set, verifies ELF64 x86-64, stages replacements on the install filesystem, keeps rollback backups, and verifies the new runner before restarting only previously-active Workbench systemd user services.
+- Cluster update failures during new-runner verification or service restart restore the previous binary set rather than leaving a partial upgrade.
+- Added a double-clickable `Workbench-Updater.exe` for Windows that can bootstrap or update a sibling `Workbench.exe` from the verified official stable release.
+- The Windows updater validates PE32+ AMD64 and SHA-256 before and after the atomic swap, retains the previous executable until the new app successfully launches, and never kills a running Workbench process.
+- Windows CI now builds the app and updater together; GitHub releases publish the updater and its checksum alongside the existing Windows app and Linux cluster package.
+
 ## 0.6.1 — 2026-08-14
 
 - Split runner verification into a deterministic `selftest` for Workbench control-plane health and an explicit `live-selftest` for external AI-worker availability.

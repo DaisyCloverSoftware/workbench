@@ -52,6 +52,8 @@ jobs:
         run: |
           go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
           (Get-FileHash -Algorithm SHA256 Workbench.exe).Hash.ToLower() + '  Workbench.exe' | Set-Content -Encoding ascii Workbench.exe.sha256
+          go build -ldflags='-s -w -H=windowsgui' -o Workbench-Updater.exe ./cmd/workbench-updater
+          (Get-FileHash -Algorithm SHA256 Workbench-Updater.exe).Hash.ToLower() + '  Workbench-Updater.exe' | Set-Content -Encoding ascii Workbench-Updater.exe.sha256
 
           $env:CGO_ENABLED = '0'
           $env:GOOS = 'linux'
@@ -71,4 +73,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create $env:WORKBENCH_TAG Workbench.exe Workbench.exe.sha256 Workbench-Cluster-linux-amd64.zip Workbench-Cluster-linux-amd64.zip.sha256 --target '${{ github.sha }}' --title "Workbench $env:WORKBENCH_TAG" --generate-notes
+          gh release create $env:WORKBENCH_TAG Workbench.exe Workbench.exe.sha256 Workbench-Updater.exe Workbench-Updater.exe.sha256 Workbench-Cluster-linux-amd64.zip Workbench-Cluster-linux-amd64.zip.sha256 --target '${{ github.sha }}' --title "Workbench $env:WORKBENCH_TAG" --generate-notes

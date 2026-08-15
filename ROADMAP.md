@@ -40,9 +40,19 @@
 - short-lived exponential cooldowns for retryable authentication, quota, permission, adapter and timeout failures
 - safe categorical cooldown status in provider UI/runner doctor without persisting raw provider output
 
+## v0.7 — locally initiated verified maintenance
+
+- cache-backed private scratch worktrees instead of relying on system `/tmp` capacity
+- official stable-release trust client with exact repository/tag/asset binding and dual SHA-256 verification
+- operator-only cluster update check/apply commands kept outside MCP and model-safe hands
+- exact cluster archive/ELF validation plus same-filesystem atomic binary staging
+- rollback-capable cluster upgrades verified by the new runner selftest and existing Workbench systemd services
+- standalone double-clickable Windows updater/installer for a sibling `Workbench.exe`
+- Windows PE32+ AMD64 and post-swap checksum verification with rollback on launch failure
+- release packaging contract for the Windows app, updater and Linux cluster binaries
+
 ## Next
 
-- locally initiated maintenance/update flow that can refresh Workbench without turning Chat into a remote command channel
 - first-class structured OpenClaw/harness jobs rather than a command-template adapter
 - richer retry/recovery policies and resumable provider sessions
 - searchable decisions and a project knowledge graph
@@ -51,7 +61,7 @@
 - screenshot and Playwright result surfaces
 - WhatsApp/Signal/Telegram/Slack adapters as human-interrupt channels
 - OS keychain support on macOS/Linux
-- signed installers and locally controlled automatic updates
+- signed installers and optional locally scheduled update checks
 
 ## Later
 
