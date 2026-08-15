@@ -16,6 +16,7 @@ const projectStateVersion = 3
 
 func normalizeProjectRegistryState(st State) State {
 	now := time.Now().UTC()
+	migrating := st.Version < projectStateVersion
 	projects := make([]Project, 0, len(st.Projects)+1)
 	index := map[string]int{}
 
@@ -73,12 +74,18 @@ func normalizeProjectRegistryState(st State) State {
 	if legacyActivePath != "" {
 		legacyActiveID = add(legacyActivePath, "", st.Notes, false, now, now)
 	}
-	for _, task := range st.Tasks {
-		used := task.UpdatedAt
-		if used.IsZero() {
-			used = task.CreatedAt
+	// Historic Task.ProjectPath is the only multi-project information available
+	// in v0.7-era state. Import it once while moving to v3. After that the
+	// explicit registry is authoritative: removing a project must not cause old
+	// task history to resurrect it on the next save.
+	if migrating {
+		for _, task := range st.Tasks {
+			used := task.UpdatedAt
+			if used.IsZero() {
+				used = task.CreatedAt
+			}
+			add(task.ProjectPath, "", "", false, task.CreatedAt, used)
 		}
-		add(task.ProjectPath, "", "", false, task.CreatedAt, used)
 	}
 
 	activeID := strings.TrimSpace(st.ActiveProjectID)
