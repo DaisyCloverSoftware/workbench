@@ -1,13 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	officialUpdateOwner = "DaisyCloverSoftware"
-	officialUpdateRepo  = "workbench"
+	officialUpdateOwner      = "DaisyCloverSoftware"
+	officialUpdateRepo       = "workbench"
 	officialLatestReleaseURL = "https://api.github.com/repos/DaisyCloverSoftware/workbench/releases/latest"
+	maxReleaseMetadataBytes  = 2 << 20
+	maxChecksumAssetBytes    = 4096
 )
 
 var stableVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
@@ -126,11 +128,11 @@ func fetchUpdateRelease(ctx context.Context, client *http.Client, endpoint strin
 	if resp.StatusCode != http.StatusOK {
 		return UpdateRelease{}, fmt.Errorf("check Workbench release: HTTP %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20+1))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxReleaseMetadataBytes+1))
 	if err != nil {
 		return UpdateRelease{}, err
 	}
-	if len(body) > 2<<20 {
+	if len(body) > maxReleaseMetadataBytes {
 		return UpdateRelease{}, errors.New("Workbench release metadata is unexpectedly large")
 	}
 	var raw githubLatestRelease
@@ -153,11 +155,11 @@ func normalizeUpdateRelease(raw githubLatestRelease) (UpdateRelease, error) {
 	}
 	if raw.HTMLURL != "" {
 		u, err := url.Parse(raw.HTMLURL)
-		if err != nil || u.Scheme != "https" || !strings.EqualFold(u.Hostname(), "github.com") || u.User != nil {
+		if err != nil || u.Scheme != "https" || !strings.EqualFold(u.Hostname(), "github.com") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return UpdateRelease{}, errors.New("Workbench release page URL is not trusted")
 		}
 		expectedPage := "/" + officialUpdateOwner + "/" + officialUpdateRepo + "/releases/tag/" + raw.TagName
-		if path.Clean(u.EscapedPath()) != expectedPage && path.Clean(u.Path) != expectedPage {
+		if u.Path != expectedPage {
 			return UpdateRelease{}, errors.New("Workbench release page does not belong to the official repository")
 		}
 	}
@@ -185,6 +187,19 @@ func normalizeUpdateRelease(raw githubLatestRelease) (UpdateRelease, error) {
 		assets[name] = asset
 	}
 	return UpdateRelease{Version: version, Tag: raw.TagName, PageURL: raw.HTMLURL, Assets: assets}, nil
+}
+
+func validateOfficialRelease(release UpdateRelease) error {
+	if _, err := parseStableVersion(release.Version); err != nil {
+		return err
+	}
+	if release.Tag != "v"+release.Version {
+		return errors.New("Workbench update release tag does not match its version")
+	}
+	if release.Assets == nil {
+		return errors.New("Workbench update release has no assets")
+	}
+	return nil
 }
 
 func validateOfficialAssetURL(rawURL, tag, assetName string) error {
@@ -244,6 +259,9 @@ func parseStableVersion(v string) ([3]uint64, error) {
 }
 
 func DownloadVerifiedReleaseAsset(ctx context.Context, release UpdateRelease, assetName, checksumName string, maxBytes int64) (VerifiedUpdateAsset, error) {
+	if err := validateOfficialRelease(release); err != nil {
+		return VerifiedUpdateAsset{}, err
+	}
 	if maxBytes <= 0 {
 		return VerifiedUpdateAsset{}, errors.New("update asset size limit must be positive")
 	}
@@ -255,7 +273,16 @@ func DownloadVerifiedReleaseAsset(ctx context.Context, release UpdateRelease, as
 	if !ok {
 		return VerifiedUpdateAsset{}, fmt.Errorf("Workbench release is missing %s", checksumName)
 	}
-	if checksumAsset.Size > 4096 {
+	if asset.Name != assetName || checksumAsset.Name != checksumName {
+		return VerifiedUpdateAsset{}, errors.New("Workbench release asset metadata does not match its name")
+	}
+	if err := validateOfficialAssetURL(asset.DownloadURL, release.Tag, assetName); err != nil {
+		return VerifiedUpdateAsset{}, err
+	}
+	if err := validateOfficialAssetURL(checksumAsset.DownloadURL, release.Tag, checksumName); err != nil {
+		return VerifiedUpdateAsset{}, err
+	}
+	if checksumAsset.Size > maxChecksumAssetBytes {
 		return VerifiedUpdateAsset{}, errors.New("Workbench checksum asset is unexpectedly large")
 	}
 	if asset.Size > maxBytes {
@@ -263,7 +290,7 @@ func DownloadVerifiedReleaseAsset(ctx context.Context, release UpdateRelease, as
 	}
 
 	client := officialHTTPClient()
-	checksumBody, checksumHash, err := downloadBounded(ctx, client, checksumAsset, 4096, nil)
+	checksumBody, checksumHash, err := downloadBounded(ctx, client, checksumAsset, maxChecksumAssetBytes, nil)
 	if err != nil {
 		return VerifiedUpdateAsset{}, fmt.Errorf("download %s: %w", checksumName, err)
 	}
@@ -309,8 +336,6 @@ func DownloadVerifiedReleaseAsset(ctx context.Context, release UpdateRelease, as
 }
 
 func pathForUpdateAsset(dir, assetName string) string {
-	// Asset names have already been bound to official GitHub metadata. Keep the
-	// staged filename flat regardless of future punctuation in an asset name.
 	return dir + string(os.PathSeparator) + strings.ReplaceAll(strings.ReplaceAll(assetName, "/", "_"), "\\", "_")
 }
 
@@ -335,16 +360,14 @@ func downloadBounded(ctx context.Context, client *http.Client, asset UpdateAsset
 		return nil, "", errors.New("update download exceeds the allowed size")
 	}
 	h := sha256.New()
-	var out []byte
-	var writer io.Writer = h
+	var buffer bytes.Buffer
+	writers := []io.Writer{h}
 	if dst != nil {
-		writer = io.MultiWriter(h, dst)
+		writers = append(writers, dst)
 	} else {
-		var b strings.Builder
-		writer = io.MultiWriter(h, &boundedStringWriter{builder: &b, limit: maxBytes})
-		defer func() { out = []byte(b.String()) }()
+		writers = append(writers, &buffer)
 	}
-	n, err := io.Copy(writer, io.LimitReader(resp.Body, maxBytes+1))
+	n, err := io.Copy(io.MultiWriter(writers...), io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
 		return nil, "", err
 	}
@@ -354,27 +377,7 @@ func downloadBounded(ctx context.Context, client *http.Client, asset UpdateAsset
 	if n != asset.Size {
 		return nil, "", fmt.Errorf("update download size mismatch: got %d, want %d", n, asset.Size)
 	}
-	if dst == nil {
-		if bw, ok := writer.(*boundedStringWriter); ok {
-			out = []byte(bw.builder.String())
-		}
-	}
-	return out, hex.EncodeToString(h.Sum(nil)), nil
-}
-
-type boundedStringWriter struct {
-	builder *strings.Builder
-	limit   int64
-	written int64
-}
-
-func (w *boundedStringWriter) Write(p []byte) (int, error) {
-	if w.written+int64(len(p)) > w.limit {
-		return 0, errors.New("update metadata exceeds the allowed size")
-	}
-	n, err := w.builder.Write(p)
-	w.written += int64(n)
-	return n, err
+	return buffer.Bytes(), hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func parseChecksumFile(body []byte, expectedName string) (string, error) {
@@ -425,7 +428,3 @@ func verifyDeclaredDigest(asset UpdateAsset, actual string) error {
 	}
 	return nil
 }
-
-// Retained as a named type so future streaming signature verification can use
-// the same download path without changing call sites.
-var _ hash.Hash = sha256.New()
