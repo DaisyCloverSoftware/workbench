@@ -9,40 +9,43 @@ import (
 )
 
 const (
-	wmPaint      = 0x000F
-	wmEraseBkgnd = 0x0014
-	wmDrawItem   = 0x002B
-	bsOwnerDraw  = 0x0000000B
-	odsSelected  = 0x0001
-	odsDisabled  = 0x0004
-	psSolid      = 0
-	transparent  = 1
-	dtLeft       = 0x0000
-	dtCenter     = 0x0001
-	dtRight      = 0x0002
-	dtVCenter    = 0x0004
-	dtWordBreak  = 0x0010
-	dtSingleLine = 0x0020
-	dtNoPrefix   = 0x0800
+	wmPaint       = 0x000F
+	wmEraseBkgnd  = 0x0014
+	wmDrawItem    = 0x002B
+	bsOwnerDraw   = 0x0000000B
+	odsSelected   = 0x0001
+	odsDisabled   = 0x0004
+	psSolid       = 0
+	transparent   = 1
+	dtLeft        = 0x0000
+	dtCenter      = 0x0001
+	dtRight       = 0x0002
+	dtVCenter     = 0x0004
+	dtWordBreak   = 0x0010
+	dtSingleLine  = 0x0020
+	dtNoPrefix    = 0x0800
 	dtEndEllipsis = 0x8000
-	fwNormal     = 400
-	fwSemiBold   = 600
-	fwBold       = 700
+	fwNormal      = 400
+	fwSemiBold    = 600
+	fwBold        = 700
+	gwlStyle      = -16
 )
 
 var (
-	procBeginPaint       = user32.NewProc("BeginPaint")
-	procEndPaint         = user32.NewProc("EndPaint")
-	procInvalidateRect   = user32.NewProc("InvalidateRect")
-	procDrawTextW        = user32.NewProc("DrawTextW")
-	procFillRect         = user32.NewProc("FillRect")
-	procRoundRect        = gdi32.NewProc("RoundRect")
-	procCreatePen        = gdi32.NewProc("CreatePen")
-	procDeleteObject     = gdi32.NewProc("DeleteObject")
-	procSelectObject     = gdi32.NewProc("SelectObject")
-	procSetBkMode        = gdi32.NewProc("SetBkMode")
-	procCreateFontW      = gdi32.NewProc("CreateFontW")
-	procSetFocus         = user32.NewProc("SetFocus")
+	procBeginPaint        = user32.NewProc("BeginPaint")
+	procEndPaint          = user32.NewProc("EndPaint")
+	procInvalidateRect    = user32.NewProc("InvalidateRect")
+	procDrawTextW         = user32.NewProc("DrawTextW")
+	procFillRect          = user32.NewProc("FillRect")
+	procRoundRect         = gdi32.NewProc("RoundRect")
+	procCreatePen         = gdi32.NewProc("CreatePen")
+	procDeleteObject      = gdi32.NewProc("DeleteObject")
+	procSelectObject      = gdi32.NewProc("SelectObject")
+	procSetBkMode         = gdi32.NewProc("SetBkMode")
+	procCreateFontW       = gdi32.NewProc("CreateFontW")
+	procSetFocus          = user32.NewProc("SetFocus")
+	procGetWindowLongPtrW = user32.NewProc("GetWindowLongPtrW")
+	procSetWindowLongPtrW = user32.NewProc("SetWindowLongPtrW")
 )
 
 type paintStruct struct {
@@ -110,6 +113,16 @@ func focusWindow(hwnd uintptr) {
 	if hwnd != 0 {
 		procSetFocus.Call(hwnd)
 	}
+}
+
+func makeOwnerDrawButton(hwnd uintptr) {
+	if hwnd == 0 {
+		return
+	}
+	style, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(int64(gwlStyle)))
+	style = (style &^ 0x0f) | bsOwnerDraw
+	procSetWindowLongPtrW.Call(hwnd, uintptr(int64(gwlStyle)), style)
+	invalidateWindow(hwnd)
 }
 
 func fillRectColor(hdc uintptr, rect nativeRect, color uint32) {
