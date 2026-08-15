@@ -24,7 +24,40 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $env:APPDATA = Join-Path $pwd '.responsive-appdata'
           $env:LOCALAPPDATA = Join-Path $pwd '.responsive-localappdata'
-          New-Item -ItemType Directory -Force -Path (Join-Path $env:APPDATA 'Workbench'),$env:LOCALAPPDATA | Out-Null
+          $stateDir = Join-Path $env:APPDATA 'Workbench'
+          New-Item -ItemType Directory -Force -Path $stateDir,$env:LOCALAPPDATA | Out-Null
+
+          # Exercise Settings with a genuine active Git repository, matching a
+          # real installation rather than the easier empty-project startup path.
+          $now = [DateTime]::UtcNow
+          $repo = $pwd.Path
+          $state = [ordered]@{
+            version = 3
+            active_project_id = ''
+            project_path = $repo
+            notes = 'UI responsiveness fixture'
+            projects = @(
+              [ordered]@{
+                id = ''
+                path = $repo
+                name = 'Responsiveness Project'
+                notes = 'Active Git project for Settings policy probing.'
+                pinned = $true
+                added_at = $now.AddDays(-1).ToString('o')
+                last_used_at = $now.ToString('o')
+              }
+            )
+            tasks = @()
+            secrets = @()
+            preferences = [ordered]@{
+              avoid_work_usage = $true
+              allow_metered_api = $false
+              autonomy_mode = 'trusted-repo'
+              mcp_port = 18768
+              mcp_token = 'responsiveness-ci-local-token'
+            }
+          }
+          $state | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 (Join-Path $stateDir 'state.json')
 
           Add-Type @'
           using System;
@@ -74,17 +107,17 @@ jobs:
             $window = [IntPtr]$process.MainWindowHandle
 
             Assert-Responsive $window 'startup Dashboard'
-            for ($i = 0; $i -lt 8; $i++) {
+            for ($i = 0; $i -lt 32; $i++) {
               Click-Control $window 3002 'Settings'
-              Start-Sleep -Milliseconds 150
+              Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Settings pass $i"
 
               Click-Control $window 3001 'Work'
-              Start-Sleep -Milliseconds 150
+              Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Work pass $i"
 
               Click-Control $window 3301 'Dashboard'
-              Start-Sleep -Milliseconds 150
+              Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Dashboard pass $i"
             }
           } finally {
