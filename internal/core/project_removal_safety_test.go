@@ -11,6 +11,7 @@ func TestTaskBlocksProjectRemovalOnlyForUnfinishedStatuses(t *testing.T) {
 		TaskQueued:         true,
 		TaskRouting:        true,
 		TaskRunning:        true,
+		TaskWaitingRetry:   true,
 		TaskNeedsAttention: true,
 		TaskCompleted:      false,
 		TaskFailed:         false,
