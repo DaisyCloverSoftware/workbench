@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestFinalizeTaskWorkspacePreparesReviewWithoutDirtyingSource(t *testing.T) {
+func TestFinalizeTaskWorkspacePreparesStructuredReviewWithoutDirtyingSource(t *testing.T) {
 	isolateKnowledgeConfig(t)
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	repo := initPrepareTestRepo(t)
@@ -28,6 +28,15 @@ func TestFinalizeTaskWorkspacePreparesReviewWithoutDirtyingSource(t *testing.T) 
 	}
 	if !result.Changed || result.Published || result.Branch == "" || result.Commit == "" {
 		t.Fatalf("unexpected review result: %#v", result)
+	}
+	if result.PublicationStatus != ReviewPublicationPrepared {
+		t.Fatalf("publication status=%q, want prepared", result.PublicationStatus)
+	}
+	if result.BaseRevision != ws.BaseRevision || result.Fingerprint == "" {
+		t.Fatalf("review provenance incomplete: %#v", result)
+	}
+	if len(result.Files) != 1 || result.Files[0] != "tracked.txt" {
+		t.Fatalf("review file set=%v", result.Files)
 	}
 	if status := prepareTestGit(t, repo, "status", "--porcelain"); status != "" {
 		t.Fatalf("source checkout was dirtied by isolated finalization: %q", status)
@@ -71,6 +80,9 @@ func TestFinalizeTaskWorkspacePublishesThroughPrivatePolicy(t *testing.T) {
 	if !result.Changed || !result.Published || result.Branch == "" || result.Commit == "" {
 		t.Fatalf("unexpected published review result: %#v", result)
 	}
+	if result.PublicationStatus != ReviewPublicationPublished {
+		t.Fatalf("publication status=%q, want published", result.PublicationStatus)
+	}
 	if status := prepareTestGit(t, repo, "status", "--porcelain"); status != "" {
 		t.Fatalf("source checkout was dirtied by publication: %q", status)
 	}
@@ -80,6 +92,44 @@ func TestFinalizeTaskWorkspacePublishesThroughPrivatePolicy(t *testing.T) {
 	}
 	if strings.TrimSpace(string(out)) != result.Commit {
 		t.Fatalf("published branch=%q commit=%q", strings.TrimSpace(string(out)), result.Commit)
+	}
+}
+
+func TestFinalizeTaskWorkspacePublicationFailurePreservesPreparedReview(t *testing.T) {
+	isolateKnowledgeConfig(t)
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	repo := initPrepareTestRepo(t)
+	badRemote := filepath.Join(t.TempDir(), "not-a-git-repository")
+	if err := os.MkdirAll(badRemote, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SavePublicationPolicy(PublicationPolicy{Project: repo, Mode: PublicationPublish, RemoteURL: badRemote}); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	ws, err := CreateTaskWorkspace(ctx, repo, "task-publish-failure")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ws.Workspace, "tracked.txt"), []byte("good code despite publish failure\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := FinalizeTaskWorkspace(ctx, ws)
+	if err != nil {
+		t.Fatalf("publication failure must not fail completed coding work: %v", err)
+	}
+	if !result.Changed || result.Branch == "" || result.Commit == "" {
+		t.Fatalf("prepared review was lost: %#v", result)
+	}
+	if result.PublicationStatus != ReviewPublicationFailed || result.Published {
+		t.Fatalf("publication failure state=%#v", result)
+	}
+	if got := prepareTestGit(t, repo, "rev-parse", result.Branch); got != result.Commit {
+		t.Fatalf("prepared local review was not preserved: branch=%q commit=%q", got, result.Commit)
+	}
+	if _, ok, err := OpenTaskWorkspace(repo, "task-publish-failure"); err != nil || ok {
+		t.Fatalf("completed workspace was not cleaned after publish failure: ok=%t err=%v", ok, err)
 	}
 }
 
