@@ -192,6 +192,7 @@ func (e *Engine) ResolveAttention(taskID, answer string) error {
 	e.state.Tasks[i].HumanAnswer = answer
 	e.state.Tasks[i].AttentionQuestion = ""
 	e.state.Tasks[i].Status = TaskQueued
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	st := cloneState(e.state)
 	e.mu.Unlock()
@@ -215,6 +216,7 @@ func (e *Engine) Cancel(taskID string) error {
 	}
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskCancelled
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
 	st := cloneState(e.state)
@@ -252,6 +254,7 @@ func (e *Engine) execute(taskID string) {
 	}
 	t := e.state.Tasks[i]
 	e.state.Tasks[i].Status = TaskRouting
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	providers := append([]Provider(nil), e.providers...)
 	prefs := e.state.Preferences
@@ -261,13 +264,24 @@ func (e *Engine) execute(taskID string) {
 	e.notify()
 	defer func() { e.mu.Lock(); delete(e.cancel, taskID); e.mu.Unlock(); cancel() }()
 
-	candidates := routeCandidates(providers, prefs, t)
-	candidates, cooling := FilterProviderCooldowns(candidates, time.Now())
+	eligible := routeCandidates(providers, prefs, t)
+	filterTime := time.Now().UTC()
+	candidates, cooling := FilterProviderCooldowns(eligible, filterTime)
 	for _, skipped := range cooling {
 		e.appendAttempt(taskID, skipped)
 	}
 	if len(candidates) == 0 {
 		if len(cooling) > 0 {
+			if retryAt, ok := automaticRetryAtForCoolingProviders(eligible, filterTime); ok {
+				scheduled, scheduleErr := e.deferAutomaticRetry(taskID, retryAt)
+				if scheduleErr != nil {
+					e.finishFailed(taskID, "Workbench could not persist an automatic retry after provider cooldown: "+scheduleErr.Error())
+					return
+				}
+				if scheduled {
+					return
+				}
+			}
 			e.finishFailed(taskID, "All eligible coding workers are temporarily cooling down after recent provider-level failures. Use Rescan after fixing provider setup, or retry after the cooldown.\n\n"+strings.Join(cooling, "\n"))
 			return
 		}
@@ -276,9 +290,14 @@ func (e *Engine) execute(taskID string) {
 	}
 
 	errorsSeen := append([]string(nil), cooling...)
+	var retryAt time.Time
+	costlyCapacityAttempted := false
 	for _, p := range candidates {
 		if ctx.Err() != nil {
 			return
+		}
+		if p.Cost == CostScarce || p.Cost == CostMetered {
+			costlyCapacityAttempted = true
 		}
 		e.updateRunning(taskID, p)
 		current, ok := e.Task(taskID)
@@ -292,6 +311,7 @@ func (e *Engine) execute(taskID string) {
 		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, err))
 		if coolingNow {
 			attempt += fmt.Sprintf("; cooldown until %s (%s)", record.CooldownUntil.UTC().Format(time.RFC3339), record.Reason)
+			retryAt = earlierAutomaticRetry(retryAt, p, record)
 		}
 		e.appendAttempt(taskID, attempt)
 		if ctx.Err() != nil {
@@ -307,9 +327,16 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 		errorsSeen = append(errorsSeen, attempt)
-		// To preserve scarce Work, only escalate past included workers if allowed by policy.
 		if p.Cost == CostScarce && prefs.AvoidWorkUsage {
 			// We reached Work only because no lower-cost candidate succeeded; trying once is intentional.
+		}
+	}
+	if !costlyCapacityAttempted && !retryAt.IsZero() {
+		scheduled, scheduleErr := e.deferAutomaticRetry(taskID, retryAt)
+		if scheduleErr != nil {
+			errorsSeen = append(errorsSeen, "automatic retry could not be persisted: "+scheduleErr.Error())
+		} else if scheduled {
+			return
 		}
 	}
 	e.finishFailed(taskID, "Every eligible worker failed.\n\n"+strings.Join(errorsSeen, "\n"))
@@ -368,6 +395,7 @@ func (e *Engine) updateRunning(id string, p Provider) {
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].ConsumesWork = p.Cost == CostScarce
 	e.state.Tasks[i].RouteReason = routeReason(p)
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = now
 	if e.state.Tasks[i].StartedAt == nil {
 		e.state.Tasks[i].StartedAt = &now
@@ -414,6 +442,7 @@ func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	e.state.Tasks[i].Output = strings.TrimSpace(res.Output)
 	e.state.Tasks[i].Review = cloneTaskReviewResult(res.Review)
 	e.state.Tasks[i].Error = ""
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
 	st := cloneState(e.state)
@@ -432,6 +461,7 @@ func (e *Engine) finishAttention(id string, p Provider, res RunResult) {
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].Output = res.Output
 	e.state.Tasks[i].AttentionQuestion = res.Attention
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	st := cloneState(e.state)
 	e.mu.Unlock()
@@ -448,6 +478,7 @@ func (e *Engine) finishFailed(id, msg string) {
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskFailed
 	e.state.Tasks[i].Error = msg
+	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
 	st := cloneState(e.state)
