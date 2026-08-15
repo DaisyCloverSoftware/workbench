@@ -440,7 +440,10 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if !ok {
 			return textContent(map[string]any{"error": "task not found"}, true)
 		}
-		return textContent(map[string]any{"task": t, "instruction": delegationInstruction(t)}, false)
+		// Preserve the original structured get_task shape for relay and existing
+		// clients. Polling guidance is supplied by MCP initialization/tool metadata
+		// and the delegate_task instruction without wrapping the durable Task JSON.
+		return textContent(t, false)
 
 	case "list_tasks":
 		st := s.engine.State()

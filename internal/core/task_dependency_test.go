@@ -30,6 +30,11 @@ Continue the release task after CI and fix any in-scope failure.`
 	if _, _, matched, err := parseDeferredGitHubActionsIntent("ordinary coding intent", now); err != nil || matched {
 		t.Fatalf("ordinary intent matched=%t err=%v", matched, err)
 	}
+	relayIntent := "[relay:wb_20260815_abc123] " + intent
+	relayDependency, relayContinuation, matched, err := parseDeferredGitHubActionsIntent(relayIntent, now)
+	if err != nil || !matched || relayDependency == nil || relayDependency.RunID != 123456 || relayContinuation != continuation {
+		t.Fatalf("relay wait parse dependency=%#v continuation=%q matched=%t err=%v", relayDependency, relayContinuation, matched, err)
+	}
 	for _, bad := range []string{
 		`WORKBENCH_WAIT_GITHUB_ACTIONS: {"repository":"not a slug","run_id":123}` + "\ncontinue",
 		`WORKBENCH_WAIT_GITHUB_ACTIONS: {"repository":"example/workbench","run_id":0}` + "\ncontinue",
@@ -150,9 +155,9 @@ func TestRecoverWaitingDependencyRearmsAndRejectsCorruptState(t *testing.T) {
 func TestPresentWaitingDependencyExplainsBackgroundContinuation(t *testing.T) {
 	next := time.Date(2026, 8, 15, 22, 0, 0, 0, time.UTC)
 	p := PresentTask(Task{
-		Status:     TaskWaitingDependency,
-		Dependency: &TaskDependency{Kind: DependencyGitHubActions, State: "queued", NextCheckAt: next},
-	})
+     Status:     TaskWaitingDependency,
+     Dependency: &TaskDependency{Kind: DependencyGitHubActions, State: "queued", NextCheckAt: next},
+})
 	if p.StatusLabel != "Waiting on dependency" || p.NeedsHuman || p.Terminal {
 		t.Fatalf("waiting dependency presentation=%#v", p)
 	}

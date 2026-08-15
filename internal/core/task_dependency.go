@@ -101,6 +101,26 @@ func parseDeferredGitHubActionsIntent(intent string, now time.Time) (*TaskDepend
 	if intent == "" {
 		return nil, "", false, nil
 	}
+	// The Git relay adds a bounded correlation marker before delegated intents.
+	// Strip only that well-formed marker so the documented wait envelope remains
+	// usable through both direct MCP and relay transports without weakening the
+	// envelope parser for arbitrary prefixes.
+	if strings.HasPrefix(intent, "[relay:") {
+		if end := strings.Index(intent, "] "); end > len("[relay:") && end <= 96 {
+			relayID := intent[len("[relay:"):end]
+			valid := relayID != ""
+			for _, r := range relayID {
+				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+					continue
+				}
+				valid = false
+				break
+			}
+			if valid {
+				intent = strings.TrimSpace(intent[end+2:])
+			}
+		}
+	}
 	lines := strings.SplitN(strings.ReplaceAll(intent, "\r\n", "\n"), "\n", 2)
 	header := strings.TrimSpace(lines[0])
 	if !strings.HasPrefix(header, githubActionsWaitPrefix) {
