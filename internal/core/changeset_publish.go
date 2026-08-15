@@ -221,7 +221,7 @@ func validatePublishRemote(remote string) error {
 }
 
 func isolatedPublishGitDir(ctx context.Context, root string) (string, error) {
-	dir, err := os.MkdirTemp("", "workbench-publish-git-")
+	dir, err := NewScratchDirectory("publish-git-")
 	if err != nil {
 		return "", err
 	}

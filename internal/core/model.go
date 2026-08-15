@@ -39,24 +39,25 @@ const (
 )
 
 type Task struct {
-	ID                string     `json:"id"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
-	Origin            string     `json:"origin"`
-	Title             string     `json:"title"`
-	Intent            string     `json:"intent"`
-	ProjectPath       string     `json:"project_path"`
-	Status            TaskStatus `json:"status"`
-	ProviderID        string     `json:"provider_id,omitempty"`
-	RouteReason       string     `json:"route_reason,omitempty"`
-	Output            string     `json:"output,omitempty"`
-	Error             string     `json:"error,omitempty"`
-	AttentionQuestion string     `json:"attention_question,omitempty"`
-	HumanAnswer       string     `json:"human_answer,omitempty"`
-	Attempts          []string   `json:"attempts,omitempty"`
-	ConsumesWork      bool       `json:"consumes_work"`
-	StartedAt         *time.Time `json:"started_at,omitempty"`
-	FinishedAt        *time.Time `json:"finished_at,omitempty"`
+	ID                string            `json:"id"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
+	Origin            string            `json:"origin"`
+	Title             string            `json:"title"`
+	Intent            string            `json:"intent"`
+	ProjectPath       string            `json:"project_path"`
+	Status            TaskStatus        `json:"status"`
+	ProviderID        string            `json:"provider_id,omitempty"`
+	RouteReason       string            `json:"route_reason,omitempty"`
+	Output            string            `json:"output,omitempty"`
+	Error             string            `json:"error,omitempty"`
+	AttentionQuestion string            `json:"attention_question,omitempty"`
+	HumanAnswer       string            `json:"human_answer,omitempty"`
+	Attempts          []string          `json:"attempts,omitempty"`
+	Review            *TaskReviewResult `json:"review,omitempty"`
+	ConsumesWork      bool              `json:"consumes_work"`
+	StartedAt         *time.Time        `json:"started_at,omitempty"`
+	FinishedAt        *time.Time        `json:"finished_at,omitempty"`
 
 	// memoryProjectPath is transient execution metadata. Isolated worker copies
 	// keep ProjectPath pointed at the task worktree while memory lookup/capture

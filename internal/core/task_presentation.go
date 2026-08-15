@@ -11,14 +11,16 @@ import (
 // MCP and future companion surfaces cannot drift on what the user should do
 // next.
 type TaskPresentation struct {
-	StatusLabel   string `json:"status_label"`
-	NextAction    string `json:"next_action"`
-	ProviderLabel string `json:"provider_label"`
-	ReviewBranch  string `json:"review_branch,omitempty"`
-	ReviewCommit  string `json:"review_commit,omitempty"`
-	Published     bool   `json:"published,omitempty"`
-	NeedsHuman    bool   `json:"needs_human"`
-	Terminal      bool   `json:"terminal"`
+	StatusLabel       string                  `json:"status_label"`
+	NextAction        string                  `json:"next_action"`
+	ProviderLabel     string                  `json:"provider_label"`
+	ReviewBranch      string                  `json:"review_branch,omitempty"`
+	ReviewCommit      string                  `json:"review_commit,omitempty"`
+	ReviewFiles       int                     `json:"review_files,omitempty"`
+	PublicationStatus ReviewPublicationStatus `json:"publication_status,omitempty"`
+	Published         bool                    `json:"published,omitempty"`
+	NeedsHuman        bool                    `json:"needs_human"`
+	Terminal          bool                    `json:"terminal"`
 }
 
 type TaskDashboardSummary struct {
@@ -28,6 +30,9 @@ type TaskDashboardSummary struct {
 	Failed     int `json:"failed"`
 }
 
+// preparedReviewLine is retained only for v0.7-era persisted task history.
+// New executions persist Task.Review and must never depend on parsing worker
+// prose to decide whether a review artifact exists.
 var preparedReviewLine = regexp.MustCompile(`(?m)Workbench (prepared|published) review branch ([^\s]+) at ([0-9a-fA-F]{7,64})\.`)
 
 func PresentTask(t Task) TaskPresentation {
@@ -36,10 +41,23 @@ func PresentTask(t Task) TaskPresentation {
 		provider = "Router"
 	}
 	p := TaskPresentation{ProviderLabel: provider}
-	if match := preparedReviewLine.FindStringSubmatch(t.Output); len(match) == 4 {
+	if review := t.Review; review != nil && review.Changed {
+		p.ReviewBranch = review.Branch
+		p.ReviewCommit = review.Commit
+		p.ReviewFiles = len(review.Files)
+		p.PublicationStatus = review.PublicationStatus
+		p.Published = review.Published || review.PublicationStatus == ReviewPublicationPublished
+	} else if match := preparedReviewLine.FindStringSubmatch(t.Output); len(match) == 4 {
+		// Backward-compatible display for task records created before structured
+		// review results existed.
 		p.Published = match[1] == "published"
 		p.ReviewBranch = match[2]
 		p.ReviewCommit = match[3]
+		if p.Published {
+			p.PublicationStatus = ReviewPublicationPublished
+		} else {
+			p.PublicationStatus = ReviewPublicationPrepared
+		}
 	}
 
 	switch t.Status {
@@ -60,6 +78,8 @@ func PresentTask(t Task) TaskPresentation {
 		p.StatusLabel = "Ready"
 		p.Terminal = true
 		switch {
+		case p.ReviewBranch != "" && p.PublicationStatus == ReviewPublicationFailed:
+			p.NextAction = fmt.Sprintf("Code is ready for review on %s at %s. Automatic publication did not complete; the prepared review is preserved and does not need to be recoded.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "" && p.Published:
 			p.NextAction = fmt.Sprintf("Ready for review. Workbench published %s at %s.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "":
