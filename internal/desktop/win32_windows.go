@@ -18,13 +18,13 @@ const (
 	wsTabStop          = 0x00010000
 	wsExClientEdge     = 0x00000200
 
-	esMultiline   = 0x0004
-	esAutoVScroll = 0x0040
-	esAutoHScroll = 0x0080
-	esReadOnly    = 0x0800
-	esPassword    = 0x0020
-	lbsNotify     = 0x0001
-	bsPushButton  = 0x00000000
+	esMultiline    = 0x0004
+	esAutoVScroll  = 0x0040
+	esAutoHScroll  = 0x0080
+	esReadOnly     = 0x0800
+	esPassword     = 0x0020
+	lbsNotify      = 0x0001
+	bsPushButton   = 0x00000000
 	bsAutoCheckbox = 0x00000003
 
 	wmCreate          = 0x0001
@@ -59,9 +59,9 @@ const (
 	mbYesNo           = 0x00000004
 	idYes              = 6
 
-	cfUnicodeText = 13
-	gmemMoveable  = 0x0002
-	gmemZeroInit  = 0x0040
+	cfUnicodeText  = 13
+	gmemMoveable   = 0x0002
+	gmemZeroInit   = 0x0040
 	defaultGUIFont = 17
 )
 
@@ -144,6 +144,10 @@ func rgb(r, g, b byte) uint32 {
 }
 
 func defWindowProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
+	if message == wmGetMinMaxInfo {
+		enforceMinimumTrackSize(lParam)
+		return 0
+	}
 	r, _, _ := procDefWindowProcW.Call(hwnd, uintptr(message), wParam, lParam)
 	return r
 }
