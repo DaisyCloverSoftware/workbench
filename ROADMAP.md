@@ -63,10 +63,22 @@
 - durable runner transport stays attached to the same idempotent task across malformed or oversized submit/status responses
 - global human-attention navigation and native minimum desktop geometry
 
+## v0.9 — structured harnesses and resilient unattended routing
+
+- versioned structured harness job/result protocol with bounded JSON stdin/stdout and strict task/version/result validation
+- external harness adapters launch as one explicit executable with no coding command shell or `{project}`/`{prompt}` template expansion
+- structured completed, human-attention, unavailable and failed states replace prose-marker control flow for compliant adapters
+- legacy shell-template coding configuration is retained only as a disabled migration warning and cannot become an eligible worker
+- native Windows settings configure a validated structured-adapter executable separately from local OpenClaw and Workbench Runner
+- runner hosts keep their own adapter path in private atomic operator config; adapter paths never enter `RunnerRequest`, task state or MCP/model-facing data
+- operator-only runner harness get/set/delete controls and safe doctor status without exposing the full host path
+- durable `waiting_retry` tasks automatically resume transient low-cost provider outages after cooldown without human supervision
+- automatic retries are capped, exclude authentication/setup failures and scarce/metered repeat capacity, survive Workbench restarts and remain explicitly cancellable
+- waiting retries remain active unfinished work with visible next-attempt time rather than appearing failed or frozen
+
 ## Next
 
-- first-class structured OpenClaw/harness jobs rather than a command-template adapter
-- richer retry/recovery policies and resumable provider sessions
+- provider-native resumable sessions for workers that support continuation beyond Workbench's durable task/worktree recovery
 - searchable decisions and a project knowledge graph
 - automatic cross-model review policies for higher-risk changes
 - task-history filtering/archiving without deleting durable task records
