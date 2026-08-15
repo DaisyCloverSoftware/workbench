@@ -3,12 +3,21 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
+func testHarnessAdapterPath(dir string) string {
+	name := "adapter"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(dir, name)
+}
+
 func TestConfiguredHarnessProviderRequiresOneRealExecutableFile(t *testing.T) {
 	dir := t.TempDir()
-	adapter := filepath.Join(dir, "adapter")
+	adapter := testHarnessAdapterPath(dir)
 	if err := os.WriteFile(adapter, []byte("adapter fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +46,7 @@ func TestProviderInventoryShowsLegacyCommandOnlyAsDisabledMigrationWarning(t *te
 
 func TestProviderInventoryKeepsStructuredAndLegacyEntriesDistinctDuringMigration(t *testing.T) {
 	dir := t.TempDir()
-	adapter := filepath.Join(dir, "adapter")
+	adapter := testHarnessAdapterPath(dir)
 	if err := os.WriteFile(adapter, []byte("fixture"), 0o755); err != nil {
 		t.Fatal(err)
 	}
