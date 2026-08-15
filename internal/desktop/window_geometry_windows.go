@@ -5,9 +5,9 @@ package desktop
 import "unsafe"
 
 const (
-	wmGetMinMaxInfo = 0x0024
-	minimumWindowWidth  = int32(1260)
-	minimumWindowHeight = int32(880)
+	wmGetMinMaxInfo     = 0x0024
+	minimumWindowWidth  = int32(1360)
+	minimumWindowHeight = int32(900)
 )
 
 type nativeMinMaxInfo struct {
