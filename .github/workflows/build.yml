@@ -99,10 +99,15 @@ jobs:
               [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
               [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
               [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+              [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+              [DllImport("user32.dll")] public static extern bool RedrawWindow(IntPtr hWnd, IntPtr updateRect, IntPtr updateRegion, uint flags);
           }
           '@
 
             function Save-WorkbenchWindow([string]$name) {
+              [void][WorkbenchWindowCapture]::SetForegroundWindow($process.MainWindowHandle)
+              [void][WorkbenchWindowCapture]::RedrawWindow($process.MainWindowHandle, [IntPtr]::Zero, [IntPtr]::Zero, 0x0185)
+              Start-Sleep -Milliseconds 250
               $rect = New-Object WorkbenchWindowCapture+RECT
               if (-not [WorkbenchWindowCapture]::GetWindowRect($process.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
               $width = $rect.Right - $rect.Left
@@ -110,11 +115,16 @@ jobs:
               if ($width -lt 800 -or $height -lt 600) { throw "Unexpected Workbench window size ${width}x${height}." }
               $bitmap = New-Object System.Drawing.Bitmap($width, $height)
               $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-              $hdc = $graphics.GetHdc()
               try {
-                if (-not [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)) { throw 'PrintWindow failed on the hosted Windows runner.' }
+                $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size, [System.Drawing.CopyPixelOperation]::SourceCopy)
+              } catch {
+                $hdc = $graphics.GetHdc()
+                try {
+                  if (-not [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)) { throw 'Both desktop capture and PrintWindow failed on the hosted Windows runner.' }
+                } finally {
+                  $graphics.ReleaseHdc($hdc)
+                }
               } finally {
-                $graphics.ReleaseHdc($hdc)
                 $graphics.Dispose()
               }
               $bitmap.Save((Join-Path $pwd $name), [System.Drawing.Imaging.ImageFormat]::Png)
@@ -138,7 +148,7 @@ jobs:
             Start-Sleep -Milliseconds 750
             $captured += Save-WorkbenchWindow 'Workbench-Settings-Actual.png'
 
-            ("captured actual Workbench.exe pages with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
+            ("captured actual Workbench.exe pages from the Windows desktop surface with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
           } catch {
             "screenshot unavailable: $($_.Exception.Message)" | Set-Content -Encoding UTF8 $statusPath
           } finally {
