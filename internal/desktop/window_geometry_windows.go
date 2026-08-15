@@ -6,8 +6,8 @@ import "unsafe"
 
 const (
 	wmGetMinMaxInfo     = 0x0024
-	minimumWindowWidth  = int32(1360)
-	minimumWindowHeight = int32(900)
+	minimumWindowWidth  = int32(1200)
+	minimumWindowHeight = int32(800)
 )
 
 type nativeMinMaxInfo struct {
