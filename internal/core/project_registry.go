@@ -17,6 +17,7 @@ const projectStateVersion = 3
 func normalizeProjectRegistryState(st State) State {
 	now := time.Now().UTC()
 	migrating := st.Version < projectStateVersion
+	legacyNotes := st.Notes
 	projects := make([]Project, 0, len(st.Projects)+1)
 	index := map[string]int{}
 
@@ -89,7 +90,12 @@ func normalizeProjectRegistryState(st State) State {
 	}
 
 	activeID := strings.TrimSpace(st.ActiveProjectID)
-	if _, ok := index[activeID]; !ok {
+	// Before v3, ProjectPath was the authoritative active-project field. Task
+	// history may seed additional projects, but it must never steal the active
+	// selection during migration just because one of those tasks is newer.
+	if migrating && legacyActiveID != "" {
+		activeID = legacyActiveID
+	} else if _, ok := index[activeID]; !ok {
 		activeID = legacyActiveID
 	}
 	if activeID == "" && len(projects) > 0 {
@@ -100,6 +106,13 @@ func normalizeProjectRegistryState(st State) State {
 	st.Projects = projects
 	st.ActiveProjectID = activeID
 	mirrorActiveProject(&st)
+	// State.Notes existed before projects did, and Store has always promised a
+	// lossless atomic snapshot. Preserve an orphan compatibility note when no
+	// project exists at all; once a project is active, its per-project Notes are
+	// the authoritative mirror instead.
+	if len(projects) == 0 && legacyActivePath == "" && legacyNotes != "" {
+		st.Notes = legacyNotes
+	}
 	return st
 }
 
