@@ -100,7 +100,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		}
 		setWindowText(s.controls[idBrand], brand)
 		showWindow(s.controls[idGlobalStatus], false)
-		s.refresh()
+		s.refreshProductionPage()
 		s.applyPageVisibility()
 		s.layoutProduction()
 		redrawProductionWindow(hwnd)
@@ -125,7 +125,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 			return result
 		}
 	case wmAppRefresh:
-		s.refresh()
+		s.refreshProductionPage()
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
 		return 0
@@ -185,26 +185,26 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 	case idNavDashboard:
 		s.page = pageDashboard
 		s.applyPageVisibility()
-		s.refresh()
+		s.refreshProductionPage()
 		s.layoutProduction()
 		return true
 	case idNavWork:
 		s.page = pageWork
 		s.jumpToNeedsAttention()
 		s.applyPageVisibility()
-		s.refresh()
+		s.refreshProductionPage()
 		s.layoutProduction()
 		return true
 	case idNavSettings:
 		s.page = pageSettings
 		s.applyPageVisibility()
-		s.refreshSettings(BuildSnapshot(s.eng, s.selectedTaskID))
+		s.refreshProductionPage()
 		s.layoutProduction()
 		return true
 	case idTopNewTask:
 		s.page = pageWork
 		s.applyPageVisibility()
-		s.refresh()
+		s.refreshProductionPage()
 		s.layoutProduction()
 		focusWindow(s.controls[idIntent])
 		return true
@@ -215,7 +215,7 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 		}
 		s.page = pageWork
 		s.applyPageVisibility()
-		s.refresh()
+		s.refreshProductionPage()
 		s.layoutProduction()
 		return true
 	case idTopReview:
@@ -225,7 +225,7 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 		}
 		s.page = pageWork
 		s.applyPageVisibility()
-		s.refresh()
+		s.refreshProductionPage()
 		s.layoutProduction()
 		return true
 	}
