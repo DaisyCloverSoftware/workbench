@@ -91,9 +91,9 @@ func PresentTask(t Task) TaskPresentation {
 			}
 			p.NextAction = fmt.Sprintf("Review GitHub PR #%d (%s). Workbench has finished the coding and delivery work.", p.PullRequestNumber, state)
 		case p.ReviewBranch != "" && p.PublicationStatus == ReviewPublicationFailed:
-			p.NextAction = fmt.Sprintf("Code is ready for review on %s at %s. Automatic publication did not complete; the prepared review is preserved and does not need to be recoded. Retry review delivery.", p.ReviewBranch, shortCommit(p.ReviewCommit))
+			p.NextAction = fmt.Sprintf("Code is ready for review on %s at %s. Automatic publication did not complete; the prepared review is preserved and does not need to be recoded. Retry review delivery; coding will not run again.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "" && p.Published && p.PullRequestStatus == ReviewPullRequestUnavailable:
-			p.NextAction = fmt.Sprintf("The review branch %s is published at %s, but GitHub PR delivery is unavailable. The completed code does not need to be recoded; retry review delivery.", p.ReviewBranch, shortCommit(p.ReviewCommit))
+			p.NextAction = fmt.Sprintf("The review branch %s is published at %s, but GitHub PR delivery is unavailable. Retry review delivery; coding will not run again.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "" && p.Published:
 			p.NextAction = fmt.Sprintf("Ready for review. Workbench published %s at %s.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "":
