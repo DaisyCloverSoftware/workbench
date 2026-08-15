@@ -16,6 +16,7 @@ func runProductionShell(s *Shell) error {
 	icon, _, _ := user32.NewProc("LoadIconW").Call(0, 32512)
 	cursor, _, _ := user32.NewProc("LoadCursorW").Call(0, 32512)
 	s.backgroundBrush, _, _ = procCreateSolidBrush.Call(uintptr(productionPalette.Background))
+	initProductionControlSurfaces()
 	wc := wndClassEx{
 		Size:       uint32(unsafe.Sizeof(wndClassEx{})),
 		WndProc:    syscall.NewCallback(productionShellWndProc),
@@ -27,6 +28,7 @@ func runProductionShell(s *Shell) error {
 		IconSm:     icon,
 	}
 	if r, _, e := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
+		releaseProductionControlSurfaces()
 		return e
 	}
 	title := "Workbench"
@@ -40,10 +42,11 @@ func runProductionShell(s *Shell) error {
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(titlePtr)),
 		wsOverlappedWindow|wsVisible,
-		48, 36, 1560, 960,
+		32, 24, 1280, 840,
 		0, 0, instance, 0,
 	)
 	if hwnd == 0 {
+		releaseProductionControlSurfaces()
 		return e
 	}
 	s.hwnd = hwnd
@@ -71,6 +74,7 @@ func runProductionShell(s *Shell) error {
 		_ = s.mcp.Close(ctx)
 		cancel()
 	}
+	releaseProductionControlSurfaces()
 	if s.backgroundBrush != 0 {
 		procDeleteObject.Call(s.backgroundBrush)
 		s.backgroundBrush = 0
@@ -89,6 +93,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createControls()
 		s.createDashboardChrome()
 		s.styleProductionControls()
+		s.applyProductionControlTheme()
 		brand := "Workbench"
 		if strings.TrimSpace(s.version) != "" {
 			brand += "  " + strings.TrimSpace(s.version)
@@ -136,10 +141,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		redrawProductionWindow(hwnd)
 		return 0
 	case wmCtlColorStatic, wmCtlColorBtn, wmCtlColorEdit, wmCtlColorListBox:
-		hdc := wParam
-		procSetTextColor.Call(hdc, uintptr(productionPalette.Text))
-		procSetBkColor.Call(hdc, uintptr(productionPalette.Background))
-		return s.backgroundBrush
+		return s.productionControlColor(message, wParam, lParam)
 	case wmClose:
 		user32.NewProc("DestroyWindow").Call(hwnd)
 		return 0
@@ -158,21 +160,15 @@ func (s *Shell) layoutProduction() {
 	procGetClientRect.Call(s.hwnd, uintptr(unsafe.Pointer(&r)))
 	width := int(r.Right - r.Left)
 	height := int(r.Bottom - r.Top)
-	if width < 1360 {
-		width = 1360
-	}
-	pad := 16
-	contentX := productionSidebarWidth + pad
-	contentW := width - contentX - pad
-	contentH := height - productionHeaderHeight - pad
+	contentX, contentY, contentW, contentH := productionContentGeometry(width, height)
 
 	s.layoutProductionChrome(width)
 	showWindow(s.controls[idGlobalStatus], false)
 	switch s.page {
 	case pageWork:
-		s.layoutWork(contentX, productionHeaderHeight, contentW, contentH)
+		s.layoutProductionWork(contentX, contentY, contentW, contentH)
 	case pageSettings:
-		s.layoutSettings(contentX, productionHeaderHeight, contentW, contentH)
+		s.layoutProductionSettings(contentX, contentY, contentW, contentH)
 	}
 }
 
