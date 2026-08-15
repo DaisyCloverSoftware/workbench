@@ -111,25 +111,6 @@ func RunnerHarnessConfigurationStatus() RunnerHarnessStatus {
 	return status
 }
 
-// ApplyRunnerHarnessConfiguration overlays only host-local operator configuration
-// after a RunnerRequest reaches the execution host. The adapter path is never a
-// RunnerRequest/task/MCP field and therefore never crosses the desktop-to-runner
-// task transport.
-func ApplyRunnerHarnessConfiguration(prefs Preferences) (Preferences, string) {
-	cfg, configured, err := LoadRunnerHarnessConfig()
-	if err != nil {
-		return prefs, "Structured Harness Adapter: host configuration unavailable"
-	}
-	if !configured {
-		return prefs, ""
-	}
-	prefs.HarnessAdapterPath = cfg.AdapterPath
-	if _, err := validateHarnessAdapterPath(cfg.AdapterPath); err != nil {
-		return prefs, "Structured Harness Adapter: configured host adapter executable is unavailable"
-	}
-	return prefs, ""
-}
-
 func loadRunnerHarnessConfigUnlocked() (RunnerHarnessConfig, bool, error) {
 	path, err := RunnerHarnessConfigPath()
 	if err != nil {
