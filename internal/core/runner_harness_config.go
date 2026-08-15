@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +14,10 @@ import (
 
 const maxRunnerHarnessConfigBytes = 64 << 10
 
-var runnerHarnessConfigMu sync.RWMutex
+var (
+	runnerHarnessConfigMu           sync.RWMutex
+	runnerHarnessConfigPathOverride string
+)
 
 type RunnerHarnessConfig struct {
 	Version     int       `json:"version"`
@@ -29,6 +33,16 @@ type RunnerHarnessStatus struct {
 }
 
 func RunnerHarnessConfigPath() (string, error) {
+	if override := strings.TrimSpace(runnerHarnessConfigPathOverride); override != "" {
+		path, err := filepath.Abs(override)
+		if err != nil {
+			return "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			return "", err
+		}
+		return path, nil
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
@@ -142,6 +156,13 @@ func loadRunnerHarnessConfigUnlocked() (RunnerHarnessConfig, bool, error) {
 	dec.DisallowUnknownFields()
 	var cfg RunnerHarnessConfig
 	if err := dec.Decode(&cfg); err != nil {
+		return RunnerHarnessConfig{}, false, err
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return RunnerHarnessConfig{}, false, errors.New("runner harness configuration contains more than one JSON value")
+		}
 		return RunnerHarnessConfig{}, false, err
 	}
 	if cfg.Version != 1 {
