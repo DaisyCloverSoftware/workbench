@@ -58,7 +58,7 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 	if strings.TrimSpace(task.ProjectPath) == "" {
 		return RunResult{}, errors.New("project path is required for hands-on coding tasks")
 	}
-	remoteHarness := (p.ID == "openclaw" && (strings.TrimSpace(prefs.OpenClawSSHHost) != "" || strings.TrimSpace(prefs.OpenClawCommand) != "")) || p.ID == "workbench-runner"
+	remoteHarness := (p.ID == "openclaw" && strings.TrimSpace(prefs.OpenClawSSHHost) != "") || p.ID == "workbench-runner"
 	abs := task.ProjectPath
 	var err error
 	if !remoteHarness {
@@ -92,6 +92,12 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		// and can be routed around as a worker-local limitation.
 		args = []string{"-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits", "--allowedTools"}
 		args = append(args, claudeAllowedTools()...)
+	case StructuredHarnessProviderID:
+		res, runErr := RunHarnessAdapter(ctx, p.Command, task, prompt)
+		if runErr == nil {
+			res.Output = persistWorkerMemories(task, res.Output)
+		}
+		return boundRunResultForPersistence(res), runErr
 	case "codex":
 		name = p.Command
 		args = []string{"--ask-for-approval", "never", "exec", "--sandbox", "workspace-write", "--json", prompt}
@@ -105,12 +111,6 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 		if host := strings.TrimSpace(prefs.OpenClawSSHHost); host != "" {
 			name = "ssh"
 			args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", host, "openclaw", "agent", "--message", prompt, "--headless"}
-		} else if strings.TrimSpace(prefs.OpenClawCommand) != "" {
-			res, runErr := runCommandTemplate(ctx, prefs.OpenClawCommand, abs, prompt)
-			if runErr == nil {
-				res.Output = persistWorkerMemories(task, res.Output)
-			}
-			return boundRunResultForPersistence(res), runErr
 		} else if strings.TrimSpace(p.Command) != "" {
 			name = p.Command
 			args = []string{"agent", "--message", prompt, "--headless"}
@@ -168,30 +168,6 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 	}
 	res.Output = persistWorkerMemories(task, res.Output)
 	return boundRunResultForPersistence(res), nil
-}
-
-func runCommandTemplate(ctx context.Context, template, project, prompt string) (RunResult, error) {
-	qProject := shellQuote(project)
-	qPrompt := shellQuote(prompt)
-	line := strings.ReplaceAll(template, "{project}", qProject)
-	line = strings.ReplaceAll(line, "{prompt}", qPrompt)
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "cmd.exe", "/D", "/S", "/C", line)
-	} else {
-		cmd = exec.CommandContext(ctx, "/bin/sh", "-lc", line)
-	}
-	cmd.Dir = project
-	configureChildProcess(cmd, false)
-	capture := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
-	cmd.Stdout, cmd.Stderr = capture, capture
-	err := cmd.Run()
-	res := classifyRunOutput(capture.String())
-	if err != nil {
-		res.Retryable = true
-		return res, err
-	}
-	return res, nil
 }
 
 func shellQuote(s string) string {

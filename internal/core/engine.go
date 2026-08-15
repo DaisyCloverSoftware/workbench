@@ -80,7 +80,9 @@ func cloneState(s State) State {
 func (e *Engine) Providers() []Provider {
 	e.mu.RLock()
 	providers := append([]Provider(nil), e.providers...)
+	prefs := e.state.Preferences
 	e.mu.RUnlock()
+	providers = providerInventoryWithConfiguredHarness(providers, prefs)
 	return ApplyProviderHealth(providers, time.Now())
 }
 
@@ -269,7 +271,7 @@ func (e *Engine) execute(taskID string) {
 			e.finishFailed(taskID, "All eligible coding workers are temporarily cooling down after recent provider-level failures. Use Rescan after fixing provider setup, or retry after the cooldown.\n\n"+strings.Join(cooling, "\n"))
 			return
 		}
-		e.finishFailed(taskID, "No eligible coding worker is connected. Connect Gemini, Copilot, Claude, OpenClaw, or Codex; Workbench will keep metered APIs disabled unless you opt in.")
+		e.finishFailed(taskID, "No eligible coding worker is connected. Connect Antigravity, Copilot, Claude, a structured harness adapter, OpenClaw, or Codex; Workbench will keep metered APIs disabled unless you opt in.")
 		return
 	}
 
@@ -314,6 +316,7 @@ func (e *Engine) execute(taskID string) {
 }
 
 func routeCandidates(providers []Provider, prefs Preferences, t Task) []Provider {
+	providers = providerInventoryWithConfiguredHarness(providers, prefs)
 	var out []Provider
 	for _, p := range providers {
 		if !p.Installed || !p.Authenticated || !p.CanWrite || strings.TrimSpace(p.Command) == "" {
@@ -322,24 +325,10 @@ func routeCandidates(providers []Provider, prefs Preferences, t Task) []Provider
 		if p.ID == "workbench-runner" && strings.TrimSpace(prefs.OpenClawSSHHost) == "" {
 			continue
 		}
-		if p.ID == "openclaw" && strings.TrimSpace(p.Command) == "" && strings.TrimSpace(prefs.OpenClawCommand) == "" && strings.TrimSpace(prefs.OpenClawSSHHost) == "" {
-			continue
-		}
 		if p.Cost == CostMetered && !prefs.AllowMeteredAPI {
 			continue
 		}
 		out = append(out, p)
-	}
-	if strings.TrimSpace(prefs.OpenClawCommand) != "" || strings.TrimSpace(prefs.OpenClawSSHHost) != "" {
-		found := false
-		for _, p := range out {
-			if p.ID == "openclaw" {
-				found = true
-			}
-		}
-		if !found {
-			out = append(out, Provider{ID: "openclaw", Name: "OpenClaw / Harness", Capability: "configured harness", Installed: true, Authenticated: true, Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true})
-		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
