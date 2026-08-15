@@ -114,7 +114,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmCommand:
 		id := int(uint16(wParam & 0xffff))
 		notify := uint16((wParam >> 16) & 0xffff)
-		if s.handleDashboardCommand(id) {
+		if s.handleProductionChromeCommand(id) {
 			invalidateWindow(hwnd)
 			return 0
 		}
@@ -162,14 +162,59 @@ func (s *Shell) layoutProduction() {
 }
 
 func (s *Shell) styleProductionControls() {
-	ids := []int{
-		idNavDashboard, idNavWork, idNavSettings, idTopNewTask, idTopNeedsYou, idTopReview,
-		idAddProject, idRenameProject, idPinProject, idRemoveProject, idDelegate,
-		idCancelTask, idResumeTask, idOpenReview, idRetryReview, idCopyBranch, idSaveNotes,
-		idConnectProvider, idRescanProviders, idCopyMCP, idSaveRouting,
-		idSaveReviewPolicy, idSaveSecret, idRunUpdater,
-	}
-	for _, id := range ids {
+	for _, id := range []int{idNavDashboard, idNavWork, idNavSettings, idTopNewTask, idTopNeedsYou, idTopReview} {
 		makeOwnerDrawButton(s.controls[id])
 	}
+}
+
+func (s *Shell) handleProductionChromeCommand(id int) bool {
+	switch id {
+	case idNavDashboard:
+		s.page = pageDashboard
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
+		return true
+	case idNavWork:
+		s.page = pageWork
+		s.jumpToNeedsAttention()
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
+		return true
+	case idNavSettings:
+		s.page = pageSettings
+		s.applyPageVisibility()
+		s.refreshSettings(BuildSnapshot(s.eng, s.selectedTaskID))
+		s.layoutProduction()
+		return true
+	case idTopNewTask:
+		s.page = pageWork
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
+		focusWindow(s.controls[idIntent])
+		return true
+	case idTopNeedsYou:
+		if !s.jumpToNeedsAttention() {
+			messageBox(s.hwnd, "Nothing needs you", "Workbench has no task waiting for a human decision.", mbOK|mbIconInformation)
+			return true
+		}
+		s.page = pageWork
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
+		return true
+	case idTopReview:
+		if !s.jumpToLatestReview() {
+			messageBox(s.hwnd, "No review waiting", "There is no completed Workbench review artifact waiting to be opened or delivered.", mbOK|mbIconInformation)
+			return true
+		}
+		s.page = pageWork
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
+		return true
+	}
+	return false
 }
