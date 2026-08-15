@@ -63,8 +63,14 @@ func TestBuildDashboardSnapshotUsesOnlyDurableWorkbenchFacts(t *testing.T) {
 	if !d.ActiveTasks[0].NeedsHuman || d.ActiveTasks[1].RetryAt == nil || !d.ActiveTasks[1].RetryAt.Equal(retryAt) {
 		t.Fatalf("attention/retry facts lost: %#v", d.ActiveTasks)
 	}
+	if d.ActiveTasks[0].StatusLabel != "Needs you" || d.ActiveTasks[1].StatusLabel != "Waiting" {
+		t.Fatalf("compact active labels wrong: %#v", d.ActiveTasks)
+	}
 	if len(d.RecentActivity) != 4 || d.RecentActivity[0].TaskID != "attention" {
 		t.Fatalf("recent activity wrong: %#v", d.RecentActivity)
+	}
+	if d.RecentActivity[2].StatusLabel != "Ready" || d.RecentActivity[3].StatusLabel != "Failed" {
+		t.Fatalf("compact terminal labels wrong: %#v", d.RecentActivity)
 	}
 	if len(d.Projects) != 2 || d.Projects[0].ID != pinned.ID || !d.Projects[0].Pinned {
 		t.Fatalf("project ordering/summary wrong: %#v", d.Projects)
@@ -81,5 +87,26 @@ func TestDashboardActiveStatusIncludesWaitingAndHumanAttention(t *testing.T) {
 		if isDashboardActiveStatus(status) {
 			t.Fatalf("terminal status %q appeared active", status)
 		}
+	}
+}
+
+func TestDashboardStatusLabelIsCompactAndTruthful(t *testing.T) {
+	cases := map[core.TaskStatus]string{
+		core.TaskQueued:         "Queued",
+		core.TaskRouting:        "Routing",
+		core.TaskRunning:        "Working",
+		core.TaskWaitingRetry:   "Waiting",
+		core.TaskNeedsAttention: "Needs you",
+		core.TaskCompleted:      "Ready",
+		core.TaskFailed:         "Failed",
+		core.TaskCancelled:      "Cancelled",
+	}
+	for status, want := range cases {
+		if got := dashboardStatusLabel(status, "fallback"); got != want {
+			t.Fatalf("dashboardStatusLabel(%q)=%q want %q", status, got, want)
+		}
+	}
+	if got := dashboardStatusLabel(core.TaskStatus("future"), "Future state"); got != "Future state" {
+		t.Fatalf("fallback label=%q", got)
 	}
 }
