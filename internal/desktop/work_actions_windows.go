@@ -13,6 +13,7 @@ func (s *Shell) handleCommand(id int, notify uint16) {
 	switch id {
 	case idNavWork:
 		s.page = pageWork
+		s.jumpToNeedsAttention()
 		s.applyPageVisibility()
 		s.refresh()
 		s.layout()
@@ -68,6 +69,27 @@ func (s *Shell) handleCommand(id int, notify uint16) {
 		return
 	}
 	s.handleSettingsCommand(id, notify)
+}
+
+func (s *Shell) jumpToNeedsAttention() bool {
+	target, ok := FirstAttentionTarget(s.eng)
+	if !ok {
+		return false
+	}
+	for _, project := range s.eng.Projects() {
+		if project.ID != target.ProjectID {
+			continue
+		}
+		if _, err := s.eng.SelectProject(project.Path); err != nil {
+			messageBox(s.hwnd, "Cannot open attention task", err.Error(), mbOK|mbIconWarning)
+			return false
+		}
+		s.selectedTaskID = target.TaskID
+		s.editorProjectID = ""
+		s.settingsProjectID = ""
+		return true
+	}
+	return false
 }
 
 func (s *Shell) selectProjectFromList() {

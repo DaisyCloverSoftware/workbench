@@ -40,6 +40,11 @@ type TaskItem struct {
 	PullRequestState    string
 }
 
+type AttentionTarget struct {
+	ProjectID string
+	TaskID    string
+}
+
 type Snapshot struct {
 	Projects        []ProjectItem
 	ActiveProjectID string
@@ -89,27 +94,45 @@ func BuildSnapshot(eng *core.Engine, selectedTaskID string) Snapshot {
 	return snapshot
 }
 
+// FirstAttentionTarget returns the first genuine human-attention task in the
+// same pinned/recent project order used by the production sidebar. It is
+// deliberately read-only; the Windows action performs the explicit project
+// selection only after the human clicks Needs you.
+func FirstAttentionTarget(eng *core.Engine) (AttentionTarget, bool) {
+	if eng == nil {
+		return AttentionTarget{}, false
+	}
+	for _, project := range eng.Projects() {
+		for _, task := range eng.TasksForProject(project.ID) {
+			if task.Status == core.TaskNeedsAttention {
+				return AttentionTarget{ProjectID: project.ID, TaskID: task.ID}, true
+			}
+		}
+	}
+	return AttentionTarget{}, false
+}
+
 func taskItems(tasks []core.Task) []TaskItem {
 	items := make([]TaskItem, 0, len(tasks))
 	for _, task := range tasks {
 		presentation := core.PresentTask(task)
 		item := TaskItem{
-			ID:               task.ID,
-			Title:            task.Title,
-			Intent:           task.Intent,
-			Status:           task.Status,
-			StatusLabel:      presentation.StatusLabel,
-			ProviderLabel:    presentation.ProviderLabel,
-			NextAction:       presentation.NextAction,
-			NeedsHuman:       presentation.NeedsHuman,
-			Terminal:         presentation.Terminal,
-			Output:           task.Output,
-			Error:            task.Error,
-			AttentionQuestion: task.AttentionQuestion,
-			ReviewBranch:     presentation.ReviewBranch,
-			ReviewCommit:     presentation.ReviewCommit,
-			ReviewFiles:      presentation.ReviewFiles,
-			PublicationStatus: presentation.PublicationStatus,
+			ID:                 task.ID,
+			Title:              task.Title,
+			Intent:             task.Intent,
+			Status:             task.Status,
+			StatusLabel:        presentation.StatusLabel,
+			ProviderLabel:      presentation.ProviderLabel,
+			NextAction:         presentation.NextAction,
+			NeedsHuman:         presentation.NeedsHuman,
+			Terminal:           presentation.Terminal,
+			Output:             task.Output,
+			Error:              task.Error,
+			AttentionQuestion:  task.AttentionQuestion,
+			ReviewBranch:       presentation.ReviewBranch,
+			ReviewCommit:       presentation.ReviewCommit,
+			ReviewFiles:        presentation.ReviewFiles,
+			PublicationStatus:  presentation.PublicationStatus,
 		}
 		if task.Review != nil {
 			item.PullRequestStatus = task.Review.PullRequestStatus
