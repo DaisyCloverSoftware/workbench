@@ -125,7 +125,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.8.0"},
-			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, and search_memory. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. After delegation, inspect get_task when its result is useful; do not busy-poll. waiting_retry and waiting_dependency are durable Workbench-owned waits: continue other independent useful work and let Workbench retry or resume automatically. Only surface needs_attention to the human. Never claim to be monitoring a future condition unless a durable Workbench watch actually exists. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
+			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, and search_memory. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. After delegation, poll get_task yourself until completed, failed, or needs_attention. Never ask the human to watch progress. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
 		}
 	case "ping":
 		result = map[string]any{}
@@ -185,8 +185,8 @@ func toolsList() []map[string]any {
 		tool("read_file", "Read repository file", "Read a line range from one model-safe source file. Paths must stay inside the active project; credential files, binary files, oversized files, and files containing probable secret material are refused.", objSchema(map[string]any{"project_path": project, "path": strProp("Relative file path inside the project"), "start_line": intProp("Optional 1-based first line"), "end_line": intProp("Optional 1-based last line")}, []string{"path"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("save_memory", "Save durable Workbench memory", "Save a non-secret durable fact, decision, constraint, pattern, routine or reusable code item. Scope is project or global; project memory never silently becomes global.", objSchema(map[string]any{"project_path": project, "scope": strProp("project or global"), "kind": strProp("fact, decision, constraint, pattern, routine or code"), "title": strProp("Short retrieval title"), "content": strProp("Durable reusable content"), "tags": stringArrayProp("Optional retrieval tags"), "source": strProp("Optional provenance, such as task ID, commit or conversation capsule")}, []string{"scope", "title", "content"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("save_context", "Save compact continuation context", "Save a bounded continuation capsule before chat context becomes too long. Keep only current objective, verified state, decisions, constraints, references, open threads and next action.", objSchema(map[string]any{"project_path": project, "objective": strProp("Current outcome"), "state": strProp("Concise verified state of work"), "decisions": stringArrayProp("Decisions that still matter"), "constraints": stringArrayProp("Constraints that still matter"), "references": stringArrayProp("Task, memory, branch or artefact IDs needed to continue"), "open_threads": stringArrayProp("Unresolved work/questions"), "next_action": strProp("Most useful next action")}, []string{"objective", "state"}), anyObjectSchema(), annotations(false, false, false)),
-		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench routes zero-marginal and included-subscription workers before scarce Work/Codex and leaves metered APIs disabled unless explicitly enabled. For a GitHub Actions dependency, use the documented WORKBENCH_WAIT_GITHUB_ACTIONS intent envelope so Workbench owns the durable wait instead of an AI polling loop.", objSchema(map[string]any{"intent": strProp("Outcome to achieve, or a documented durable dependency-wait envelope followed by the continuation work"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
-		tool("get_task", "Get task status", "Read durable task status. Check when the result is useful; do not busy-poll waiting_retry or waiting_dependency. Workbench owns those timers/watches and resumes automatically; only surface a needs_attention question to the human.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench routes zero-marginal and included-subscription workers before scarce Work/Codex and leaves metered APIs disabled unless explicitly enabled.", objSchema(map[string]any{"intent": strProp("Outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("get_task", "Get task status", "Read durable task status. Poll this yourself after delegation; only surface a needs_attention question to the human.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_tasks", "List Workbench tasks", "List recent Workbench tasks and their statuses.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ordinary Chat. Prefer this no-Work path when Chat can reason out the code and Workbench only needs to provide hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("run_safe_command", "Run safe development command", "Run a non-destructive local build, test, lint, status, or diff command under Workbench's allowlist. No deploy, push, network shell, or destructive commands.", objSchema(map[string]any{"project_path": project, "command": strProp("Safe command, e.g. git diff, npm test, go test ./...")}, []string{"command"}), anyObjectSchema(), annotations(false, false, false)),
@@ -247,11 +247,13 @@ func stringSliceArg(a map[string]any, k string) []string {
 			if s, ok := raw.(string); ok && strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	case []string:
 		for _, s := range values {
 			if strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	}
 	return out
 }
@@ -283,19 +285,6 @@ func (s *Server) requireProject(a map[string]any) (string, any) {
 		return "", textContent(map[string]any{"error": "no active Workbench project; provide project_path or configure the server default workspace"}, true)
 	}
 	return project, nil
-}
-
-func delegationInstruction(t core.Task) string {
-	switch t.Status {
-	case core.TaskWaitingDependency:
-		return "Workbench owns this external dependency watch. Do not busy-poll get_task and do not hold an AI worker open. Continue other independent useful work; Workbench will resume this task automatically when the dependency becomes terminal."
-	case core.TaskWaitingRetry:
-		return "Workbench owns the persisted retry timer. Do not busy-poll get_task. Continue other independent useful work; Workbench will retry automatically when the cooldown expires."
-	case core.TaskNeedsAttention:
-		return "Surface only the concise Workbench attention question to the human, then call resolve_attention with their answer."
-	default:
-		return "Check get_task when its result is needed for your next action. Avoid status-only polling loops; continue other safe independent work while Workbench executes."
-	}
 }
 
 func (s *Server) callTool(ctx context.Context, name string, a map[string]any) any {
@@ -432,7 +421,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			"task_id":      t.ID,
 			"status":       t.Status,
 			"project_path": project,
-			"instruction":  delegationInstruction(t),
+			"instruction":  "Poll get_task until completed, failed, or needs_attention. Do not ask the human to check progress.",
 		}, false)
 
 	case "get_task":
@@ -440,9 +429,6 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if !ok {
 			return textContent(map[string]any{"error": "task not found"}, true)
 		}
-		// Preserve the original structured get_task shape for relay and existing
-		// clients. Polling guidance is supplied by MCP initialization/tool metadata
-		// and the delegate_task instruction without wrapping the durable Task JSON.
 		return textContent(t, false)
 
 	case "list_tasks":
@@ -501,7 +487,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if err := s.engine.ResolveAttention(arg(a, "task_id"), arg(a, "answer")); err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
-		return textContent(map[string]any{"ok": true, "instruction": "Workbench resumed the task. Check get_task when its result is needed; avoid status-only busy polling."}, false)
+		return textContent(map[string]any{"ok": true, "instruction": "Poll get_task again until terminal state."}, false)
 
 	default:
 		return textContent(map[string]any{"error": fmt.Sprintf("unknown tool %q", name)}, true)
