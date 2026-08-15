@@ -34,14 +34,13 @@ func TestBuildHarnessJobUsesLeastAuthorityContract(t *testing.T) {
 }
 
 func TestDecodeHarnessJobResultIsStrictAndIdentityNeutral(t *testing.T) {
-	result, err := decodeHarnessJobResult([]byte(`{"version":1}`))
-	if err == nil || result.TaskID != "" {
-		t.Fatalf("malformed escaped fixture unexpectedly decoded: %#v err=%v", result, err)
+	if _, err := decodeHarnessJobResult([]byte("{not-json")); err == nil {
+		t.Fatal("malformed structured harness JSON was accepted")
 	}
 
-	result, err = decodeHarnessJobResult([]byte(`{"version":1}`))
-	if err == nil {
-		t.Fatal("missing structured harness fields were accepted")
+	result, err := decodeHarnessJobResult([]byte("{\"version\":1}"))
+	if err == nil || result.TaskID != "" {
+		t.Fatalf("structured result missing task identity was accepted: %#v err=%v", result, err)
 	}
 
 	result, err = decodeHarnessJobResult([]byte("{\"version\":1,\"task_id\":\"task-1\",\"status\":\"completed\",\"report\":\"done\"}"))
