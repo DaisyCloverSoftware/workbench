@@ -28,7 +28,6 @@ const (
 	fwNormal      = 400
 	fwSemiBold    = 600
 	fwBold        = 700
-	gwlStyle      = -16
 )
 
 var (
@@ -119,9 +118,10 @@ func makeOwnerDrawButton(hwnd uintptr) {
 	if hwnd == 0 {
 		return
 	}
-	style, _, _ := procGetWindowLongPtrW.Call(hwnd, uintptr(int64(gwlStyle)))
+	styleIndex := ^uintptr(15) // pointer-sized representation of Win32 GWL_STYLE (-16)
+	style, _, _ := procGetWindowLongPtrW.Call(hwnd, styleIndex)
 	style = (style &^ 0x0f) | bsOwnerDraw
-	procSetWindowLongPtrW.Call(hwnd, uintptr(int64(gwlStyle)), style)
+	procSetWindowLongPtrW.Call(hwnd, styleIndex, style)
 	invalidateWindow(hwnd)
 }
 
