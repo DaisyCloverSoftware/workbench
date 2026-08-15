@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -142,6 +143,17 @@ func (e *Engine) RemoveProject(projectID string) error {
 		e.mu.Unlock()
 		return errors.New("project not found")
 	}
+	projectPath := e.state.Projects[idx].Path
+	unfinished := 0
+	for _, task := range e.state.Tasks {
+		if sameProjectPath(task.ProjectPath, projectPath) && taskBlocksProjectRemoval(task.Status) {
+			unfinished++
+		}
+	}
+	if unfinished > 0 {
+		e.mu.Unlock()
+		return fmt.Errorf("project has %d unfinished Workbench task(s); finish or cancel them before removing the project", unfinished)
+	}
 	e.state.Projects = append(e.state.Projects[:idx], e.state.Projects[idx+1:]...)
 	if e.state.ActiveProjectID == projectID {
 		e.state.ActiveProjectID = mostRecentProjectID(e.state.Projects)
@@ -154,6 +166,15 @@ func (e *Engine) RemoveProject(projectID string) error {
 	}
 	e.notify()
 	return nil
+}
+
+func taskBlocksProjectRemoval(status TaskStatus) bool {
+	switch status {
+	case TaskQueued, TaskRouting, TaskRunning, TaskNeedsAttention:
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) TasksForProject(projectID string) []Task {
