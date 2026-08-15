@@ -28,12 +28,18 @@ const (
 	fwNormal      = 400
 	fwSemiBold    = 600
 	fwBold        = 700
+
+	rdwInvalidate  = 0x0001
+	rdwErase       = 0x0004
+	rdwAllChildren = 0x0080
+	rdwUpdateNow   = 0x0100
 )
 
 var (
 	procBeginPaint        = user32.NewProc("BeginPaint")
 	procEndPaint          = user32.NewProc("EndPaint")
 	procInvalidateRect    = user32.NewProc("InvalidateRect")
+	procRedrawWindow      = user32.NewProc("RedrawWindow")
 	procDrawTextW         = user32.NewProc("DrawTextW")
 	procFillRect          = user32.NewProc("FillRect")
 	procRoundRect         = gdi32.NewProc("RoundRect")
@@ -105,6 +111,12 @@ var productionPalette = struct {
 func invalidateWindow(hwnd uintptr) {
 	if hwnd != 0 {
 		procInvalidateRect.Call(hwnd, 0, 0)
+	}
+}
+
+func redrawProductionWindow(hwnd uintptr) {
+	if hwnd != 0 {
+		procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase|rdwAllChildren|rdwUpdateNow)
 	}
 }
 
