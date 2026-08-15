@@ -253,6 +253,7 @@ func stringSliceArg(a map[string]any, k string) []string {
 			if strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	}
 	return out
 }
