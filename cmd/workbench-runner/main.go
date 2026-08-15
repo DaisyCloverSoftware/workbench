@@ -13,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.8.0"
-const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|update <check|apply>|doctor|selftest|live-selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -39,6 +39,8 @@ func main() {
 		policy()
 	case "policy-json":
 		policyJSON()
+	case "harness":
+		harness()
 	case "update":
 		update()
 	case "doctor":
@@ -177,6 +179,7 @@ func applyPublicationPolicyCommand(args []string) (core.RunnerPolicyResponse, er
 
 func doctor() {
 	providers := core.ApplyProviderHealth(core.ScanProviders(), time.Now())
+	harnessStatus := core.RunnerHarnessConfigurationStatus()
 	fmt.Printf("Workbench Runner %s\n", runnerVersion)
 	fmt.Println("Provider scan:")
 	for _, p := range providers {
@@ -186,6 +189,11 @@ func doctor() {
 		}
 		fmt.Printf("  %s %-22s %-22s %s\n", marker, p.Name, p.Cost, p.Status)
 	}
+	fmt.Printf("Structured harness: %s", harnessStatus.Status)
+	if harnessStatus.AdapterName != "" {
+		fmt.Printf(" (%s)", harnessStatus.AdapterName)
+	}
+	fmt.Println()
 	fmt.Println("\nRunner root: set WORKBENCH_RUNNER_ROOT to override; default is ~/src")
 	fmt.Println("Provider cooldowns: retryable provider/setup failures are skipped briefly; Rescan in the native app clears local cooldowns after fixing setup")
 	fmt.Println("Durable remote work: workbench-runner job <submit|status|cancel>; jobs survive the submitting SSH session")
@@ -193,6 +201,7 @@ func doctor() {
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
 	fmt.Println("Publication policy (operator-only): workbench-runner policy <get|prepare|publish|delete> ...")
+	fmt.Println("Host harness configuration (operator-only): workbench-runner harness <get|set|delete> ...")
 	fmt.Println("Local maintenance (operator-only): workbench-runner update <check|apply>")
 	fmt.Println("Deterministic Workbench health proof: workbench-runner selftest")
 	fmt.Println("External AI worker availability proof: workbench-runner live-selftest")
