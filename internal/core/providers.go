@@ -84,7 +84,7 @@ func ScanProviders() []Provider {
 	if p, ok := scanCommand("openclaw"); ok {
 		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "agent harness", Command: p, Installed: true, Authenticated: true, Status: "CLI detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Execution adapter. Workbench stays harness-agnostic."})
 	} else {
-		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw / Harness", Capability: "remote agent harness", Status: "configure adapter command", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true})
+		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "agent harness", Status: "not detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Optional built-in CLI provider. Structured harness adapters are configured separately."})
 	}
 
 	if p, ok := scanCommand("codex"); ok {
