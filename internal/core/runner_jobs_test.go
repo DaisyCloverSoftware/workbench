@@ -17,6 +17,35 @@ func runnerJobTestRequest() RunnerRequest {
 	}
 }
 
+func TestRunnerRequestFingerprintIgnoresDesktopLifecycleFields(t *testing.T) {
+	req := runnerJobTestRequest()
+	before, err := runnerRequestFingerprint(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Task.Status = TaskRunning
+	req.Task.ProviderID = "workbench-runner"
+	req.Task.RouteReason = "recovered route"
+	req.Task.Attempts = []string{"Workbench restarted; resuming task"}
+	req.Task.ConsumesWork = true
+	afterRecovery, err := runnerRequestFingerprint(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterRecovery != before {
+		t.Fatalf("desktop recovery fields changed durable request identity: %s != %s", afterRecovery, before)
+	}
+
+	req.Task.HumanAnswer = "Choose A"
+	afterAnswer, err := runnerRequestFingerprint(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterAnswer == before {
+		t.Fatal("human attention answer must create a new durable request generation")
+	}
+}
+
 func TestRunnerJobSubmitIsIdempotentForSameRequest(t *testing.T) {
 	t.Setenv("WORKBENCH_RUNNER_JOB_ROOT", t.TempDir())
 	req := runnerJobTestRequest()
@@ -84,6 +113,33 @@ func TestRunnerJobExecutionPersistsCompletedResponse(t *testing.T) {
 	}
 	if job.StartedAt == nil || job.FinishedAt == nil {
 		t.Fatalf("job timestamps incomplete: %+v", job)
+	}
+}
+
+func TestRunnerJobFastCompletionDoesNotRestoreStaleLauncherPID(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("WORKBENCH_RUNNER_JOB_ROOT", root)
+	req := runnerJobTestRequest()
+	_, err := submitRunnerJob(req, func(id string) (int, error) {
+		if err := executeStoredRunnerJob(id, func(context.Context, RunnerRequest) RunnerResponse {
+			return RunnerResponse{Result: RunResult{Output: "finished immediately"}}
+		}); err != nil {
+			return 0, err
+		}
+		return 999999, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, found, err := loadRunnerJobRecord(root, req.Task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !found || record.Job.Status != RunnerJobCompleted {
+		t.Fatalf("unexpected record after immediate completion: %+v", record)
+	}
+	if record.PID != 0 {
+		t.Fatalf("terminal runner job retained stale launcher pid %d", record.PID)
 	}
 }
 
