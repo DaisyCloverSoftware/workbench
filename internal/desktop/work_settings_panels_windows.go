@@ -37,13 +37,14 @@ func (s *Shell) paintProductionWorkSettingsPanels() {
 		controls = s.settingsControlIDs()
 	}
 
-	// Child windows remain the actual interactive controls. Invalidate only the
-	// children after painting the parent card surfaces; never invalidate the
-	// parent here, otherwise its normal background paint would erase the cards.
+	// Child windows remain the actual interactive controls. Mark them dirty and
+	// let the normal message loop repaint them after the parent WM_PAINT returns.
+	// Calling UpdateWindow here re-enters child painting synchronously from inside
+	// the parent paint path and can starve the desktop message pump on real Windows
+	// machines even though a final frame is still visible.
 	for _, id := range controls {
 		if hwnd := s.controls[id]; hwnd != 0 {
 			procInvalidateRect.Call(hwnd, 0, 1)
-			procUpdateWindow.Call(hwnd)
 		}
 	}
 }
