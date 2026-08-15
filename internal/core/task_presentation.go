@@ -9,7 +9,7 @@ import (
 // TaskPresentation is a UI-facing interpretation of durable task state. It is
 // intentionally derived from Task rather than persisted separately so desktop,
 // MCP and future companion surfaces cannot drift on what the user should do
-// next.
+// next. Publication targets/URLs remain private policy data.
 type TaskPresentation struct {
 	StatusLabel       string                  `json:"status_label"`
 	NextAction        string                  `json:"next_action"`
@@ -19,6 +19,9 @@ type TaskPresentation struct {
 	ReviewFiles       int                     `json:"review_files,omitempty"`
 	PublicationStatus ReviewPublicationStatus `json:"publication_status,omitempty"`
 	Published         bool                    `json:"published,omitempty"`
+	PullRequestStatus ReviewPullRequestStatus `json:"pull_request_status,omitempty"`
+	PullRequestNumber int                     `json:"pull_request_number,omitempty"`
+	PullRequestState  string                  `json:"pull_request_state,omitempty"`
 	NeedsHuman        bool                    `json:"needs_human"`
 	Terminal          bool                    `json:"terminal"`
 }
@@ -47,6 +50,9 @@ func PresentTask(t Task) TaskPresentation {
 		p.ReviewFiles = len(review.Files)
 		p.PublicationStatus = review.PublicationStatus
 		p.Published = review.Published || review.PublicationStatus == ReviewPublicationPublished
+		p.PullRequestStatus = review.PullRequestStatus
+		p.PullRequestNumber = review.PullRequestNumber
+		p.PullRequestState = review.PullRequestState
 	} else if match := preparedReviewLine.FindStringSubmatch(t.Output); len(match) == 4 {
 		// Backward-compatible display for task records created before structured
 		// review results existed.
@@ -78,8 +84,16 @@ func PresentTask(t Task) TaskPresentation {
 		p.StatusLabel = "Ready"
 		p.Terminal = true
 		switch {
+		case p.PullRequestStatus == ReviewPullRequestAvailable && p.PullRequestNumber > 0:
+			state := strings.TrimSpace(p.PullRequestState)
+			if state == "" {
+				state = "ready"
+			}
+			p.NextAction = fmt.Sprintf("Review GitHub PR #%d (%s). Workbench has finished the coding and delivery work.", p.PullRequestNumber, state)
 		case p.ReviewBranch != "" && p.PublicationStatus == ReviewPublicationFailed:
-			p.NextAction = fmt.Sprintf("Code is ready for review on %s at %s. Automatic publication did not complete; the prepared review is preserved and does not need to be recoded.", p.ReviewBranch, shortCommit(p.ReviewCommit))
+			p.NextAction = fmt.Sprintf("Code is ready for review on %s at %s. Automatic publication did not complete; the prepared review is preserved and does not need to be recoded. Retry review delivery; coding will not run again.", p.ReviewBranch, shortCommit(p.ReviewCommit))
+		case p.ReviewBranch != "" && p.Published && p.PullRequestStatus == ReviewPullRequestUnavailable:
+			p.NextAction = fmt.Sprintf("The review branch %s is published at %s, but GitHub PR delivery is unavailable. Retry review delivery; coding will not run again.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "" && p.Published:
 			p.NextAction = fmt.Sprintf("Ready for review. Workbench published %s at %s.", p.ReviewBranch, shortCommit(p.ReviewCommit))
 		case p.ReviewBranch != "":

@@ -13,6 +13,7 @@ func TestTaskWorkspaceIsIsolatedAndRecoverable(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	repo := initPrepareTestRepo(t)
 	ctx := context.Background()
+	baseBranch := prepareTestGit(t, repo, "branch", "--show-current")
 
 	ws, err := CreateTaskWorkspace(ctx, repo, "task-one")
 	if err != nil {
@@ -20,6 +21,9 @@ func TestTaskWorkspaceIsIsolatedAndRecoverable(t *testing.T) {
 	}
 	if ws.Workspace == repo || ws.BaseRevision == "" || ws.TaskID != "task-one" {
 		t.Fatalf("unexpected workspace: %#v", ws)
+	}
+	if ws.BaseBranch != baseBranch {
+		t.Fatalf("workspace base branch=%q want %q", ws.BaseBranch, baseBranch)
 	}
 	if got := prepareTestGit(t, ws.Workspace, "rev-parse", "HEAD"); got != ws.BaseRevision {
 		t.Fatalf("workspace baseline=%s want %s", got, ws.BaseRevision)
@@ -41,7 +45,7 @@ func TestTaskWorkspaceIsIsolatedAndRecoverable(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("open workspace: ok=%t err=%v", ok, err)
 	}
-	if opened.Workspace != ws.Workspace || opened.BaseRevision != ws.BaseRevision {
+	if opened.Workspace != ws.Workspace || opened.BaseRevision != ws.BaseRevision || opened.BaseBranch != ws.BaseBranch {
 		t.Fatalf("unexpected reopened workspace: %#v", opened)
 	}
 	if _, err := CreateTaskWorkspace(ctx, repo, "task-one"); err != nil {
@@ -56,6 +60,36 @@ func TestTaskWorkspaceIsIsolatedAndRecoverable(t *testing.T) {
 	}
 	if _, ok, err := OpenTaskWorkspace(repo, "task-one"); err != nil || ok {
 		t.Fatalf("workspace metadata remained after cleanup: ok=%t err=%v", ok, err)
+	}
+}
+
+func TestTaskWorkspaceAcceptsLegacyV1Metadata(t *testing.T) {
+	isolateKnowledgeConfig(t)
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	repo := initPrepareTestRepo(t)
+	ctx := context.Background()
+	ws, err := CreateTaskWorkspace(ctx, repo, "task-legacy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, metadataPath, err := taskWorkspacePaths(ws.Project, "task-legacy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.Version = 1
+	ws.BaseBranch = ""
+	if err := saveTaskWorkspace(metadataPath, ws); err != nil {
+		t.Fatal(err)
+	}
+	opened, ok, err := OpenTaskWorkspace(repo, "task-legacy")
+	if err != nil || !ok {
+		t.Fatalf("legacy workspace should remain recoverable: ok=%t err=%v", ok, err)
+	}
+	if opened.Version != 1 || opened.BaseBranch != "" {
+		t.Fatalf("legacy metadata changed unexpectedly: %#v", opened)
+	}
+	if err := RemoveTaskWorkspace(ctx, repo, "task-legacy"); err != nil {
+		t.Fatal(err)
 	}
 }
 
