@@ -98,11 +98,11 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.refresh()
 		s.applyPageVisibility()
 		s.layoutProduction()
-		invalidateWindow(hwnd)
+		redrawProductionWindow(hwnd)
 		return 0
 	case wmSize:
 		s.layoutProduction()
-		invalidateWindow(hwnd)
+		redrawProductionWindow(hwnd)
 		return 0
 	case wmPaint:
 		return s.paintProductionWindow()
@@ -118,18 +118,18 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmAppRefresh:
 		s.refresh()
 		showWindow(s.controls[idGlobalStatus], false)
-		invalidateWindow(hwnd)
+		redrawProductionWindow(hwnd)
 		return 0
 	case wmCommand:
 		id := int(uint16(wParam & 0xffff))
 		notify := uint16((wParam >> 16) & 0xffff)
 		if s.handleProductionChromeCommand(id) {
-			invalidateWindow(hwnd)
+			redrawProductionWindow(hwnd)
 			return 0
 		}
 		s.handleCommand(id, notify)
 		showWindow(s.controls[idGlobalStatus], false)
-		invalidateWindow(hwnd)
+		redrawProductionWindow(hwnd)
 		return 0
 	case wmCtlColorStatic, wmCtlColorBtn, wmCtlColorEdit, wmCtlColorListBox:
 		hdc := wParam
