@@ -157,7 +157,7 @@ func TestPresentWaitingDependencyExplainsBackgroundContinuation(t *testing.T) {
 		t.Fatalf("waiting dependency presentation=%#v", p)
 	}
 	if p.DependencyNextCheckAt == nil || !p.DependencyNextCheckAt.Equal(next) {
-		t.Fatal(("dependency check deadline missing: %#v", p))
+		t.Fatalf("dependency check deadline missing: %#v", p)
 	}
 	if p.DependencyKind != DependencyGitHubActions || p.DependencyState != "queued" {
 		t.Fatalf("dependency presentation lost state: %#v", p)
