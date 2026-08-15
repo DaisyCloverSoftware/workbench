@@ -22,7 +22,7 @@ jobs:
         run: |
           go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
           go build -ldflags='-s -w -H=windowsgui' -o Workbench-Updater.exe ./cmd/workbench-updater
-      - name: Capture actual production dashboard
+      - name: Capture actual production pages
         continue-on-error: true
         shell: pwsh
         run: |
@@ -33,28 +33,42 @@ jobs:
           New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
           New-Item -ItemType Directory -Force -Path $env:LOCALAPPDATA | Out-Null
 
+          $projectRoot = Join-Path $pwd '.ui-projects'
+          $coreProject = Join-Path $projectRoot 'Workbench Core'
+          $providerProject = Join-Path $projectRoot 'Provider Integration'
+          $releaseProject = Join-Path $projectRoot 'Release Automation'
+          New-Item -ItemType Directory -Force -Path $coreProject,$providerProject,$releaseProject | Out-Null
+
           $now = [DateTime]::UtcNow
           $future = $now.AddHours(1)
-          $projectPath = $pwd.Path
           $state = [ordered]@{
-            version = 2
-            project_path = $projectPath
+            version = 3
+            active_project_id = ''
+            project_path = $coreProject
             notes = 'Production dashboard screenshot fixture. No secrets or private environment data.'
+            projects = @(
+              [ordered]@{id=''; path=$coreProject; name='Workbench Core'; notes='Production shell, durable task workflow and review delivery.'; pinned=$true; added_at=$now.AddDays(-20).ToString('o'); last_used_at=$now.ToString('o')},
+              [ordered]@{id=''; path=$providerProject; name='Provider Integration'; notes='Structured workers, routing and provider health.'; pinned=$false; added_at=$now.AddDays(-12).ToString('o'); last_used_at=$now.AddMinutes(-18).ToString('o')},
+              [ordered]@{id=''; path=$releaseProject; name='Release Automation'; notes='Verified Windows and cluster release pipeline.'; pinned=$false; added_at=$now.AddDays(-8).ToString('o'); last_used_at=$now.AddMinutes(-35).ToString('o')}
+            )
             tasks = @(
               [ordered]@{
-                id='ui-attention'; created_at=$now.AddMinutes(-24).ToString('o'); updated_at=$now.AddMinutes(-2).ToString('o'); origin='ci-screenshot'; title='Approve release behaviour'; intent='Prepare the production release safely'; project_path=$projectPath; status='needs_attention'; provider_id='claude'; attention_question='Choose whether this release should publish the prepared review.'; consumes_work=$false
+                id='ui-attention'; created_at=$now.AddMinutes(-24).ToString('o'); updated_at=$now.AddMinutes(-2).ToString('o'); origin='ci-screenshot'; title='Approve release behaviour'; intent='Prepare the production release safely'; project_path=$coreProject; status='needs_attention'; attention_question='Choose whether this release should publish the prepared review.'; consumes_work=$false
               },
               [ordered]@{
-                id='ui-retry'; created_at=$now.AddMinutes(-35).ToString('o'); updated_at=$now.AddMinutes(-5).ToString('o'); origin='ci-screenshot'; title='Retry transient provider outage'; intent='Continue the interrupted implementation'; project_path=$projectPath; status='waiting_retry'; route_reason='waiting for a transient provider cooldown'; retry_at=$future.ToString('o'); auto_retry_count=1; consumes_work=$false
+                id='ui-retry'; created_at=$now.AddMinutes(-35).ToString('o'); updated_at=$now.AddMinutes(-5).ToString('o'); origin='ci-screenshot'; title='Retry transient provider outage'; intent='Continue the interrupted implementation'; project_path=$providerProject; status='waiting_retry'; route_reason='waiting for a transient provider cooldown'; retry_at=$future.ToString('o'); auto_retry_count=1; consumes_work=$false
               },
               [ordered]@{
-                id='ui-ready'; created_at=$now.AddHours(-2).ToString('o'); updated_at=$now.AddMinutes(-12).ToString('o'); origin='ci-screenshot'; title='Production dashboard shell'; intent='Build the production dashboard'; project_path=$projectPath; status='completed'; provider_id='claude'; output='Dashboard implementation verified.'; consumes_work=$false; review=[ordered]@{changed=$true; base_revision='0123456789abcdef'; base_branch='main'; branch='workbench/ui-ready'; commit='abcdef0123456789'; files=@('internal/desktop/dashboard_windows.go','internal/desktop/production_shell_windows.go'); publication_status='published'; published=$true; pull_request_status='available'; pull_request_number=80; pull_request_state='open'}
+                id='ui-ready'; created_at=$now.AddHours(-2).ToString('o'); updated_at=$now.AddMinutes(-12).ToString('o'); origin='ci-screenshot'; title='Production dashboard shell'; intent='Build the production dashboard'; project_path=$coreProject; status='completed'; provider_id='claude'; output='Dashboard implementation verified.'; consumes_work=$false; review=[ordered]@{changed=$true; base_revision='0123456789abcdef'; base_branch='main'; branch='workbench/ui-ready'; commit='abcdef0123456789'; files=@('internal/desktop/dashboard_windows.go','internal/desktop/production_shell_windows.go'); publication_status='published'; published=$true; pull_request_status='available'; pull_request_number=80; pull_request_state='open'}
               },
               [ordered]@{
-                id='ui-done'; created_at=$now.AddHours(-4).ToString('o'); updated_at=$now.AddMinutes(-28).ToString('o'); origin='ci-screenshot'; title='Verified updater integration'; intent='Verify the updater'; project_path=$projectPath; status='completed'; provider_id='workbench-runner'; output='Verification passed.'; consumes_work=$false
+                id='ui-done'; created_at=$now.AddHours(-4).ToString('o'); updated_at=$now.AddMinutes(-28).ToString('o'); origin='ci-screenshot'; title='Verified updater integration'; intent='Verify the updater'; project_path=$releaseProject; status='completed'; provider_id='workbench-runner'; output='Verification passed.'; consumes_work=$false
               },
               [ordered]@{
-                id='ui-failed'; created_at=$now.AddHours(-5).ToString('o'); updated_at=$now.AddHours(-1).ToString('o'); origin='ci-screenshot'; title='Legacy adapter migration'; intent='Exercise a failure presentation'; project_path=$projectPath; status='failed'; error='CI fixture failure used only to exercise truthful failed-task presentation.'; consumes_work=$false
+                id='ui-provider-done'; created_at=$now.AddHours(-3).ToString('o'); updated_at=$now.AddMinutes(-42).ToString('o'); origin='ci-screenshot'; title='Structured harness migration'; intent='Replace command templates with structured jobs'; project_path=$providerProject; status='completed'; provider_id='claude'; output='Structured harness routing verified.'; consumes_work=$false
+              },
+              [ordered]@{
+                id='ui-failed'; created_at=$now.AddHours(-5).ToString('o'); updated_at=$now.AddHours(-1).ToString('o'); origin='ci-screenshot'; title='Legacy adapter migration check'; intent='Exercise failed-task presentation'; project_path=$releaseProject; status='failed'; error='CI fixture failure used only to exercise truthful failed-task presentation.'; consumes_work=$false
               }
             )
             secrets = @()
@@ -63,7 +77,6 @@ jobs:
           $state | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 (Join-Path $stateDir 'state.json')
 
           $statusPath = Join-Path $pwd 'screenshot-status.txt'
-          $screenshotPath = Join-Path $pwd 'Workbench-Dashboard-Actual.png'
           $process = $null
           try {
             $process = Start-Process -FilePath (Join-Path $pwd 'Workbench.exe') -PassThru
@@ -72,7 +85,7 @@ jobs:
               Start-Sleep -Milliseconds 500
               $process.Refresh()
             } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline -and -not $process.HasExited)
-            if ($process.HasExited) { throw 'Workbench exited before a dashboard window became available.' }
+            if ($process.HasExited) { throw 'Workbench exited before a production window became available.' }
             if ($process.MainWindowHandle -eq 0) { throw 'The hosted Windows runner did not expose a Workbench window handle.' }
 
             Add-Type -AssemblyName System.Drawing
@@ -84,31 +97,54 @@ jobs:
               public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
               [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
               [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
+              [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+              [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
           }
           '@
-            $rect = New-Object WorkbenchWindowCapture+RECT
-            if (-not [WorkbenchWindowCapture]::GetWindowRect($process.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
-            $width = $rect.Right - $rect.Left
-            $height = $rect.Bottom - $rect.Top
-            if ($width -lt 800 -or $height -lt 600) { throw "Unexpected Workbench window size ${width}x${height}." }
-            $bitmap = New-Object System.Drawing.Bitmap($width, $height)
-            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-            $hdc = $graphics.GetHdc()
-            try {
-              if (-not [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)) { throw 'PrintWindow failed on the hosted Windows runner.' }
-            } finally {
-              $graphics.ReleaseHdc($hdc)
-              $graphics.Dispose()
+
+            function Save-WorkbenchWindow([string]$name) {
+              $rect = New-Object WorkbenchWindowCapture+RECT
+              if (-not [WorkbenchWindowCapture]::GetWindowRect($process.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
+              $width = $rect.Right - $rect.Left
+              $height = $rect.Bottom - $rect.Top
+              if ($width -lt 800 -or $height -lt 600) { throw "Unexpected Workbench window size ${width}x${height}." }
+              $bitmap = New-Object System.Drawing.Bitmap($width, $height)
+              $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+              $hdc = $graphics.GetHdc()
+              try {
+                if (-not [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)) { throw 'PrintWindow failed on the hosted Windows runner.' }
+              } finally {
+                $graphics.ReleaseHdc($hdc)
+                $graphics.Dispose()
+              }
+              $bitmap.Save((Join-Path $pwd $name), [System.Drawing.Imaging.ImageFormat]::Png)
+              $bitmap.Dispose()
+              return "${name}:${width}x${height}"
             }
-            $bitmap.Save($screenshotPath, [System.Drawing.Imaging.ImageFormat]::Png)
-            $bitmap.Dispose()
-            "captured actual Workbench.exe dashboard at ${width}x${height}; state is isolated CI fixture data" | Set-Content -Encoding UTF8 $statusPath
+
+            $captured = @()
+            Start-Sleep -Milliseconds 750
+            $captured += Save-WorkbenchWindow 'Workbench-Dashboard-Actual.png'
+
+            $work = [WorkbenchWindowCapture]::GetDlgItem($process.MainWindowHandle, 3001)
+            if ($work -eq [IntPtr]::Zero) { throw 'Could not find Work navigation control.' }
+            [void][WorkbenchWindowCapture]::SendMessage($work, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+            Start-Sleep -Milliseconds 750
+            $captured += Save-WorkbenchWindow 'Workbench-Work-Actual.png'
+
+            $settings = [WorkbenchWindowCapture]::GetDlgItem($process.MainWindowHandle, 3002)
+            if ($settings -eq [IntPtr]::Zero) { throw 'Could not find Settings navigation control.' }
+            [void][WorkbenchWindowCapture]::SendMessage($settings, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+            Start-Sleep -Milliseconds 750
+            $captured += Save-WorkbenchWindow 'Workbench-Settings-Actual.png'
+
+            ("captured actual Workbench.exe pages with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
           } catch {
             "screenshot unavailable: $($_.Exception.Message)" | Set-Content -Encoding UTF8 $statusPath
           } finally {
             if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
-      - name: Upload actual dashboard screenshot result
+      - name: Upload actual production page screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -116,6 +152,8 @@ jobs:
           if-no-files-found: warn
           path: |
             Workbench-Dashboard-Actual.png
+            Workbench-Work-Actual.png
+            Workbench-Settings-Actual.png
             screenshot-status.txt
       - uses: actions/upload-artifact@v4
         with:
