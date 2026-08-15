@@ -7,12 +7,24 @@ import (
 	"strings"
 )
 
+type ReviewPublicationStatus string
+
+const (
+	ReviewPublicationPrepared ReviewPublicationStatus = "prepared"
+	ReviewPublicationPublished ReviewPublicationStatus = "published"
+	ReviewPublicationFailed ReviewPublicationStatus = "publication_failed"
+)
+
 type TaskReviewResult struct {
-	Changed        bool   `json:"changed"`
-	Branch         string `json:"branch,omitempty"`
-	Commit         string `json:"commit,omitempty"`
-	Published      bool   `json:"published,omitempty"`
-	AlreadyPresent bool   `json:"already_present,omitempty"`
+	Changed           bool                    `json:"changed"`
+	BaseRevision      string                  `json:"base_revision,omitempty"`
+	Fingerprint       string                  `json:"fingerprint,omitempty"`
+	Branch            string                  `json:"branch,omitempty"`
+	Commit            string                  `json:"commit,omitempty"`
+	Files             []string                `json:"files,omitempty"`
+	PublicationStatus ReviewPublicationStatus `json:"publication_status,omitempty"`
+	Published         bool                    `json:"published,omitempty"`
+	AlreadyPresent    bool                    `json:"already_present,omitempty"`
 }
 
 // RunProviderIsolated gives a local coding worker a durable Workbench-owned
@@ -50,12 +62,16 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 		return res, fmt.Errorf("finalize isolated task workspace: %w", err)
 	}
 	if review.Changed {
+		res.Review = cloneTaskReviewResult(&review)
 		status := fmt.Sprintf("Workbench prepared review branch %s at %s.", review.Branch, review.Commit)
-		if review.Published {
+		switch review.PublicationStatus {
+		case ReviewPublicationPublished:
 			status = fmt.Sprintf("Workbench published review branch %s at %s.", review.Branch, review.Commit)
-		}
-		if review.AlreadyPresent {
-			status += " The same prepared commit was already present on the publication target."
+			if review.AlreadyPresent {
+				status += " The same prepared commit was already present on the publication target."
+			}
+		case ReviewPublicationFailed:
+			status += " Automatic review publication did not complete; the verified prepared review remains available locally and coding will not be rerun."
 		}
 		if strings.TrimSpace(res.Output) == "" {
 			res.Output = status
@@ -69,7 +85,9 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 // FinalizeTaskWorkspace turns successful worker edits into a Workbench-owned
 // review commit without modifying the user's source checkout. Publication is
 // controlled only by the private local policy; when no policy exists, the safe
-// default is a local prepared branch.
+// default is a local prepared branch. Once a deterministic local review commit
+// exists, publication errors are recorded as control-plane state instead of
+// failing the coding task and routing the same implementation to another AI.
 func FinalizeTaskWorkspace(ctx context.Context, ws TaskWorkspace) (TaskReviewResult, error) {
 	if !validTaskWorkspace(ctx, ws) {
 		return TaskReviewResult{}, errors.New("task workspace is no longer valid")
@@ -96,21 +114,40 @@ func FinalizeTaskWorkspace(ctx context.Context, ws TaskWorkspace) (TaskReviewRes
 	if err != nil {
 		return TaskReviewResult{}, err
 	}
-	result := TaskReviewResult{Changed: true, Branch: prepared.Branch, Commit: prepared.Commit}
-	policy, configured, err := PublicationPolicyFor(ws.Project)
-	if err != nil {
-		return TaskReviewResult{}, err
+	result := TaskReviewResult{
+		Changed:           true,
+		BaseRevision:      prepared.BaseRevision,
+		Fingerprint:       prepared.Fingerprint,
+		Branch:            prepared.Branch,
+		Commit:            prepared.Commit,
+		Files:             append([]string(nil), prepared.Files...),
+		PublicationStatus: ReviewPublicationPrepared,
 	}
-	if configured && policy.Mode == PublicationPublish {
-		published, err := PublishPreparedChangeset(ctx, prepared, policy.RemoteURL)
-		if err != nil {
-			return TaskReviewResult{}, err
+
+	policy, configured, policyErr := PublicationPolicyFor(ws.Project)
+	if policyErr != nil {
+		result.PublicationStatus = ReviewPublicationFailed
+	} else if configured && policy.Mode == PublicationPublish {
+		published, publishErr := PublishPreparedChangeset(ctx, prepared, policy.RemoteURL)
+		if publishErr != nil {
+			result.PublicationStatus = ReviewPublicationFailed
+		} else {
+			result.PublicationStatus = ReviewPublicationPublished
+			result.Published = true
+			result.AlreadyPresent = published.AlreadyPresent
 		}
-		result.Published = true
-		result.AlreadyPresent = published.AlreadyPresent
 	}
 	if err := RemoveTaskWorkspace(ctx, ws.Project, ws.TaskID); err != nil {
 		return TaskReviewResult{}, err
 	}
 	return result, nil
+}
+
+func cloneTaskReviewResult(review *TaskReviewResult) *TaskReviewResult {
+	if review == nil {
+		return nil
+	}
+	cloned := *review
+	cloned.Files = append([]string(nil), review.Files...)
+	return &cloned
 }
