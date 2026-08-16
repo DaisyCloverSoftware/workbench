@@ -101,7 +101,10 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		setWindowText(s.controls[idBrand], brand)
 		showWindow(s.controls[idGlobalStatus], false)
 		s.refreshProductionPage()
-		s.applyPageVisibility()
+		s.applyProductionPageVisibility()
+		// Lay out Work and Settings while they are hidden. Page navigation then
+		// only swaps visibility/data instead of performing dozens of MoveWindow
+		// calls inside the button click.
 		s.layoutProduction()
 		redrawProductionWindow(hwnd)
 		return 0
@@ -164,12 +167,11 @@ func (s *Shell) layoutProduction() {
 
 	s.layoutProductionChrome(width)
 	showWindow(s.controls[idGlobalStatus], false)
-	switch s.page {
-	case pageWork:
-		s.layoutProductionWork(contentX, contentY, contentW, contentH)
-	case pageSettings:
-		s.layoutProductionSettings(contentX, contentY, contentW, contentH)
-	}
+	// Keep both native pages correctly positioned even while hidden. This moves
+	// layout cost to create/resize, where Windows expects it, and keeps a normal
+	// navigation click bounded to visibility plus data refresh.
+	s.layoutProductionWork(contentX, contentY, contentW, contentH)
+	s.layoutProductionSettings(contentX, contentY, contentW, contentH)
 }
 
 func (s *Shell) styleProductionControls() {
@@ -183,29 +185,17 @@ func (s *Shell) styleProductionControls() {
 func (s *Shell) handleProductionChromeCommand(id int) bool {
 	switch id {
 	case idNavDashboard:
-		s.page = pageDashboard
-		s.applyPageVisibility()
-		s.refreshProductionPage()
-		s.layoutProduction()
+		s.transitionProductionPage(pageDashboard)
 		return true
 	case idNavWork:
-		s.page = pageWork
 		s.jumpToNeedsAttention()
-		s.applyPageVisibility()
-		s.refreshProductionPage()
-		s.layoutProduction()
+		s.transitionProductionPage(pageWork)
 		return true
 	case idNavSettings:
-		s.page = pageSettings
-		s.applyPageVisibility()
-		s.refreshProductionPage()
-		s.layoutProduction()
+		s.transitionProductionPage(pageSettings)
 		return true
 	case idTopNewTask:
-		s.page = pageWork
-		s.applyPageVisibility()
-		s.refreshProductionPage()
-		s.layoutProduction()
+		s.transitionProductionPage(pageWork)
 		focusWindow(s.controls[idIntent])
 		return true
 	case idTopNeedsYou:
@@ -213,20 +203,14 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 			messageBox(s.hwnd, "Nothing needs you", "Workbench has no task waiting for a human decision.", mbOK|mbIconInformation)
 			return true
 		}
-		s.page = pageWork
-		s.applyPageVisibility()
-		s.refreshProductionPage()
-		s.layoutProduction()
+		s.transitionProductionPage(pageWork)
 		return true
 	case idTopReview:
 		if !s.jumpToLatestReview() {
 			messageBox(s.hwnd, "No review waiting", "There is no completed Workbench review artifact waiting to be opened or delivered.", mbOK|mbIconInformation)
 			return true
 		}
-		s.page = pageWork
-		s.applyPageVisibility()
-		s.refreshProductionPage()
-		s.layoutProduction()
+		s.transitionProductionPage(pageWork)
 		return true
 	}
 	return false
