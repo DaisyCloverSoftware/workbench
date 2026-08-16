@@ -42,6 +42,12 @@ type TaskReviewResult struct {
 // ordinary worker failure and human-attention pauses so another eligible worker
 // or the resumed task can continue the same isolated edits.
 func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
+	// A runner:// project deliberately has no desktop-local worktree. It may only
+	// be executed by the Workbench cluster runner, which resolves the logical
+	// reference inside its authorised runner root and creates isolation there.
+	if IsRunnerProjectReference(task.ProjectPath) && p.ID != "workbench-runner" {
+		return RunResult{Retryable: true}, errors.New("cluster project requires the configured Workbench runner")
+	}
 	// The cluster runner is itself a Workbench control plane. Isolation must be
 	// created on that host after its project path has been resolved, not on the
 	// desktop that is sending the request.
