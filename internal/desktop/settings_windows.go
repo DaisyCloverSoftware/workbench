@@ -63,8 +63,7 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 		return
 	}
 	// Active projects were already canonicalised when registered. Reading the
-	// local policy must therefore not invoke Git on the UI thread merely to look
-	// up an existing operator setting.
+	// local policy/mirror must therefore not invoke Git or SSH on the UI thread.
 	policy, configured, err := core.PublicationPolicyForKnownProject(snapshot.ActivePath)
 	if err != nil || !configured {
 		return
@@ -208,7 +207,7 @@ func providerSetupHint(id string) string {
 	case "codex":
 		return "Install the official Codex CLI, then connect it here."
 	case "claude":
-		return "Install Claude Code, then connect it here."
+		return "Install Node.js 18+ and Git for Windows, then run: npm install -g @anthropic-ai/claude-code. After installation click Rescan, then Connect selected."
 	case "copilot":
 		return "Install GitHub Copilot CLI, then connect it here."
 	case "antigravity":
@@ -287,6 +286,31 @@ func (s *Shell) saveReviewPolicy() {
 	prefs := s.eng.State().Preferences
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+
+	if core.IsRunnerProjectReference(project.Path) {
+		host := strings.TrimSpace(prefs.OpenClawSSHHost)
+		if host == "" {
+			messageBox(s.hwnd, "Review policy failed", "This cluster project needs a configured Workbench Runner SSH host before its review policy can be saved.", mbOK|mbIconWarning)
+			return
+		}
+		action := "prepare"
+		if mode == core.PublicationPublish {
+			action = "publish"
+		}
+		_, err := core.RunRunnerPublicationPolicySSH(ctx, host, core.RunnerPolicyRequest{Action: action, Project: project.Path, RemoteURL: remote})
+		if err != nil {
+			messageBox(s.hwnd, "Runner review policy failed", err.Error(), mbOK|mbIconWarning)
+			return
+		}
+		if _, err := core.SaveRunnerProjectPublicationPolicyMirror(core.PublicationPolicy{Project: project.Path, Mode: mode, RemoteURL: remote}); err != nil {
+			messageBox(s.hwnd, "Review policy saved on runner", "The cluster runner accepted the policy, but Workbench could not save its local display mirror.\r\n\r\n"+err.Error(), mbOK|mbIconWarning)
+			return
+		}
+		s.invalidateSettingsCache()
+		messageBox(s.hwnd, "Review policy saved", "Saved on the configured Workbench runner. The desktop keeps only an operator-side mirror so Settings and verified GitHub review links remain usable; coding workers still cannot choose a remote or publish directly.", mbOK|mbIconInformation)
+		return
+	}
+
 	result, err := core.SavePublicationPolicyForExecutionHosts(ctx, project.Path, mode, remote, prefs.OpenClawSSHHost)
 	if err != nil {
 		if strings.TrimSpace(result.Local.Project) != "" {
