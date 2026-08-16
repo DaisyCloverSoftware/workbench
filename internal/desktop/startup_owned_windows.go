@@ -42,6 +42,7 @@ func RunOwned(version string, processOwnershipConfirmed bool) error {
 			mcpErr = startErr.Error()
 		}
 	}
+	setDashboardMCPRuntime(srv != nil && strings.TrimSpace(mcpURL) != "")
 
 	if CanRecoverInterruptedTasks(processOwnershipConfirmed) {
 		_ = eng.ResumeInterruptedTasks()

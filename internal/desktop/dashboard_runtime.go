@@ -1,6 +1,33 @@
 package desktop
 
-import "strings"
+import (
+	"strings"
+	"sync/atomic"
+)
+
+// dashboardMCPRuntime is tri-state so pure model tests and headless callers can
+// still use provider metadata until the production desktop has actually tried
+// to bind its MCP listener: 0 unknown, 1 unavailable, 2 connected.
+var dashboardMCPRuntime atomic.Int32
+
+func setDashboardMCPRuntime(connected bool) {
+	if connected {
+		dashboardMCPRuntime.Store(2)
+		return
+	}
+	dashboardMCPRuntime.Store(1)
+}
+
+func dashboardMCPReady(fallback bool) bool {
+	switch dashboardMCPRuntime.Load() {
+	case 1:
+		return false
+	case 2:
+		return true
+	default:
+		return fallback
+	}
+}
 
 func ApplyDashboardRuntimeConnections(snapshot DashboardSnapshot, mcpConnected bool) DashboardSnapshot {
 	for i := range snapshot.Providers {

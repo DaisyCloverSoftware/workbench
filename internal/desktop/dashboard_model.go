@@ -93,11 +93,10 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 	for _, provider := range providers {
 		ready := provider.Installed && provider.Authenticated && provider.CanWrite && strings.TrimSpace(provider.Command) != ""
 		// ChatGPT is the lead brain over Workbench's MCP bridge rather than a
-		// local executable coding worker. Treat its authenticated bridge as an
-		// available provider even though it intentionally has no command path and
-		// cannot be routed as a coding worker.
+		// local executable coding worker. Once the production desktop has tried
+		// to bind the bridge, its real listener state is authoritative.
 		if provider.ID == "chatgpt" {
-			ready = provider.Installed && provider.Authenticated
+			ready = dashboardMCPReady(provider.Installed && provider.Authenticated)
 		}
 		if ready {
 			snapshot.ProviderReady++
