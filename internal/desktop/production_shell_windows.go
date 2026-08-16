@@ -4,6 +4,7 @@ package desktop
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -11,6 +12,14 @@ import (
 )
 
 func runProductionShell(s *Shell) error {
+	// Win32 HWND ownership and message queues are bound to the OS thread that
+	// creates them. A Go goroutine is otherwise free to migrate between OS
+	// threads, which can strand the window on one thread while GetMessage runs on
+	// another and makes a fully-rendered app appear randomly "Not Responding".
+	// Keep the complete create/pump/destroy lifetime on one OS thread.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	instance, _, _ := kernel32.NewProc("GetModuleHandleW").Call(0)
 	className := wstr("DaisyCloverWorkbenchProductionDashboard")
 	icon, _, _ := user32.NewProc("LoadIconW").Call(0, 32512)
