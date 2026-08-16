@@ -20,10 +20,6 @@ type productionVisibilityTarget struct {
 	visible bool
 }
 
-// applyProductionPageVisibility batches the entire page swap into one Win32
-// window-position transaction. The previous implementation called ShowWindow
-// separately for every Work and Settings child control, which could synchronously
-// cascade dozens of layout/paint messages inside the navigation button click.
 func (s *Shell) applyProductionPageVisibility() {
 	var targets []productionVisibilityTarget
 	for _, id := range s.workControlIDs() {
@@ -75,18 +71,19 @@ func (s *Shell) applyProductionPageVisibility() {
 	procEndDeferWindowPos.Call(hdwp)
 }
 
-// transitionProductionPage keeps the parent from repainting halfway through a
-// page swap. Geometry is pre-laid out by layoutProduction on create/resize, so a
-// navigation click only changes visibility and materialises the selected page's
-// data before returning to the normal message loop.
+// transitionProductionPage must remain a bounded native page swap. Data
+// materialisation is posted back to the message queue so BM_CLICK can return to
+// Windows before provider/project/list refresh work begins. That prevents page
+// navigation itself from being classified as hung and gives the message pump an
+// explicit scheduling boundary between user input and page refresh.
 func (s *Shell) transitionProductionPage(page shellPage) {
 	if s.hwnd != 0 {
 		procSendMessageW.Call(s.hwnd, wmSetRedraw, 0, 0)
 	}
 	s.page = page
 	s.applyProductionPageVisibility()
-	s.refreshProductionPage()
 	if s.hwnd != 0 {
 		procSendMessageW.Call(s.hwnd, wmSetRedraw, 1, 0)
+		procPostMessageW.Call(s.hwnd, wmAppRefresh, 0, 0)
 	}
 }

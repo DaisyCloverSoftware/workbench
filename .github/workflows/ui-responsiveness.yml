@@ -24,6 +24,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $env:APPDATA = Join-Path $pwd '.responsive-appdata'
           $env:LOCALAPPDATA = Join-Path $pwd '.responsive-localappdata'
+          $env:WORKBENCH_UI_TRACE_PATH = Join-Path $pwd 'workbench-ui-trace.txt'
           $stateDir = Join-Path $env:APPDATA 'Workbench'
           New-Item -ItemType Directory -Force -Path $stateDir,$env:LOCALAPPDATA | Out-Null
 
@@ -72,12 +73,26 @@ jobs:
           }
           '@
 
+          function Show-WorkbenchTrace {
+            if (Test-Path $env:WORKBENCH_UI_TRACE_PATH) {
+              Write-Host '--- Workbench UI trace ---'
+              Get-Content $env:WORKBENCH_UI_TRACE_PATH | ForEach-Object { Write-Host $_ }
+              Write-Host '--- end trace ---'
+            }
+          }
+
           function Assert-Responsive([IntPtr]$handle, [string]$label) {
             $result = [UIntPtr]::Zero
+            $sw = [Diagnostics.Stopwatch]::StartNew()
             $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
               $handle, 0, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
+            $sw.Stop()
             if ($sent -eq [IntPtr]::Zero) {
-              throw "Workbench stopped responding while checking $label."
+              Show-WorkbenchTrace
+              throw "Workbench stopped responding while checking $label after $($sw.ElapsedMilliseconds) ms."
+            }
+            if ($sw.ElapsedMilliseconds -ge 250) {
+              Write-Host "slow response ${label}: $($sw.ElapsedMilliseconds) ms"
             }
           }
 
@@ -87,10 +102,16 @@ jobs:
               throw "Could not find $label control ($id)."
             }
             $result = [UIntPtr]::Zero
+            $sw = [Diagnostics.Stopwatch]::StartNew()
             $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
               $control, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
+            $sw.Stop()
             if ($sent -eq [IntPtr]::Zero) {
-              throw "$label navigation did not return within 2 seconds."
+              Show-WorkbenchTrace
+              throw "$label navigation did not return within 2 seconds (elapsed $($sw.ElapsedMilliseconds) ms)."
+            }
+            if ($sw.ElapsedMilliseconds -ge 250) {
+              Write-Host "slow navigation ${label}: $($sw.ElapsedMilliseconds) ms"
             }
           }
 
@@ -120,6 +141,9 @@ jobs:
               Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Dashboard pass $i"
             }
+          } catch {
+            Show-WorkbenchTrace
+            throw
           } finally {
             if ($process -and -not $process.HasExited) {
               Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue

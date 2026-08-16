@@ -50,6 +50,7 @@ func runProductionShell(s *Shell) error {
 		return e
 	}
 	s.hwnd = hwnd
+	startProductionUITrace()
 	useDark := uint32(1)
 	_, _, _ = procDwmSetWindowAttribute.Call(hwnd, 20, uintptr(unsafe.Pointer(&useDark)), unsafe.Sizeof(useDark))
 	s.eng.Subscribe(func() {
@@ -67,7 +68,9 @@ func runProductionShell(s *Shell) error {
 			break
 		}
 		procTranslateMessage.Call(uintptr(unsafe.Pointer(&message)))
+		finishTrace := beginProductionDispatchTrace(message.Hwnd, message.Message, message.WParam)
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&message)))
+		finishTrace()
 	}
 	if s.mcp != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -83,6 +86,9 @@ func runProductionShell(s *Shell) error {
 }
 
 func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
+	finishTrace := beginProductionParentTrace(message, wParam)
+	defer finishTrace()
+
 	s := runningShell
 	if s == nil {
 		return defWindowProc(hwnd, message, wParam, lParam)
@@ -102,9 +108,8 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		showWindow(s.controls[idGlobalStatus], false)
 		s.refreshProductionPage()
 		s.applyProductionPageVisibility()
-		// Lay out Work and Settings while they are hidden. Page navigation then
-		// only swaps visibility/data instead of performing dozens of MoveWindow
-		// calls inside the button click.
+		// Work and Settings are laid out while hidden. Navigation therefore only
+		// changes visibility; it does not move dozens of child HWNDs synchronously.
 		s.layoutProduction()
 		redrawProductionWindow(hwnd)
 		return 0
@@ -167,9 +172,6 @@ func (s *Shell) layoutProduction() {
 
 	s.layoutProductionChrome(width)
 	showWindow(s.controls[idGlobalStatus], false)
-	// Keep both native pages correctly positioned even while hidden. This moves
-	// layout cost to create/resize, where Windows expects it, and keeps a normal
-	// navigation click bounded to visibility plus data refresh.
 	s.layoutProductionWork(contentX, contentY, contentW, contentH)
 	s.layoutProductionSettings(contentX, contentY, contentW, contentH)
 }
