@@ -63,7 +63,7 @@
 - durable runner transport stays attached to the same idempotent task across malformed or oversized submit/status responses
 - global human-attention navigation and native minimum desktop geometry
 
-## v0.9 — structured harnesses and resilient unattended routing
+## v0.9 — structured harnesses, production UI and resilient unattended routing
 
 - versioned structured harness job/result protocol with bounded JSON stdin/stdout and strict task/version/result validation
 - external harness adapters launch as one explicit executable with no coding command shell or `{project}`/`{prompt}` template expansion
@@ -72,13 +72,18 @@
 - native Windows settings configure a validated structured-adapter executable separately from local OpenClaw and Workbench Runner
 - runner hosts keep their own adapter path in private atomic operator config; adapter paths never enter `RunnerRequest`, task state or MCP/model-facing data
 - operator-only runner harness get/set/delete controls and safe doctor status without exposing the full host path
+- production dark Dashboard, Work and Settings surfaces expose truthful project/task/provider/review state with permanent navigation and top actions
 - durable `waiting_retry` tasks automatically resume transient low-cost provider outages after cooldown without human supervision
-- automatic retries are capped, exclude authentication/setup failures and scarce/metered repeat capacity, survive Workbench restarts and remain explicitly cancellable
-- waiting retries remain active unfinished work with visible next-attempt time rather than appearing failed or frozen
+- durable `waiting_dependency` watches own GitHub Actions waits with progressive backoff, no coding worker held, restart recovery and automatic continuation of the original task
+- automatic retries/watches remain cancellable and active unfinished work rather than appearing failed or frozen
+- connected Chat/skill guidance distinguishes active-worker checks from Workbench-owned waits so AIs do useful independent work instead of hammering dependency status
+- provider-native Claude Code session continuation survives Workbench task retries without exposing private provider session identifiers in task transport
+- production Win32 HWND creation/message pumping is pinned to one OS thread; a 32-cycle Windows watchdog proves Dashboard/Settings/Work remain responsive and page HWND visibility is correct
+- Settings policy reads remain Git/filesystem-free after validated save, including Windows 8.3/long-path aliases
+- Windows CI captures real Dashboard, Work and Settings windows and packages only the production app plus verified updater; releases include matching Linux runner/server/relay binaries and checksums
 
 ## Next
 
-- provider-native resumable sessions for workers that support continuation beyond Workbench's durable task/worktree recovery
 - searchable decisions and a project knowledge graph
 - automatic cross-model review policies for higher-risk changes
 - task-history filtering/archiving without deleting durable task records
