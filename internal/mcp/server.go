@@ -124,7 +124,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.1"},
+			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.2"},
 			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, and search_memory. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. While an active coding worker is running, check get_task at a reasonable cadence rather than hammering it. If status becomes waiting_retry or waiting_dependency, stop polling: that is a durable Workbench-owned wait, no coding worker is held, and Workbench will resume the same task automatically when the retry/dependency becomes ready. Continue other independent useful work instead. Only surface needs_attention to the human. Never ask the human to watch progress. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
 		}
 	case "ping":

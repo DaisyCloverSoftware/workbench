@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.2 — 2026-08-16
+
+- Made coding-worker status host-aware: Settings now distinguishes `This PC` workers from `Runner` workers instead of presenting local CLIs, the cluster control plane and the Chat bridge as one ambiguous inventory.
+- Added privacy-minimal runner worker discovery with only worker ID/name/capability/status/cost and categorical install/auth/readiness state; command paths, account identifiers, raw authentication output and runner filesystem details are not exposed to the desktop or model-facing state.
+- Runner worker inventory refreshes asynchronously so opening Settings never blocks the Win32 message thread. Explicit Rescan may use Workbench's existing verified cluster self-update when an older runner lacks the current inventory protocol; passive Settings display never mutates the runner.
+- Added an operator-only, allowlisted runner provider-login path. Connect selected can open the provider's own human login flow on the execution host in an interactive SSH console, without accepting arbitrary remote command text and without exposing the operation through MCP.
+- Separated the local Chat/MCP bridge from coding capacity. Dashboard provider counts no longer treat ChatGPT bridge readiness as an executable coding worker, while System status continues to report whether the local bridge listener is online.
+- Clarified bridge language throughout Settings: a listening local MCP endpoint means the Workbench bridge is ready; it does not claim that a specific ChatGPT conversation is attached.
+- Expanded the native bridge-status area so that connection warning is actually visible instead of being clipped in the production Settings layout.
+- Preserved the v0.9 Win32 thread-affinity fix and 32-cycle Dashboard → Settings → Work responsiveness/visibility soak while adding asynchronous runner inventory.
+
 ## 0.9.1 — 2026-08-16
 
 - Added first-class `runner://<repo>` cluster projects so repositories can stay on the Workbench runner instead of being copied, mounted or duplicated on the Windows desktop.
