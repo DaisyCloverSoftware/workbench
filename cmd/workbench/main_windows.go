@@ -8,7 +8,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/desktop"
 )
 
-const appVersion = "0.9.0"
+const appVersion = "0.9.1"
 
 func main() {
 	if workbenchSingleInstanceHandle == 0 {

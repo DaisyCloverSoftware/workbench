@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.1 — 2026-08-16
+
+- Added first-class `runner://<repo>` cluster projects so repositories can stay on the Workbench runner instead of being copied, mounted or duplicated on the Windows desktop.
+- Added bounded runner project discovery under the authorised runner root and routed ChatGPT MCP safe eyes/hands (`list_files`, `search_text`, `read_file`, `apply_patch`, `run_safe_command`) through the fixed runner JSON/SSH protocol for cluster projects.
+- Cluster-only autonomous coding now remains on the Workbench Runner execution host; local coding CLIs are not handed nonexistent remote paths and project-location refusal no longer poisons provider health/cooldowns.
+- Add Project now offers configured cluster repositories as well as local folders and can invoke the runner's existing verified self-update path when an older runner protocol needs upgrading before discovery.
+- Review & Publish policy for cluster projects is owned by the runner, with only a private desktop operator mirror retained for fast Settings display and verified GitHub review links; review retry remains runner-side.
+- Fixed Dashboard provider health so ChatGPT readiness reflects the actual live local MCP listener. When the bridge is online, Dashboard now reports `ChatGPT Chat — Ready` instead of contradicting Settings.
+- `waiting_dependency` now counts as active/unfinished work consistently in Dashboard and project-removal safety.
+- Claude Code setup feedback now explains the local Windows CLI installation/login path instead of stopping at `not detected`; cluster projects continue to execute through the runner.
+- Retained the v0.9 Win32 OS-thread ownership fix and 32-cycle responsiveness/visibility soak while adding the cluster-first workflow.
+
 ## 0.9.0 — 2026-08-16
 
 - Added a coherent production dark Dashboard, Work and Settings experience backed by real Workbench state, with permanent navigation/top actions, truthful task/project/provider status and full-window Windows screenshot evidence.
