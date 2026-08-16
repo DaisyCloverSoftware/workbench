@@ -247,11 +247,13 @@ func stringSliceArg(a map[string]any, k string) []string {
 			if s, ok := raw.(string); ok && strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	case []string:
 		for _, s := range values {
 			if strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	}
 	return out
 }
