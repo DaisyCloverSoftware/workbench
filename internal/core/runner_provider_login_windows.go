@@ -21,11 +21,14 @@ func launchRunnerSSHConsole(host string, remoteArgs []string) error {
 	if err != nil {
 		return err
 	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
 	// The hidden wrapper exits after Windows START has created the real console.
-	// The inner cmd.exe uses /K so SSH gets genuine console input/output and the
-	// window remains visible after SSH exits, allowing the operator to read the
-	// result before closing it and pressing Rescan in Workbench.
-	return cmd.Run()
+	// Reap it asynchronously so the Win32 button handler never waits on process
+	// startup, SSH authentication, Tailscale approval, or console lifetime.
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
 
 func runnerSSHConsoleLauncher(host string, remoteArgs []string) (*exec.Cmd, error) {
@@ -43,7 +46,10 @@ func runnerSSHConsoleLauncher(host string, remoteArgs []string) (*exec.Cmd, erro
 		}
 	}
 	sshLine := strings.Join(parts, " ")
-	launcher := `start "Workbench Runner SSH" cmd.exe /D /S /K "` + sshLine + `"`
+	// START's first quoted argument is a window title. Use an explicit empty
+	// title, then keep the child cmd.exe open so any SSH/Tailscale prompt or
+	// failure remains readable. Backslash does not escape quotes in cmd.exe.
+	launcher := "start \"\" cmd.exe /D /K " + sshLine
 	cmd := exec.Command("cmd.exe", "/D", "/S", "/C", launcher)
 	configureChildProcess(cmd, false)
 	return cmd, nil
