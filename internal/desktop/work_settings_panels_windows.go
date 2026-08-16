@@ -20,23 +20,30 @@ func (s *Shell) paintProductionWorkSettingsPanels() {
 	clientH := int(r.Bottom - r.Top)
 	x, y, contentW, contentH := productionContentGeometry(clientW, clientH)
 
+	var controls []int
 	switch s.page {
 	case pageWork:
 		left, center, right, gap := productionWorkColumns(contentW)
 		roundedPanel(hdc, rectWH(x-6, y+4, left+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
 		roundedPanel(hdc, rectWH(x+left+gap-6, y+4, center+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
 		roundedPanel(hdc, rectWH(x+left+gap+center+gap-6, y+4, right+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
+		controls = s.workControlIDs()
 	case pageSettings:
 		gap := 16
 		left := (contentW - gap) / 2
 		right := contentW - left - gap
 		roundedPanel(hdc, rectWH(x-6, y+4, left+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
 		roundedPanel(hdc, rectWH(x+left+gap-6, y+4, right+12, contentH-8), productionPalette.Panel, productionPalette.Border, 12)
+		controls = s.settingsControlIDs()
 	}
 
-	// Do not invalidate or synchronously update child controls from the parent
-	// paint path. Their own ShowWindow/MoveWindow/redraw lifecycle already paints
-	// them. Scheduling every child again here can form a sustained paint storm and
-	// eventually starve the Win32 message pump while leaving a convincing final
-	// frame on screen.
+	// Child windows remain the actual interactive controls. Invalidate only the
+	// children after painting the parent card surfaces; never invalidate the
+	// parent here, otherwise its normal background paint would erase the cards.
+	for _, id := range controls {
+		if hwnd := s.controls[id]; hwnd != 0 {
+			procInvalidateRect.Call(hwnd, 0, 1)
+			procUpdateWindow.Call(hwnd)
+		}
+	}
 }

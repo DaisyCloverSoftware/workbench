@@ -13,10 +13,8 @@ import (
 
 func runProductionShell(s *Shell) error {
 	// Win32 HWND ownership and message queues are bound to the OS thread that
-	// creates them. A Go goroutine is otherwise free to migrate between OS
-	// threads, which can strand the window on one thread while GetMessage runs on
-	// another and makes a fully-rendered app appear randomly "Not Responding".
-	// Keep the complete create/pump/destroy lifetime on one OS thread.
+	// creates them. Pin the complete create/pump/destroy lifetime so the Go
+	// scheduler cannot migrate the GUI goroutine and strand the window queue.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -59,7 +57,6 @@ func runProductionShell(s *Shell) error {
 		return e
 	}
 	s.hwnd = hwnd
-	startProductionUITrace()
 	useDark := uint32(1)
 	_, _, _ = procDwmSetWindowAttribute.Call(hwnd, 20, uintptr(unsafe.Pointer(&useDark)), unsafe.Sizeof(useDark))
 	s.eng.Subscribe(func() {
@@ -77,9 +74,7 @@ func runProductionShell(s *Shell) error {
 			break
 		}
 		procTranslateMessage.Call(uintptr(unsafe.Pointer(&message)))
-		finishTrace := beginProductionDispatchTrace(message.Hwnd, message.Message, message.WParam)
 		procDispatchMessageW.Call(uintptr(unsafe.Pointer(&message)))
-		finishTrace()
 	}
 	if s.mcp != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -95,9 +90,6 @@ func runProductionShell(s *Shell) error {
 }
 
 func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr) uintptr {
-	finishTrace := beginProductionParentTrace(message, wParam)
-	defer finishTrace()
-
 	s := runningShell
 	if s == nil {
 		return defWindowProc(hwnd, message, wParam, lParam)
@@ -115,10 +107,8 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		}
 		setWindowText(s.controls[idBrand], brand)
 		showWindow(s.controls[idGlobalStatus], false)
-		s.refreshProductionPage()
-		s.applyProductionPageVisibility()
-		// Work and Settings are laid out while hidden. Navigation therefore only
-		// changes visibility; it does not move dozens of child HWNDs synchronously.
+		s.refresh()
+		s.applyPageVisibility()
 		s.layoutProduction()
 		redrawProductionWindow(hwnd)
 		return 0
@@ -142,7 +132,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 			return result
 		}
 	case wmAppRefresh:
-		s.refreshProductionPage()
+		s.refresh()
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
 		return 0
@@ -181,8 +171,12 @@ func (s *Shell) layoutProduction() {
 
 	s.layoutProductionChrome(width)
 	showWindow(s.controls[idGlobalStatus], false)
-	s.layoutProductionWork(contentX, contentY, contentW, contentH)
-	s.layoutProductionSettings(contentX, contentY, contentW, contentH)
+	switch s.page {
+	case pageWork:
+		s.layoutProductionWork(contentX, contentY, contentW, contentH)
+	case pageSettings:
+		s.layoutProductionSettings(contentX, contentY, contentW, contentH)
+	}
 }
 
 func (s *Shell) styleProductionControls() {
@@ -196,17 +190,29 @@ func (s *Shell) styleProductionControls() {
 func (s *Shell) handleProductionChromeCommand(id int) bool {
 	switch id {
 	case idNavDashboard:
-		s.transitionProductionPage(pageDashboard)
+		s.page = pageDashboard
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
 		return true
 	case idNavWork:
+		s.page = pageWork
 		s.jumpToNeedsAttention()
-		s.transitionProductionPage(pageWork)
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
 		return true
 	case idNavSettings:
-		s.transitionProductionPage(pageSettings)
+		s.page = pageSettings
+		s.applyPageVisibility()
+		s.refreshSettings(BuildSnapshot(s.eng, s.selectedTaskID))
+		s.layoutProduction()
 		return true
 	case idTopNewTask:
-		s.transitionProductionPage(pageWork)
+		s.page = pageWork
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
 		focusWindow(s.controls[idIntent])
 		return true
 	case idTopNeedsYou:
@@ -214,14 +220,20 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 			messageBox(s.hwnd, "Nothing needs you", "Workbench has no task waiting for a human decision.", mbOK|mbIconInformation)
 			return true
 		}
-		s.transitionProductionPage(pageWork)
+		s.page = pageWork
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
 		return true
 	case idTopReview:
 		if !s.jumpToLatestReview() {
 			messageBox(s.hwnd, "No review waiting", "There is no completed Workbench review artifact waiting to be opened or delivered.", mbOK|mbIconInformation)
 			return true
 		}
-		s.transitionProductionPage(pageWork)
+		s.page = pageWork
+		s.applyPageVisibility()
+		s.refresh()
+		s.layoutProduction()
 		return true
 	}
 	return false
