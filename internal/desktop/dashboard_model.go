@@ -92,6 +92,13 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 	}
 	for _, provider := range providers {
 		ready := provider.Installed && provider.Authenticated && provider.CanWrite && strings.TrimSpace(provider.Command) != ""
+		// ChatGPT is the lead brain over Workbench's MCP bridge rather than a
+		// local executable coding worker. Treat its authenticated bridge as an
+		// available provider even though it intentionally has no command path and
+		// cannot be routed as a coding worker.
+		if provider.ID == "chatgpt" {
+			ready = provider.Installed && provider.Authenticated
+		}
 		if ready {
 			snapshot.ProviderReady++
 		}
@@ -167,7 +174,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 
 func isDashboardActiveStatus(status core.TaskStatus) bool {
 	switch status {
-	case core.TaskQueued, core.TaskRouting, core.TaskRunning, core.TaskWaitingRetry, core.TaskNeedsAttention:
+	case core.TaskQueued, core.TaskRouting, core.TaskRunning, core.TaskWaitingRetry, core.TaskWaitingDependency, core.TaskNeedsAttention:
 		return true
 	default:
 		return false
@@ -184,6 +191,8 @@ func dashboardStatusLabel(status core.TaskStatus, fallback string) string {
 		return "Working"
 	case core.TaskWaitingRetry:
 		return "Waiting"
+	case core.TaskWaitingDependency:
+		return "Waiting on dependency"
 	case core.TaskNeedsAttention:
 		return "Needs you"
 	case core.TaskCompleted:
