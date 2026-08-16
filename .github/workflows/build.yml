@@ -138,7 +138,10 @@ jobs:
               try {
                 $hdc = $graphics.GetHdc()
                 try {
-                  $captured = [WorkbenchWindowCapture]::PrintWindow($p.MainWindowHandle, $hdc, 2)
+                  # Normal PrintWindow captures the complete HWND without asking
+                  # Windows to synthesize off-client "full content" for native
+                  # child controls, which can otherwise appear as white padding.
+                  $captured = [WorkbenchWindowCapture]::PrintWindow($p.MainWindowHandle, $hdc, 0)
                 } finally {
                   $graphics.ReleaseHdc($hdc)
                 }
