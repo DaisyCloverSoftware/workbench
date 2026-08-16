@@ -27,13 +27,14 @@ func TestDesktopSettingsUseStructuredHarnessAdapterNotLegacyCommandTemplate(t *t
 		"Structured harness adapter executable (optional)",
 		"prefs.HarnessAdapterPath",
 		`prefs.OpenClawCommand = ""`,
-		`case "workbench-runner":`,
-		"core.TestWorkbenchRunnerSSH(host)",
+		"core.IsCodingWorkerProvider(provider)",
+		`"local:"+provider.ID`,
+		`"runner:"+provider.ID`,
+		"core.StartRunnerProviderLogin(host, id)",
 		"core.ValidateHarnessAdapterPath(adapter)",
-		`case "legacy-harness-command":`,
 	} {
 		if !strings.Contains(text, want) {
-			t.Fatalf("desktop structured-harness settings contract missing %q", want)
+			t.Fatalf("desktop structured-harness/host-aware settings contract missing %q", want)
 		}
 	}
 	for _, forbidden := range []string{
@@ -41,9 +42,11 @@ func TestDesktopSettingsUseStructuredHarnessAdapterNotLegacyCommandTemplate(t *t
 		"prefs.OpenClawCommand = strings.TrimSpace(windowText(s.controls[idHarnessCommand]))",
 		"core.TestOpenClawSSH(",
 		"advanced adapter: command {project} {prompt}",
+		`case "workbench-runner":`,
+		`case "chatgpt":`,
 	} {
 		if strings.Contains(text, forbidden) {
-			t.Fatalf("desktop restored legacy harness/runner behavior %q", forbidden)
+			t.Fatalf("desktop restored legacy/mixed-host provider behavior %q", forbidden)
 		}
 	}
 }
