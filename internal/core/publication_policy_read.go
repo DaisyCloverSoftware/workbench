@@ -53,6 +53,9 @@ func publicationPolicyReadKey(project string) (string, error) {
 	if project == "" {
 		return "", errors.New("publication project is empty")
 	}
+	if name, ok := RunnerProjectName(project); ok {
+		return RunnerProjectReference(name)
+	}
 	abs, err := filepath.Abs(project)
 	if err != nil {
 		return "", err
@@ -61,7 +64,11 @@ func publicationPolicyReadKey(project string) (string, error) {
 }
 
 func publicationPolicyLookupIdentity(key string) string {
-	key = filepath.Clean(strings.TrimSpace(key))
+	key = strings.TrimSpace(key)
+	if IsRunnerProjectReference(key) {
+		return key
+	}
+	key = filepath.Clean(key)
 	if runtime.GOOS == "windows" {
 		return strings.ToLower(key)
 	}
@@ -69,6 +76,9 @@ func publicationPolicyLookupIdentity(key string) string {
 }
 
 func publicationPolicyKeysEqual(a, b string) bool {
+	if IsRunnerProjectReference(a) || IsRunnerProjectReference(b) {
+		return a == b
+	}
 	if runtime.GOOS == "windows" {
 		return strings.EqualFold(a, b)
 	}

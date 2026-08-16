@@ -170,7 +170,7 @@ func (e *Engine) RemoveProject(projectID string) error {
 
 func taskBlocksProjectRemoval(status TaskStatus) bool {
 	switch status {
-	case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry, TaskNeedsAttention:
+	case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry, TaskWaitingDependency, TaskNeedsAttention:
 		return true
 	default:
 		return false

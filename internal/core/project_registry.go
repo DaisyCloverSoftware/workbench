@@ -121,6 +121,17 @@ func normalizeProjectPath(path string) string {
 	if path == "" {
 		return ""
 	}
+	if strings.HasPrefix(strings.ToLower(path), RunnerProjectPrefix) {
+		name, ok := RunnerProjectName(path)
+		if !ok {
+			return ""
+		}
+		ref, err := RunnerProjectReference(name)
+		if err != nil {
+			return ""
+		}
+		return ref
+	}
 	if abs, err := filepath.Abs(path); err == nil {
 		path = filepath.Clean(abs)
 	} else {
@@ -143,6 +154,9 @@ func normalizeProjectPath(path string) string {
 
 func projectPathIdentity(path string) string {
 	path = normalizeProjectPath(path)
+	if IsRunnerProjectReference(path) {
+		return path
+	}
 	if runtime.GOOS == "windows" {
 		path = strings.ToLower(path)
 	}
@@ -165,6 +179,9 @@ func cleanProjectName(name, path string) string {
 	}
 	if name != "" {
 		return name
+	}
+	if runnerName, ok := RunnerProjectName(path); ok {
+		return runnerName
 	}
 	base := filepath.Base(filepath.Clean(path))
 	if base == "." || base == string(filepath.Separator) || strings.TrimSpace(base) == "" {
@@ -247,7 +264,15 @@ func upsertProjectLocked(st *State, path string, touch bool) (Project, error) {
 }
 
 func canonicalProjectSelection(path string) (string, error) {
-	path = normalizeProjectPath(path)
+	raw := strings.TrimSpace(path)
+	if strings.HasPrefix(strings.ToLower(raw), RunnerProjectPrefix) {
+		name, ok := RunnerProjectName(raw)
+		if !ok {
+			return "", errors.New("invalid runner project reference")
+		}
+		return RunnerProjectReference(name)
+	}
+	path = normalizeProjectPath(raw)
 	if path == "" {
 		return "", errors.New("project path is empty")
 	}

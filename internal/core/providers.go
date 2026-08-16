@@ -76,9 +76,9 @@ func ScanProviders() []Provider {
 		if authed {
 			status = "connected · subscription capable"
 		}
-		providers = append(providers, Provider{ID: "claude", Name: "Anthropic Claude Code", Capability: "coding agent / reviewer", Command: p, Installed: true, Authenticated: authed, Status: status, Cost: CostIncluded, Priority: 40, CanWrite: true, CanRunTools: true, Notes: "Good implementer/reviewer; subscription-backed use is preferred over metered API."})
+		providers = append(providers, Provider{ID: "claude", Name: "Anthropic Claude Code", Capability: "coding agent / reviewer", Command: p, Installed: true, Authenticated: authed, Status: status, Cost: CostIncluded, Priority: 40, CanWrite: true, CanRunTools: true, Notes: "Good implementer/reviewer; subscription-backed use is preferred over metered API. Click Connect selected to open Claude's own sign-in flow."})
 	} else {
-		providers = append(providers, Provider{ID: "claude", Name: "Anthropic Claude Code", Capability: "coding agent / reviewer", Status: "not detected", Cost: CostIncluded, Priority: 40, CanWrite: true, CanRunTools: true})
+		providers = append(providers, Provider{ID: "claude", Name: "Anthropic Claude Code", Capability: "coding agent / reviewer", Status: "not detected · install Claude Code CLI first", Cost: CostIncluded, Priority: 40, CanWrite: true, CanRunTools: true, Notes: "Official setup: install Node.js 18+ and Git for Windows, then run npm install -g @anthropic-ai/claude-code. After installation click Rescan, select Claude Code, then Connect selected. Claude App Pro/Max login is supported by Claude Code."})
 	}
 
 	if p, ok := scanCommand("openclaw"); ok {

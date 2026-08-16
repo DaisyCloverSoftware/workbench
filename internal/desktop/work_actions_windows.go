@@ -3,8 +3,10 @@
 package desktop
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
@@ -115,6 +117,36 @@ func (s *Shell) selectProjectFromList() {
 }
 
 func (s *Shell) addProject() {
+	host := strings.TrimSpace(s.eng.State().Preferences.OpenClawSSHHost)
+	if host == "" {
+		choice := messageBox(
+			s.hwnd,
+			"Add project",
+			"Use projects that live on a Workbench cluster runner?\r\n\r\nYes — configure the cluster runner first\r\nNo — choose a folder on this PC",
+			mbYesNo|mbIconInformation,
+		)
+		if choice == idYes {
+			s.page = pageSettings
+			s.applyPageVisibility()
+			s.invalidateSettingsCache()
+			s.refreshSettings(BuildSnapshot(s.eng, s.selectedTaskID))
+			s.layout()
+			messageBox(s.hwnd, "Configure cluster runner", "Enter the Workbench Runner SSH host, save routing, then return to Work and click Add project. Workbench will discover the Git repositories on that runner; you do not need to copy them to Windows.", mbOK|mbIconInformation)
+			return
+		}
+	} else {
+		choice := messageBox(
+			s.hwnd,
+			"Add project",
+			"Import Git repositories from the configured Workbench cluster runner?\r\n\r\nYes — discover and import cluster projects\r\nNo — choose a folder on this PC",
+			mbYesNo|mbIconInformation,
+		)
+		if choice == idYes {
+			s.importClusterProjects(host)
+			return
+		}
+	}
+
 	path := browseFolder(s.hwnd, "Choose a project/repository for Workbench")
 	if path == "" {
 		return
@@ -128,6 +160,57 @@ func (s *Shell) addProject() {
 	s.editorProjectID = ""
 	s.settingsProjectID = ""
 	messageBox(s.hwnd, "Project added", project.Name+" is now the active Workbench project.", mbOK|mbIconInformation)
+}
+
+func (s *Shell) importClusterProjects(host string) {
+	go func() {
+		response, err := s.discoverClusterProjects(host)
+		if err != nil {
+			version, probeErr := core.TestWorkbenchRunnerSSH(host)
+			if probeErr == nil && strings.TrimSpace(version) != core.Version {
+				question := "The cluster runner reports Workbench " + strings.TrimSpace(version) + ", while this app is Workbench " + core.Version + ".\r\n\r\nCluster project discovery requires the matching runner protocol. Install the latest verified Workbench cluster update on that runner now?"
+				if messageBox(s.hwnd, "Update cluster runner", question, mbYesNo|mbIconInformation) == idYes {
+					ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+					result, updateErr := core.UpdateWorkbenchRunnerSSH(ctx, host)
+					cancel()
+					if updateErr != nil {
+						messageBox(s.hwnd, "Runner update failed", updateErr.Error(), mbOK|mbIconWarning)
+						return
+					}
+					if result.Applied || !result.UpdateAvailable {
+						response, err = s.discoverClusterProjects(host)
+					}
+				}
+			}
+		}
+		if err != nil {
+			messageBox(s.hwnd, "Cluster projects unavailable", "Workbench could not read the configured runner project list. Check the runner connection in Settings, then try again.", mbOK|mbIconWarning)
+			return
+		}
+		if len(response.Projects) == 0 {
+			messageBox(s.hwnd, "No cluster projects found", "The configured runner responded, but no Git repositories were found directly under its authorised project root.", mbOK|mbIconInformation)
+			return
+		}
+		added, err := s.eng.RegisterRunnerProjects(response.Projects)
+		if err != nil {
+			messageBox(s.hwnd, "Cannot import cluster projects", err.Error(), mbOK|mbIconWarning)
+			return
+		}
+		message := fmt.Sprintf("Workbench found %d cluster Git repositories.", len(response.Projects))
+		if added > 0 {
+			message += fmt.Sprintf(" %d new project(s) were added to the Work list.", added)
+		} else {
+			message += " They were already registered."
+		}
+		message += "\r\n\r\nCluster projects stay on the runner; Workbench does not copy them onto this PC. ChatGPT safe read/search/patch/test operations use the same bounded runner transport."
+		messageBox(s.hwnd, "Cluster projects ready", message, mbOK|mbIconInformation)
+	}()
+}
+
+func (s *Shell) discoverClusterProjects(host string) (core.RunnerToolResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return core.RunRunnerToolSSH(ctx, host, core.RunnerToolRequest{Action: "list_projects"})
 }
 
 func (s *Shell) renameActiveProject() {

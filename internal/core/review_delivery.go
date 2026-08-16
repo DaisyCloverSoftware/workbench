@@ -234,12 +234,13 @@ func validPullRequestURL(raw, slug string, number int) bool {
 }
 
 // ReviewPullRequestURL derives the clickable GitHub review link from private
-// local operator policy. The URL is never persisted in Task/RunResult JSON.
+// local operator policy or the private local mirror of runner-owned policy. The
+// URL is never persisted in Task/RunResult JSON.
 func ReviewPullRequestURL(task Task) string {
 	if task.Review == nil || task.Review.PullRequestStatus != ReviewPullRequestAvailable || task.Review.PullRequestNumber <= 0 {
 		return ""
 	}
-	policy, configured, err := PublicationPolicyFor(task.ProjectPath)
+	policy, configured, err := PublicationPolicyForKnownProject(task.ProjectPath)
 	if err != nil || !configured || policy.Mode != PublicationPublish {
 		return ""
 	}
