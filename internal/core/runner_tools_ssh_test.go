@@ -22,7 +22,7 @@ func TestClassifyRunnerToolSSHFailureMissingClient(t *testing.T) {
 }
 
 func TestClassifyRunnerToolSSHFailureRemoteRunnerMissing(t *testing.T) {
-	err := classifyRunnerToolSSHFailure("bash: /home/matt/.local/bin/workbench-runner: No such file or directory", errors.New("exit status 127"), nil)
+	err := classifyRunnerToolSSHFailure("remote: .local/bin/workbench-runner: not found", errors.New("exit status 127"), nil)
 	if !errors.Is(err, ErrRunnerExecutableUnavailable) {
 		t.Fatalf("error=%v want missing runner executable category", err)
 	}
