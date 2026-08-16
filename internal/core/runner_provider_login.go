@@ -43,5 +43,6 @@ func StartRunnerProviderLogin(host, providerID string) error {
 		"$HOME/.local/bin/workbench-runner", "provider-login", providerID,
 	)
 	configureChildProcess(cmd, true)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return cmd.Start()
 }
