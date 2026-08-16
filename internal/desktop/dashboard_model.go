@@ -74,7 +74,6 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 		GeneratedAt:      now,
 		Summary:          core.SummarizeTasks(allTasks),
 		ProjectCount:     len(projects),
-		ProviderTotal:    len(providers),
 		RunnerConfigured: strings.TrimSpace(st.Preferences.OpenClawSSHHost) != "",
 	}
 	terminal := snapshot.Summary.Completed + snapshot.Summary.Failed
@@ -91,13 +90,19 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 		}
 	}
 	for _, provider := range providers {
-		ready := provider.Installed && provider.Authenticated && provider.CanWrite && strings.TrimSpace(provider.Command) != ""
-		// ChatGPT is the lead brain over Workbench's MCP bridge rather than a
-		// local executable coding worker. Once the production desktop has tried
-		// to bind the bridge, its real listener state is authoritative.
-		if provider.ID == "chatgpt" {
-			ready = dashboardMCPReady(provider.Installed && provider.Authenticated)
+		// Provider health is an execution-capacity panel. Chat/MCP is reported in
+		// System status instead of being counted as a coding worker simply because
+		// the local bridge listener exists.
+		if provider.ID != "workbench-runner" && !core.IsCodingWorkerProvider(provider) {
+			continue
 		}
+		ready := false
+		if provider.ID == "workbench-runner" {
+			ready = snapshot.RunnerConfigured && provider.Installed && provider.Authenticated && strings.TrimSpace(provider.Command) != ""
+		} else {
+			ready = core.ProviderReadyForCoding(provider)
+		}
+		snapshot.ProviderTotal++
 		if ready {
 			snapshot.ProviderReady++
 		}

@@ -29,14 +29,16 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	// Settings contains native listboxes plus filesystem-backed provider and
 	// policy state. Rebuilding all of it for every engine notification or every
 	// page revisit is unnecessary and, on real Windows desktops, can accumulate
-	// enough synchronous UI work to starve the message pump. The active project
-	// and explicit settings mutations below invalidate this cache when the data
-	// can genuinely have changed.
-	if loadedSettingsShell == s && s.settingsProjectID == snapshot.ActiveProjectID {
+	// enough synchronous UI work to starve the message pump. The active project,
+	// explicit settings mutations and asynchronous runner-inventory generation
+	// invalidate this cache only when the displayed state can genuinely change.
+	runnerGeneration := runnerProviderGeneration.Load()
+	if loadedSettingsShell == s && s.settingsProjectID == snapshot.ActiveProjectID && loadedSettingsRunnerProviderGeneration == runnerGeneration {
 		return
 	}
 	loadedSettingsShell = s
 	s.settingsProjectID = snapshot.ActiveProjectID
+	loadedSettingsRunnerProviderGeneration = runnerGeneration
 
 	prefs := s.eng.State().Preferences
 	setChecked(s.controls[idProtectWork], prefs.AvoidWorkUsage)
@@ -48,7 +50,7 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 
 	mcpStatus := "Local Chat/MCP bridge is unavailable."
 	if s.mcpURL != "" {
-		mcpStatus = s.mcpURL + "\r\nBearer authentication is enabled. The token is revealed only when you explicitly copy the connection details."
+		mcpStatus = s.mcpURL + "\r\nBearer authentication is enabled. This means the local bridge is ready; it does not claim that a specific ChatGPT conversation is attached."
 	} else if strings.TrimSpace(s.mcpErr) != "" {
 		mcpStatus += " " + s.mcpErr
 	}
@@ -77,26 +79,66 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 func (s *Shell) refreshProviders() {
 	providers := s.eng.Providers()
 	prefs := s.eng.State().Preferences
+	host := strings.TrimSpace(prefs.OpenClawSSHHost)
+	if host != "" {
+		s.ensureRunnerProviderInventory(false)
+	}
+	runner := runnerProviderInventory(host)
 	procSendMessageW.Call(s.controls[idProviderList], lbResetContent, 0, 0)
 	s.providerIDs = nil
-	for _, provider := range providers {
-		mark := "○"
-		status := provider.Status
-		if provider.Installed {
-			mark = "●"
-		}
-		if provider.ID == "workbench-runner" && strings.TrimSpace(prefs.OpenClawSSHHost) != "" {
-			if provider.Installed {
-				mark = "●"
-				status = "runner configured · " + prefs.OpenClawSSHHost
-			} else {
-				status = "runner configured but SSH client is unavailable · " + prefs.OpenClawSSHHost
-			}
-		}
-		line := fmt.Sprintf("%s %s  ·  %s  ·  %s", mark, provider.Name, status, provider.Cost)
+
+	appendLine := func(target, line string) {
 		ptr := wstr(line)
 		procSendMessageW.Call(s.controls[idProviderList], lbAddString, 0, uintptr(unsafe.Pointer(ptr)))
-		s.providerIDs = append(s.providerIDs, provider.ID)
+		s.providerIDs = append(s.providerIDs, target)
+	}
+	appendLocal := func() {
+		for _, provider := range providers {
+			if !core.IsCodingWorkerProvider(provider) {
+				continue
+			}
+			mark := "○"
+			if core.ProviderReadyForCoding(provider) {
+				mark = "●"
+			}
+			line := fmt.Sprintf("%s This PC · %s  ·  %s  ·  %s", mark, provider.Name, provider.Status, provider.Cost)
+			appendLine("local:"+provider.ID, line)
+		}
+	}
+	appendRunner := func() {
+		if host == "" {
+			return
+		}
+		if len(runner.Providers) == 0 {
+			status := "no coding workers detected"
+			if runner.Loading {
+				status = "scanning coding workers…"
+			} else if runner.Failed {
+				status = "worker inventory unavailable"
+			}
+			appendLine("status:runner", "○ Runner · "+status)
+			return
+		}
+		for _, provider := range runner.Providers {
+			mark := "○"
+			if provider.Ready {
+				mark = "●"
+			}
+			line := fmt.Sprintf("%s Runner · %s  ·  %s  ·  %s", mark, provider.Name, provider.Status, provider.Cost)
+			appendLine("runner:"+provider.ID, line)
+		}
+	}
+
+	preferRunner := false
+	if project, ok := s.eng.ActiveProject(); ok {
+		preferRunner = core.IsRunnerProjectReference(project.Path)
+	}
+	if preferRunner {
+		appendRunner()
+		appendLocal()
+	} else {
+		appendLocal()
+		appendRunner()
 	}
 }
 
@@ -118,6 +160,8 @@ func (s *Shell) handleSettingsCommand(id int, notify uint16) {
 		s.connectSelectedProvider()
 	case idRescanProviders:
 		s.invalidateSettingsCache()
+		resetRunnerProviderInventory()
+		s.ensureRunnerProviderInventory(true)
 		go s.eng.RescanProviders()
 	case idCopyMCP:
 		s.copyMCPConnection()
@@ -137,12 +181,26 @@ func (s *Shell) showSelectedProvider() {
 	if idx < 0 || idx >= len(s.providerIDs) {
 		return
 	}
-	id := s.providerIDs[idx]
+	scope, id := providerListTarget(s.providerIDs[idx])
+	if scope == "status" {
+		messageBox(s.hwnd, "Cluster runner", "Workbench has not received a usable coding-worker inventory from the configured runner yet. Rescan after the runner is reachable and current.", mbOK|mbIconInformation)
+		return
+	}
+	if scope == "runner" {
+		host := strings.TrimSpace(s.eng.State().Preferences.OpenClawSSHHost)
+		provider, ok := runnerProviderByID(host, id)
+		if !ok {
+			return
+		}
+		body := "Execution host: Cluster runner\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
+		messageBox(s.hwnd, provider.Name, body, mbOK|mbIconInformation)
+		return
+	}
 	for _, provider := range s.eng.Providers() {
 		if provider.ID != id {
 			continue
 		}
-		body := provider.Capability + "\r\n\r\n" + provider.Status
+		body := "Execution host: This PC\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
 		if strings.TrimSpace(provider.Notes) != "" {
 			body += "\r\n\r\n" + provider.Notes
 		}
@@ -154,24 +212,38 @@ func (s *Shell) showSelectedProvider() {
 func (s *Shell) connectSelectedProvider() {
 	idx := listSelection(s.controls[idProviderList])
 	if idx < 0 || idx >= len(s.providerIDs) {
-		messageBox(s.hwnd, "AI workers", "Select a worker first.", mbOK|mbIconInformation)
+		messageBox(s.hwnd, "Coding workers", "Select a worker first.", mbOK|mbIconInformation)
 		return
 	}
-	id := s.providerIDs[idx]
-	switch id {
-	case "workbench-runner":
-		host := strings.TrimSpace(s.eng.State().Preferences.OpenClawSSHHost)
-		if host == "" {
-			messageBox(s.hwnd, "Workbench Runner", "Enter the Workbench Runner SSH host in Settings and save routing first.", mbOK|mbIconInformation)
-			return
-		}
-		version, err := core.TestWorkbenchRunnerSSH(host)
-		if err != nil {
-			messageBox(s.hwnd, "Runner connection failed", err.Error()+"\r\n\r\n"+version, mbOK|mbIconWarning)
-			return
-		}
-		messageBox(s.hwnd, "Runner connected", "Workbench Runner "+version+" responded over the fixed runner SSH transport.", mbOK|mbIconInformation)
+	scope, id := providerListTarget(s.providerIDs[idx])
+	if scope == "status" {
+		messageBox(s.hwnd, "Cluster runner", "There is no selectable runner worker in this row. Click Rescan after the runner is reachable.", mbOK|mbIconInformation)
 		return
+	}
+	if scope == "runner" {
+		host := strings.TrimSpace(s.eng.State().Preferences.OpenClawSSHHost)
+		provider, ok := runnerProviderByID(host, id)
+		if !ok {
+			messageBox(s.hwnd, "Runner worker", "Workbench no longer has this runner worker in its current inventory. Click Rescan.", mbOK|mbIconInformation)
+			return
+		}
+		if provider.Ready {
+			messageBox(s.hwnd, "Runner worker ready", provider.Name+" is ready on the configured cluster runner.", mbOK|mbIconInformation)
+			return
+		}
+		if !provider.Installed {
+			messageBox(s.hwnd, "Runner worker not installed", runnerProviderSetupHint(id), mbOK|mbIconInformation)
+			return
+		}
+		if err := core.StartRunnerProviderLogin(host, id); err != nil {
+			messageBox(s.hwnd, "Runner worker setup", "Workbench could not open the provider's allowlisted login flow on the runner.\r\n\r\n"+err.Error(), mbOK|mbIconWarning)
+			return
+		}
+		messageBox(s.hwnd, "Connect runner worker", "Workbench opened a human-visible SSH console for the provider's own login flow on the cluster runner. Finish provider sign-in, close the console when it completes, then click Rescan. Passwords and OAuth tokens are not entered into Workbench.", mbOK|mbIconInformation)
+		return
+	}
+
+	switch id {
 	case core.StructuredHarnessProviderID:
 		for _, provider := range s.eng.Providers() {
 			if provider.ID != id {
@@ -181,45 +253,52 @@ func (s *Shell) connectSelectedProvider() {
 				messageBox(s.hwnd, "Structured harness adapter", "Choose one existing adapter executable in Settings and save routing. Workbench passes a bounded JSON job on stdin and never runs this setting through a command shell.", mbOK|mbIconInformation)
 				return
 			}
-			messageBox(s.hwnd, "Structured harness ready", "The configured adapter executable is available. Workbench will use structured protocol v1 inside an isolated task workspace and will retain review/publication authority.", mbOK|mbIconInformation)
+			messageBox(s.hwnd, "Structured harness ready", "The configured adapter executable is available on This PC. Workbench will use structured protocol v1 inside an isolated task workspace and will retain review/publication authority.", mbOK|mbIconInformation)
 			return
 		}
 		return
-	case "legacy-harness-command":
-		messageBox(s.hwnd, "Legacy harness command disabled", "Workbench no longer executes shell-template coding commands. Configure one structured adapter executable in Settings, then save routing to remove the obsolete legacy value.", mbOK|mbIconWarning)
-		return
 	case "openclaw":
-		messageBox(s.hwnd, "OpenClaw", "Workbench uses the detected local OpenClaw CLI with a fixed built-in invocation. Configure/authenticate OpenClaw through its own CLI if required, then click Rescan. The custom shell-template adapter path has been retired.", mbOK|mbIconInformation)
-		return
-	case "chatgpt":
-		s.copyMCPConnection()
+		messageBox(s.hwnd, "OpenClaw", "This row describes the OpenClaw CLI on This PC. Configure/authenticate it through its own CLI if required, then click Rescan. Cluster-project execution uses the separate runner inventory shown in Runner rows.", mbOK|mbIconInformation)
 		return
 	}
 	if err := core.StartProviderLogin(id); err != nil {
 		messageBox(s.hwnd, "Provider setup", providerSetupHint(id)+"\r\n\r\n"+err.Error(), mbOK|mbIconWarning)
 		return
 	}
-	messageBox(s.hwnd, "Connect worker", "Workbench opened the provider's own sign-in flow. Finish sign-in, then click Rescan. Provider passwords are never entered into Workbench.", mbOK|mbIconInformation)
+	messageBox(s.hwnd, "Connect worker", "Workbench opened the provider's own sign-in flow on This PC. Finish sign-in, then click Rescan. Provider passwords are never entered into Workbench.", mbOK|mbIconInformation)
 }
 
 func providerSetupHint(id string) string {
 	switch id {
 	case "codex":
-		return "Install the official Codex CLI, then connect it here."
+		return "Install the official Codex CLI on This PC, then connect it here."
 	case "claude":
 		return "Install Node.js 18+ and Git for Windows, then run: npm install -g @anthropic-ai/claude-code. After installation click Rescan, then Connect selected."
 	case "copilot":
-		return "Install GitHub Copilot CLI, then connect it here."
+		return "Install GitHub Copilot CLI on This PC, then connect it here."
 	case "antigravity":
-		return "Install Google Antigravity CLI (agy), then connect it here."
+		return "Install Google Antigravity CLI (agy) on This PC, then connect it here."
 	case "gemini":
 		return "Gemini CLI is retained as a legacy enterprise/API adapter; individual Google accounts should prefer Antigravity CLI."
 	case "openclaw":
-		return "Install and configure the OpenClaw CLI. Workbench invokes the detected CLI with fixed arguments; it does not accept an OpenClaw shell command template."
-	case "grok":
-		return "Workbench does not automate consumer browser sessions. Grok remains an adapter/API route rather than a browser-login worker."
+		return "Install and configure the OpenClaw CLI on This PC. Workbench invokes the detected CLI with fixed arguments; it does not accept an OpenClaw shell command template."
 	}
-	return "No supported login adapter exists for this worker yet."
+	return "No supported local login adapter exists for this worker yet."
+}
+
+func runnerProviderSetupHint(id string) string {
+	switch id {
+	case "claude":
+		return "Anthropic Claude Code is not installed on the cluster runner. This PC's Claude installation is a separate worker and cannot edit a runner:// project. Workbench will continue to use other detected runner workers until Claude Code is installed on that execution host."
+	case "codex":
+		return "OpenAI Codex is not installed on the cluster runner. This PC's Codex installation is separate from runner:// project execution."
+	case "copilot":
+		return "GitHub Copilot CLI is not installed on the cluster runner."
+	case "antigravity":
+		return "Google Antigravity CLI is not installed on the cluster runner."
+	default:
+		return "This coding worker is not installed on the cluster runner. Workbench will not pretend a This PC installation can execute a runner:// project."
+	}
 }
 
 func (s *Shell) copyMCPConnection() {
@@ -228,16 +307,17 @@ func (s *Shell) copyMCPConnection() {
 		return
 	}
 	prefs := s.eng.State().Preferences
-	text := "Workbench MCP\r\nURL: " + s.mcpURL + "\r\nAuthorization: Bearer " + prefs.MCPToken + "\r\n\r\nUse Chat for reasoning and Workbench for bounded hands. Delegate autonomous coding only when it is genuinely useful; poll durable task state without bothering the human for progress."
+	text := "Workbench MCP\r\nURL: " + s.mcpURL + "\r\nAuthorization: Bearer " + prefs.MCPToken + "\r\n\r\nThis proves the local Workbench bridge is ready. Whether a particular ChatGPT client can attach to this endpoint depends on that client's MCP/app connection model."
 	if err := copyText(s.hwnd, text); err != nil {
 		messageBox(s.hwnd, "Clipboard", err.Error(), mbOK|mbIconWarning)
 		return
 	}
-	messageBox(s.hwnd, "Copied", "MCP connection details copied. Treat the bearer token as a local credential.", mbOK|mbIconInformation)
+	messageBox(s.hwnd, "Copied", "MCP bridge connection details copied. Treat the bearer token as a local credential.", mbOK|mbIconInformation)
 }
 
 func (s *Shell) saveRoutingSettings() {
 	prefs := s.eng.State().Preferences
+	oldRunnerHost := strings.TrimSpace(prefs.OpenClawSSHHost)
 	prefs.AvoidWorkUsage = isChecked(s.controls[idProtectWork])
 	prefs.AllowMeteredAPI = isChecked(s.controls[idAllowMetered])
 	prefs.OpenClawSSHHost = strings.TrimSpace(windowText(s.controls[idRunnerHost]))
@@ -258,6 +338,9 @@ func (s *Shell) saveRoutingSettings() {
 	if err := s.eng.SavePreferences(prefs); err != nil {
 		messageBox(s.hwnd, "Cannot save routing", err.Error(), mbOK|mbIconWarning)
 		return
+	}
+	if oldRunnerHost != strings.TrimSpace(prefs.OpenClawSSHHost) {
+		resetRunnerProviderInventory()
 	}
 	setWindowText(s.controls[idHarnessCommand], adapter)
 	message := "Workbench will continue autonomously and protect scarce Work/Codex usage according to these settings."

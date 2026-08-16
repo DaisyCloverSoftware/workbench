@@ -13,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.9.1"
-const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|tool-json|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|tool-json|provider-login <provider-id>|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -31,6 +31,8 @@ func main() {
 		reviewJSON()
 	case "tool-json":
 		toolJSON()
+	case "provider-login":
+		providerLogin()
 	case "inspect":
 		inspect()
 	case "snapshot":
@@ -78,6 +80,17 @@ func run() {
 	resp := core.ExecuteRunnerRequest(ctx, req)
 	write(resp)
 	if strings.TrimSpace(resp.Error) != "" {
+		os.Exit(1)
+	}
+}
+
+func providerLogin() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "usage: workbench-runner provider-login <provider-id>")
+		os.Exit(2)
+	}
+	if err := core.RunProviderLoginInteractive(os.Args[2]); err != nil {
+		fmt.Fprintln(os.Stderr, "provider login:", err)
 		os.Exit(1)
 	}
 }
@@ -200,6 +213,7 @@ func doctor() {
 	fmt.Println("Provider cooldowns: retryable provider/setup failures are skipped briefly; Rescan in the native app clears local cooldowns after fixing setup")
 	fmt.Println("Durable remote work: workbench-runner job <submit|status|cancel>; jobs survive the submitting SSH session")
 	fmt.Println("Bounded desktop/Chat tools: workbench-runner tool-json")
+	fmt.Println("Human provider authentication: workbench-runner provider-login <provider-id>")
 	fmt.Println("Changeset inspection: workbench-runner inspect <project-directory>")
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")

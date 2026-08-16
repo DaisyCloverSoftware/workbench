@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 type RunnerToolRequest struct {
@@ -27,24 +28,45 @@ type RunnerProjectInfo struct {
 	Ref  string `json:"ref"`
 }
 
+// RunnerProviderInfo is deliberately privacy-minimal. The desktop may learn
+// whether a known coding worker is usable on the execution host, but runner
+// command paths, account identifiers, raw auth output and host filesystem
+// details never cross this control channel.
+type RunnerProviderInfo struct {
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Capability    string    `json:"capability"`
+	Status        string    `json:"status"`
+	Cost          CostClass `json:"cost"`
+	Installed     bool      `json:"installed"`
+	Authenticated bool      `json:"authenticated"`
+	Ready         bool      `json:"ready"`
+}
+
 type RunnerToolResponse struct {
-	OK       bool                `json:"ok"`
-	Projects []RunnerProjectInfo `json:"projects,omitempty"`
-	Files    []string            `json:"files,omitempty"`
-	Hits     []SearchHit         `json:"hits,omitempty"`
-	Content  string              `json:"content,omitempty"`
-	Output   string              `json:"output,omitempty"`
-	Error    string              `json:"error,omitempty"`
+	OK        bool                 `json:"ok"`
+	Projects  []RunnerProjectInfo  `json:"projects,omitempty"`
+	Providers []RunnerProviderInfo `json:"providers,omitempty"`
+	Files     []string             `json:"files,omitempty"`
+	Hits      []SearchHit          `json:"hits,omitempty"`
+	Content   string               `json:"content,omitempty"`
+	Output    string               `json:"output,omitempty"`
+	Error     string               `json:"error,omitempty"`
 }
 
 func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerToolResponse, error) {
 	action := strings.ToLower(strings.TrimSpace(req.Action))
-	if action == "list_projects" {
+	switch action {
+	case "list_projects":
 		projects, err := listRunnerProjects(ctx)
 		if err != nil {
 			return RunnerToolResponse{Error: "runner project discovery is unavailable"}, err
 		}
 		return RunnerToolResponse{OK: true, Projects: projects}, nil
+	case "list_providers":
+		providers := providerInventoryWithConfiguredHarness(ScanProviders(), Preferences{})
+		providers = ApplyProviderHealth(providers, time.Now())
+		return RunnerToolResponse{OK: true, Providers: safeRunnerProviderInventory(providers)}, nil
 	}
 
 	if strings.TrimSpace(req.Project) == "" {
@@ -74,6 +96,33 @@ func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerT
 		return RunnerToolResponse{Error: "runner tool operation failed"}, err
 	}
 	return response, nil
+}
+
+func safeRunnerProviderInventory(providers []Provider) []RunnerProviderInfo {
+	providers = append([]Provider(nil), providers...)
+	sort.SliceStable(providers, func(i, j int) bool {
+		if providers[i].Priority != providers[j].Priority {
+			return providers[i].Priority < providers[j].Priority
+		}
+		return strings.ToLower(providers[i].Name) < strings.ToLower(providers[j].Name)
+	})
+	out := make([]RunnerProviderInfo, 0, len(providers))
+	for _, provider := range providers {
+		if !IsCodingWorkerProvider(provider) {
+			continue
+		}
+		out = append(out, RunnerProviderInfo{
+			ID:            provider.ID,
+			Name:          provider.Name,
+			Capability:    provider.Capability,
+			Status:        strings.TrimSpace(provider.Status),
+			Cost:          provider.Cost,
+			Installed:     provider.Installed,
+			Authenticated: provider.Authenticated,
+			Ready:         ProviderReadyForCoding(provider),
+		})
+	}
+	return out
 }
 
 func listRunnerProjects(ctx context.Context) ([]RunnerProjectInfo, error) {

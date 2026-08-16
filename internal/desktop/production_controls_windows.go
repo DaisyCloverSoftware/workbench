@@ -66,7 +66,7 @@ func (s *Shell) applyProductionControlTheme() {
 		idReportLabel:      "Result & activity",
 		idNotesLabel:       "Project context",
 		idAttentionLabel:   "Human decision — only answer when Workbench genuinely needs you",
-		idProvidersLabel:   "AI workers",
+		idProvidersLabel:   "Coding workers · This PC + runner",
 		idMCPLabel:         "Chat & MCP bridge",
 		idRunnerLabel:      "Workbench Runner SSH host",
 		idHarnessLabel:     "Structured harness adapter executable",
