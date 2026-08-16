@@ -24,7 +24,6 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $env:APPDATA = Join-Path $pwd '.responsive-appdata'
           $env:LOCALAPPDATA = Join-Path $pwd '.responsive-localappdata'
-          $env:WORKBENCH_UI_TRACE_PATH = Join-Path $pwd 'workbench-ui-trace.txt'
           $stateDir = Join-Path $env:APPDATA 'Workbench'
           New-Item -ItemType Directory -Force -Path $stateDir,$env:LOCALAPPDATA | Out-Null
 
@@ -70,16 +69,11 @@ jobs:
                   uint flags, uint timeout, out UIntPtr result);
               [DllImport("user32.dll")]
               public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool IsWindowVisible(IntPtr hWnd);
           }
           '@
-
-          function Show-WorkbenchTrace {
-            if (Test-Path $env:WORKBENCH_UI_TRACE_PATH) {
-              Write-Host '--- Workbench UI trace ---'
-              Get-Content $env:WORKBENCH_UI_TRACE_PATH | ForEach-Object { Write-Host $_ }
-              Write-Host '--- end trace ---'
-            }
-          }
 
           function Assert-Responsive([IntPtr]$handle, [string]$label) {
             $result = [UIntPtr]::Zero
@@ -88,7 +82,6 @@ jobs:
               $handle, 0, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
             $sw.Stop()
             if ($sent -eq [IntPtr]::Zero) {
-              Show-WorkbenchTrace
               throw "Workbench stopped responding while checking $label after $($sw.ElapsedMilliseconds) ms."
             }
             if ($sw.ElapsedMilliseconds -ge 250) {
@@ -96,18 +89,30 @@ jobs:
             }
           }
 
-          function Click-Control([IntPtr]$parent, [int]$id, [string]$label) {
+          function Control-Handle([IntPtr]$parent, [int]$id, [string]$label) {
             $control = [WorkbenchResponsiveness]::GetDlgItem($parent, $id)
             if ($control -eq [IntPtr]::Zero) {
               throw "Could not find $label control ($id)."
             }
+            return $control
+          }
+
+          function Assert-ControlVisibility([IntPtr]$parent, [int]$id, [string]$label, [bool]$expected) {
+            $control = Control-Handle $parent $id $label
+            $actual = [WorkbenchResponsiveness]::IsWindowVisible($control)
+            if ($actual -ne $expected) {
+              throw "$label visibility was $actual; expected $expected."
+            }
+          }
+
+          function Click-Control([IntPtr]$parent, [int]$id, [string]$label) {
+            $control = Control-Handle $parent $id $label
             $result = [UIntPtr]::Zero
             $sw = [Diagnostics.Stopwatch]::StartNew()
             $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
               $control, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
             $sw.Stop()
             if ($sent -eq [IntPtr]::Zero) {
-              Show-WorkbenchTrace
               throw "$label navigation did not return within 2 seconds (elapsed $($sw.ElapsedMilliseconds) ms)."
             }
             if ($sw.ElapsedMilliseconds -ge 250) {
@@ -128,22 +133,30 @@ jobs:
             $window = [IntPtr]$process.MainWindowHandle
 
             Assert-Responsive $window 'startup Dashboard'
+            Assert-ControlVisibility $window 3100 'Work Projects label on Dashboard' $false
+            Assert-ControlVisibility $window 3202 'Settings provider list on Dashboard' $false
+
             for ($i = 0; $i -lt 32; $i++) {
               Click-Control $window 3002 'Settings'
               Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Settings pass $i"
+              Assert-ControlVisibility $window 3202 'Settings provider list' $true
+              Assert-ControlVisibility $window 3105 'Work Pin button on Settings' $false
+              Assert-ControlVisibility $window 3122 'Work Answer + resume button on Settings' $false
+              Assert-ControlVisibility $window 3128 'Work Save project notes button on Settings' $false
 
               Click-Control $window 3001 'Work'
               Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Work pass $i"
+              Assert-ControlVisibility $window 3100 'Work Projects label' $true
+              Assert-ControlVisibility $window 3202 'Settings provider list on Work' $false
 
               Click-Control $window 3301 'Dashboard'
               Start-Sleep -Milliseconds 100
               Assert-Responsive $window "Dashboard pass $i"
+              Assert-ControlVisibility $window 3100 'Work Projects label on Dashboard' $false
+              Assert-ControlVisibility $window 3202 'Settings provider list on Dashboard' $false
             }
-          } catch {
-            Show-WorkbenchTrace
-            throw
           } finally {
             if ($process -and -not $process.HasExited) {
               Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
