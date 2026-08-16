@@ -3,8 +3,10 @@
 package desktop
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
@@ -115,6 +117,20 @@ func (s *Shell) selectProjectFromList() {
 }
 
 func (s *Shell) addProject() {
+	prefs := s.eng.State().Preferences
+	if host := strings.TrimSpace(prefs.OpenClawSSHHost); host != "" {
+		choice := messageBox(
+			s.hwnd,
+			"Add project",
+			"Import Git repositories from the configured Workbench cluster runner?\r\n\r\nYes — discover and import cluster projects\r\nNo — choose a folder on this PC",
+			mbYesNo|mbIconInformation,
+		)
+		if choice == idYes {
+			s.importClusterProjects(host)
+			return
+		}
+	}
+
 	path := browseFolder(s.hwnd, "Choose a project/repository for Workbench")
 	if path == "" {
 		return
@@ -128,6 +144,35 @@ func (s *Shell) addProject() {
 	s.editorProjectID = ""
 	s.settingsProjectID = ""
 	messageBox(s.hwnd, "Project added", project.Name+" is now the active Workbench project.", mbOK|mbIconInformation)
+}
+
+func (s *Shell) importClusterProjects(host string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		response, err := core.RunRunnerToolSSH(ctx, host, core.RunnerToolRequest{Action: "list_projects"})
+		if err != nil {
+			messageBox(s.hwnd, "Cluster projects unavailable", "Workbench could not read the configured runner project list. Check the runner connection in Settings, then try again.", mbOK|mbIconWarning)
+			return
+		}
+		if len(response.Projects) == 0 {
+			messageBox(s.hwnd, "No cluster projects found", "The configured runner responded, but no Git repositories were found directly under its authorised project root.", mbOK|mbIconInformation)
+			return
+		}
+		added, err := s.eng.RegisterRunnerProjects(response.Projects)
+		if err != nil {
+			messageBox(s.hwnd, "Cannot import cluster projects", err.Error(), mbOK|mbIconWarning)
+			return
+		}
+		message := fmt.Sprintf("Workbench found %d cluster Git repositories.", len(response.Projects))
+		if added > 0 {
+			message += fmt.Sprintf(" %d new project(s) were added to the Work list.", added)
+		} else {
+			message += " They were already registered."
+		}
+		message += "\r\n\r\nCluster projects stay on the runner; Workbench does not copy them onto this PC."
+		messageBox(s.hwnd, "Cluster projects ready", message, mbOK|mbIconInformation)
+	}()
 }
 
 func (s *Shell) renameActiveProject() {
