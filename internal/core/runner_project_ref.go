@@ -27,8 +27,7 @@ func RunnerProjectName(ref string) (string, bool) {
 		return "", false
 	}
 	name := strings.TrimSpace(ref[len(RunnerProjectPrefix):])
-	canonical, err := RunnerProjectReference(name)
-	if err != nil || !strings.EqualFold(canonical, ref) {
+	if _, err := RunnerProjectReference(name); err != nil {
 		return "", false
 	}
 	return name, true
