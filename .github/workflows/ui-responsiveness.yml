@@ -1,0 +1,164 @@
+name: ui-responsiveness
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-ui-responsiveness:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Build production Workbench
+        shell: pwsh
+        run: go build -ldflags='-s -w -H=windowsgui' -o Workbench.exe ./cmd/workbench
+      - name: Prove Dashboard Work and Settings stay responsive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:APPDATA = Join-Path $pwd '.responsive-appdata'
+          $env:LOCALAPPDATA = Join-Path $pwd '.responsive-localappdata'
+          $stateDir = Join-Path $env:APPDATA 'Workbench'
+          New-Item -ItemType Directory -Force -Path $stateDir,$env:LOCALAPPDATA | Out-Null
+
+          # Exercise Settings with a genuine active Git repository, matching a
+          # real installation rather than the easier empty-project startup path.
+          $now = [DateTime]::UtcNow
+          $repo = $pwd.Path
+          $state = [ordered]@{
+            version = 3
+            active_project_id = ''
+            project_path = $repo
+            notes = 'UI responsiveness fixture'
+            projects = @(
+              [ordered]@{
+                id = ''
+                path = $repo
+                name = 'Responsiveness Project'
+                notes = 'Active Git project for Settings policy probing.'
+                pinned = $true
+                added_at = $now.AddDays(-1).ToString('o')
+                last_used_at = $now.ToString('o')
+              }
+            )
+            tasks = @()
+            secrets = @()
+            preferences = [ordered]@{
+              avoid_work_usage = $true
+              allow_metered_api = $false
+              autonomy_mode = 'trusted-repo'
+              mcp_port = 18768
+              mcp_token = 'responsiveness-ci-local-token'
+            }
+          }
+          $state | ConvertTo-Json -Depth 10 | Set-Content -Encoding UTF8 (Join-Path $stateDir 'state.json')
+
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class WorkbenchResponsiveness {
+              [DllImport("user32.dll", SetLastError=true)]
+              public static extern IntPtr SendMessageTimeout(
+                  IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam,
+                  uint flags, uint timeout, out UIntPtr result);
+              [DllImport("user32.dll")]
+              public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+              [DllImport("user32.dll")]
+              [return: MarshalAs(UnmanagedType.Bool)]
+              public static extern bool IsWindowVisible(IntPtr hWnd);
+          }
+          '@
+
+          function Assert-Responsive([IntPtr]$handle, [string]$label) {
+            $result = [UIntPtr]::Zero
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
+              $handle, 0, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
+            $sw.Stop()
+            if ($sent -eq [IntPtr]::Zero) {
+              throw "Workbench stopped responding while checking $label after $($sw.ElapsedMilliseconds) ms."
+            }
+            if ($sw.ElapsedMilliseconds -ge 250) {
+              Write-Host "slow response ${label}: $($sw.ElapsedMilliseconds) ms"
+            }
+          }
+
+          function Control-Handle([IntPtr]$parent, [int]$id, [string]$label) {
+            $control = [WorkbenchResponsiveness]::GetDlgItem($parent, $id)
+            if ($control -eq [IntPtr]::Zero) {
+              throw "Could not find $label control ($id)."
+            }
+            return $control
+          }
+
+          function Assert-ControlVisibility([IntPtr]$parent, [int]$id, [string]$label, [bool]$expected) {
+            $control = Control-Handle $parent $id $label
+            $actual = [WorkbenchResponsiveness]::IsWindowVisible($control)
+            if ($actual -ne $expected) {
+              throw "$label visibility was $actual; expected $expected."
+            }
+          }
+
+          function Click-Control([IntPtr]$parent, [int]$id, [string]$label) {
+            $control = Control-Handle $parent $id $label
+            $result = [UIntPtr]::Zero
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $sent = [WorkbenchResponsiveness]::SendMessageTimeout(
+              $control, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$result)
+            $sw.Stop()
+            if ($sent -eq [IntPtr]::Zero) {
+              throw "$label navigation did not return within 2 seconds (elapsed $($sw.ElapsedMilliseconds) ms)."
+            }
+            if ($sw.ElapsedMilliseconds -ge 250) {
+              Write-Host "slow navigation ${label}: $($sw.ElapsedMilliseconds) ms"
+            }
+          }
+
+          $process = Start-Process -FilePath (Join-Path $pwd 'Workbench.exe') -PassThru
+          try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(12)
+            do {
+              Start-Sleep -Milliseconds 250
+              $process.Refresh()
+            } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline -and -not $process.HasExited)
+
+            if ($process.HasExited) { throw 'Workbench exited before creating its production window.' }
+            if ($process.MainWindowHandle -eq 0) { throw 'Workbench did not expose a production window handle.' }
+            $window = [IntPtr]$process.MainWindowHandle
+
+            Assert-Responsive $window 'startup Dashboard'
+            Assert-ControlVisibility $window 3100 'Work Projects label on Dashboard' $false
+            Assert-ControlVisibility $window 3202 'Settings provider list on Dashboard' $false
+
+            for ($i = 0; $i -lt 32; $i++) {
+              Click-Control $window 3002 'Settings'
+              Start-Sleep -Milliseconds 100
+              Assert-Responsive $window "Settings pass $i"
+              Assert-ControlVisibility $window 3202 'Settings provider list' $true
+              Assert-ControlVisibility $window 3105 'Work Pin button on Settings' $false
+              Assert-ControlVisibility $window 3122 'Work Answer + resume button on Settings' $false
+              Assert-ControlVisibility $window 3128 'Work Save project notes button on Settings' $false
+
+              Click-Control $window 3001 'Work'
+              Start-Sleep -Milliseconds 100
+              Assert-Responsive $window "Work pass $i"
+              Assert-ControlVisibility $window 3100 'Work Projects label' $true
+              Assert-ControlVisibility $window 3202 'Settings provider list on Work' $false
+
+              Click-Control $window 3301 'Dashboard'
+              Start-Sleep -Milliseconds 100
+              Assert-Responsive $window "Dashboard pass $i"
+              Assert-ControlVisibility $window 3100 'Work Projects label on Dashboard' $false
+              Assert-ControlVisibility $window 3202 'Settings provider list on Dashboard' $false
+            }
+          } finally {
+            if ($process -and -not $process.HasExited) {
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+          }

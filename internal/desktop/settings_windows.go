@@ -18,7 +18,26 @@ import (
 
 var loadedSettingsShell *Shell
 
+func (s *Shell) invalidateSettingsCache() {
+	if loadedSettingsShell == s {
+		loadedSettingsShell = nil
+	}
+	s.settingsProjectID = ""
+}
+
 func (s *Shell) refreshSettings(snapshot Snapshot) {
+	// Settings contains native listboxes plus filesystem-backed provider and
+	// policy state. Rebuilding all of it for every engine notification or every
+	// page revisit is unnecessary and, on real Windows desktops, can accumulate
+	// enough synchronous UI work to starve the message pump. The active project
+	// and explicit settings mutations below invalidate this cache when the data
+	// can genuinely have changed.
+	if loadedSettingsShell == s && s.settingsProjectID == snapshot.ActiveProjectID {
+		return
+	}
+	loadedSettingsShell = s
+	s.settingsProjectID = snapshot.ActiveProjectID
+
 	prefs := s.eng.State().Preferences
 	setChecked(s.controls[idProtectWork], prefs.AvoidWorkUsage)
 	setChecked(s.controls[idAllowMetered], prefs.AllowMeteredAPI)
@@ -26,6 +45,7 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	cueBanner(s.controls[idHarnessCommand], "absolute path to one adapter executable; no arguments or shell placeholders")
 	s.refreshProviders()
 	s.refreshSecrets()
+
 	mcpStatus := "Local Chat/MCP bridge is unavailable."
 	if s.mcpURL != "" {
 		mcpStatus = s.mcpURL + "\r\nBearer authentication is enabled. The token is revealed only when you explicitly copy the connection details."
@@ -34,15 +54,6 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	}
 	setWindowText(s.controls[idMCPStatus], mcpStatus)
 
-	// Do not rewrite editable settings fields on every task/provider refresh.
-	// Reload them only when Settings is first opened or the active project changes.
-	// The shell identity sentinel matters when no project exists, because an empty
-	// project ID is still a valid first-load state for global routing settings.
-	if loadedSettingsShell == s && s.settingsProjectID == snapshot.ActiveProjectID {
-		return
-	}
-	loadedSettingsShell = s
-	s.settingsProjectID = snapshot.ActiveProjectID
 	setWindowText(s.controls[idRunnerHost], prefs.OpenClawSSHHost)
 	setWindowText(s.controls[idHarnessCommand], prefs.HarnessAdapterPath)
 	setWindowText(s.controls[idNotifyCommand], prefs.NotificationCommand)
@@ -51,7 +62,10 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	if snapshot.ActivePath == "" {
 		return
 	}
-	policy, configured, err := core.PublicationPolicyFor(snapshot.ActivePath)
+	// Active projects were already canonicalised when registered. Reading the
+	// local policy must therefore not invoke Git on the UI thread merely to look
+	// up an existing operator setting.
+	policy, configured, err := core.PublicationPolicyForKnownProject(snapshot.ActivePath)
 	if err != nil || !configured {
 		return
 	}
@@ -104,6 +118,7 @@ func (s *Shell) handleSettingsCommand(id int, notify uint16) {
 	case idConnectProvider:
 		s.connectSelectedProvider()
 	case idRescanProviders:
+		s.invalidateSettingsCache()
 		go s.eng.RescanProviders()
 	case idCopyMCP:
 		s.copyMCPConnection()
@@ -240,6 +255,7 @@ func (s *Shell) saveRoutingSettings() {
 	prefs.HarnessAdapterPath = adapter
 	prefs.OpenClawCommand = ""
 	prefs.NotificationCommand = strings.TrimSpace(windowText(s.controls[idNotifyCommand]))
+	s.invalidateSettingsCache()
 	if err := s.eng.SavePreferences(prefs); err != nil {
 		messageBox(s.hwnd, "Cannot save routing", err.Error(), mbOK|mbIconWarning)
 		return
@@ -280,8 +296,7 @@ func (s *Shell) saveReviewPolicy() {
 		messageBox(s.hwnd, "Review policy failed", err.Error(), mbOK|mbIconWarning)
 		return
 	}
-	s.settingsProjectID = ""
-	loadedSettingsShell = nil
+	s.invalidateSettingsCache()
 	scope := "Saved for local Workbench execution."
 	if result.Runner != nil {
 		scope = "Saved locally and synchronised to the configured Workbench runner."
@@ -302,6 +317,7 @@ func (s *Shell) saveVaultSecret() {
 		messageBox(s.hwnd, "Vault encryption failed", err.Error(), mbOK|mbIconWarning)
 		return
 	}
+	s.invalidateSettingsCache()
 	if err := s.eng.AddSecret(core.SecretRef{Name: name, Ciphertext: ciphertext, CreatedAt: time.Now()}); err != nil {
 		messageBox(s.hwnd, "Vault save failed", err.Error(), mbOK|mbIconWarning)
 		return

@@ -77,17 +77,7 @@ jobs:
           $state | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 (Join-Path $stateDir 'state.json')
 
           $statusPath = Join-Path $pwd 'screenshot-status.txt'
-          $process = $null
           try {
-            $process = Start-Process -FilePath (Join-Path $pwd 'Workbench.exe') -PassThru
-            $deadline = [DateTime]::UtcNow.AddSeconds(12)
-            do {
-              Start-Sleep -Milliseconds 500
-              $process.Refresh()
-            } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline -and -not $process.HasExited)
-            if ($process.HasExited) { throw 'Workbench exited before a production window became available.' }
-            if ($process.MainWindowHandle -eq 0) { throw 'The hosted Windows runner did not expose a Workbench window handle.' }
-
             Add-Type -AssemblyName System.Drawing
             Add-Type @'
           using System;
@@ -104,12 +94,41 @@ jobs:
           }
           '@
 
-            function Save-WorkbenchWindow([string]$name) {
-              [void][WorkbenchWindowCapture]::SetForegroundWindow($process.MainWindowHandle)
-              [void][WorkbenchWindowCapture]::RedrawWindow($process.MainWindowHandle, [IntPtr]::Zero, [IntPtr]::Zero, 0x0185)
+            function Start-WorkbenchPage([int]$navId, [string]$label) {
+              $p = Start-Process -FilePath (Join-Path $pwd 'Workbench.exe') -PassThru
+              $deadline = [DateTime]::UtcNow.AddSeconds(12)
+              do {
+                Start-Sleep -Milliseconds 250
+                $p.Refresh()
+              } while ($p.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline -and -not $p.HasExited)
+              if ($p.HasExited) { throw "Workbench exited before the $label window became available." }
+              if ($p.MainWindowHandle -eq 0) { throw "The hosted Windows runner did not expose a Workbench window for $label." }
+              if ($navId -gt 0) {
+                $control = [WorkbenchWindowCapture]::GetDlgItem($p.MainWindowHandle, $navId)
+                if ($control -eq [IntPtr]::Zero) { throw "Could not find $label navigation control." }
+                [void][WorkbenchWindowCapture]::SendMessage($control, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+                Start-Sleep -Milliseconds 750
+              } else {
+                Start-Sleep -Milliseconds 750
+              }
+              return $p
+            }
+
+            function Stop-WorkbenchPage([System.Diagnostics.Process]$p) {
+              if ($p -and -not $p.HasExited) {
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                [void]$p.WaitForExit(5000)
+              }
+              Start-Sleep -Milliseconds 200
+            }
+
+            function Save-WorkbenchWindow([System.Diagnostics.Process]$p, [string]$name) {
+              $p.Refresh()
+              [void][WorkbenchWindowCapture]::SetForegroundWindow($p.MainWindowHandle)
+              [void][WorkbenchWindowCapture]::RedrawWindow($p.MainWindowHandle, [IntPtr]::Zero, [IntPtr]::Zero, 0x0185)
               Start-Sleep -Milliseconds 250
               $rect = New-Object WorkbenchWindowCapture+RECT
-              if (-not [WorkbenchWindowCapture]::GetWindowRect($process.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
+              if (-not [WorkbenchWindowCapture]::GetWindowRect($p.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
               $width = $rect.Right - $rect.Left
               $height = $rect.Bottom - $rect.Top
               if ($width -lt 800 -or $height -lt 600) { throw "Unexpected Workbench window size ${width}x${height}." }
@@ -117,12 +136,12 @@ jobs:
               $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
               $captured = $false
               try {
-                # PrintWindow captures the actual full running window even when the
-                # hosted runner's virtual desktop is smaller than Workbench itself.
-                # Desktop pixels are only a fallback for hosts that reject PrintWindow.
                 $hdc = $graphics.GetHdc()
                 try {
-                  $captured = [WorkbenchWindowCapture]::PrintWindow($process.MainWindowHandle, $hdc, 2)
+                  # Normal PrintWindow captures the complete HWND without asking
+                  # Windows to synthesize off-client "full content" for native
+                  # child controls, which can otherwise appear as white padding.
+                  $captured = [WorkbenchWindowCapture]::PrintWindow($p.MainWindowHandle, $hdc, 0)
                 } finally {
                   $graphics.ReleaseHdc($hdc)
                 }
@@ -139,27 +158,24 @@ jobs:
               return "${name}:${width}x${height}"
             }
 
+            function Capture-WorkbenchPage([int]$navId, [string]$label, [string]$name) {
+              $pageProcess = $null
+              try {
+                $pageProcess = Start-WorkbenchPage $navId $label
+                return Save-WorkbenchWindow $pageProcess $name
+              } finally {
+                Stop-WorkbenchPage $pageProcess
+              }
+            }
+
             $captured = @()
-            Start-Sleep -Milliseconds 750
-            $captured += Save-WorkbenchWindow 'Workbench-Dashboard-Actual.png'
+            $captured += Capture-WorkbenchPage 0 'Dashboard' 'Workbench-Dashboard-Actual.png'
+            $captured += Capture-WorkbenchPage 3001 'Work' 'Workbench-Work-Actual.png'
+            $captured += Capture-WorkbenchPage 3002 'Settings' 'Workbench-Settings-Actual.png'
 
-            $work = [WorkbenchWindowCapture]::GetDlgItem($process.MainWindowHandle, 3001)
-            if ($work -eq [IntPtr]::Zero) { throw 'Could not find Work navigation control.' }
-            [void][WorkbenchWindowCapture]::SendMessage($work, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
-            Start-Sleep -Milliseconds 750
-            $captured += Save-WorkbenchWindow 'Workbench-Work-Actual.png'
-
-            $settings = [WorkbenchWindowCapture]::GetDlgItem($process.MainWindowHandle, 3002)
-            if ($settings -eq [IntPtr]::Zero) { throw 'Could not find Settings navigation control.' }
-            [void][WorkbenchWindowCapture]::SendMessage($settings, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
-            Start-Sleep -Milliseconds 750
-            $captured += Save-WorkbenchWindow 'Workbench-Settings-Actual.png'
-
-            ("captured actual Workbench.exe pages from the full running window with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
+            ("captured actual Workbench.exe pages from fresh full running windows with isolated CI fixture data: " + ($captured -join ', ')) | Set-Content -Encoding UTF8 $statusPath
           } catch {
             "screenshot unavailable: $($_.Exception.Message)" | Set-Content -Encoding UTF8 $statusPath
-          } finally {
-            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
       - name: Upload actual production page screenshots
         if: always()

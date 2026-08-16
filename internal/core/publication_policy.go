@@ -29,6 +29,11 @@ type PublicationPolicy struct {
 type publicationPolicyState struct {
 	Version  int                 `json:"version"`
 	Policies []PublicationPolicy `json:"policies"`
+	// Aliases map a lexical project spelling observed during an explicit save
+	// to the canonical project stored in Policies. This lets the read-only UI
+	// path resolve Windows 8.3/long-path aliases without touching Git or the
+	// filesystem when Settings is opened later.
+	Aliases map[string]string `json:"aliases,omitempty"`
 }
 
 const maxPublicationPolicyBytes = 1 << 20
@@ -51,6 +56,10 @@ func PublicationPolicyStatePath() (string, error) {
 // deliberately kept outside task state, worker prompts, MCP workspace output,
 // and the Git relay so coding workers cannot choose where source is published.
 func SavePublicationPolicy(policy PublicationPolicy) (PublicationPolicy, error) {
+	inputKey, err := publicationPolicyReadKey(policy.Project)
+	if err != nil {
+		return PublicationPolicy{}, err
+	}
 	project, err := canonicalPublicationProject(policy.Project)
 	if err != nil {
 		return PublicationPolicy{}, err
@@ -91,6 +100,15 @@ func SavePublicationPolicy(policy PublicationPolicy) (PublicationPolicy, error) 
 	if !updated {
 		st.Policies = append(st.Policies, policy)
 	}
+	if st.Aliases == nil {
+		st.Aliases = map[string]string{}
+	}
+	canonicalKey, keyErr := publicationPolicyReadKey(policy.Project)
+	if keyErr != nil {
+		return PublicationPolicy{}, keyErr
+	}
+	st.Aliases[publicationPolicyLookupIdentity(inputKey)] = canonicalKey
+	st.Aliases[publicationPolicyLookupIdentity(canonicalKey)] = canonicalKey
 	if err := savePublicationPolicyState(st); err != nil {
 		return PublicationPolicy{}, err
 	}
@@ -137,6 +155,16 @@ func DeletePublicationPolicy(project string) error {
 		}
 	}
 	st.Policies = out
+	if len(st.Aliases) > 0 {
+		for alias, canonical := range st.Aliases {
+			if publicationPolicyKeysEqual(canonical, project) {
+				delete(st.Aliases, alias)
+			}
+		}
+		if len(st.Aliases) == 0 {
+			st.Aliases = nil
+		}
+	}
 	return savePublicationPolicyState(st)
 }
 
@@ -145,9 +173,13 @@ func canonicalPublicationProject(project string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	gitRoot, err := runGitLimited(context.Background(), root, 16<<10, "rev-parse", "--show-toplevel")
+	// Policy mutation is an explicit operator action, but still keep the Git
+	// validation bounded so a dead filesystem cannot pin the desktop forever.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	gitRoot, err := runGitLimited(ctx, root, 16<<10, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", errors.New("publication policy requires a Git repository root")
+		return "", errors.New("publication policy requires a responsive Git repository root")
 	}
 	gitRoot = strings.TrimSpace(gitRoot)
 	resolvedGitRoot, err := filepath.EvalSymlinks(gitRoot)
