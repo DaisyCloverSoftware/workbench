@@ -39,6 +39,11 @@ func providerInventoryWithConfiguredHarness(base []Provider, prefs Preferences) 
 
 func providerInventoryWithConfiguredHarnessMode(base []Provider, prefs Preferences, runnerProcess bool) []Provider {
 	out := append([]Provider(nil), base...)
+	if runnerProcess {
+		if executable, err := os.Executable(); err == nil {
+			out = routeRunnerOpenClawThroughWorkbench(out, executable)
+		}
+	}
 	if runnerProcess && strings.TrimSpace(prefs.HarnessAdapterPath) == "" {
 		if cfg, configured, err := LoadRunnerHarnessConfig(); err == nil && configured {
 			prefs.HarnessAdapterPath = cfg.AdapterPath

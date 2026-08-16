@@ -13,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.9.3"
-const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|tool-json|provider-login <provider-id>|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|tool-json|provider-login <provider-id>|cloud-models|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -33,6 +33,13 @@ func main() {
 		toolJSON()
 	case "provider-login":
 		providerLogin()
+	case "cloud-models":
+		cloudModels()
+	case "agent":
+		// Internal OpenClaw shim. The runner provider overlay invokes this with
+		// the existing fixed Workbench OpenClaw argument shape; it is not a
+		// model-safe command or an arbitrary OpenClaw proxy.
+		openClawAgent()
 	case "inspect":
 		inspect()
 	case "snapshot":
@@ -92,6 +99,30 @@ func providerLogin() {
 	if err := core.RunProviderLoginInteractive(os.Args[2]); err != nil {
 		fmt.Fprintln(os.Stderr, "provider login:", err)
 		os.Exit(1)
+	}
+}
+
+func cloudModels() {
+	if len(os.Args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: workbench-runner cloud-models")
+		os.Exit(2)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	catalog, err := core.DiscoverOpenClawCloudModels(ctx, "")
+	if err != nil {
+		write(map[string]any{"ok": false, "error": err.Error()})
+		os.Exit(1)
+	}
+	write(map[string]any{"ok": true, "catalog": catalog})
+}
+
+func openClawAgent() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	code := core.RunOpenClawCloudAgentCLI(ctx, os.Args[2:], os.Stdout, os.Stderr)
+	if code != 0 {
+		os.Exit(code)
 	}
 }
 
@@ -214,6 +245,7 @@ func doctor() {
 	fmt.Println("Durable remote work: workbench-runner job <submit|status|cancel>; jobs survive the submitting SSH session")
 	fmt.Println("Bounded desktop/Chat tools: workbench-runner tool-json")
 	fmt.Println("Human provider authentication: workbench-runner provider-login <provider-id>")
+	fmt.Println("Cloud model inventory (read-only): workbench-runner cloud-models")
 	fmt.Println("Changeset inspection: workbench-runner inspect <project-directory>")
 	fmt.Println("Stable changeset snapshot: workbench-runner snapshot <project-directory>")
 	fmt.Println("Isolated local preparation: workbench-runner prepare <project-directory> <task-id>")
