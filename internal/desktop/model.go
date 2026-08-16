@@ -166,7 +166,7 @@ func chooseSelectedTask(tasks []TaskItem, requested string) string {
 	}
 	for _, task := range tasks {
 		switch task.Status {
-		case core.TaskQueued, core.TaskRouting, core.TaskRunning, core.TaskWaitingRetry:
+		case core.TaskQueued, core.TaskRouting, core.TaskRunning, core.TaskWaitingRetry, core.TaskWaitingDependency:
 			return task.ID
 		}
 	}

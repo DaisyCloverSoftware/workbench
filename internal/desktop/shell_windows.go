@@ -627,7 +627,7 @@ func (s *Shell) showSelectedTask(snapshot Snapshot) {
 		}
 	}
 	setWindowText(s.controls[idReport], report.String())
-	active := item.Status == core.TaskQueued || item.Status == core.TaskRouting || item.Status == core.TaskRunning || item.Status == core.TaskWaitingRetry
+	active := item.Status == core.TaskQueued || item.Status == core.TaskRouting || item.Status == core.TaskRunning || item.Status == core.TaskWaitingRetry || item.Status == core.TaskWaitingDependency
 	procEnableWindow.Call(s.controls[idCancelTask], boolWord(active))
 	procEnableWindow.Call(s.controls[idResumeTask], boolWord(item.NeedsHuman))
 	procEnableWindow.Call(s.controls[idAnswer], boolWord(item.NeedsHuman))
