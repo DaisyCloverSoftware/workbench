@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0 — 2026-08-16
+
+- Added a coherent production dark Dashboard, Work and Settings experience backed by real Workbench state, with permanent navigation/top actions, truthful task/project/provider status and full-window Windows screenshot evidence.
+- Added the versioned structured harness job/result protocol and private runner-host adapter configuration, keeping structured harnesses separate from local OpenClaw and eliminating shell-template coding commands from the eligible worker path.
+- Added durable `waiting_retry` and `waiting_dependency` task states: transient provider cooldowns and GitHub Actions dependencies back off without holding a coding worker, survive Workbench restarts, remain cancellable, and automatically resume the original task when ready.
+- GitHub Actions dependency watches use progressive polling/backoff instead of status hammering; connected AI guidance now tells clients to do other independent work during Workbench-owned waits and never claim to be monitoring unless a durable watch exists.
+- Added provider-native Claude Code session continuation while keeping provider session identifiers private and outside task transport/model-facing state.
+- Fixed the production Windows `Not Responding` failure by pinning the complete HWND create/message-pump/destroy lifetime to its owning OS thread with `runtime.LockOSThread()`.
+- Added a real Windows responsiveness/visibility gate that soaks 32 Dashboard → Settings → Work cycles with an active Git project and fails if the message pump does not answer within two seconds or hidden page HWNDs remain visible.
+- Kept Settings responsive by avoiding live Git/filesystem probing for policy reads, caching repeated provider/vault/policy materialisation, and persisting Windows short/long path aliases at policy-save time.
+- Hardened production screenshot capture so Dashboard, Work and Settings are captured from fresh running processes with isolated fixture data, normal whole-window `PrintWindow` semantics and no prior-page backing-surface residue.
+- Windows CI continues to package only `Workbench.exe` and `Workbench-Updater.exe`; the release workflow also publishes the matching Linux runner/server/relay cluster archive and SHA-256 checksums.
+
 ## 0.8.0 — 2026-08-15
 
 - Replaced the remaining prototype/dogfood desktop split with one production `Workbench.exe`: a task-first multi-project workspace plus explicit Settings for workers, MCP, runner/harness configuration, review policy, encrypted vault and verified maintenance.
