@@ -4,6 +4,7 @@ package desktop
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -83,17 +84,28 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 	runnerProviderCache.failed = false
 	runnerProviderCache.Unlock()
 
-	go func(requestHost string, allowVerifiedUpgrade bool) {
+	go func(requestHost string, allowHumanSetup bool) {
 		fetch := func() (core.RunnerToolResponse, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
 			return core.RunRunnerToolSSH(ctx, requestHost, core.RunnerToolRequest{Action: "list_providers"})
 		}
 		response, err := fetch()
-		if err != nil && allowVerifiedUpgrade && runnerInventoryProtocolTooOld(err) {
-			// Rescan is an explicit operator action. It may use the already-existing
-			// verified cluster updater to bring an older runner to the current stable
-			// protocol, then retry. Merely opening Settings never mutates the runner.
+
+		// Rescan is an explicit operator action. If unattended SSH authentication
+		// is the only blocker, open one fixed, human-visible runner-version SSH
+		// verification. This is suitable for first-time host/Tailscale approval.
+		// We then retry the unattended transport: password-only SSH therefore
+		// cannot create a false green background-worker state.
+		if err != nil && allowHumanSetup && errors.Is(err, core.ErrRunnerSSHAuthentication) {
+			if interactiveErr := core.RunRunnerSSHVerificationInteractive(requestHost); interactiveErr == nil {
+				response, err = fetch()
+			}
+		}
+		if err != nil && allowHumanSetup && runnerInventoryProtocolTooOld(err) {
+			// Rescan may use the already-existing verified cluster updater to bring
+			// an older runner to the current stable protocol, then retry. Merely
+			// opening Settings never mutates the runner.
 			updateCtx, updateCancel := context.WithTimeout(context.Background(), 15*time.Minute)
 			_, updateErr := core.UpdateWorkbenchRunnerSSH(updateCtx, requestHost)
 			updateCancel()
@@ -110,7 +122,10 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 		runnerProviderCache.loading = false
 		runnerProviderCache.updatedAt = time.Now()
 		if err != nil {
-			runnerProviderCache.providers = nil
+			// Preserve only a privacy-safe categorical transport reason. This
+			// deliberately does not retain stderr, account details, command output,
+			// key paths or other authentication material.
+			runnerProviderCache.providers = []core.RunnerProviderInfo{runnerConnectionProviderInfo(err)}
 			runnerProviderCache.failed = true
 		} else {
 			runnerProviderCache.providers = append([]core.RunnerProviderInfo(nil), response.Providers...)
@@ -122,6 +137,32 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 			procPostMessageW.Call(s.hwnd, wmAppRefresh, 0, 0)
 		}
 	}(host, force)
+}
+
+func runnerConnectionProviderInfo(err error) core.RunnerProviderInfo {
+	status := "SSH connection failed"
+	switch {
+	case errors.Is(err, core.ErrRunnerSSHAuthentication):
+		status = "unattended SSH authentication required · select and Connect, then Rescan"
+	case errors.Is(err, core.ErrRunnerSSHClientUnavailable):
+		status = "Windows OpenSSH client unavailable"
+	case errors.Is(err, core.ErrRunnerSSHConnectionTimeout):
+		status = "SSH connection timed out"
+	case errors.Is(err, core.ErrRunnerExecutableUnavailable):
+		status = "Workbench Runner executable unavailable on host"
+	case errors.Is(err, core.ErrRunnerSSHTransportUnavailable):
+		status = "SSH transport unavailable"
+	}
+	return core.RunnerProviderInfo{
+		ID:            core.RunnerConnectionProviderID,
+		Name:          "Runner SSH connection",
+		Capability:    "unattended Workbench Runner SSH control transport",
+		Status:        status,
+		Cost:          core.CostIncluded,
+		Installed:     true,
+		Authenticated: false,
+		Ready:         false,
+	}
 }
 
 func runnerInventoryProtocolTooOld(err error) bool {

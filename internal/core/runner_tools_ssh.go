@@ -1,12 +1,19 @@
 package core
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"os/exec"
 	"strings"
+)
+
+var (
+	ErrRunnerSSHAuthentication       = errors.New("runner unattended SSH authentication is unavailable")
+	ErrRunnerSSHClientUnavailable    = errors.New("Windows OpenSSH client is unavailable")
+	ErrRunnerSSHConnectionTimeout    = errors.New("runner SSH connection timed out")
+	ErrRunnerExecutableUnavailable   = errors.New("Workbench Runner executable is unavailable on the configured host")
+	ErrRunnerSSHTransportUnavailable = errors.New("runner SSH transport is unavailable")
 )
 
 func RunRunnerToolSSH(ctx context.Context, host string, req RunnerToolRequest) (RunnerToolResponse, error) {
@@ -18,38 +25,51 @@ func RunRunnerToolSSH(ctx context.Context, host string, req RunnerToolRequest) (
 	if err != nil {
 		return RunnerToolResponse{}, err
 	}
-	cmd := exec.CommandContext(ctx,
-		"ssh",
-		"-o", "BatchMode=yes",
-		"-o", "ConnectTimeout=10",
-		"-o", "StrictHostKeyChecking=accept-new",
-		host,
-		"$HOME/.local/bin/workbench-runner", "tool-json",
-	)
-	configureChildProcess(cmd, false)
-	cmd.Stdin = bytes.NewReader(body)
-	stdout := &limitedCapture{limit: 4 << 20}
-	stderr := &limitedCapture{limit: 64 << 10}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	runErr := cmd.Run()
-	if stdout.exceeded || stderr.exceeded {
+	stdout, stderr, truncated, runErr := runRunnerSSHCommand(ctx, host, body, "tool-json")
+	if truncated {
 		return RunnerToolResponse{}, errors.New("runner tool response exceeded Workbench limits")
 	}
 
 	var response RunnerToolResponse
-	if decodeErr := json.Unmarshal([]byte(stdout.String()), &response); decodeErr != nil {
-		return RunnerToolResponse{}, errors.New("runner tool transport returned invalid JSON")
-	}
-	if !response.OK || strings.TrimSpace(response.Error) != "" {
-		message := strings.TrimSpace(response.Error)
-		if message == "" {
-			message = "runner tool operation failed"
+	decodeErr := json.Unmarshal(stdout, &response)
+	if decodeErr == nil {
+		if !response.OK || strings.TrimSpace(response.Error) != "" {
+			message := strings.TrimSpace(response.Error)
+			if message == "" {
+				message = "runner tool operation failed"
+			}
+			return response, errors.New(message)
 		}
-		return response, errors.New(message)
+		if runErr != nil {
+			return response, classifyRunnerToolSSHFailure(combineRunnerSSHOutput(stdout, stderr), runErr, ctx.Err())
+		}
+		return response, nil
 	}
 	if runErr != nil {
-		return response, errors.New("runner tool transport is unavailable")
+		return RunnerToolResponse{}, classifyRunnerToolSSHFailure(combineRunnerSSHOutput(stdout, stderr), runErr, ctx.Err())
 	}
-	return response, nil
+	return RunnerToolResponse{}, errors.New("runner tool transport returned invalid JSON")
+}
+
+func classifyRunnerToolSSHFailure(output string, runErr, contextErr error) error {
+	if contextErr != nil {
+		return ErrRunnerSSHConnectionTimeout
+	}
+	low := strings.ToLower(strings.TrimSpace(output))
+	if runErr != nil {
+		low += " " + strings.ToLower(runErr.Error())
+	}
+	if runnerSSHAuthenticationFailure(output, runErr) {
+		return ErrRunnerSSHAuthentication
+	}
+	if errors.Is(runErr, exec.ErrNotFound) || strings.Contains(low, "executable file not found") || strings.Contains(low, "cannot find the file") {
+		return ErrRunnerSSHClientUnavailable
+	}
+	if strings.Contains(low, ".local/bin/workbench-runner") && (strings.Contains(low, "no such file") || strings.Contains(low, "not found")) {
+		return ErrRunnerExecutableUnavailable
+	}
+	if strings.Contains(low, "connection timed out") || strings.Contains(low, "connect timeout") || strings.Contains(low, "operation timed out") {
+		return ErrRunnerSSHConnectionTimeout
+	}
+	return ErrRunnerSSHTransportUnavailable
 }
