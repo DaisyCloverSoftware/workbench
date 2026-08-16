@@ -45,8 +45,11 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 	// A runner:// project deliberately has no desktop-local worktree. It may only
 	// be executed by the Workbench cluster runner, which resolves the logical
 	// reference inside its authorised runner root and creates isolation there.
+	// This is an eligibility refusal, not a provider outage, so do not mark a
+	// perfectly healthy local provider retryable/cooling merely because the
+	// project lives on another host.
 	if IsRunnerProjectReference(task.ProjectPath) && p.ID != "workbench-runner" {
-		return RunResult{Retryable: true}, errors.New("cluster project requires the configured Workbench runner")
+		return RunResult{}, errors.New("cluster project requires the configured Workbench runner")
 	}
 	// The cluster runner is itself a Workbench control plane. Isolation must be
 	// created on that host after its project path has been resolved, not on the
