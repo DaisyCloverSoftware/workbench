@@ -174,22 +174,22 @@ func tool(name, title, description string, input, output map[string]any, ann map
 }
 
 func toolsList() []map[string]any {
-	project := strProp("Absolute project/repository path. Omit to use the active Workbench workspace.")
+	project := strProp("Project/repository path or Workbench runner:// cluster reference. Omit to use the active Workbench workspace.")
 	subdir := strProp("Optional relative subdirectory within the active project.")
 	return []map[string]any{
 		tool("get_workspace", "Get Workbench workspace", "Inspect the active project, registered projects, routing policy, and available workers before deciding how to execute a development request.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("get_context", "Get compact project context", "Read the latest bounded context capsule for the active project. Use this when resuming work in a fresh conversation instead of replaying a long transcript.", objSchema(map[string]any{"project_path": project}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("search_memory", "Search Workbench memory", "Search project-scoped and global durable knowledge, including decisions, constraints, patterns, routines and reusable code. Search this before rebuilding something similar.", objSchema(map[string]any{"project_path": project, "query": strProp("Words describing the current problem or reusable thing needed"), "limit": intProp("Maximum memories to return (1-100).")}, nil), anyObjectSchema(), annotations(true, false, false)),
-		tool("list_files", "List repository files", "List model-safe source files under the active project without traversing generated trees or credential directories. Use this before delegating merely to discover the repository layout.", objSchema(map[string]any{"project_path": project, "subdir": subdir, "limit": intProp("Maximum files to return (1-1000).")}, nil), anyObjectSchema(), annotations(true, false, false)),
-		tool("search_text", "Search repository text", "Search model-safe source files for text. Binary, oversized, generated, credential-like, and probable-secret files are skipped.", objSchema(map[string]any{"project_path": project, "query": strProp("Text to find, case-insensitive"), "subdir": subdir, "limit": intProp("Maximum matching lines to return (1-200).")}, []string{"query"}), anyObjectSchema(), annotations(true, false, false)),
-		tool("read_file", "Read repository file", "Read a line range from one model-safe source file. Paths must stay inside the active project; credential files, binary files, oversized files, and files containing probable secret material are refused.", objSchema(map[string]any{"project_path": project, "path": strProp("Relative file path inside the project"), "start_line": intProp("Optional 1-based first line"), "end_line": intProp("Optional 1-based last line")}, []string{"path"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("list_files", "List repository files", "List model-safe source files under the active project without traversing generated trees or credential directories. Cluster projects use the configured Workbench runner without copying the repository to the desktop.", objSchema(map[string]any{"project_path": project, "subdir": subdir, "limit": intProp("Maximum files to return (1-1000).")}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("search_text", "Search repository text", "Search model-safe source files for text. Binary, oversized, generated, credential-like, and probable-secret files are skipped; cluster projects use the bounded runner transport.", objSchema(map[string]any{"project_path": project, "query": strProp("Text to find, case-insensitive"), "subdir": subdir, "limit": intProp("Maximum matching lines to return (1-200).")}, []string{"query"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("read_file", "Read repository file", "Read a line range from one model-safe source file. Paths stay inside the active local or cluster project; credential files, binary files, oversized files, and files containing probable secret material are refused.", objSchema(map[string]any{"project_path": project, "path": strProp("Relative file path inside the project"), "start_line": intProp("Optional 1-based first line"), "end_line": intProp("Optional 1-based last line")}, []string{"path"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("save_memory", "Save durable Workbench memory", "Save a non-secret durable fact, decision, constraint, pattern, routine or reusable code item. Scope is project or global; project memory never silently becomes global.", objSchema(map[string]any{"project_path": project, "scope": strProp("project or global"), "kind": strProp("fact, decision, constraint, pattern, routine or code"), "title": strProp("Short retrieval title"), "content": strProp("Durable reusable content"), "tags": stringArrayProp("Optional retrieval tags"), "source": strProp("Optional provenance, such as task ID, commit or conversation capsule")}, []string{"scope", "title", "content"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("save_context", "Save compact continuation context", "Save a bounded continuation capsule before chat context becomes too long. Keep only current objective, verified state, decisions, constraints, references, open threads and next action.", objSchema(map[string]any{"project_path": project, "objective": strProp("Current outcome"), "state": strProp("Concise verified state of work"), "decisions": stringArrayProp("Decisions that still matter"), "constraints": stringArrayProp("Constraints that still matter"), "references": stringArrayProp("Task, memory, branch or artefact IDs needed to continue"), "open_threads": stringArrayProp("Unresolved work/questions"), "next_action": strProp("Most useful next action")}, []string{"objective", "state"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench routes zero-marginal and included-subscription workers before scarce Work/Codex and leaves metered APIs disabled unless explicitly enabled. Workbench-owned waiting_retry and waiting_dependency states do not hold a coding worker and resume automatically.", objSchema(map[string]any{"intent": strProp("Outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("get_task", "Get task status", "Read durable task status. Check active running work at a reasonable cadence. Do not busy-poll waiting_retry or waiting_dependency: Workbench owns those waits and resumes automatically. Only surface a needs_attention question to the human.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_tasks", "List Workbench tasks", "List recent Workbench tasks and their statuses.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
-		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ordinary Chat. Prefer this no-Work path when Chat can reason out the code and Workbench only needs to provide hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
-		tool("run_safe_command", "Run safe development command", "Run a non-destructive local build, test, lint, status, or diff command under Workbench's allowlist. No deploy, push, network shell, or destructive commands.", objSchema(map[string]any{"project_path": project, "command": strProp("Safe command, e.g. git diff, npm test, go test ./...")}, []string{"command"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ordinary Chat to a local or cluster project. Prefer this no-Work path when Chat can reason out the code and Workbench only needs to provide bounded hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("run_safe_command", "Run safe development command", "Run a non-destructive build, test, lint, status, or diff command under Workbench's allowlist on the local or cluster project. No deploy, push, network shell, or destructive commands.", objSchema(map[string]any{"project_path": project, "command": strProp("Safe command, e.g. git diff, npm test, go test ./...")}, []string{"command"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("save_note", "Save project note", "Save a non-secret project note in Workbench. Secret-like text is refused and must be stored through the local encrypted vault instead.", objSchema(map[string]any{"project_path": project, "note": strProp("Note text")}, []string{"note"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("resolve_attention", "Resolve human attention request", "Resume a paused task after the human has answered a genuine Workbench decision or permission request.", objSchema(map[string]any{"task_id": strProp("Task id"), "answer": strProp("Human decision")}, []string{"task_id", "answer"}), anyObjectSchema(), annotations(false, false, false)),
 	}
@@ -339,7 +339,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		files, err := core.ListProjectFiles(project, arg(a, "subdir"), intArg(a, "limit"))
+		files, err := s.listProjectFiles(ctx, project, arg(a, "subdir"), intArg(a, "limit"))
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
@@ -350,7 +350,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		hits, err := core.SearchProjectText(project, arg(a, "query"), arg(a, "subdir"), intArg(a, "limit"))
+		hits, err := s.searchProjectText(ctx, project, arg(a, "query"), arg(a, "subdir"), intArg(a, "limit"))
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
@@ -361,7 +361,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		content, err := core.ReadProjectFile(project, arg(a, "path"), intArg(a, "start_line"), intArg(a, "end_line"))
+		content, err := s.readProjectFile(ctx, project, arg(a, "path"), intArg(a, "start_line"), intArg(a, "end_line"))
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
@@ -444,7 +444,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		out, err := core.ApplyPatch(ctx, project, arg(a, "patch"))
+		out, err := s.applyProjectPatch(ctx, project, arg(a, "patch"))
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error(), "output": out}, true)
 		}
@@ -455,7 +455,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		out, err := core.RunSafeCommand(ctx, project, arg(a, "command"))
+		out, err := s.runProjectSafeCommand(ctx, project, arg(a, "command"))
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error(), "output": out}, true)
 		}
