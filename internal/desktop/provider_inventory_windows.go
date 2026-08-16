@@ -84,7 +84,7 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 	runnerProviderCache.failed = false
 	runnerProviderCache.Unlock()
 
-	go func(requestHost string, allowHumanSetup bool) {
+	go func(requestHost string, allowVerifiedUpgrade bool) {
 		fetch := func() (core.RunnerToolResponse, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
@@ -92,17 +92,11 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 		}
 		response, err := fetch()
 
-		// Rescan is an explicit operator action. If unattended SSH authentication
-		// is the only blocker, open one fixed, human-visible runner-version SSH
-		// verification. This is suitable for first-time host/Tailscale approval.
-		// We then retry the unattended transport: password-only SSH therefore
-		// cannot create a false green background-worker state.
-		if err != nil && allowHumanSetup && errors.Is(err, core.ErrRunnerSSHAuthentication) {
-			if interactiveErr := core.RunRunnerSSHVerificationInteractive(requestHost); interactiveErr == nil {
-				response, err = fetch()
-			}
-		}
-		if err != nil && allowHumanSetup && runnerInventoryProtocolTooOld(err) {
+		// Rescan diagnoses unattended SSH but never opens a surprise interactive
+		// console. The operator explicitly selects the Runner SSH connection row
+		// and presses Connect; after completing that console flow, Rescan proves
+		// that the same background BatchMode transport now succeeds.
+		if err != nil && allowVerifiedUpgrade && runnerInventoryProtocolTooOld(err) {
 			// Rescan may use the already-existing verified cluster updater to bring
 			// an older runner to the current stable protocol, then retry. Merely
 			// opening Settings never mutates the runner.
