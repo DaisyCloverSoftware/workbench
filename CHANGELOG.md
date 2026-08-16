@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.3 — 2026-08-16
+
+- Made durable `waiting_dependency` tasks behave like real active work in the native Work page: they are auto-selected and the Cancel button remains enabled, matching the engine's existing cancellable durable-wait semantics.
+- Replaced all-or-nothing cluster-project import with a native cluster repository chooser. Add Project can now discover runner repositories and let the user choose **Add selected**, **Add all**, double-click one repository, or Cancel.
+- Kept cluster discovery, runner probing and verified runner updates off the Win32 UI thread; only the chooser/update confirmation is posted back to the owning UI thread, preserving the v0.9 thread-affinity fix.
+- Prevented overlapping Add Project discovery sessions by disabling the action until its asynchronous result returns.
+- Cluster projects still remain on the runner as `runner://<repo>` references; choosing a project never copies or mounts the repository on Windows.
+- Preserved the host-aware 0.9.2 worker model, privacy-minimal runner inventory, allowlisted runner provider login and the 32-cycle Dashboard → Settings → Work responsiveness/visibility soak.
+
 ## 0.9.2 — 2026-08-16
 
 - Made coding-worker status host-aware: Settings now distinguishes `This PC` workers from `Runner` workers instead of presenting local CLIs, the cluster control plane and the Chat bridge as one ambiguous inventory.
@@ -28,7 +37,7 @@
 - Added a coherent production dark Dashboard, Work and Settings experience backed by real Workbench state, with permanent navigation/top actions, truthful task/project/provider status and full-window Windows screenshot evidence.
 - Added the versioned structured harness job/result protocol and private runner-host adapter configuration, keeping structured harnesses separate from local OpenClaw and eliminating shell-template coding commands from the eligible worker path.
 - Added durable `waiting_retry` and `waiting_dependency` task states: transient provider cooldowns and GitHub Actions dependencies back off without holding a coding worker, survive Workbench restarts, remain cancellable, and automatically resume the original task when ready.
-- GitHub Actions dependency watches use progressive polling/backoff instead of status hammering; connected AI guidance now tells clients to do other independent work during Workbench-owned waits and never claim to be monitoring unless a durable watch exists.
+- GitHub Actions dependency watches use progressive polling/backoff instead of status hammering; connected AI guidance now tells clients to do other independent useful work during Workbench-owned waits and never claim to be monitoring unless a durable watch exists.
 - Added provider-native Claude Code session continuation while keeping provider session identifiers private and outside task transport/model-facing state.
 - Fixed the production Windows `Not Responding` failure by pinning the complete HWND create/message-pump/destroy lifetime to its owning OS thread with `runtime.LockOSThread()`.
 - Added a real Windows responsiveness/visibility gate that soaks 32 Dashboard → Settings → Work cycles with an active Git project and fails if the message pump does not answer within two seconds or hidden page HWNDs remain visible.
