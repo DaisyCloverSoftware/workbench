@@ -16,7 +16,10 @@ func TestCanonicalProjectSelectionAcceptsRunnerReference(t *testing.T) {
 }
 
 func TestRegisterRunnerProjectsDoesNotRequireLocalDirectory(t *testing.T) {
-	store := &Store{Path: filepath.Join(t.TempDir(), "state.json")}
+	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	engine, err := NewEngine(store)
 	if err != nil {
 		t.Fatal(err)
