@@ -105,12 +105,13 @@ func TestSummarizeTasks(t *testing.T) {
 		{Status: TaskQueued},
 		{Status: TaskRunning},
 		{Status: TaskWaitingRetry},
+		{Status: TaskWaitingDependency},
 		{Status: TaskNeedsAttention},
 		{Status: TaskCompleted},
 		{Status: TaskFailed},
 		{Status: TaskCancelled},
 	})
-	if s.Active != 3 || s.NeedsHuman != 1 || s.Completed != 1 || s.Failed != 1 {
+	if s.Active != 4 || s.NeedsHuman != 1 || s.Completed != 1 || s.Failed != 1 {
 		t.Fatalf("summary = %#v", s)
 	}
 }

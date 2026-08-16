@@ -12,20 +12,23 @@ import (
 // MCP and future companion surfaces cannot drift on what the user should do
 // next. Publication targets/URLs remain private policy data.
 type TaskPresentation struct {
-	StatusLabel       string                  `json:"status_label"`
-	NextAction        string                  `json:"next_action"`
-	ProviderLabel     string                  `json:"provider_label"`
-	RetryAt           *time.Time              `json:"retry_at,omitempty"`
-	ReviewBranch      string                  `json:"review_branch,omitempty"`
-	ReviewCommit      string                  `json:"review_commit,omitempty"`
-	ReviewFiles       int                     `json:"review_files,omitempty"`
-	PublicationStatus ReviewPublicationStatus `json:"publication_status,omitempty"`
-	Published         bool                    `json:"published,omitempty"`
-	PullRequestStatus ReviewPullRequestStatus `json:"pull_request_status,omitempty"`
-	PullRequestNumber int                     `json:"pull_request_number,omitempty"`
-	PullRequestState  string                  `json:"pull_request_state,omitempty"`
-	NeedsHuman        bool                    `json:"needs_human"`
-	Terminal          bool                    `json:"terminal"`
+	StatusLabel           string                  `json:"status_label"`
+	NextAction            string                  `json:"next_action"`
+	ProviderLabel         string                  `json:"provider_label"`
+	RetryAt               *time.Time              `json:"retry_at,omitempty"`
+	DependencyKind        DependencyKind          `json:"dependency_kind,omitempty"`
+	DependencyState       string                  `json:"dependency_state,omitempty"`
+	DependencyNextCheckAt *time.Time              `json:"dependency_next_check_at,omitempty"`
+	ReviewBranch          string                  `json:"review_branch,omitempty"`
+	ReviewCommit          string                  `json:"review_commit,omitempty"`
+	ReviewFiles           int                     `json:"review_files,omitempty"`
+	PublicationStatus     ReviewPublicationStatus `json:"publication_status,omitempty"`
+	Published             bool                    `json:"published,omitempty"`
+	PullRequestStatus      ReviewPullRequestStatus `json:"pull_request_status,omitempty"`
+	PullRequestNumber      int                     `json:"pull_request_number,omitempty"`
+	PullRequestState      string                  `json:"pull_request_state,omitempty"`
+	NeedsHuman             bool                    `json:"needs_human"`
+	Terminal              bool                    `json:"terminal"`
 }
 
 type TaskDashboardSummary struct {
@@ -49,6 +52,14 @@ func PresentTask(t Task) TaskPresentation {
 	if t.RetryAt != nil {
 		retryAt := t.RetryAt.UTC()
 		p.RetryAt = &retryAt
+	}
+	if dependency := t.Dependency; dependency != nil {
+		p.DependencyKind = dependency.Kind
+		p.DependencyState = dependencyStateLabel(dependency.State)
+		if !dependency.NextCheckAt.IsZero() {
+			next := dependency.NextCheckAt.UTC()
+			p.DependencyNextCheckAt = &next
+		}
 	}
 	if review := t.Review; review != nil && review.Changed {
 		p.ReviewBranch = review.Branch
@@ -85,6 +96,13 @@ func PresentTask(t Task) TaskPresentation {
 	case TaskWaitingRetry:
 		p.StatusLabel = "Waiting to retry"
 		p.NextAction = "A low-cost worker hit a temporary availability limit. Workbench will retry automatically after its cooldown; you do not need to supervise it."
+	case TaskWaitingDependency:
+		p.StatusLabel = "Waiting on dependency"
+		if p.DependencyState == "probe unavailable" {
+			p.NextAction = "Workbench cannot currently reach the dependency, so it is backing off and will keep checking automatically. No coding worker is being held open and other work can continue."
+		} else {
+			p.NextAction = "Workbench is monitoring the external dependency with progressive backoff and will resume this task automatically when it completes. No coding worker is being held open, so other work can continue."
+		}
 	case TaskNeedsAttention:
 		p.StatusLabel = "Needs you"
 		p.NeedsHuman = true
@@ -129,7 +147,7 @@ func SummarizeTasks(tasks []Task) TaskDashboardSummary {
 	var s TaskDashboardSummary
 	for _, t := range tasks {
 		switch t.Status {
-		case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry:
+		case TaskQueued, TaskRouting, TaskRunning, TaskWaitingRetry, TaskWaitingDependency:
 			s.Active++
 		case TaskNeedsAttention:
 			s.NeedsHuman++

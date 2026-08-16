@@ -14,8 +14,11 @@ Use Workbench as the execution/control-plane companion to ordinary Chat.
 - When the required change can be represented as an exact patch, call `apply_patch` rather than consuming an autonomous coding worker.
 - Use `run_safe_command` for tests, builds, linting and safe repository inspection.
 - Use `delegate_task` only when the job genuinely requires autonomous repository exploration or multi-step execution.
-- After `delegate_task`, call `get_task` yourself until the task is terminal. Do not ask the user to keep checking progress.
-- If status is `needs_attention`, present exactly the concise Workbench question to the user. After they answer, call `resolve_attention` and continue polling.
+- Never claim to be “monitoring” CI or another future condition unless a durable Workbench watch has actually been created.
+- If a GitHub Actions run is the only blocker, create a `waiting_dependency` continuation by calling `delegate_task` with this first line followed by the continuation work: `WORKBENCH_WAIT_GITHUB_ACTIONS: {"repository":"owner/repository","run_id":123456789}`. Workbench persists the watch, uses progressive backoff, survives restart and resumes automatically when the run completes.
+- While a task is `waiting_dependency` or `waiting_retry`, do not hammer `get_task`; work on other independent useful tasks and check again only when the result is needed.
+- For `queued`, `routing` or `running`, avoid status-only busy loops when useful parallel work exists. Workbench owns the durable task state.
+- If status is `needs_attention`, present exactly the concise Workbench question to the user. After they answer, call `resolve_attention` and continue the task.
 - If status is `completed`, inspect the report and continue the original task. If useful, run safe verification or review the diff before declaring success.
 - Never request raw values from the Workbench vault. Treat `vault://...` references as sensitive capabilities handled outside model context.
 
@@ -24,9 +27,10 @@ Use Workbench as the execution/control-plane companion to ordinary Chat.
 When direct Workbench write actions are unavailable but the GitHub app is connected, use the configured Workbench Git relay instead of making the human carry messages.
 
 - Create `relay/inbox/<id>.json` with `version`, a unique `id`, the repository directory name in `project`, and the requested `intent`.
-- Poll `relay/outbox/<id>.json` yourself until terminal.
-- If the outbox reports `needs_attention`, ask the human only the returned question, then write `relay/answers/<id>.json` with the same `id` and their answer and resume polling.
-- On a private relay, use `relay/control/<id>.json` for `save_memory`, `search_memory`, `save_context`, and `get_context`; poll the matching `relay/control-outbox/<id>.json` yourself. This is how a personal-plan chat persists/retrieves Workbench knowledge without pretending a read-only MCP tool is a write tool.
+- Read `relay/outbox/<id>.json` when its result is useful; do not hammer it in a tight status loop.
+- A dependency wait can use the same `WORKBENCH_WAIT_GITHUB_ACTIONS` first-line envelope inside the relay intent. Once the outbox reports `waiting_dependency`, Workbench owns the monitoring and automatic continuation.
+- If the outbox reports `needs_attention`, ask the human only the returned question, then write `relay/answers/<id>.json` with the same `id` and their answer and continue the task.
+- On a private relay, use `relay/control/<id>.json` for `save_memory`, `search_memory`, `save_context`, and `get_context`; read the matching `relay/control-outbox/<id>.json` when needed. This is how a personal-plan chat persists/retrieves Workbench knowledge without pretending a read-only MCP tool is a write tool.
 - Do not use Chat as a remote software-maintenance shell. Workbench control-plane refresh should be locally initiated or use another explicitly supported maintenance mechanism rather than requiring the human to relay commands.
 - Use a fresh control ID for each operation. Save context before a long conversation must be compacted, and restore it in the next conversation instead of replaying the transcript.
 - Search memory before implementing a recurring problem; prefer a verified saved routine or reusable code reference over creating another equivalent implementation.
@@ -34,4 +38,4 @@ When direct Workbench write actions are unavailable but the GitHub app is connec
 
 ## North-star UX
 
-The human should be able to say “implement the next Workbench task”, leave, and return to a completed result or one genuine decision request.
+The human should be able to say “implement the next Workbench task”, leave, and return to a completed result or one genuine decision request. Waiting for CI must not consume an AI worker or depend on a chat model remembering to come back.

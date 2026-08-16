@@ -11,17 +11,25 @@ type taskRetrySchedule struct {
 	RetryAt time.Time
 }
 
+type taskDependencySchedule struct {
+	TaskID  string
+	CheckAt time.Time
+}
+
 // ResumeInterruptedTasks restarts durable queued/routing/running tasks after a
 // headless Workbench instance has successfully acquired its MCP listener. Tasks
 // already waiting for a human decision and terminal tasks remain untouched.
-// Future automatic retries keep their persisted deadline and are re-armed rather
-// than being forced to run immediately after every Workbench restart.
+// Future automatic retries and external dependency watches keep their persisted
+// deadlines and are re-armed rather than being forced to run immediately after
+// every Workbench restart.
 func (e *Engine) ResumeInterruptedTasks() error {
 	e.mu.Lock()
+	now := time.Now().UTC()
 	ids := recoverInterruptedTasks(&e.state)
-	retryNow, retryLater := recoverWaitingRetryTasks(&e.state, time.Now().UTC())
+	retryNow, retryLater := recoverWaitingRetryTasks(&e.state, now)
 	ids = append(ids, retryNow...)
-	stateChanged := len(ids) > 0
+	dependencyLater, dependencyChanged := recoverWaitingDependencyTasks(&e.state, now)
+	stateChanged := len(ids) > 0 || dependencyChanged
 	st := cloneState(e.state)
 	e.mu.Unlock()
 
@@ -36,6 +44,9 @@ func (e *Engine) ResumeInterruptedTasks() error {
 	}
 	for _, retry := range retryLater {
 		go e.scheduleAutomaticRetry(retry.TaskID, retry.RetryAt)
+	}
+	for _, dependency := range dependencyLater {
+		go e.scheduleTaskDependencyCheck(dependency.TaskID, dependency.CheckAt)
 	}
 	return nil
 }
@@ -63,6 +74,7 @@ func recoverInterruptedTasks(st *State) []string {
 			t.RouteReason = ""
 			t.ConsumesWork = false
 			t.RetryAt = nil
+			t.Dependency = nil
 			t.FinishedAt = nil
 			t.UpdatedAt = now
 			ids = append(ids, t.ID)
@@ -92,10 +104,53 @@ func recoverWaitingRetryTasks(st *State, now time.Time) ([]string, []taskRetrySc
 		t.RouteReason = ""
 		t.ConsumesWork = false
 		t.RetryAt = nil
+		t.Dependency = nil
 		t.FinishedAt = nil
 		t.UpdatedAt = now
 		t.Attempts = append(t.Attempts, "Workbench restarted after the automatic retry deadline; retrying now")
 		retryNow = append(retryNow, t.ID)
 	}
 	return retryNow, retryLater
+}
+
+func recoverWaitingDependencyTasks(st *State, now time.Time) ([]taskDependencySchedule, bool) {
+	if st == nil {
+		return nil, false
+	}
+	now = now.UTC()
+	var schedules []taskDependencySchedule
+	changed := false
+	for i := range st.Tasks {
+		t := &st.Tasks[i]
+		if t.Status != TaskWaitingDependency {
+			continue
+		}
+		if t.Dependency == nil || t.Dependency.Kind == "" {
+			t.Status = TaskFailed
+			t.Error = "Workbench could not recover this task because its external dependency metadata is missing."
+			t.RouteReason = ""
+			t.ConsumesWork = false
+			t.Dependency = nil
+			t.UpdatedAt = now
+			t.FinishedAt = timePointer(now)
+			changed = true
+			continue
+		}
+		checkAt := t.Dependency.NextCheckAt.UTC()
+		if checkAt.IsZero() || !checkAt.After(now) {
+			// Give the control plane a moment to finish starting instead of firing a
+			// network/CLI dependency probe from inside startup recovery.
+			checkAt = now.Add(time.Second)
+			t.Dependency.NextCheckAt = checkAt
+			t.UpdatedAt = now
+			changed = true
+		}
+		schedules = append(schedules, taskDependencySchedule{TaskID: t.ID, CheckAt: checkAt})
+	}
+	return schedules, changed
+}
+
+func timePointer(value time.Time) *time.Time {
+	value = value.UTC()
+	return &value
 }

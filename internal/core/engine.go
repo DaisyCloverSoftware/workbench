@@ -72,6 +72,7 @@ func cloneState(s State) State {
 	for i := range x.Tasks {
 		x.Tasks[i].Attempts = append([]string(nil), s.Tasks[i].Attempts...)
 		x.Tasks[i].Review = cloneTaskReviewResult(s.Tasks[i].Review)
+		x.Tasks[i].Dependency = cloneTaskDependency(s.Tasks[i].Dependency)
 	}
 	x.Secrets = append([]SecretRef(nil), s.Secrets...)
 	return x
@@ -156,6 +157,9 @@ func (e *Engine) Delegate(origin, intent, project string) (Task, error) {
 	if strings.TrimSpace(intent) == "" {
 		return Task{}, errors.New("tell Workbench what outcome you want")
 	}
+	if task, deferred, err := e.tryDelegateDeferredDependency(origin, intent, project); deferred || err != nil {
+		return task, err
+	}
 	project, err := canonicalProjectSelection(project)
 	if err != nil {
 		return Task{}, errors.New("choose a valid project folder first")
@@ -217,6 +221,8 @@ func (e *Engine) Cancel(taskID string) error {
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskCancelled
 	e.state.Tasks[i].RetryAt = nil
+	e.state.Tasks[i].Dependency = nil
+	e.state.Tasks[i].DependencyResult = ""
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
 	st := cloneState(e.state)
@@ -233,6 +239,7 @@ func (e *Engine) Task(id string) (Task, bool) {
 		if t.ID == id {
 			t.Attempts = append([]string(nil), t.Attempts...)
 			t.Review = cloneTaskReviewResult(t.Review)
+			t.Dependency = cloneTaskDependency(t.Dependency)
 			return t, true
 		}
 	}
@@ -396,6 +403,7 @@ func (e *Engine) updateRunning(id string, p Provider) {
 	e.state.Tasks[i].ConsumesWork = p.Cost == CostScarce
 	e.state.Tasks[i].RouteReason = routeReason(p)
 	e.state.Tasks[i].RetryAt = nil
+	e.state.Tasks[i].Dependency = nil
 	e.state.Tasks[i].UpdatedAt = now
 	if e.state.Tasks[i].StartedAt == nil {
 		e.state.Tasks[i].StartedAt = &now
@@ -443,6 +451,7 @@ func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	e.state.Tasks[i].Review = cloneTaskReviewResult(res.Review)
 	e.state.Tasks[i].Error = ""
 	e.state.Tasks[i].RetryAt = nil
+	e.state.Tasks[i].Dependency = nil
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
 	st := cloneState(e.state)
@@ -462,6 +471,7 @@ func (e *Engine) finishAttention(id string, p Provider, res RunResult) {
 	e.state.Tasks[i].Output = res.Output
 	e.state.Tasks[i].AttentionQuestion = res.Attention
 	e.state.Tasks[i].RetryAt = nil
+	e.state.Tasks[i].Dependency = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	st := cloneState(e.state)
 	e.mu.Unlock()
@@ -479,6 +489,7 @@ func (e *Engine) finishFailed(id, msg string) {
 	e.state.Tasks[i].Status = TaskFailed
 	e.state.Tasks[i].Error = msg
 	e.state.Tasks[i].RetryAt = nil
+	e.state.Tasks[i].Dependency = nil
 	e.state.Tasks[i].UpdatedAt = now
 	e.state.Tasks[i].FinishedAt = &now
 	st := cloneState(e.state)

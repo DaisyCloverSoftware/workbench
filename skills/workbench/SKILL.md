@@ -35,10 +35,34 @@ Project memories must not silently become global. Promote something to global sc
 4. If you can express the change as an exact unified patch and the Workbench write tools are available, call `apply_patch` rather than delegating to a coding agent.
 5. Call `run_safe_command` for non-destructive builds, tests, linting, diffs and repository status when the tool is available.
 6. Call `delegate_task` when autonomous repository exploration or multi-step execution is genuinely useful and the connected plan permits the action. Workbench owns worker selection and protects scarce Work/Codex usage.
-7. After a useful new pattern/routine is verified, save it at the narrowest correct scope so future tasks can reuse it.
-8. Do not choose a metered API simply because it exists. Respect the workspace routing policy.
+7. When an external dependency becomes the only blocker, hand the dependency to Workbench as a durable wait instead of holding an AI worker or chat turn open. Then do other independent useful work.
+8. After a useful new pattern/routine is verified, save it at the narrowest correct scope so future tasks can reuse it.
+9. Do not choose a metered API simply because it exists. Respect the workspace routing policy.
 
 If a read/search tool refuses a file because it appears sensitive, do not ask the human to paste that file into Chat. Work with the safe context available or request only the minimum non-secret information actually required.
+
+## Durable waits and external dependencies
+
+**Never say “I’m monitoring”, “I’ll keep an eye on it”, or equivalent unless a durable Workbench watch actually exists.** A chat model promising to remember a future CI result is not monitoring.
+
+When a GitHub Actions run is the only thing preventing useful continuation, create a durable continuation task through `delegate_task`. Put this exact control envelope on the first line of `intent`, followed by the work that should resume after the run becomes terminal:
+
+```text
+WORKBENCH_WAIT_GITHUB_ACTIONS: {"repository":"owner/repository","run_id":123456789}
+Continue the original task after CI. Inspect the terminal result. If CI failed, diagnose and fix the in-scope failure autonomously; if it succeeded, continue the remaining in-scope work. Ask the human only for a genuine decision or authority boundary.
+```
+
+Use the real `owner/repository` slug and numeric GitHub Actions run ID. Do not create duplicate watches for the same project, run and continuation; Workbench deduplicates exact repeats as a second defence.
+
+A task in `waiting_dependency` is **not an occupied AI worker**. Workbench persists the locator and continuation, checks the dependency with progressive backoff, survives restart, and queues the continuation automatically when the run completes. While it waits:
+
+- do not tight-poll `get_task` or GitHub merely to ask “done yet?”;
+- do not keep a coding worker/session alive just to wait;
+- continue other independent useful work, including another project/task when appropriate;
+- check the task later only when its result is needed for the work currently being performed;
+- if Workbench reports the dependency probe unavailable, let its backoff continue unless another safe route is genuinely useful.
+
+The initial implementation supports GitHub Actions. Treat the durable-wait concept as the general rule for future deploys, renders, approvals, availability and other external dependencies as Workbench adds adapters.
 
 ## Personal ChatGPT Pro relay
 
@@ -59,11 +83,13 @@ When a Workbench write tool is unavailable because of the ChatGPT plan **and the
 }
 ```
 
-4. Poll `relay/outbox/<relay-id>.json` through the GitHub app. Do not ask the human to check progress.
-5. For `queued`, `routing`, or `running`, keep polling without progress chatter.
-6. For `completed`, consume the returned report when private report mode is configured, verify important claims when useful, and continue the original request.
-7. For `failed`, diagnose and recover automatically when another safe route exists.
-8. For `needs_attention`, present only the concise Workbench question. After the human answers, create or replace `relay/answers/<relay-id>.json`:
+4. Read `relay/outbox/<relay-id>.json` when the result is useful. Do not ask the human to check progress and do not hammer the relay in a tight loop.
+5. For `queued`, `routing`, or `running`, continue other useful work when possible and re-check later rather than blocking the whole turn on status churn.
+6. For `waiting_retry`, leave the durable retry timer to Workbench.
+7. For `waiting_dependency`, leave the durable dependency watch to Workbench; it will resume the continuation automatically.
+8. For `completed`, consume the returned report when private report mode is configured, verify important claims when useful, and continue the original request.
+9. For `failed`, diagnose and recover automatically when another safe route exists.
+10. For `needs_attention`, present only the concise Workbench question. After the human answers, create or replace `relay/answers/<relay-id>.json`:
 
 ```json
 {
@@ -73,11 +99,11 @@ When a Workbench write tool is unavailable because of the ChatGPT plan **and the
 }
 ```
 
-Then resume polling the same outbox file until terminal.
+Then continue from the same task; do not turn the human into a message bus.
 
 ### Private relay memory/control
 
-When the relay is private, use its control channel for memory and compaction whenever direct `save_memory`/`save_context` MCP actions are unavailable. Create one unique request at `relay/control/<control-id>.json`, then poll `relay/control-outbox/<control-id>.json` yourself. Supported actions are `save_memory`, `search_memory`, `save_context`, and `get_context`.
+When the relay is private, use its control channel for memory and compaction whenever direct `save_memory`/`save_context` MCP actions are unavailable. Create one unique request at `relay/control/<control-id>.json`, then read `relay/control-outbox/<control-id>.json` when needed. Supported actions are `save_memory`, `search_memory`, `save_context`, and `get_context`.
 
 Use `save_context` before a long conversation loses useful state, then use `get_context` in a fresh conversation rather than asking the human to recap it. Use `search_memory` before rebuilding similar logic. Save verified reusable routines/code with `save_memory` at project scope unless they are genuinely cross-project, in which case global scope is explicit.
 
@@ -89,12 +115,14 @@ A **public** relay repository is only for non-sensitive dogfood tasks and publis
 
 ## Delegated tasks
 
-After `delegate_task`, or after submitting through the Git relay, keep working. Poll the relevant status mechanism yourself until the task reaches a terminal state.
+After `delegate_task`, Workbench owns the durable task state. Do not ask the human to watch it and do not waste the rest of the turn on a status-only polling loop when useful work remains.
 
-- `queued`, `routing`, `running`: keep polling. Do not ask the user to check it.
+- `queued`, `routing`, `running`: check when needed; continue other safe independent work between checks instead of hammering status.
+- `waiting_retry`: Workbench’s persisted retry timer owns the wait. Do not poll-loop it.
+- `waiting_dependency`: Workbench’s persisted dependency watch owns the wait and will queue the continuation automatically. Do not poll-loop it.
 - `completed`: inspect the report, verify important claims with safe tools when useful, then continue the original task. Save genuinely reusable discoveries as memory/routines.
 - `failed`: diagnose the report and recover automatically when another safe approach exists.
-- `needs_attention`: this is the only normal reason to interrupt the human. Present the concise Workbench question without progress chatter. After the human answers, use `resolve_attention` when available or the relay answer envelope on personal-plan transport, then continue polling.
+- `needs_attention`: this is the only normal reason to interrupt the human. Present the concise Workbench question without progress chatter. After the human answers, use `resolve_attention` when available or the relay answer envelope on personal-plan transport, then continue the task.
 
 A provider's local login, permission-mode, tool-denial, quota or setup problem is not by itself a human decision. Workbench should route around eligible worker failures where possible.
 
@@ -110,4 +138,4 @@ Never ask Workbench to reveal raw vault values to the model. Treat vault referen
 
 ## North-star experience
 
-The human should be able to say **“Implement the next Workbench task”**, leave, and return to either a completed verified result or one concise decision that genuinely required them — even if the original chat has long since been compacted or replaced.
+The human should be able to say **“Implement the next Workbench task”**, leave, and return to either a completed verified result or one concise decision that genuinely required them — even if the original chat has long since been compacted or replaced. External waits must not strand the task or reserve an AI that could be doing something else.
