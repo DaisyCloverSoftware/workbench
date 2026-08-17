@@ -62,12 +62,13 @@ func releaseProductionControlSurfaces() {
 func (s *Shell) applyProductionControlTheme() {
 	labels := map[int]string{
 		idProjectsLabel:    "Projects",
-		idTasksLabel:       "Tasks",
+		idIntentLabel:      "Autonomous delegation — use when ChatGPT decides a worker is needed",
+		idTasksLabel:       "Delegated tasks",
 		idReportLabel:      "Result & activity",
 		idNotesLabel:       "Project context",
 		idAttentionLabel:   "Human decision — only answer when Workbench genuinely needs you",
 		idProvidersLabel:   "Chat-first routing · primary brain + autonomous workers",
-		idMCPLabel:         "Chat & MCP bridge",
+		idMCPLabel:         "Primary ChatGPT & MCP bridge",
 		idRunnerLabel:      "Workbench Runner SSH host",
 		idHarnessLabel:     "Structured harness adapter executable",
 		idNotifyLabel:      "Human-interrupt command · {message}",
