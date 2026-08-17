@@ -69,6 +69,7 @@ relay/control-outbox/<control-id>.json
 
 Each control ID is one-shot and idempotent. For ordinary development, prefer these actions before creating an autonomous task:
 
+- `list_projects` — discover repository roots beneath the configured runner root without exposing arbitrary directories; this action takes no project;
 - `list_files` — bounded model-safe repository file listing;
 - `search_text` — bounded search over model-safe source files;
 - `read_file` — bounded line-range read from a model-safe source file;
@@ -78,7 +79,18 @@ Each control ID is one-shot and idempotent. For ordinary development, prefer the
 
 The private control channel also supports `save_memory`, `search_memory`, `save_context`, and `get_context` for durable knowledge and conversation compaction. A fixed `update_workbench` action exists for intentional Workbench maintenance; it accepts no arbitrary command or remote URL.
 
-The relay validates the JSON shape, resolves project names beneath `WORKBENCH_RUNNER_ROOT`, calls the normal authenticated local MCP tools, caps results, and withholds any result that resembles secret material. `run_safe_command` is not a generic shell escape and `apply_patch` does not grant Git push/deploy authority.
+The relay validates the JSON shape, resolves project names beneath `WORKBENCH_RUNNER_ROOT`, canonicalises safe-hands project paths so a symlink cannot escape or alias a differently named repository, calls the normal authenticated local MCP tools, caps results, and withholds any result that resembles secret material. `run_safe_command` is not a generic shell escape and `apply_patch` does not grant Git push/deploy authority.
+
+Example project discovery request:
+
+```json
+{
+  "version": 1,
+  "id": "projects_20260817_a1b2c3",
+  "action": "list_projects",
+  "args": {}
+}
+```
 
 Example safe test request:
 
