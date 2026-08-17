@@ -38,8 +38,9 @@ type privateControlOutbox struct {
 
 // syncPrivateControl exposes a small, private-only control surface over the Git
 // relay. It exists for personal ChatGPT plans where GitHub writes are supported
-// but custom MCP write tools are not: a lead chat can persist/retrieve Workbench
-// memory and context without turning the human into a clipboard.
+// but custom MCP write tools are not: a lead chat can use Workbench memory,
+// compact context and bounded safe repository eyes/hands without turning the
+// human into a clipboard or consuming an autonomous coding worker.
 func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, authFile string) error {
 	paths, err := relayPaths(repo, ref, "relay/control")
 	if err != nil {
@@ -100,10 +101,12 @@ func decodePrivateControl(raw []byte, idFromPath string) (privateControlEnvelope
 	if env.Version != 1 || env.ID != idFromPath || !validRelayID(env.ID) {
 		return env, errors.New("private control id/version mismatch")
 	}
-	switch env.Action {
-	case "save_memory", "search_memory", "save_context", "get_context", "update_workbench":
-	default:
-		return env, fmt.Errorf("unsupported private control action %q", env.Action)
+	if !isPrivateSafeHandsAction(env.Action) {
+		switch env.Action {
+		case "save_memory", "search_memory", "save_context", "get_context", "update_workbench":
+		default:
+			return env, fmt.Errorf("unsupported private control action %q", env.Action)
+		}
 	}
 	if len(env.Args) == 0 {
 		env.Args = json.RawMessage(`{}`)
@@ -119,6 +122,10 @@ func executePrivateControl(ctx context.Context, env privateControlEnvelope, mcpU
 }
 
 func executePrivateControlForRepo(ctx context.Context, env privateControlEnvelope, relayRepo, mcpURL, authFile string) (map[string]any, error) {
+	if isPrivateSafeHandsAction(env.Action) {
+		return executePrivateSafeHands(ctx, env, mcpURL, authFile)
+	}
+
 	switch env.Action {
 	case "save_memory":
 		var a struct {
