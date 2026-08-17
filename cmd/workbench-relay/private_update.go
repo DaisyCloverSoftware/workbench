@@ -167,15 +167,22 @@ func validPrivateUpdateState(state string) bool {
 }
 
 func privateUpdateSourceDir() (string, error) {
+	// An explicit operator override wins. Otherwise, once the non-destructive
+	// maintenance checkout exists, use its fixed helper for all future updates;
+	// the developer checkout may intentionally remain dirty or on another branch.
 	if configured := strings.TrimSpace(os.Getenv("WORKBENCH_SOURCE_DIR")); configured != "" {
 		return filepath.Abs(configured)
-	}
-	if root := strings.TrimSpace(os.Getenv("WORKBENCH_RUNNER_ROOT")); root != "" {
-		return filepath.Abs(filepath.Join(root, "workbench"))
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
+	}
+	maintenance := filepath.Join(home, ".local", "share", "workbench", "update-source")
+	if st, statErr := os.Stat(filepath.Join(maintenance, "scripts", "run-private-update.sh")); statErr == nil && !st.IsDir() {
+		return maintenance, nil
+	}
+	if root := strings.TrimSpace(os.Getenv("WORKBENCH_RUNNER_ROOT")); root != "" {
+		return filepath.Abs(filepath.Join(root, "workbench"))
 	}
 	return filepath.Join(home, "src", "workbench"), nil
 }
