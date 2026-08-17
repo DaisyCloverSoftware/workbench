@@ -70,6 +70,7 @@ type Task struct {
 	Intent             string            `json:"intent"`
 	ProjectPath        string            `json:"project_path"`
 	Status             TaskStatus        `json:"status"`
+	Archived           bool              `json:"archived,omitempty"`
 	ProviderID         string            `json:"provider_id,omitempty"`
 	CloudModelOverride string            `json:"cloud_model_override,omitempty"`
 	RouteReason        string            `json:"route_reason,omitempty"`
