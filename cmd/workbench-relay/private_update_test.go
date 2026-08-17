@@ -11,9 +11,12 @@ import (
 )
 
 func TestPrivateUpdateSourceDirUsesConfiguredRoot(t *testing.T) {
+	home := t.TempDir()
 	root := t.TempDir()
 	t.Setenv("WORKBENCH_SOURCE_DIR", "")
 	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	got, err := privateUpdateSourceDir()
 	if err != nil {
 		t.Fatal(err)
