@@ -151,6 +151,31 @@ func TestRunnerRootsDefaultToSrcAndProjectsWhenPresent(t *testing.T) {
 	}
 }
 
+func TestRunnerRootSpecsKeepProjectsAsSlotTwoWhenSrcIsMissing(t *testing.T) {
+	home := t.TempDir()
+	projects := filepath.Join(home, "projects")
+	if err := os.MkdirAll(projects, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WORKBENCH_RUNNER_ROOT", "")
+	t.Setenv("WORKBENCH_RUNNER_ROOTS", "")
+	t.Setenv("HOME", home)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", home)
+	}
+
+	specs, err := runnerRootSpecs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("specs=%+v want one existing default root", specs)
+	}
+	if specs[0].Number != 2 || filepath.Clean(specs[0].Path) != filepath.Clean(projects) {
+		t.Fatalf("spec=%+v want stable slot 2 for %q", specs[0], projects)
+	}
+}
+
 func TestWithinRoot(t *testing.T) {
 	root := t.TempDir()
 	inside := filepath.Join(root, "repo")
