@@ -70,7 +70,7 @@ func TestScopedRunnerProjectsRemainDistinctInRegistry(t *testing.T) {
 }
 
 func TestRegisterRunnerProjectsAcceptsScopedRefs(t *testing.T) {
-	store, err := NewStoreAt(t.TempDir())
+	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
