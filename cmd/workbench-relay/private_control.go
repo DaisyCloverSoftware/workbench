@@ -51,6 +51,13 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 	if current, readErr := readRefFile(repo, ref, privateChatGuidePath, 128<<10); readErr != nil || !bytes.Equal(current, privateChatGuide) {
 		files[privateChatGuidePath] = append([]byte(nil), privateChatGuide...)
 	}
+	capabilities, err := privateChatCapabilitiesJSON()
+	if err != nil {
+		return err
+	}
+	if current, readErr := readRefFile(repo, ref, privateChatCapabilitiesPath, 128<<10); readErr != nil || !bytes.Equal(current, capabilities) {
+		files[privateChatCapabilitiesPath] = capabilities
+	}
 	for _, path := range paths {
 		id := strings.TrimSuffix(filepath.Base(path), ".json")
 		if !validRelayID(id) {

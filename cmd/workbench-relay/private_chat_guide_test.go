@@ -21,6 +21,7 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"Codex/Work remains a last resort",
 		"workbench-relay",
 		"repository search",
+		"WORKBENCH_CAPABILITIES.json",
 		"WORKBENCH_CHATGPT.md",
 	} {
 		if !strings.Contains(guide, want) {
