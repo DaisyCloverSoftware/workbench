@@ -13,15 +13,15 @@ func TestPrivateControlOutboxRedactsImplicitRunnerHostPaths(t *testing.T) {
 		Action:  "read_file",
 		Status:  "completed",
 		Result: map[string]any{
-			"project_path": "/home/operator/projects/garage",
+			"project_path": "/srv/workbench/projects/garage",
 			"path":         "README.md",
 			"content":      "keep this relative file result",
 			"capsule": map[string]any{
-				"project": "/home/operator/projects/garage",
+				"project": "/srv/workbench/projects/garage",
 				"state":   "keep this context",
 			},
 			"memory": map[string]any{
-				"project": `C:\\Users\\operator\\src\\garage`,
+				"project": `C:\\workbench\\projects\\garage`,
 				"content": "keep this memory",
 			},
 			"project": "runner://garage",
@@ -33,7 +33,7 @@ func TestPrivateControlOutboxRedactsImplicitRunnerHostPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(b)
-	for _, forbidden := range []string{"/home/operator/projects/garage", `C:\\Users\\operator\\src\\garage`, `"project_path"`} {
+	for _, forbidden := range []string{"/srv/workbench/projects/garage", `C:\\workbench\\projects\\garage`, `"project_path"`} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("private control result leaked host path metadata %q: %s", forbidden, text)
 		}
@@ -46,7 +46,7 @@ func TestPrivateControlOutboxRedactsImplicitRunnerHostPaths(t *testing.T) {
 }
 
 func TestLooksLikeAbsoluteHostPathIsCrossPlatform(t *testing.T) {
-	for _, value := range []string{"/home/operator/src/repo", `C:\\Users\\operator\\src\\repo`, `D:/work/repo`, `\\\\server\\share\\repo`} {
+	for _, value := range []string{"/srv/workbench/projects/repo", `C:\\workbench\\projects\\repo`, `D:/work/repo`, `\\\\server\\share\\repo`} {
 		if !looksLikeAbsoluteHostPath(value) {
 			t.Fatalf("expected absolute host path %q", value)
 		}
