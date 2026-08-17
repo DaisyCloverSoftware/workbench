@@ -68,7 +68,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 	st := eng.State()
 	providers := eng.Providers()
 	projects := eng.Projects()
-	allTasks := append([]core.Task(nil), st.Tasks...)
+	allTasks := visibleTaskHistory(st.Tasks, false)
 
 	snapshot := DashboardSnapshot{
 		GeneratedAt:      now,
@@ -132,7 +132,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 			Name:    project.Name,
 			Path:    project.Path,
 			Pinned:  project.Pinned,
-			Summary: core.SummarizeTasks(eng.TasksForProject(project.ID)),
+			Summary: core.SummarizeTasks(visibleTaskHistory(eng.TasksForProject(project.ID), false)),
 		})
 	}
 
