@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -24,7 +25,7 @@ func privateSafeHandsFixture(t *testing.T) (root, project string) {
 }
 
 func TestPrivateSafeHandsActionBoundary(t *testing.T) {
-	for _, action := range []string{"list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
+	for _, action := range []string{"list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
 		if !isPrivateSafeHandsAction(action) {
 			t.Fatalf("expected %q to be a private safe-hands action", action)
 		}
@@ -33,6 +34,42 @@ func TestPrivateSafeHandsActionBoundary(t *testing.T) {
 		if isPrivateSafeHandsAction(action) {
 			t.Fatalf("%q must not cross the safe-hands boundary", action)
 		}
+	}
+}
+
+func TestPrivateSafeHandsListsOnlyRunnerRepositoryRoots(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
+	repo := filepath.Join(root, "sample")
+	if err := os.Mkdir(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "init", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, out)
+	}
+	if err := os.Mkdir(filepath.Join(root, "not-a-repo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "list_projects",
+		Args:    json.RawMessage(`{}`),
+	}, "http://127.0.0.1:1", "unused")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["count"] != 1 {
+		t.Fatalf("unexpected project count/result: %#v", result)
+	}
+	b, err := json.Marshal(result["projects"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(b)
+	if !strings.Contains(text, `"name":"sample"`) || strings.Contains(text, "not-a-repo") {
+		t.Fatalf("private project discovery leaked non-repository entries: %s", text)
 	}
 }
 
