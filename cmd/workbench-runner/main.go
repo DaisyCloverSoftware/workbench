@@ -137,7 +137,7 @@ func cloudModelSet() {
 func openClawAgent() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	code := core.RunOpenClawCloudAgentCLI(ctx, os.Args[2:], os.Stdout, os.Stderr)
+	code := core.RunOpenClawCloudAgentCLIWithTaskOverride(ctx, os.Args[2:], os.Stdout, os.Stderr)
 	if code != 0 {
 		os.Exit(code)
 	}
