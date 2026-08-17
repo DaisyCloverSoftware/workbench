@@ -36,11 +36,12 @@ func RunRunnerSSHVerificationInteractive(host string) error {
 	return runRunnerSSHConsole(host, []string{"$HOME/.local/bin/workbench-runner", "version"})
 }
 
-// StartRunnerProviderLogin opens one human-visible SSH session to a configured
-// runner and invokes only a fixed Workbench Runner operator action. Ordinary
-// provider ids use the allowlisted provider-login operation. Synthetic cloud
-// model rows may only invoke the validated cloud-model-set operation; arbitrary
-// remote command text is never accepted and neither path is exposed through MCP.
+// StartRunnerProviderLogin opens one human-visible operator flow for a configured
+// runner. The synthetic connection row prepares one-time unattended SSH key
+// enrollment; ordinary provider ids use the allowlisted provider-login operation.
+// Synthetic cloud model rows may only invoke the validated cloud-model-set
+// operation; arbitrary remote command text is never accepted and no path is
+// exposed through MCP.
 func StartRunnerProviderLogin(host, providerID string) error {
 	host, err := validateSSHHostTarget(host)
 	if err != nil {
@@ -48,7 +49,7 @@ func StartRunnerProviderLogin(host, providerID string) error {
 	}
 	providerID = strings.TrimSpace(providerID)
 	if providerID == RunnerConnectionProviderID {
-		return startRunnerSSHConsole(host, []string{"$HOME/.local/bin/workbench-runner", "version"})
+		return startRunnerSSHEnrollment(host)
 	}
 	if model, ok := RunnerCloudModelRefFromProviderID(providerID); ok {
 		return startRunnerSSHConsole(host, []string{"$HOME/.local/bin/workbench-runner", "cloud-model-set", model})
