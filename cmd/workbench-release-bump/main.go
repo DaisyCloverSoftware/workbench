@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -60,7 +61,7 @@ func loadReleaseRequest(path string) (releaseRequest, error) {
 		return req, fmt.Errorf("invalid release request: %w", err)
 	}
 	var trailing any
-	if err := dec.Decode(&trailing); err == nil {
+	if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return req, errors.New("release request must contain exactly one JSON object")
 	}
 	return req, validateRequest(req)
