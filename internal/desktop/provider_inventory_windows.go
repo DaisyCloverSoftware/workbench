@@ -20,23 +20,34 @@ var loadedSettingsRunnerProviderGeneration uint64
 
 var runnerProviderCache = struct {
 	sync.RWMutex
-	host      string
-	providers []core.RunnerProviderInfo
-	loading   bool
-	failed    bool
-	updatedAt time.Time
+	host       string
+	providers  []core.RunnerProviderInfo
+	chatBridge *core.RunnerChatBridgeInfo
+	loading    bool
+	failed     bool
+	updatedAt  time.Time
 }{}
 
 type runnerProviderCacheView struct {
-	Providers []core.RunnerProviderInfo
-	Loading   bool
-	Failed    bool
+	Providers  []core.RunnerProviderInfo
+	ChatBridge *core.RunnerChatBridgeInfo
+	Loading    bool
+	Failed     bool
+}
+
+func cloneRunnerChatBridgeInfo(info *core.RunnerChatBridgeInfo) *core.RunnerChatBridgeInfo {
+	if info == nil {
+		return nil
+	}
+	copy := *info
+	return &copy
 }
 
 func resetRunnerProviderInventory() {
 	runnerProviderCache.Lock()
 	runnerProviderCache.host = ""
 	runnerProviderCache.providers = nil
+	runnerProviderCache.chatBridge = nil
 	runnerProviderCache.loading = false
 	runnerProviderCache.failed = false
 	runnerProviderCache.updatedAt = time.Time{}
@@ -52,10 +63,17 @@ func runnerProviderInventory(host string) runnerProviderCacheView {
 		return runnerProviderCacheView{}
 	}
 	return runnerProviderCacheView{
-		Providers: append([]core.RunnerProviderInfo(nil), runnerProviderCache.providers...),
-		Loading:   runnerProviderCache.loading,
-		Failed:    runnerProviderCache.failed,
+		Providers:  append([]core.RunnerProviderInfo(nil), runnerProviderCache.providers...),
+		ChatBridge: cloneRunnerChatBridgeInfo(runnerProviderCache.chatBridge),
+		Loading:    runnerProviderCache.loading,
+		Failed:     runnerProviderCache.failed,
 	}
+}
+
+func currentRunnerChatBridge() *core.RunnerChatBridgeInfo {
+	runnerProviderCache.RLock()
+	defer runnerProviderCache.RUnlock()
+	return cloneRunnerChatBridgeInfo(runnerProviderCache.chatBridge)
 }
 
 func (s *Shell) ensureRunnerProviderInventory(force bool) {
@@ -68,6 +86,7 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 	if runnerProviderCache.host != host {
 		runnerProviderCache.host = host
 		runnerProviderCache.providers = nil
+		runnerProviderCache.chatBridge = nil
 		runnerProviderCache.loading = false
 		runnerProviderCache.failed = false
 		runnerProviderCache.updatedAt = time.Time{}
@@ -120,9 +139,11 @@ func (s *Shell) ensureRunnerProviderInventory(force bool) {
 			// deliberately does not retain stderr, account details, command output,
 			// key paths or other authentication material.
 			runnerProviderCache.providers = []core.RunnerProviderInfo{runnerConnectionProviderInfo(err)}
+			runnerProviderCache.chatBridge = nil
 			runnerProviderCache.failed = true
 		} else {
 			runnerProviderCache.providers = append([]core.RunnerProviderInfo(nil), response.Providers...)
+			runnerProviderCache.chatBridge = cloneRunnerChatBridgeInfo(response.ChatBridge)
 			runnerProviderCache.failed = false
 		}
 		runnerProviderCache.Unlock()
