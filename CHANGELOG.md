@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.8 — 2026-08-18
+
+- Redact implicit runner host filesystem paths from private ChatGPT control results while preserving opaque project refs and useful source, memory and context output.
+- Publish WORKBENCH_CAPABILITIES.json beside the private relay guide so fresh ChatGPT conversations can discover the current Workbench protocol deterministically.
+- Keep the human-readable ChatGPT bootstrap aligned with machine-readable capabilities and exact multi-root runner project references.
+- Pin Workbench GitHub Actions to immutable commit SHAs and enforce that supply-chain contract in repository tests.
+- Retain the 0.9.7 multi-root cluster project discovery path across conventional src and projects roots with fail-closed duplicate-name scoping.
+
 ## 0.9.7 — 2026-08-17
 
 - Expanded cluster repository discovery and execution across multiple authorised runner roots while preserving legacy WORKBENCH_RUNNER_ROOT and adding WORKBENCH_RUNNER_ROOTS for explicit multi-root hosts.
