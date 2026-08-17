@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.9 — 2026-08-18
+
+- Add a one-click Copy ChatGPT bootstrap action to production Settings so fresh conversations can discover and use the private Workbench relay without the user reconstructing setup instructions.
+- Keep the ChatGPT bootstrap credential-free and separate from Copy MCP connection, whose clipboard payload can contain a local bearer credential.
+- Tell fresh ChatGPT conversations to read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md, keep ChatGPT as the primary brain/coder, prefer safe hands, protect scarce Codex/Work and leave metered fallback opt-in.
+- Emit literal <id> relay protocol paths in WORKBENCH_CAPABILITIES.json instead of JSON HTML escapes while preserving valid machine-readable JSON.
+- Verify the production Settings control is created, owner-drawn, page-scoped and wired to the safe bootstrap clipboard action.
+
 ## 0.9.8 — 2026-08-18
 
 - Redact implicit runner host filesystem paths from private ChatGPT control results while preserving opaque project refs and useful source, memory and context output.
