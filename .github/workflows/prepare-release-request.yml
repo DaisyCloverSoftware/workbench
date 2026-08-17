@@ -1,0 +1,60 @@
+name: prepare-release-request
+
+on:
+  push:
+    branches:
+      - 'release-request/**'
+    paths:
+      - '.workbench-release.json'
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Validate release request branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(python3 - <<'PY'
+          import json
+          with open('.workbench-release.json', 'r', encoding='utf-8') as f:
+              print(json.load(f)['version'])
+          PY
+          )"
+          expected="release-request/v${version}"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "Release request version $version must be pushed on $expected, not $GITHUB_REF_NAME." >&2
+            exit 1
+          fi
+          printf 'WORKBENCH_REQUEST_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+      - name: Prepare coordinated version bump
+        run: go run ./cmd/workbench-release-bump .workbench-release.json
+      - name: Remove one-shot request
+        shell: bash
+        run: rm .workbench-release.json
+      - name: Verify release checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          go test ./...
+      - name: Commit prepared release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Workbench Release Automation'
+          git config user.email 'workbench-release@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && { echo 'No release changes were produced.' >&2; exit 1; }
+          git commit -m "release: Workbench ${WORKBENCH_REQUEST_VERSION}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
