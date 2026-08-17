@@ -187,7 +187,6 @@ Type=simple
 ExecStart=$bin_dir/workbench-relay --repo-dir=$relay_repo --remote=$relay_remote --branch=$relay_branch --interval=$relay_interval --mcp-url=$mcp_url --auth-file=$auth_file --result-mode=$result_mode --public-transport=$public_transport
 Restart=always
 RestartSec=3
-Environment=WORKBENCH_RUNNER_ROOT=$HOME/src
 
 [Install]
 WantedBy=default.target
