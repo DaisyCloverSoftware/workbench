@@ -30,7 +30,7 @@ func TestProductionDesktopStartsInRealDashboardShell(t *testing.T) {
 		t.Fatal(err)
 	}
 	dashboardText := string(dashboard)
-	for _, want := range []string{"Recent activity", "Active tasks", "System status", "Provider health", "BuildDashboardSnapshot(s.eng)", "Review & Publish"} {
+	for _, want := range []string{"Recent activity", "Active tasks", "System status", "ChatGPT brain", "Autonomous worker health", "BuildDashboardSnapshot(s.eng)", "+ Delegate Task", "Review & Publish"} {
 		if !strings.Contains(dashboardText, want) {
 			t.Fatalf("production dashboard contract missing %q", want)
 		}

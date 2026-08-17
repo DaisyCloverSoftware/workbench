@@ -45,14 +45,15 @@ type RunnerProviderInfo struct {
 }
 
 type RunnerToolResponse struct {
-	OK        bool                 `json:"ok"`
-	Projects  []RunnerProjectInfo  `json:"projects,omitempty"`
-	Providers []RunnerProviderInfo `json:"providers,omitempty"`
-	Files     []string             `json:"files,omitempty"`
-	Hits      []SearchHit          `json:"hits,omitempty"`
-	Content   string               `json:"content,omitempty"`
-	Output    string               `json:"output,omitempty"`
-	Error     string               `json:"error,omitempty"`
+	OK         bool                  `json:"ok"`
+	Projects   []RunnerProjectInfo   `json:"projects,omitempty"`
+	Providers  []RunnerProviderInfo  `json:"providers,omitempty"`
+	ChatBridge *RunnerChatBridgeInfo `json:"chat_bridge,omitempty"`
+	Files      []string              `json:"files,omitempty"`
+	Hits       []SearchHit           `json:"hits,omitempty"`
+	Content    string                `json:"content,omitempty"`
+	Output     string                `json:"output,omitempty"`
+	Error      string                `json:"error,omitempty"`
 }
 
 func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerToolResponse, error) {
@@ -82,7 +83,7 @@ func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerT
 				}
 			}
 		}
-		return RunnerToolResponse{OK: true, Providers: safe}, nil
+		return RunnerToolResponse{OK: true, Providers: safe, ChatBridge: DetectRunnerChatBridge(ctx)}, nil
 	}
 
 	if strings.TrimSpace(req.Project) == "" {
