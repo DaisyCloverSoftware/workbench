@@ -86,6 +86,7 @@ func (s *Shell) applyProductionControlTheme() {
 			if hwnd != 0 {
 				procSendMessageW.Call(hwnd, wmSetFont, productionUIFont, 1)
 			}
+		}
 	}
 
 	for _, id := range productionFieldControlIDs() {
