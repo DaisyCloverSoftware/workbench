@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 )
 
@@ -19,8 +20,33 @@ func isPrivateSafeHandsAction(action string) bool {
 	}
 }
 
+// resolvePrivateSafeHandsProject adds a canonical-filesystem boundary on top of
+// the relay's existing single-directory-name validation. Safe hands can read or
+// modify source, so a symlink beneath WORKBENCH_RUNNER_ROOT must not be able to
+// redirect a project outside that root (or alias a differently named project).
+func resolvePrivateSafeHandsProject(name string) (string, error) {
+	project, err := resolveProject(name)
+	if err != nil {
+		return "", err
+	}
+	root, err := filepath.EvalSymlinks(filepath.Dir(project))
+	if err != nil {
+		return "", errors.New("safe-hands runner root could not be canonicalised")
+	}
+	resolved, err := filepath.EvalSymlinks(project)
+	if err != nil {
+		return "", errors.New("safe-hands project could not be canonicalised")
+	}
+	root = filepath.Clean(root)
+	resolved = filepath.Clean(resolved)
+	if filepath.Dir(resolved) != root || filepath.Base(resolved) != filepath.Base(project) {
+		return "", errors.New("safe-hands project resolves outside its authorised runner-root directory")
+	}
+	return resolved, nil
+}
+
 func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mcpURL, authFile string) (map[string]any, error) {
-	project, err := resolveProject(env.Project)
+	project, err := resolvePrivateSafeHandsProject(env.Project)
 	if err != nil {
 		return nil, err
 	}
