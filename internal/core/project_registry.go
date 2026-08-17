@@ -122,12 +122,8 @@ func normalizeProjectPath(path string) string {
 		return ""
 	}
 	if strings.HasPrefix(strings.ToLower(path), RunnerProjectPrefix) {
-		name, ok := RunnerProjectName(path)
+		ref, ok := NormalizeRunnerProjectReference(path)
 		if !ok {
-			return ""
-		}
-		ref, err := RunnerProjectReference(name)
-		if err != nil {
 			return ""
 		}
 		return ref
@@ -266,11 +262,11 @@ func upsertProjectLocked(st *State, path string, touch bool) (Project, error) {
 func canonicalProjectSelection(path string) (string, error) {
 	raw := strings.TrimSpace(path)
 	if strings.HasPrefix(strings.ToLower(raw), RunnerProjectPrefix) {
-		name, ok := RunnerProjectName(raw)
+		ref, ok := NormalizeRunnerProjectReference(raw)
 		if !ok {
 			return "", errors.New("invalid runner project reference")
 		}
-		return RunnerProjectReference(name)
+		return ref, nil
 	}
 	path = normalizeProjectPath(raw)
 	if path == "" {
