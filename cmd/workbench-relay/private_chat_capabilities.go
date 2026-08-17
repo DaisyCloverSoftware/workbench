@@ -1,21 +1,24 @@
 package main
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 const privateChatCapabilitiesPath = "WORKBENCH_CAPABILITIES.json"
 
 type privateChatCapabilities struct {
-	Protocol         int      `json:"protocol"`
-	WorkbenchVersion string   `json:"workbench_version"`
-	Transport        string   `json:"transport"`
-	PrimaryBrain     string   `json:"primary_brain"`
-	ControlRequest   string   `json:"control_request"`
-	ControlResult    string   `json:"control_result"`
-	ControlActions   []string `json:"control_actions"`
-	AutonomousRequest string  `json:"autonomous_request"`
-	AutonomousResult string   `json:"autonomous_result"`
-	AttentionAnswer  string   `json:"attention_answer"`
-	ProjectReference string   `json:"project_reference"`
+	Protocol          int      `json:"protocol"`
+	WorkbenchVersion  string   `json:"workbench_version"`
+	Transport         string   `json:"transport"`
+	PrimaryBrain      string   `json:"primary_brain"`
+	ControlRequest    string   `json:"control_request"`
+	ControlResult     string   `json:"control_result"`
+	ControlActions    []string `json:"control_actions"`
+	AutonomousRequest string   `json:"autonomous_request"`
+	AutonomousResult  string   `json:"autonomous_result"`
+	AttentionAnswer   string   `json:"attention_answer"`
+	ProjectReference  string   `json:"project_reference"`
 }
 
 func privateChatCapabilitiesJSON() ([]byte, error) {
@@ -46,9 +49,12 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		AttentionAnswer:   "relay/answers/<id>.json",
 		ProjectReference:  "Use the exact opaque ref returned by list_projects; do not infer a runner filesystem path.",
 	}
-	b, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(manifest); err != nil {
 		return nil, err
 	}
-	return append(b, '\n'), nil
+	return buf.Bytes(), nil
 }

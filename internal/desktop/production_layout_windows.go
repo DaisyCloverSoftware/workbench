@@ -144,6 +144,12 @@ func (s *Shell) layoutProductionSettings(x, y, width, height int) {
 	moveWindow(s.controls[idMCPLabel], x+4, top+272, left-8, 20)
 	moveWindow(s.controls[idMCPStatus], x+4, top+296, left-8, 56)
 	moveWindow(s.controls[idCopyMCP], x+4, top+360, 174, 32)
+	bootstrapX := x + 186
+	bootstrapW := left - 190
+	if bootstrapW < 190 {
+		bootstrapW = 190
+	}
+	moveWindow(s.controls[idCopyChatGPTBootstrap], bootstrapX, top+360, bootstrapW, 32)
 	moveWindow(s.controls[idRunnerLabel], x+4, top+408, left-8, 20)
 	moveWindow(s.controls[idRunnerHost], x+4, top+432, left-8, 30)
 	moveWindow(s.controls[idHarnessLabel], x+4, top+472, left-8, 20)

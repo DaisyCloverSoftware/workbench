@@ -8,7 +8,7 @@ func productionActionButtonIDs() []int {
 	return []int{
 		idAddProject, idRenameProject, idPinProject, idRemoveProject,
 		idDelegate, idCancelTask, idResumeTask, idOpenReview, idRetryReview, idCopyBranch, idSaveNotes,
-		idConnectProvider, idRescanProviders, idCopyMCP, idSaveRouting,
+		idConnectProvider, idRescanProviders, idCopyMCP, idCopyChatGPTBootstrap, idSaveRouting,
 		idSaveReviewPolicy, idSaveSecret, idRunUpdater,
 	}
 }
@@ -63,7 +63,7 @@ func (s *Shell) drawGenericProductionButton(lParam uintptr) uintptr {
 
 func productionPrimaryButton(id int) bool {
 	switch id {
-	case idAddProject, idDelegate, idResumeTask, idSaveNotes, idConnectProvider, idCopyMCP, idSaveRouting, idSaveReviewPolicy, idSaveSecret, idRunUpdater:
+	case idAddProject, idDelegate, idResumeTask, idSaveNotes, idConnectProvider, idCopyMCP, idCopyChatGPTBootstrap, idSaveRouting, idSaveReviewPolicy, idSaveSecret, idRunUpdater:
 		return true
 	default:
 		return false

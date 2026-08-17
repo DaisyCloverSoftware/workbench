@@ -16,6 +16,11 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if core.LooksSecret(string(b)) {
 		t.Fatal("private relay capabilities must not contain secret-like material")
 	}
+	for _, literal := range []string{"relay/control/<id>.json", "relay/control-outbox/<id>.json", "relay/inbox/<id>.json", "relay/outbox/<id>.json", "relay/answers/<id>.json"} {
+		if !strings.Contains(string(b), literal) {
+			t.Fatalf("capability manifest should keep protocol path human-readable: missing %q in %s", literal, b)
+		}
+	}
 	var manifest privateChatCapabilities
 	if err := json.Unmarshal(b, &manifest); err != nil {
 		t.Fatal(err)
