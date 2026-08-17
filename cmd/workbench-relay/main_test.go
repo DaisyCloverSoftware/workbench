@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +26,7 @@ func TestResolveProjectStaysUnderRunnerRoot(t *testing.T) {
 	if err := os.Mkdir(project, 0755); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("WORKBENCH_RUNNER_ROOTS", "")
 	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
 	got, err := resolveProject("workbench")
 	if err != nil {
@@ -37,5 +39,33 @@ func TestResolveProjectStaysUnderRunnerRoot(t *testing.T) {
 		if _, err := resolveProject(bad); err == nil {
 			t.Fatalf("expected project %q to be rejected", bad)
 		}
+	}
+}
+
+func TestResolveProjectUsesScopedReferenceAcrossMultipleRoots(t *testing.T) {
+	root1 := t.TempDir()
+	root2 := t.TempDir()
+	left := filepath.Join(root1, "shared")
+	right := filepath.Join(root2, "shared")
+	if err := os.Mkdir(left, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(right, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WORKBENCH_RUNNER_ROOT", "")
+	t.Setenv("WORKBENCH_RUNNER_ROOTS", strings.Join([]string{root1, root2}, string(os.PathListSeparator)))
+
+	if _, err := resolveProject("shared"); err == nil {
+		t.Fatal("duplicate project name must require scoped reference")
+	}
+	got, err := resolveProject("runner://r2/shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotInfo, _ := os.Stat(got)
+	rightInfo, _ := os.Stat(right)
+	if !os.SameFile(gotInfo, rightInfo) {
+		t.Fatalf("scoped relay project got %q want %q", got, right)
 	}
 }
