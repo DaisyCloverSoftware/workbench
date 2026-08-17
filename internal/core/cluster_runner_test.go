@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func useSingleRunnerRoot(t *testing.T, root string) {
 func useRunnerRoots(t *testing.T, roots ...string) {
 	t.Helper()
 	t.Setenv("WORKBENCH_RUNNER_ROOT", "")
-	t.Setenv("WORKBENCH_RUNNER_ROOTS", filepath.JoinList(roots...))
+	t.Setenv("WORKBENCH_RUNNER_ROOTS", strings.Join(roots, string(os.PathListSeparator)))
 }
 
 func TestResolveRunnerProjectMapsWindowsPathByRepoName(t *testing.T) {
@@ -120,7 +121,7 @@ func TestResolveRunnerProjectRejectsSymlinkEscape(t *testing.T) {
 		t.Fatal("expected in-root symlink to outside directory to be rejected")
 	}
 	if _, err := ResolveRunnerProject(`C:\workspace\escape`); err == nil {
-		t.Fatal("expected ambiguous name resolution through symlink escape to fail")
+		t.Fatal("expected name resolution through symlink escape to fail")
 	}
 }
 
