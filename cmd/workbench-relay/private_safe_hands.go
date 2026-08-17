@@ -5,6 +5,8 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+
+	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
 // Private relay safe-hands actions let ordinary ChatGPT do the reasoning while
@@ -13,7 +15,7 @@ import (
 // human answers stay in relay/answers so those boundaries remain explicit.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
+	case "list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
 		return true
 	default:
 		return false
@@ -46,6 +48,20 @@ func resolvePrivateSafeHandsProject(name string) (string, error) {
 }
 
 func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mcpURL, authFile string) (map[string]any, error) {
+	if env.Action == "list_projects" {
+		if env.Project != "" {
+			return nil, errors.New("list_projects does not accept a project")
+		}
+		if err := decodePrivateControlArgs(env.Args, &struct{}{}); err != nil {
+			return nil, err
+		}
+		response, err := core.ApplyRunnerToolRequest(ctx, core.RunnerToolRequest{Action: "list_projects"})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"projects": response.Projects, "count": len(response.Projects)}, nil
+	}
+
 	project, err := resolvePrivateSafeHandsProject(env.Project)
 	if err != nil {
 		return nil, err
