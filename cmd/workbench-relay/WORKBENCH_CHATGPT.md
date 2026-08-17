@@ -32,14 +32,16 @@ Base envelope:
 }
 ```
 
-Project-scoped actions add the runner repository directory name:
+`list_projects` returns both a human-readable `name` and a stable `ref`. **Prefer the exact returned `ref` in later project-scoped requests.** A unique repository normally has a backwards-compatible ref such as `runner://family-vault`. If the same directory name exists under more than one authorised project root, Workbench returns an opaque scoped ref such as `runner://r2/shared`; do not guess which copy the user intended.
+
+Project-scoped example:
 
 ```json
 {
   "version": 1,
   "id": "unique_request_id",
   "action": "read_file",
-  "project": "family-vault",
+  "project": "runner://family-vault",
   "args": {
     "path": "README.md",
     "start_line": 1,
@@ -71,7 +73,7 @@ Example safe command:
   "version": 1,
   "id": "family_status_001",
   "action": "run_safe_command",
-  "project": "family-vault",
+  "project": "runner://family-vault",
   "args": {
     "command": "git status --short"
   }
@@ -82,13 +84,13 @@ Example safe command:
 
 Use this only when safe hands are insufficient and a separate autonomous worker is genuinely warranted.
 
-Write `relay/inbox/<id>.json`:
+Write `relay/inbox/<id>.json` using the exact project `ref` returned by `list_projects`:
 
 ```json
 {
   "version": 1,
   "id": "unique_task_id",
-  "project": "family-vault",
+  "project": "runner://family-vault",
   "intent": "Outcome to achieve; describe the result, not shell commands"
 }
 ```
