@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.4 — 2026-08-17
+
+- Fixed Windows runner connection setup so Workbench opens a real persistent `cmd.exe /K` console in its own Windows console process instead of relying on an intermediate `START` hand-off that could disappear before SSH/Tailscale output was readable.
+- Added a second-stage OpenClaw cloud-model router without changing Workbench's existing outer provider hierarchy: local/cheap workers and the established provider order still get first refusal, and cloud model selection only begins if routing reaches runner-host OpenClaw.
+- Added dynamic discovery of OpenClaw's currently allowed/available OpenAI and Anthropic models, including safe provider, input/image, context, default and short-lived cooldown metadata where available; future OAuth catalogue changes do not require a fixed Workbench model list.
+- Routine OpenClaw cloud work follows OpenClaw's resolved global default, so a plentiful model such as GPT-5.3 Codex Spark can be preferred without hard-coding it into Workbench. Difficult/high-risk cloud work can start higher in the live ladder, including GPT-5.6 Sol or capable Claude models when available.
+- Added bounded cross-model and cross-provider fallback plus per-model cooldowns, so a rate-limited/unavailable cloud model does not immediately poison the entire OpenClaw provider.
+- Added native Settings rows for discovered OpenClaw cloud models. Selecting one exposes **Set model default**, validates it against the live catalogue, invokes only the fixed operator-side runner action, and verifies OpenClaw's resolved default after the change.
+- Added optional per-task `cloud_model` overrides through the Workbench task/MCP contract. The override is passed only to the OpenClaw runner shim, never inserted into the worker prompt, never selects OpenClaw itself, and cannot bypass the existing local/cheaper/provider routing hierarchy.
+- Stale, removed or cooling per-task model overrides fail safely back to the live automatic cloud ladder instead of making an otherwise runnable task fail.
+- Kept cloud model discovery optional and bounded so a slow/unhealthy OpenClaw catalogue cannot make ordinary runner worker inventory disappear from Settings.
+- Preserved privacy and command-safety boundaries: model inventory excludes account/auth/token/raw usage details, cloud default changes remain operator-only, arbitrary OpenClaw flags are rejected, and cloud controls remain outside model-safe command execution.
+
 ## 0.9.3 — 2026-08-16
 
 - Made durable `waiting_dependency` tasks behave like real active work in the native Work page: they are auto-selected and the Cancel button remains enabled, matching the engine's existing cancellable durable-wait semantics.
