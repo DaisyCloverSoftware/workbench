@@ -27,7 +27,7 @@ const (
 
 func (s *Shell) createDashboardChrome() {
 	s.control(idNavDashboard, "BUTTON", "Dashboard", wsChild|wsVisible|wsTabStop|bsOwnerDraw)
-	s.control(idTopNewTask, "BUTTON", "+ New Task", wsChild|wsVisible|wsTabStop|bsOwnerDraw)
+	s.control(idTopNewTask, "BUTTON", "+ Delegate Task", wsChild|wsVisible|wsTabStop|bsOwnerDraw)
 	s.control(idTopNeedsYou, "BUTTON", "Needs you", wsChild|wsVisible|wsTabStop|bsOwnerDraw)
 	s.control(idTopReview, "BUTTON", "Review & Publish", wsChild|wsVisible|wsTabStop|bsOwnerDraw)
 }
@@ -44,7 +44,7 @@ func (s *Shell) layoutProductionChrome(width int) {
 	right := width - 18
 	moveWindow(s.controls[idTopReview], right-154, buttonY, 154, 36)
 	moveWindow(s.controls[idTopNeedsYou], right-272, buttonY, 108, 36)
-	moveWindow(s.controls[idTopNewTask], right-398, buttonY, 116, 36)
+	moveWindow(s.controls[idTopNewTask], right-418, buttonY, 136, 36)
 }
 
 func (s *Shell) handleDashboardCommand(id int) bool {
@@ -138,7 +138,7 @@ func (s *Shell) paintDashboard(hdc uintptr, client nativeRect) {
 	}
 
 	drawTextStyled(hdc, "Dashboard", rectWH(contentX, contentY, contentW, 32), productionPalette.Text, 27, fwBold, dtLeft|dtSingleLine|dtVCenter)
-	drawTextStyled(hdc, "System overview and real Workbench activity", rectWH(contentX, contentY+34, contentW, 22), productionPalette.Muted, 14, fwNormal, dtLeft|dtSingleLine|dtVCenter)
+	drawTextStyled(hdc, "ChatGPT-first overview and autonomous escalation activity", rectWH(contentX, contentY+34, contentW, 22), productionPalette.Muted, 14, fwNormal, dtLeft|dtSingleLine|dtVCenter)
 
 	metricsY := contentY + 70
 	metricGap := 10
@@ -157,7 +157,7 @@ func (s *Shell) paintDashboard(hdc uintptr, client nativeRect) {
 		{"Needs you", fmt.Sprintf("%d", d.Summary.NeedsHuman), "human decisions", productionPalette.Amber},
 		{"Completed", fmt.Sprintf("%d", d.Summary.Completed), "durable results", productionPalette.Green},
 		{"Success rate", success, "completed vs failed", productionPalette.Purple},
-		{"Providers ready", fmt.Sprintf("%d / %d", d.ProviderReady, d.ProviderTotal), "eligible workers", productionPalette.Teal},
+		{"Autonomous ready", fmt.Sprintf("%d / %d", d.ProviderReady, d.ProviderTotal), "escalation workers", productionPalette.Teal},
 		{"Projects", fmt.Sprintf("%d", d.ProjectCount), "registered workspaces", productionPalette.Accent},
 	}
 	for i, metric := range metrics {
@@ -187,13 +187,13 @@ func (s *Shell) paintDashboard(hdc uintptr, client nativeRect) {
 	drawProjectsPanel(hdc, projectsRect, d.Projects)
 	drawProvidersPanel(hdc, providersRect, d.Providers)
 
-	healthText := "System operational"
+	healthText := "ChatGPT primary ready"
 	healthColor := productionPalette.Green
 	if s.mcpURL == "" {
-		healthText = "MCP bridge offline"
+		healthText = "ChatGPT bridge offline"
 		healthColor = productionPalette.Amber
 	}
-	pill := rectWH(int(client.Right)-176, 78, 156, 30)
+	pill := rectWH(int(client.Right)-196, 78, 176, 30)
 	roundedPanel(hdc, pill, productionPalette.Panel, healthColor, 12)
 	drawTextStyled(hdc, "●  "+healthText, insetRect(pill, 10, 0), healthColor, 12, fwSemiBold, dtLeft|dtSingleLine|dtVCenter)
 }
@@ -272,7 +272,7 @@ func (s *Shell) drawSystemPanel(hdc uintptr, rect nativeRect, d DashboardSnapsho
 		name, status string
 		ok           bool
 	}{
-		{"MCP bridge", ternary(s.mcpURL != "", "Online", "Offline"), s.mcpURL != ""},
+		{"ChatGPT brain", ternary(s.mcpURL != "", "Ready", "Bridge offline"), s.mcpURL != ""},
 		{"Runner", ternary(d.RunnerConfigured, "Configured", "Local only"), true},
 		{"Durable state", "Ready", true},
 		{"Verified updater", ternary(updaterInstalled(), "Installed", "Not beside app"), updaterInstalled()},
@@ -318,9 +318,9 @@ func drawProjectsPanel(hdc uintptr, rect nativeRect, projects []DashboardProject
 }
 
 func drawProvidersPanel(hdc uintptr, rect nativeRect, providers []DashboardProviderItem) {
-	body := drawPanelFrame(hdc, rect, "Provider health")
+	body := drawPanelFrame(hdc, rect, "Autonomous worker health")
 	if len(providers) == 0 {
-		drawTextStyled(hdc, "No coding providers detected yet.", body, productionPalette.Muted, 12, fwNormal, dtLeft|dtWordBreak)
+		drawTextStyled(hdc, "No autonomous workers detected yet.", body, productionPalette.Muted, 12, fwNormal, dtLeft|dtWordBreak)
 		return
 	}
 	rowH := 36
