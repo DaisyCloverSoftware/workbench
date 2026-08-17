@@ -24,6 +24,28 @@ func TestPrivateUpdateSourceDirUsesConfiguredRoot(t *testing.T) {
 	}
 }
 
+func TestPrivateUpdateSourceDirPrefersMaintenanceCheckout(t *testing.T) {
+	home := t.TempDir()
+	maintenance := filepath.Join(home, ".local", "share", "workbench", "update-source")
+	if err := os.MkdirAll(filepath.Join(maintenance, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(maintenance, "scripts", "run-private-update.sh"), []byte("#!/bin/sh\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WORKBENCH_SOURCE_DIR", "")
+	t.Setenv("WORKBENCH_RUNNER_ROOT", t.TempDir())
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	got, err := privateUpdateSourceDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Clean(got) != filepath.Clean(maintenance) {
+		t.Fatalf("source dir=%q want maintenance checkout %q", got, maintenance)
+	}
+}
+
 func TestDecodePrivateControlAllowsOnlyArgumentFreeUpdateAction(t *testing.T) {
 	raw := []byte(`{"version":1,"id":"update-12345678","action":"update_workbench","args":{}}`)
 	env, err := decodePrivateControl(raw, "update-12345678")
