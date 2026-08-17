@@ -281,6 +281,7 @@ func classifyRunOutput(out string) RunResult {
 			if res.Attention == "" {
 				res.Attention = "The worker needs a human decision."
 			}
+		}
 	}
 	return res
 }
