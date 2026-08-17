@@ -81,12 +81,12 @@
 - production Win32 HWND creation/message pumping is pinned to one OS thread; a 32-cycle Windows watchdog proves Dashboard/Settings/Work remain responsive and page HWND visibility is correct
 - Settings policy reads remain Git/filesystem-free after validated save, including Windows 8.3/long-path aliases
 - Windows CI captures real Dashboard, Work and Settings windows and packages only the production app plus verified updater; releases include matching Linux runner/server/relay binaries and checksums
+- reversible terminal task-history archiving hides filed-away work from default Work/Dashboard views without deleting durable task records or rewriting execution chronology
 
 ## Next
 
 - searchable decisions and a project knowledge graph
 - automatic cross-model review policies for higher-risk changes
-- task-history filtering/archiving without deleting durable task records
 - complete per-monitor DPI-aware desktop layout/font scaling
 - desktop/tablet/phone preview and test targets
 - screenshot and Playwright result surfaces
