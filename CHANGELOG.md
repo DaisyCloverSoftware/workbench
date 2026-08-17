@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.7 — 2026-08-17
+
+- Expanded cluster repository discovery and execution across multiple authorised runner roots while preserving legacy WORKBENCH_RUNNER_ROOT and adding WORKBENCH_RUNNER_ROOTS for explicit multi-root hosts.
+- Recognised conventional ~/src and ~/projects roots by default when present, and removed the old MCP/relay systemd installer pin that forced live services back to ~/src.
+- Kept unique repositories on backwards-compatible runner://name references while duplicate directory names fail closed and receive stable opaque runner://rN/name refs without exposing host paths.
+- Preserved scoped runner refs as distinct desktop project identities and kept absolute-path and symlink containment checks fail-closed across every authorised root.
+- Extended the private ChatGPT safe-hands and autonomous relay paths to accept exact discovered runner refs, and updated the self-describing guide to tell ChatGPT to reuse those refs instead of guessing duplicate repositories.
+- Added cross-platform tests for multi-root resolution/discovery, stable optional-root slot numbering, scoped registry identity, relay resolution, symlink escape, and installer contracts; exact-head Windows build, Linux runner/MCP/relay, and UI-responsiveness gates passed before merge.
+
 ## 0.9.6 — 2026-08-17
 
 - Pinned ChatGPT's PRIMARY role outside the scrollable Settings worker inventory so asynchronous runner/model refreshes can never make Workbench look autonomous-worker-first again.
