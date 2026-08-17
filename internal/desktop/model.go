@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
@@ -58,8 +59,18 @@ type Snapshot struct {
 	SelectedTaskID  string
 }
 
+var archivedTaskHistoryVisible atomic.Bool
+
 func BuildSnapshot(eng *core.Engine, selectedTaskID string) Snapshot {
-	return BuildSnapshotWithHistory(eng, selectedTaskID, false)
+	return BuildSnapshotWithHistory(eng, selectedTaskID, archivedTaskHistoryVisible.Load())
+}
+
+func setArchivedTaskHistoryVisible(visible bool) {
+	archivedTaskHistoryVisible.Store(visible)
+}
+
+func isArchivedTaskHistoryVisible() bool {
+	return archivedTaskHistoryVisible.Load()
 }
 
 // BuildSnapshotWithHistory is the one Work-page history switch. Archived tasks
