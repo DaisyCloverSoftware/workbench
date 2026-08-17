@@ -69,7 +69,6 @@ Type=simple
 ExecStart=$bin_dir/workbench-server --port=$port --project=$project --token-file=$token_file
 Restart=always
 RestartSec=3
-Environment=WORKBENCH_RUNNER_ROOT=$HOME/src
 Environment=PATH=$PATH
 
 [Install]

@@ -309,27 +309,19 @@ func validRelayID(id string) bool {
 
 func resolveProject(name string) (string, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\\`) || name == "." || name == ".." {
-		return "", errors.New("project must be one repository directory name under WORKBENCH_RUNNER_ROOT")
+	if name == "" {
+		return "", errors.New("project is required")
 	}
-	root := strings.TrimSpace(os.Getenv("WORKBENCH_RUNNER_ROOT"))
-	if root == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
+	if strings.HasPrefix(strings.ToLower(name), core.RunnerProjectPrefix) {
+		if !core.IsRunnerProjectReference(name) {
+			return "", errors.New("project contains an invalid runner reference")
 		}
-		root = filepath.Join(home, "src")
+		return core.ResolveRunnerProject(name)
 	}
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
+	if filepath.Base(name) != name || strings.ContainsAny(name, `/\\:`) || name == "." || name == ".." {
+		return "", errors.New("project must be one repository directory name or a scoped runner project reference")
 	}
-	project := filepath.Join(root, name)
-	st, err := os.Stat(project)
-	if err != nil || !st.IsDir() {
-		return "", fmt.Errorf("relay project not found under runner root: %s", project)
-	}
-	return project, nil
+	return core.ResolveRunnerProject(name)
 }
 
 func delegateMCP(ctx context.Context, url, authFile, intent, project string) (string, error) {
