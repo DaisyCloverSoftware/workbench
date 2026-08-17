@@ -67,8 +67,9 @@ func (s *Shell) applyProductionControlTheme() {
 		idReportLabel:      "Result & activity",
 		idNotesLabel:       "Project context",
 		idAttentionLabel:   "Human decision — only answer when Workbench genuinely needs you",
+		idSettingsTitle:    "PRIMARY · This PC · ChatGPT Chat · normal Workbench brain",
 		idProvidersLabel:   "Chat-first routing · primary brain + autonomous workers",
-		idMCPLabel:         "Primary ChatGPT & MCP bridge",
+		idMCPLabel:         "ChatGPT transport · local MCP + runner relay status",
 		idRunnerLabel:      "Workbench Runner SSH host",
 		idHarnessLabel:     "Structured harness adapter executable",
 		idNotifyLabel:      "Human-interrupt command · {message}",
@@ -79,7 +80,6 @@ func (s *Shell) applyProductionControlTheme() {
 	for id, text := range labels {
 		setWindowText(s.controls[id], text)
 	}
-	setWindowText(s.controls[idSettingsTitle], "")
 
 	if productionUIFont != 0 {
 		for _, hwnd := range s.controls {
