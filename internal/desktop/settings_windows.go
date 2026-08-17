@@ -48,9 +48,9 @@ func (s *Shell) refreshSettings(snapshot Snapshot) {
 	s.refreshProviders()
 	s.refreshSecrets()
 
-	mcpStatus := "Local Chat/MCP bridge is unavailable."
+	mcpStatus := "Primary ChatGPT/MCP bridge is unavailable."
 	if s.mcpURL != "" {
-		mcpStatus = s.mcpURL + "\r\nBearer authentication is enabled. This means the local bridge is ready; it does not claim that a specific ChatGPT conversation is attached."
+		mcpStatus = s.mcpURL + "\r\nPrimary ChatGPT bridge is ready. Bearer authentication is enabled; this does not claim that a specific ChatGPT conversation is attached."
 	} else if strings.TrimSpace(s.mcpErr) != "" {
 		mcpStatus += " " + s.mcpErr
 	}
@@ -93,16 +93,15 @@ func (s *Shell) refreshProviders() {
 		procSendMessageW.Call(s.controls[idProviderList], lbAddString, 0, uintptr(unsafe.Pointer(ptr)))
 		s.providerIDs = append(s.providerIDs, target)
 	}
+	chatTarget, chatLine := primaryChatRoutingRow(s.mcpURL != "")
+	appendLine(chatTarget, chatLine)
+
 	appendLocal := func() {
 		for _, provider := range providers {
 			if !core.IsCodingWorkerProvider(provider) {
 				continue
 			}
-			mark := "○"
-			if core.ProviderReadyForCoding(provider) {
-				mark = "●"
-			}
-			line := fmt.Sprintf("%s This PC · %s  ·  %s  ·  %s", mark, provider.Name, provider.Status, provider.Cost)
+			line := autonomousProviderRoutingLine("This PC", provider, core.ProviderReadyForCoding(provider))
 			appendLine("local:"+provider.ID, line)
 		}
 	}
@@ -111,25 +110,22 @@ func (s *Shell) refreshProviders() {
 			return
 		}
 		if len(runner.Providers) == 0 {
-			status := "no coding workers detected"
+			status := "no autonomous workers detected"
 			if runner.Loading {
-				status = "scanning coding workers…"
+				status = "scanning autonomous workers…"
 			} else if runner.Failed {
-				status = "worker inventory unavailable"
+				status = "runner inventory unavailable"
 			}
-			appendLine("status:runner", "○ Runner · "+status)
+			appendLine("status:runner", "○ AUTONOMOUS · Runner · "+status)
 			return
 		}
 		for _, provider := range runner.Providers {
-			mark := "○"
-			if provider.Ready {
-				mark = "●"
-			}
-			line := fmt.Sprintf("%s Runner · %s  ·  %s  ·  %s", mark, provider.Name, provider.Status, provider.Cost)
-			appendLine("runner:"+provider.ID, line)
+			appendLine("runner:"+provider.ID, runnerAutonomousRoutingLine(provider))
 		}
 	}
 
+	// ChatGPT is always the primary brain. Project location affects only the
+	// order of autonomous escalation candidates shown beneath it.
 	preferRunner := false
 	if project, ok := s.eng.ActiveProject(); ok {
 		preferRunner = core.IsRunnerProjectReference(project.Path)
@@ -184,8 +180,25 @@ func (s *Shell) showSelectedProvider() {
 	}
 	setWindowText(s.controls[idConnectProvider], "Connect selected")
 	scope, id := providerListTarget(s.providerIDs[idx])
+	if scope == "brain" {
+		if id != primaryChatProviderID {
+			return
+		}
+		status := "MCP bridge unavailable"
+		if s.mcpURL != "" {
+			status = "ready via local MCP bridge"
+			setWindowText(s.controls[idConnectProvider], "Copy MCP connection")
+		} else {
+			setWindowText(s.controls[idConnectProvider], "Bridge unavailable")
+		}
+		body := "Role: PRIMARY BRAIN — ChatGPT on this PC\r\n\r\nStatus: " + status
+		body += "\r\n\r\nThis is the normal Workbench route. ChatGPT does the reasoning in the conversation and uses Workbench's MCP safe eyes and hands for repository reads, exact patches and safe commands. That does not consume Codex/Work just because Workbench is involved."
+		body += "\r\n\r\nThe autonomous workers listed below are escalation capacity only: use them when a task genuinely needs unattended exploration or implementation. OpenAI Codex / Work remains a scarce last-resort worker."
+		messageBox(s.hwnd, "ChatGPT Chat — primary brain", body, mbOK|mbIconInformation)
+		return
+	}
 	if scope == "status" {
-		messageBox(s.hwnd, "Cluster runner", "Workbench has not received a usable coding-worker inventory from the configured runner yet. Rescan after the runner is reachable and current.", mbOK|mbIconInformation)
+		messageBox(s.hwnd, "Cluster runner", "Workbench has not received a usable autonomous-worker inventory from the configured runner yet. Rescan after the runner is reachable and current.", mbOK|mbIconInformation)
 		return
 	}
 	if scope == "runner" {
@@ -198,11 +211,15 @@ func (s *Shell) showSelectedProvider() {
 			setWindowText(s.controls[idConnectProvider], "Set model default")
 			body := "Cloud stage: OpenClaw on the cluster runner\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
 			body += "\r\n\r\nModel reference: " + model
-			body += "\r\n\r\nThis does not move OpenClaw ahead of local models or other existing Workbench workers. It only changes OpenClaw's global routine default if Workbench's existing routing eventually reaches the OpenClaw cloud stage. Difficult/high-risk work may still auto-escalate within that stage."
+			body += "\r\n\r\nThis does not replace ChatGPT as the primary brain and does not move OpenClaw ahead of Workbench's existing routes. It only changes OpenClaw's routine default if an autonomous escalation eventually reaches that cloud stage. Difficult/high-risk work may still auto-escalate within that stage."
 			messageBox(s.hwnd, provider.Name, body, mbOK|mbIconInformation)
 			return
 		}
-		body := "Execution host: Cluster runner\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
+		role := "Role: autonomous escalation worker"
+		if id == "codex" || provider.Cost == core.CostScarce {
+			role = "Role: LAST RESORT autonomous worker"
+		}
+		body := role + "\r\n\r\nExecution host: Cluster runner\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
 		messageBox(s.hwnd, provider.Name, body, mbOK|mbIconInformation)
 		return
 	}
@@ -210,7 +227,11 @@ func (s *Shell) showSelectedProvider() {
 		if provider.ID != id {
 			continue
 		}
-		body := "Execution host: This PC\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
+		role := "Role: autonomous escalation worker"
+		if provider.ID == "codex" || provider.Cost == core.CostScarce {
+			role = "Role: LAST RESORT autonomous worker"
+		}
+		body := role + "\r\n\r\nExecution host: This PC\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
 		if strings.TrimSpace(provider.Notes) != "" {
 			body += "\r\n\r\n" + provider.Notes
 		}
@@ -222,10 +243,21 @@ func (s *Shell) showSelectedProvider() {
 func (s *Shell) connectSelectedProvider() {
 	idx := listSelection(s.controls[idProviderList])
 	if idx < 0 || idx >= len(s.providerIDs) {
-		messageBox(s.hwnd, "Coding workers", "Select a worker first.", mbOK|mbIconInformation)
+		messageBox(s.hwnd, "Routing", "Select a routing entry first.", mbOK|mbIconInformation)
 		return
 	}
 	scope, id := providerListTarget(s.providerIDs[idx])
+	if scope == "brain" {
+		if id != primaryChatProviderID {
+			return
+		}
+		if s.mcpURL == "" {
+			messageBox(s.hwnd, "ChatGPT bridge unavailable", "Workbench could not start its local MCP bridge. "+s.mcpErr, mbOK|mbIconWarning)
+			return
+		}
+		s.copyMCPConnection()
+		return
+	}
 	if scope == "status" {
 		messageBox(s.hwnd, "Cluster runner", "There is no selectable runner worker in this row. Click Rescan after the runner is reachable.", mbOK|mbIconInformation)
 		return
@@ -239,10 +271,10 @@ func (s *Shell) connectSelectedProvider() {
 		}
 		if model, isCloudModel := core.RunnerCloudModelRefFromProviderID(id); isCloudModel {
 			if provider.Ready {
-				messageBox(s.hwnd, "Cloud model already selected", model+" is already OpenClaw's current global default. Workbench's outer routing hierarchy is unchanged.", mbOK|mbIconInformation)
+				messageBox(s.hwnd, "Cloud model already selected", model+" is already OpenClaw's current global default. ChatGPT remains Workbench's primary brain and the outer routing hierarchy is unchanged.", mbOK|mbIconInformation)
 				return
 			}
-			body := "Set " + model + " as OpenClaw's global default model?\r\n\r\nThis only changes the default inside the OpenClaw cloud-model stage. Workbench will still try its existing local/cheaper/provider routes first, and high-risk work may still escalate to a stronger cloud model automatically."
+			body := "Set " + model + " as OpenClaw's global default model?\r\n\r\nThis changes only the default inside the autonomous OpenClaw cloud-model stage. ChatGPT remains the primary Workbench brain, and high-risk cloud work may still escalate to a stronger model automatically."
 			if messageBox(s.hwnd, "Set OpenClaw cloud default", body, mbYesNo|mbIconInformation) != idYes {
 				return
 			}
@@ -254,7 +286,7 @@ func (s *Shell) connectSelectedProvider() {
 			return
 		}
 		if provider.Ready {
-			messageBox(s.hwnd, "Runner worker ready", provider.Name+" is ready on the configured cluster runner.", mbOK|mbIconInformation)
+			messageBox(s.hwnd, "Runner worker ready", provider.Name+" is ready as autonomous escalation capacity on the configured cluster runner.", mbOK|mbIconInformation)
 			return
 		}
 		if !provider.Installed {
@@ -279,25 +311,25 @@ func (s *Shell) connectSelectedProvider() {
 				messageBox(s.hwnd, "Structured harness adapter", "Choose one existing adapter executable in Settings and save routing. Workbench passes a bounded JSON job on stdin and never runs this setting through a command shell.", mbOK|mbIconInformation)
 				return
 			}
-			messageBox(s.hwnd, "Structured harness ready", "The configured adapter executable is available on This PC. Workbench will use structured protocol v1 inside an isolated task workspace and will retain review/publication authority.", mbOK|mbIconInformation)
+			messageBox(s.hwnd, "Structured harness ready", "The configured adapter executable is available on This PC as autonomous escalation capacity. Workbench will use structured protocol v1 inside an isolated task workspace and will retain review/publication authority.", mbOK|mbIconInformation)
 			return
 		}
 		return
 	case "openclaw":
-		messageBox(s.hwnd, "OpenClaw", "This row describes the OpenClaw CLI on This PC. Configure/authenticate it through its own CLI if required, then click Rescan. Cluster-project execution uses the separate runner inventory shown in Runner rows.", mbOK|mbIconInformation)
+		messageBox(s.hwnd, "OpenClaw", "This row describes the OpenClaw CLI on This PC as autonomous escalation capacity. Configure/authenticate it through its own CLI if required, then click Rescan. Cluster-project execution uses the separate runner inventory shown in Runner rows.", mbOK|mbIconInformation)
 		return
 	}
 	if err := core.StartProviderLogin(id); err != nil {
 		messageBox(s.hwnd, "Provider setup", providerSetupHint(id)+"\r\n\r\n"+err.Error(), mbOK|mbIconWarning)
 		return
 	}
-	messageBox(s.hwnd, "Connect worker", "Workbench opened the provider's own sign-in flow on This PC. Finish sign-in, then click Rescan. Provider passwords are never entered into Workbench.", mbOK|mbIconInformation)
+	messageBox(s.hwnd, "Connect autonomous worker", "Workbench opened the provider's own sign-in flow on This PC. Finish sign-in, then click Rescan. Provider passwords are never entered into Workbench.", mbOK|mbIconInformation)
 }
 
 func providerSetupHint(id string) string {
 	switch id {
 	case "codex":
-		return "Install the official Codex CLI on This PC, then connect it here."
+		return "OpenAI Codex / Work is a scarce last-resort autonomous worker. Install the official Codex CLI on This PC only if you want that fallback available, then connect it here."
 	case "claude":
 		return "Install Node.js 18+ and Git for Windows, then run: npm install -g @anthropic-ai/claude-code. After installation click Rescan, then Connect selected."
 	case "copilot":
@@ -315,15 +347,15 @@ func providerSetupHint(id string) string {
 func runnerProviderSetupHint(id string) string {
 	switch id {
 	case "claude":
-		return "Anthropic Claude Code is not installed on the cluster runner. This PC's Claude installation is a separate worker and cannot edit a runner:// project. Workbench will continue to use other detected runner workers until Claude Code is installed on that execution host."
+		return "Anthropic Claude Code is not installed on the cluster runner. This PC's Claude installation is a separate autonomous worker and cannot edit a runner:// project. Workbench will continue to use other detected runner workers until Claude Code is installed on that execution host."
 	case "codex":
-		return "OpenAI Codex is not installed on the cluster runner. This PC's Codex installation is separate from runner:// project execution."
+		return "OpenAI Codex / Work is a scarce last-resort worker and is not installed on the cluster runner. This PC's Codex installation is separate from runner:// project execution."
 	case "copilot":
 		return "GitHub Copilot CLI is not installed on the cluster runner."
 	case "antigravity":
 		return "Google Antigravity CLI is not installed on the cluster runner."
 	default:
-		return "This coding worker is not installed on the cluster runner. Workbench will not pretend a This PC installation can execute a runner:// project."
+		return "This autonomous coding worker is not installed on the cluster runner. Workbench will not pretend a This PC installation can execute a runner:// project."
 	}
 }
 
@@ -333,12 +365,12 @@ func (s *Shell) copyMCPConnection() {
 		return
 	}
 	prefs := s.eng.State().Preferences
-	text := "Workbench MCP\r\nURL: " + s.mcpURL + "\r\nAuthorization: Bearer " + prefs.MCPToken + "\r\n\r\nThis proves the local Workbench bridge is ready. Whether a particular ChatGPT client can attach to this endpoint depends on that client's MCP/app connection model."
+	text := "Workbench MCP\r\nURL: " + s.mcpURL + "\r\nAuthorization: Bearer " + prefs.MCPToken + "\r\n\r\nThis is the primary ChatGPT-to-Workbench bridge. It gives ChatGPT safe eyes and hands without turning ChatGPT into an autonomous coding worker or consuming Codex/Work automatically."
 	if err := copyText(s.hwnd, text); err != nil {
 		messageBox(s.hwnd, "Clipboard", err.Error(), mbOK|mbIconWarning)
 		return
 	}
-	messageBox(s.hwnd, "Copied", "MCP bridge connection details copied. Treat the bearer token as a local credential.", mbOK|mbIconInformation)
+	messageBox(s.hwnd, "Copied", "Primary ChatGPT/MCP bridge connection details copied. Treat the bearer token as a local credential.", mbOK|mbIconInformation)
 }
 
 func (s *Shell) saveRoutingSettings() {
@@ -369,7 +401,7 @@ func (s *Shell) saveRoutingSettings() {
 		resetRunnerProviderInventory()
 	}
 	setWindowText(s.controls[idHarnessCommand], adapter)
-	message := "Workbench will continue autonomously and protect scarce Work/Codex usage according to these settings."
+	message := "ChatGPT Chat remains the primary brain through the local MCP bridge. These settings control autonomous escalation; scarce Work/Codex stays protected and is only eligible after cheaper/included autonomous routes."
 	if legacyCleared {
 		message += "\r\n\r\nThe obsolete shell-template harness command was disabled and removed from saved routing settings."
 	}
