@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -25,7 +26,21 @@ func runRunnerSSHConsole(host string, remoteArgs []string) error {
 }
 
 func startRunnerSSHConsole(host string, remoteArgs []string) error {
-	return launchRunnerSSHConsole(host, remoteArgs)
+	spec, err := runnerSSHConsoleLaunchSpec(host, remoteArgs)
+	if err != nil {
+		return err
+	}
+	// The Settings handler currently shows its explanatory modal immediately
+	// after this call returns. Launching the console synchronously lets that modal
+	// steal foreground focus, making a correctly-created console look as if it
+	// never opened. Queue the operator-visible console just after the modal is on
+	// screen; Windows can then foreground the newly launched console. /K keeps it
+	// present after SSH exits, so the operator can read any authentication error.
+	go func() {
+		time.Sleep(450 * time.Millisecond)
+		_ = shellExecuteRunnerSSHConsole(spec)
+	}()
+	return nil
 }
 
 func launchRunnerSSHConsole(host string, remoteArgs []string) error {
