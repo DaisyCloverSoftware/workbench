@@ -9,13 +9,13 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-// Private relay safe-hands actions let ordinary ChatGPT do the reasoning while
-// Workbench supplies bounded repository eyes/hands. They deliberately exclude
-// delegate_task and resolve_attention: autonomous work stays in relay/inbox and
-// human answers stay in relay/answers so those boundaries remain explicit.
+// Private relay safe controls let ordinary ChatGPT do the reasoning while
+// Workbench supplies bounded repository eyes/hands and privacy-safe maintenance
+// status. They deliberately exclude delegate_task and resolve_attention:
+// autonomous work stays in relay/inbox and human answers stay in relay/answers.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
+	case "update_status", "list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
 		return true
 	default:
 		return false
@@ -48,6 +48,16 @@ func resolvePrivateSafeHandsProject(name string) (string, error) {
 }
 
 func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mcpURL, authFile string) (map[string]any, error) {
+	if env.Action == "update_status" {
+		if env.Project != "" {
+			return nil, errors.New("update_status does not accept a project")
+		}
+		if err := decodePrivateControlArgs(env.Args, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return readPrivateUpdateStatus()
+	}
+
 	if env.Action == "list_projects" {
 		if env.Project != "" {
 			return nil, errors.New("list_projects does not accept a project")
