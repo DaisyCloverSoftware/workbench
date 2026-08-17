@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClassifyRunnerChatBridgeRequiresVerifiedPrivateModeForReady(t *testing.T) {
 	cases := []struct {
@@ -26,6 +29,9 @@ func TestClassifyRunnerChatBridgeRequiresVerifiedPrivateModeForReady(t *testing.
 			}
 			if got.Status == "" {
 				t.Fatal("bridge classification must provide a categorical status")
+			}
+			if tc.name == "private" && (!strings.Contains(got.Status, "safe hands") || !strings.Contains(got.Status, "autonomous handoff")) {
+				t.Fatalf("private relay status must describe both Chat-first paths: %q", got.Status)
 			}
 		})
 	}
