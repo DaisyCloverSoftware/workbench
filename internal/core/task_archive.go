@@ -1,9 +1,6 @@
 package core
 
-import (
-	"errors"
-	"time"
-)
+import "errors"
 
 // TaskCanArchive is deliberately limited to terminal records. Active work,
 // dependency watches and human-attention tasks remain visible/actionable and
@@ -18,8 +15,10 @@ func TaskCanArchive(status TaskStatus) bool {
 }
 
 // SetTaskArchived changes only the history presentation flag. The durable task
-// record, output, attempts, review metadata and timestamps remain in State so
-// archive is fully reversible and never becomes a deletion mechanism.
+// record, output, attempts, review metadata and execution timestamps remain in
+// State so archive is fully reversible and never becomes a deletion mechanism.
+// In particular UpdatedAt is not rewritten: filing old work must not make it
+// look like the task itself just ran again when history is restored.
 func (e *Engine) SetTaskArchived(taskID string, archived bool) error {
 	e.mu.Lock()
 	i := e.taskIndexLocked(taskID)
@@ -36,7 +35,6 @@ func (e *Engine) SetTaskArchived(taskID string, archived bool) error {
 		return nil
 	}
 	e.state.Tasks[i].Archived = archived
-	e.state.Tasks[i].UpdatedAt = time.Now().UTC()
 	st := cloneState(e.state)
 	e.mu.Unlock()
 	if err := e.store.Save(st); err != nil {
