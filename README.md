@@ -38,7 +38,7 @@ Workbench separates **intelligence** from **agency**:
 - Bounded worker and runner output so noisy CLIs cannot grow Workbench memory/state without limit while final attention/unavailable signals remain detectable.
 - Secret-like content protection for model-readable memory plus a local encrypted vault whose plaintext is not exposed through MCP.
 - Harness-agnostic architecture: OpenClaw is an adapter, not the foundation.
-- Bidirectional Git relay transport for Personal Pro-style workflows. Private mode now carries the same bounded `list_files`/`search_text`/`read_file`/`apply_patch`/`run_safe_command` safe-hands path as direct MCP, while autonomous `delegate_task` remains a separate escalation channel; public mode stays status-only.
+- Bidirectional Git relay transport for Personal Pro-style workflows. Private mode can discover repository roots and carries the same bounded `list_files`/`search_text`/`read_file`/`apply_patch`/`run_safe_command` safe-hands path as direct MCP, while autonomous `delegate_task` remains a separate escalation channel; public mode stays status-only.
 - Verified `Workbench-Updater.exe` plus transactional Linux cluster maintenance with checksum/architecture validation and rollback.
 
 ## Desired user experience
