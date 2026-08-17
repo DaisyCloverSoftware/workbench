@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -47,6 +48,9 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 		return err
 	}
 	files := map[string][]byte{}
+	if current, readErr := readRefFile(repo, ref, privateChatGuidePath, 128<<10); readErr != nil || !bytes.Equal(current, privateChatGuide) {
+		files[privateChatGuidePath] = append([]byte(nil), privateChatGuide...)
+	}
 	for _, path := range paths {
 		id := strings.TrimSuffix(filepath.Base(path), ".json")
 		if !validRelayID(id) {
@@ -201,7 +205,7 @@ func executePrivateControlForRepo(ctx context.Context, env privateControlEnvelop
 		return callMCP(ctx, mcpURL, authFile, "save_context", map[string]any{
 			"project_path": project,
 			"objective": strings.TrimSpace(a.Objective),
-			"state": strings.TrimSpace(a.State),
+			"state": a.State,
 			"decisions": a.Decisions,
 			"constraints": a.Constraints,
 			"references": a.References,
@@ -280,7 +284,12 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 	if len(files) == 0 {
 		return nil
 	}
-	const stagePath = "relay/control-outbox"
+	stagePaths := make([]string, 0, len(files))
+	for path := range files {
+		stagePaths = append(stagePaths, path)
+	}
+	sort.Strings(stagePaths)
+
 	for attempt := 0; attempt < 3; attempt++ {
 		if err := fetchRemote(ctx, repo, remote, branch); err != nil {
 			return err
@@ -309,11 +318,15 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 				return err
 			}
 		}
-		if out, err := exec.Command("git", "-C", tmp, "add", stagePath).CombinedOutput(); err != nil {
+		addArgs := []string{"-C", tmp, "add", "--"}
+		addArgs = append(addArgs, stagePaths...)
+		if out, err := exec.Command("git", addArgs...).CombinedOutput(); err != nil {
 			cleanupWorktree(repo, tmp)
-			return fmt.Errorf("stage private control outbox: %s", strings.TrimSpace(string(out)))
+			return fmt.Errorf("stage private relay files: %s", strings.TrimSpace(string(out)))
 		}
-		diffCmd := exec.Command("git", "-C", tmp, "diff", "--cached", "--quiet", "--", stagePath)
+		diffArgs := []string{"-C", tmp, "diff", "--cached", "--quiet", "--"}
+		diffArgs = append(diffArgs, stagePaths...)
+		diffCmd := exec.Command("git", diffArgs...)
 		diffOut, diffErr := diffCmd.CombinedOutput()
 		if diffErr == nil {
 			cleanupWorktree(repo, tmp)
@@ -321,12 +334,12 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 		}
 		if exitErr, ok := diffErr.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
 			cleanupWorktree(repo, tmp)
-			return fmt.Errorf("check staged private control outbox: %s", strings.TrimSpace(string(diffOut)))
+			return fmt.Errorf("check staged private relay files: %s", strings.TrimSpace(string(diffOut)))
 		}
-		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update private control result")
+		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update private Workbench state")
 		if out, err := commit.CombinedOutput(); err != nil {
 			cleanupWorktree(repo, tmp)
-			return fmt.Errorf("commit private control outbox: %s", strings.TrimSpace(string(out)))
+			return fmt.Errorf("commit private relay files: %s", strings.TrimSpace(string(out)))
 		}
 		pushCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 		push := exec.CommandContext(pushCtx, "git", "-C", tmp, "push", "--quiet", remote, "HEAD:refs/heads/"+branch)
@@ -337,7 +350,7 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 			return nil
 		}
 		if attempt == 2 {
-			return fmt.Errorf("push private control outbox failed: %s", strings.TrimSpace(string(out)))
+			return fmt.Errorf("push private relay files failed: %s", strings.TrimSpace(string(out)))
 		}
 		time.Sleep(time.Duration(attempt+1) * 250 * time.Millisecond)
 	}
