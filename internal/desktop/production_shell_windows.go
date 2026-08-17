@@ -99,6 +99,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.hwnd = hwnd
 		s.createControls()
 		s.createChatGPTBootstrapControl()
+		s.createTaskHistoryControls()
 		s.createDashboardChrome()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
@@ -109,6 +110,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		setWindowText(s.controls[idBrand], brand)
 		showWindow(s.controls[idGlobalStatus], false)
 		s.refresh()
+		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		s.applyPageVisibility()
 		s.layoutProduction()
 		redrawProductionWindow(hwnd)
@@ -134,21 +136,29 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		}
 	case wmAppRefresh:
 		s.refresh()
+		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
 		return 0
 	case wmCommand:
 		id := int(uint16(wParam & 0xffff))
 		notify := uint16((wParam >> 16) & 0xffff)
+		if s.handleTaskHistoryCommand(id) {
+			s.layoutProduction()
+			redrawProductionWindow(hwnd)
+			return 0
+		}
 		if s.handleChatGPTBootstrapCommand(id) {
 			redrawProductionWindow(hwnd)
 			return 0
 		}
 		if s.handleProductionChromeCommand(id) {
+			s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 			redrawProductionWindow(hwnd)
 			return 0
 		}
 		s.handleCommand(id, notify)
+		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
 		return 0
@@ -177,6 +187,8 @@ func (s *Shell) layoutProduction() {
 	s.layoutProductionChrome(width)
 	showWindow(s.controls[idGlobalStatus], false)
 	showWindow(s.controls[idCopyChatGPTBootstrap], s.page == pageSettings)
+	showWindow(s.controls[idShowArchivedTasks], s.page == pageWork)
+	showWindow(s.controls[idArchiveTask], s.page == pageWork)
 	switch s.page {
 	case pageWork:
 		s.layoutProductionWork(contentX, contentY, contentW, contentH)
