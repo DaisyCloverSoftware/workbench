@@ -26,16 +26,19 @@ Use Workbench as the execution/control-plane companion to ordinary Chat.
 
 When direct Workbench write actions are unavailable but the GitHub app is connected, use the configured Workbench Git relay instead of making the human carry messages.
 
-- Create `relay/inbox/<id>.json` with `version`, a unique `id`, the repository directory name in `project`, and the requested `intent`.
-- Read `relay/outbox/<id>.json` when its result is useful; do not hammer it in a tight status loop.
+- **Keep ChatGPT as the brain.** On a private relay, use `relay/control/<id>.json` for safe-hands actions before delegating an autonomous task. Supported safe-hands actions are `list_files`, `search_text`, `read_file`, `apply_patch`, `run_safe_command`, and `save_note`. Read the matching `relay/control-outbox/<id>.json` result. These go through the same bounded Workbench MCP tools and do not consume an autonomous coding worker.
+- The private control channel also supports `save_memory`, `search_memory`, `save_context`, and `get_context`. Use these for durable project knowledge and conversation compaction without pretending a read-only MCP connector can mutate state.
+- Use `relay/inbox/<id>.json` **only when the job genuinely needs autonomous execution**. Supply `version`, a unique `id`, the repository directory name in `project`, and the requested `intent`. This is the personal-plan equivalent of `delegate_task`, not the default path for ordinary edits/tests.
+- Read `relay/outbox/<id>.json` when an autonomous result is useful; do not hammer it in a tight status loop.
 - A dependency wait can use the same `WORKBENCH_WAIT_GITHUB_ACTIONS` first-line envelope inside the relay intent. Once the outbox reports `waiting_dependency`, Workbench owns the monitoring and automatic continuation.
 - If the outbox reports `needs_attention`, ask the human only the returned question, then write `relay/answers/<id>.json` with the same `id` and their answer and continue the task.
-- On a private relay, use `relay/control/<id>.json` for `save_memory`, `search_memory`, `save_context`, and `get_context`; read the matching `relay/control-outbox/<id>.json` when needed. This is how a personal-plan chat persists/retrieves Workbench knowledge without pretending a read-only MCP tool is a write tool.
-- Do not use Chat as a remote software-maintenance shell. Workbench control-plane refresh should be locally initiated or use another explicitly supported maintenance mechanism rather than requiring the human to relay commands.
+- Safe-hands control does not broaden shell authority. `run_safe_command` still passes through Workbench's development-command allowlist; `apply_patch` still uses Workbench's bounded patch path; repository reads still refuse unsafe/secret-like files; private control results are withheld if they resemble secret material.
+- Do not invent a generic `run_command`, shell or arbitrary SSH action. The private control channel is an explicit allowlist, and autonomous delegation remains a separate channel.
 - Use a fresh control ID for each operation. Save context before a long conversation must be compacted, and restore it in the next conversation instead of replaying the transcript.
 - Search memory before implementing a recurring problem; prefer a verified saved routine or reusable code reference over creating another equivalent implementation.
-- Use a private relay repository for real work. Public relay mode is status-only, does not process memory/control requests, and is for harmless dogfood; never put private task intent or project memory into a public repository.
+- A verified `update_workbench` private-control action may refresh the configured Workbench private loop using its fixed bootstrap; it accepts no remote URL or shell command from Chat. Use it only for intentional Workbench maintenance, never as a generic remote shell.
+- Use a private relay repository for real work. Public relay mode is status-only, does not process control requests, and is for harmless dogfood; never put private task intent or project memory into a public repository.
 
 ## North-star UX
 
-The human should be able to say “implement the next Workbench task”, leave, and return to a completed result or one genuine decision request. Waiting for CI must not consume an AI worker or depend on a chat model remembering to come back.
+The human should be able to say “implement the next Workbench task”, leave, and return to a completed result or one genuine decision request. Ordinary ChatGPT should do the thinking and exact coding itself where possible; Workbench provides safe hands, and autonomous/local/cloud workers are escalation capacity rather than the default.
