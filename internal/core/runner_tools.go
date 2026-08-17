@@ -204,7 +204,11 @@ func listRunnerProjects(ctx context.Context) ([]RunnerProjectInfo, error) {
 	}
 	discovered := make([]discoveredRunnerProject, 0, 32)
 	seenPaths := map[string]bool{}
-	for rootIndex, root := range roots {
+	for _, root := range roots {
+		rootNumber, ok := runnerRootNumber(root)
+		if !ok {
+			return nil, errors.New("runner project root scope is unavailable")
+		}
 		entries, readErr := os.ReadDir(root)
 		if readErr != nil {
 			return nil, readErr
@@ -230,7 +234,7 @@ func listRunnerProjects(ctx context.Context) ([]RunnerProjectInfo, error) {
 				continue
 			}
 			seenPaths[resolved] = true
-			discovered = append(discovered, discoveredRunnerProject{name: entry.Name(), rootNumber: rootIndex + 1, path: resolved})
+			discovered = append(discovered, discoveredRunnerProject{name: entry.Name(), rootNumber: rootNumber, path: resolved})
 		}
 	}
 
