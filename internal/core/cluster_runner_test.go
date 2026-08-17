@@ -171,8 +171,19 @@ func TestRunnerRootSpecsKeepProjectsAsSlotTwoWhenSrcIsMissing(t *testing.T) {
 	if len(specs) != 1 {
 		t.Fatalf("specs=%+v want one existing default root", specs)
 	}
-	if specs[0].Number != 2 || filepath.Clean(specs[0].Path) != filepath.Clean(projects) {
-		t.Fatalf("spec=%+v want stable slot 2 for %q", specs[0], projects)
+	if specs[0].Number != 2 {
+		t.Fatalf("spec=%+v want stable slot 2", specs[0])
+	}
+	gotInfo, err := os.Stat(specs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantInfo, err := os.Stat(projects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(gotInfo, wantInfo) {
+		t.Fatalf("spec path %q does not identify projects root %q", specs[0].Path, projects)
 	}
 }
 
