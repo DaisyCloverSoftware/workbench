@@ -10,9 +10,13 @@ import (
 const primaryChatProviderID = "chatgpt"
 
 func primaryChatRoutingRow(localMCPReady bool) (target, line string) {
+	return primaryChatRoutingRowWithBridge(localMCPReady, currentRunnerChatBridge())
+}
+
+func primaryChatRoutingRowWithBridge(localMCPReady bool, bridge *core.RunnerChatBridgeInfo) (target, line string) {
 	mark := "○"
 	status := "primary brain · Workbench transport not verified"
-	if bridge := currentRunnerChatBridge(); bridge != nil {
+	if bridge != nil {
 		status = bridge.Status
 		if bridge.Ready {
 			mark = "●"
