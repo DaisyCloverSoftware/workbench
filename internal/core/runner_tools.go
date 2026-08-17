@@ -68,10 +68,14 @@ func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerT
 		providers := providerInventoryWithConfiguredHarness(ScanProviders(), Preferences{})
 		providers = ApplyProviderHealth(providers, time.Now())
 		safe := safeRunnerProviderInventory(providers)
-		// Model discovery is an optional refinement of the already-usable runner
-		// inventory. If OpenClaw is missing or its catalogue cannot currently be
-		// read, provider discovery still succeeds and ordinary routing is intact.
-		if catalog, err := DiscoverOpenClawCloudModels(ctx, ""); err == nil {
+		// Model discovery is only an optional refinement of the already-usable
+		// runner inventory. Give it a much shorter deadline than the surrounding
+		// SSH/tool request so a slow/unhealthy OpenClaw catalogue can never make
+		// ordinary worker discovery time out or disappear from Settings.
+		modelCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		catalog, modelErr := DiscoverOpenClawCloudModels(modelCtx, "")
+		cancel()
+		if modelErr == nil {
 			for _, model := range catalog.Models {
 				if info, ok := runnerCloudModelProviderInfo(model); ok {
 					safe = append(safe, info)
@@ -157,7 +161,7 @@ func runnerCloudModelProviderInfo(model OpenClawCloudModel) (RunnerProviderInfo,
 		capability += fmt.Sprintf(" · usable %dk", (model.ContextTokens+999)/1000)
 	}
 
-	status := "available · select and Connect to make OpenClaw default"
+	status := "available · select to make OpenClaw default"
 	ready := false
 	if model.Default {
 		status = "current OpenClaw default · routine cloud preference"
