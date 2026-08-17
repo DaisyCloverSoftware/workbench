@@ -356,33 +356,38 @@ func ExecuteRunnerRequest(ctx context.Context, req RunnerRequest) RunnerResponse
 	return RunnerResponse{Error: "every eligible runner worker failed", Attempts: attempts}
 }
 
-// runnerRoots returns canonical authorised project roots. WORKBENCH_RUNNER_ROOTS
-// is an operator-owned path-list override for multi-root hosts. The legacy
-// WORKBENCH_RUNNER_ROOT remains supported and takes precedence over defaults.
-// With no explicit configuration Workbench recognises the two conventional
-// per-user development roots, ~/src and ~/projects, when they exist.
-func runnerRoots() ([]string, error) {
+type runnerRootSpec struct {
+	Number int
+	Path   string
+}
+
+// runnerRootSpecs returns canonical authorised project roots while preserving
+// the configured/default slot number. A missing optional default root is skipped
+// without renumbering later roots, so a persisted runner://rN/name reference can
+// never silently point at a different root merely because ~/src or ~/projects
+// was created or removed later.
+func runnerRootSpecs() ([]runnerRootSpec, error) {
 	if configured := strings.TrimSpace(os.Getenv("WORKBENCH_RUNNER_ROOTS")); configured != "" {
 		parts := filepath.SplitList(configured)
 		if len(parts) == 0 {
 			return nil, errors.New("WORKBENCH_RUNNER_ROOTS contains no project roots")
 		}
-		return canonicalRunnerRoots(parts, true)
+		return canonicalRunnerRootSpecs(parts, true)
 	}
 	if root := strings.TrimSpace(os.Getenv("WORKBENCH_RUNNER_ROOT")); root != "" {
-		return canonicalRunnerRoots([]string{root}, true)
+		return canonicalRunnerRootSpecs([]string{root}, true)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	return canonicalRunnerRoots([]string{filepath.Join(home, "src"), filepath.Join(home, "projects")}, false)
+	return canonicalRunnerRootSpecs([]string{filepath.Join(home, "src"), filepath.Join(home, "projects")}, false)
 }
 
-func canonicalRunnerRoots(candidates []string, explicit bool) ([]string, error) {
-	roots := make([]string, 0, len(candidates))
+func canonicalRunnerRootSpecs(candidates []string, explicit bool) ([]runnerRootSpec, error) {
+	roots := make([]runnerRootSpec, 0, len(candidates))
 	seen := map[string]bool{}
-	for _, candidate := range candidates {
+	for index, candidate := range candidates {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
 			if explicit {
@@ -402,12 +407,40 @@ func canonicalRunnerRoots(candidates []string, explicit bool) ([]string, error) 
 			continue
 		}
 		seen[key] = true
-		roots = append(roots, key)
+		roots = append(roots, runnerRootSpec{Number: index + 1, Path: key})
 	}
 	if len(roots) == 0 {
 		return nil, errors.New("no authorised runner project root is available")
 	}
 	return roots, nil
+}
+
+// runnerRoots returns only canonical root paths for existing callers. Scoped
+// project identity uses runnerRootSpecs so its root numbers remain stable.
+func runnerRoots() ([]string, error) {
+	specs, err := runnerRootSpecs()
+	if err != nil {
+		return nil, err
+	}
+	roots := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		roots = append(roots, spec.Path)
+	}
+	return roots, nil
+}
+
+func runnerRootNumber(path string) (int, bool) {
+	specs, err := runnerRootSpecs()
+	if err != nil {
+		return 0, false
+	}
+	path = filepath.Clean(path)
+	for _, spec := range specs {
+		if filepath.Clean(spec.Path) == path {
+			return spec.Number, true
+		}
+	}
+	return 0, false
 }
 
 // runnerRoot preserves the historical single-root helper for callers/tests that
@@ -445,21 +478,27 @@ func resolveProjectNameAcrossRoots(roots []string, name, requested string) (stri
 	}
 }
 
-func resolveScopedRunnerProject(roots []string, rootNumber int, name string) (string, error) {
-	if rootNumber <= 0 || rootNumber > len(roots) {
-		return "", errors.New("runner project reference names an unavailable project root")
-	}
+func resolveScopedRunnerProject(rootNumber int, name string) (string, error) {
 	name, err := validateRunnerProjectName(name)
 	if err != nil {
 		return "", err
 	}
-	root := roots[rootNumber-1]
-	candidate := filepath.Join(root, name)
-	resolved, err := canonicalRunnerDirectory(candidate)
-	if err != nil || !withinRoot(root, resolved) {
-		return "", errors.New("scoped runner project is unavailable")
+	specs, err := runnerRootSpecs()
+	if err != nil {
+		return "", err
 	}
-	return resolved, nil
+	for _, spec := range specs {
+		if spec.Number != rootNumber {
+			continue
+		}
+		candidate := filepath.Join(spec.Path, name)
+		resolved, resolveErr := canonicalRunnerDirectory(candidate)
+		if resolveErr != nil || !withinRoot(spec.Path, resolved) {
+			return "", errors.New("scoped runner project is unavailable")
+		}
+		return resolved, nil
+	}
+	return "", errors.New("runner project reference names an unavailable project root")
 }
 
 // ResolveRunnerProject maps a desktop or runner-local project identifier to one
@@ -479,7 +518,7 @@ func ResolveRunnerProject(requested string) (string, error) {
 
 	if rootNumber, name, ok := RunnerProjectLocator(requested); ok {
 		if rootNumber > 0 {
-			return resolveScopedRunnerProject(roots, rootNumber, name)
+			return resolveScopedRunnerProject(rootNumber, name)
 		}
 		return resolveProjectNameAcrossRoots(roots, name, requested)
 	}
