@@ -8,8 +8,20 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func privateSafeHandsFixture(t *testing.T) (root, project string) {
+	t.Helper()
+	root = t.TempDir()
+	project = filepath.Join(root, "sample")
+	if err := os.Mkdir(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
+	return root, project
+}
 
 func TestPrivateSafeHandsActionBoundary(t *testing.T) {
 	for _, action := range []string{"list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
@@ -25,12 +37,11 @@ func TestPrivateSafeHandsActionBoundary(t *testing.T) {
 }
 
 func TestPrivateSafeHandsForwardsBoundedCommandToLocalMCP(t *testing.T) {
-	root := t.TempDir()
-	project := filepath.Join(root, "sample")
-	if err := os.Mkdir(project, 0o755); err != nil {
+	_, project := privateSafeHandsFixture(t)
+	canonicalProject, err := filepath.EvalSymlinks(project)
+	if err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
 
 	var gotTool string
 	var gotArgs map[string]any
@@ -70,19 +81,46 @@ func TestPrivateSafeHandsForwardsBoundedCommandToLocalMCP(t *testing.T) {
 	if result["ok"] != true || gotTool != "run_safe_command" {
 		t.Fatalf("unexpected result/tool: result=%#v tool=%q", result, gotTool)
 	}
-	if gotArgs["project_path"] != project || gotArgs["command"] != "go test ./..." {
+	if gotArgs["project_path"] != canonicalProject || gotArgs["command"] != "go test ./..." {
 		t.Fatalf("unexpected MCP args: %#v", gotArgs)
 	}
 }
 
-func TestPrivateSafeHandsRejectsMissingProjectAndLooseArgs(t *testing.T) {
-	for _, tc := range []privateControlEnvelope{
-		{Version: 1, ID: "control-12345678", Action: "run_safe_command", Args: json.RawMessage(`{"command":"go test ./..."}`)},
-		{Version: 1, ID: "control-12345678", Action: "search_text", Project: "sample", Args: json.RawMessage(`{"query":"router","unexpected":true}`)},
-	} {
-		if _, err := executePrivateControl(context.Background(), tc, "http://127.0.0.1:1", "unused"); err == nil {
-			t.Fatalf("expected safe-hands request to fail: %#v", tc)
-		}
+func TestPrivateSafeHandsRejectsMissingProject(t *testing.T) {
+	if _, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "run_safe_command",
+		Args:    json.RawMessage(`{"command":"go test ./..."}`),
+	}, "http://127.0.0.1:1", "unused"); err == nil {
+		t.Fatal("missing safe-hands project must fail")
+	}
+}
+
+func TestPrivateSafeHandsRejectsLooseArgs(t *testing.T) {
+	privateSafeHandsFixture(t)
+	_, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "search_text",
+		Project: "sample",
+		Args:    json.RawMessage(`{"query":"router","unexpected":true}`),
+	}, "http://127.0.0.1:1", "unused")
+	if err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("loose safe-hands args were not rejected strictly: %v", err)
+	}
+}
+
+func TestPrivateSafeHandsRejectsProjectSymlinkOutsideRunnerRoot(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	link := filepath.Join(root, "escape")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unavailable on this test host: %v", err)
+	}
+	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
+	if _, err := resolvePrivateSafeHandsProject("escape"); err == nil {
+		t.Fatal("safe hands accepted a project symlink escaping the runner root")
 	}
 }
 
