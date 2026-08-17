@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.5 — 2026-08-17
+
+- Restored the product's Chat-first architecture in the native UI: ordinary ChatGPT is the explicit primary Workbench brain, autonomous coding workers are escalation capacity, and scarce Codex/Work is visibly last-resort rather than the default coding route.
+- Extended the verified private Git relay with bounded safe hands for Personal-plan workflows: privacy-safe repository discovery plus `list_files`, `search_text`, `read_file`, exact `apply_patch`, allowlisted `run_safe_command`, and non-secret `save_note`, all using the same Workbench policy boundaries as direct MCP.
+- Kept autonomous `delegate_task` and genuine human-attention answers on separate relay channels, with no generic shell, arbitrary SSH, direct push/deploy, or new publication authority exposed to Chat.
+- Hardened private safe-hands project confinement by canonicalising repository roots and rejecting symlink escape or aliasing outside the authorised runner root.
+- Reworked private-loop maintenance to use an app-owned disposable update checkout instead of resetting, cleaning, switching, or fast-forwarding the developer project checkout; existing local development work is left untouched.
+- Added privacy-minimal `update_status` state (`scheduled`, `running`, `succeeded`, `failed`) so Chat can verify maintenance completion without asking the human to inspect systemd or journal output.
+- Fixed live-host self-update reliability by isolating update-source tests from the operator HOME and allowing up to 30 seconds for the restarted MCP service to become healthy before authenticated initialize verification.
+- Dogfooded the complete private Chat-first loop before release: update status, project discovery, model-safe repository read, allowlisted command execution, and a full self-update all completed through the private relay while the developer checkout retained the same pre-existing working-tree changes.
+
 ## 0.9.4 — 2026-08-17
 
 - Fixed Windows runner connection setup so Workbench opens a real persistent `cmd.exe /K` console in its own Windows console process instead of relying on an intermediate `START` hand-off that could disappear before SSH/Tailscale output was readable.
