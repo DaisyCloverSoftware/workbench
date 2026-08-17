@@ -98,6 +98,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmCreate:
 		s.hwnd = hwnd
 		s.createControls()
+		s.createChatGPTBootstrapControl()
 		s.createDashboardChrome()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
@@ -139,6 +140,10 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmCommand:
 		id := int(uint16(wParam & 0xffff))
 		notify := uint16((wParam >> 16) & 0xffff)
+		if s.handleChatGPTBootstrapCommand(id) {
+			redrawProductionWindow(hwnd)
+			return 0
+		}
 		if s.handleProductionChromeCommand(id) {
 			redrawProductionWindow(hwnd)
 			return 0
@@ -171,6 +176,7 @@ func (s *Shell) layoutProduction() {
 
 	s.layoutProductionChrome(width)
 	showWindow(s.controls[idGlobalStatus], false)
+	showWindow(s.controls[idCopyChatGPTBootstrap], s.page == pageSettings)
 	switch s.page {
 	case pageWork:
 		s.layoutProductionWork(contentX, contentY, contentW, contentH)
