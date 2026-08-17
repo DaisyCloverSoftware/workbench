@@ -48,7 +48,9 @@ func TestPrivateUpdateStatusRoundTripIsCategorical(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	// POSIX permission bits are not a meaningful security primitive on Windows;
+	// the private relay runs on Linux and the Linux CI gate enforces 0600 here.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o077 != 0 {
 		t.Fatalf("status file permissions are too broad: %o", info.Mode().Perm())
 	}
 	got, err := readPrivateUpdateStatus()
