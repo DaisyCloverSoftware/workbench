@@ -131,10 +131,12 @@ func (s *Shell) layoutProductionSettings(x, y, width, height int) {
 	xRight := x + left + gap
 	top := y + 10
 
-	// Left card: worker inventory, usage policy, bridge and routing.
-	moveWindow(s.controls[idSettingsTitle], x+4, top, left-8, 1)
-	moveWindow(s.controls[idProvidersLabel], x+4, top+2, left-8, 20)
-	moveWindow(s.controls[idProviderList], x+4, top+28, left-8, 130)
+	// Left card: keep ChatGPT's primary role outside the scrolling inventory so
+	// an asynchronous runner refresh or a long cloud-model catalogue can never
+	// make the app look autonomous-worker-first again.
+	moveWindow(s.controls[idSettingsTitle], x+4, top+2, left-8, 20)
+	moveWindow(s.controls[idProvidersLabel], x+4, top+28, left-8, 20)
+	moveWindow(s.controls[idProviderList], x+4, top+52, left-8, 106)
 	moveWindow(s.controls[idConnectProvider], x+4, top+168, 146, 32)
 	moveWindow(s.controls[idRescanProviders], x+158, top+168, 94, 32)
 	moveWindow(s.controls[idProtectWork], x+4, top+208, left-8, 24)
