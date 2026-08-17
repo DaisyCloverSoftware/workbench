@@ -86,11 +86,14 @@ fi
 
 health="http://127.0.0.1:$port/health"
 mcp="http://127.0.0.1:$port/mcp"
-for _ in $(seq 1 40); do
+health_ready=false
+for _ in $(seq 1 120); do
   if [ -s "$token_file" ]; then
     if command -v curl >/dev/null 2>&1 && curl -fsS "$health" >/dev/null 2>&1; then
+      health_ready=true
       break
     elif command -v wget >/dev/null 2>&1 && wget -qO- "$health" >/dev/null 2>&1; then
+      health_ready=true
       break
     fi
   fi
@@ -99,12 +102,12 @@ done
 
 [ -s "$token_file" ] || { echo "Workbench MCP auth file was not created." >&2; exit 1; }
 chmod 0600 "$token_file"
+[ "$health_ready" = true ] || { echo "Workbench MCP did not become healthy within 30 seconds." >&2; exit 1; }
 
 # Smoke-test initialize without putting the bearer value on the process command
 # line. curl reads a temporary 0600 header file; Python is the no-curl fallback.
 init_body='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 if command -v curl >/dev/null 2>&1; then
-  curl -fsS "$health" >/dev/null || { echo "Workbench MCP did not become healthy." >&2; exit 1; }
   header_file="$(mktemp)"
   trap 'rm -f "${header_file:-}"' EXIT
   chmod 0600 "$header_file"
