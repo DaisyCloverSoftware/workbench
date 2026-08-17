@@ -205,7 +205,7 @@ func executePrivateControlForRepo(ctx context.Context, env privateControlEnvelop
 		return callMCP(ctx, mcpURL, authFile, "save_context", map[string]any{
 			"project_path": project,
 			"objective": strings.TrimSpace(a.Objective),
-			"state": a.State,
+			"state": strings.TrimSpace(a.State),
 			"decisions": a.Decisions,
 			"constraints": a.Constraints,
 			"references": a.References,
