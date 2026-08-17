@@ -36,9 +36,11 @@ func RunRunnerSSHVerificationInteractive(host string) error {
 	return runRunnerSSHConsole(host, []string{"$HOME/.local/bin/workbench-runner", "version"})
 }
 
-// StartRunnerProviderLogin opens a human-visible SSH session to one configured
-// runner and invokes only the runner's allowlisted provider-login operation.
-// It never accepts arbitrary remote command text and is not exposed through MCP.
+// StartRunnerProviderLogin opens one human-visible SSH session to a configured
+// runner and invokes only a fixed Workbench Runner operator action. Ordinary
+// provider ids use the allowlisted provider-login operation. Synthetic cloud
+// model rows may only invoke the validated cloud-model-set operation; arbitrary
+// remote command text is never accepted and neither path is exposed through MCP.
 func StartRunnerProviderLogin(host, providerID string) error {
 	host, err := validateSSHHostTarget(host)
 	if err != nil {
@@ -47,6 +49,9 @@ func StartRunnerProviderLogin(host, providerID string) error {
 	providerID = strings.TrimSpace(providerID)
 	if providerID == RunnerConnectionProviderID {
 		return startRunnerSSHConsole(host, []string{"$HOME/.local/bin/workbench-runner", "version"})
+	}
+	if model, ok := RunnerCloudModelRefFromProviderID(providerID); ok {
+		return startRunnerSSHConsole(host, []string{"$HOME/.local/bin/workbench-runner", "cloud-model-set", model})
 	}
 	if _, _, ok := LoginCommand(providerID); !ok {
 		return errors.New("provider does not expose a supported login flow")

@@ -125,7 +125,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.3"},
-			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, and search_memory. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. While an active coding worker is running, check get_task at a reasonable cadence rather than hammering it. If status becomes waiting_retry or waiting_dependency, stop polling: that is a durable Workbench-owned wait, no coding worker is held, and Workbench will resume the same task automatically when the retry/dependency becomes ready. Continue other independent useful work instead. Only surface needs_attention to the human. Never ask the human to watch progress. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
+			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, and search_memory. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. An optional cloud_model on delegate_task is only a per-task preference inside OpenClaw if the existing Workbench provider hierarchy eventually reaches that cloud stage; it never bypasses local or cheaper workers. While an active coding worker is running, check get_task at a reasonable cadence rather than hammering it. If status becomes waiting_retry or waiting_dependency, stop polling: that is a durable Workbench-owned wait, no coding worker is held, and Workbench will resume the same task automatically when the retry/dependency becomes ready. Continue other independent useful work instead. Only surface needs_attention to the human. Never ask the human to watch progress. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
 		}
 	case "ping":
 		result = map[string]any{}
@@ -185,7 +185,7 @@ func toolsList() []map[string]any {
 		tool("read_file", "Read repository file", "Read a line range from one model-safe source file. Paths stay inside the active local or cluster project; credential files, binary files, oversized files, and files containing probable secret material are refused.", objSchema(map[string]any{"project_path": project, "path": strProp("Relative file path inside the project"), "start_line": intProp("Optional 1-based first line"), "end_line": intProp("Optional 1-based last line")}, []string{"path"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("save_memory", "Save durable Workbench memory", "Save a non-secret durable fact, decision, constraint, pattern, routine or reusable code item. Scope is project or global; project memory never silently becomes global.", objSchema(map[string]any{"project_path": project, "scope": strProp("project or global"), "kind": strProp("fact, decision, constraint, pattern, routine or code"), "title": strProp("Short retrieval title"), "content": strProp("Durable reusable content"), "tags": stringArrayProp("Optional retrieval tags"), "source": strProp("Optional provenance, such as task ID, commit or conversation capsule")}, []string{"scope", "title", "content"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("save_context", "Save compact continuation context", "Save a bounded continuation capsule before chat context becomes too long. Keep only current objective, verified state, decisions, constraints, references, open threads and next action.", objSchema(map[string]any{"project_path": project, "objective": strProp("Current outcome"), "state": strProp("Concise verified state of work"), "decisions": stringArrayProp("Decisions that still matter"), "constraints": stringArrayProp("Constraints that still matter"), "references": stringArrayProp("Task, memory, branch or artefact IDs needed to continue"), "open_threads": stringArrayProp("Unresolved work/questions"), "next_action": strProp("Most useful next action")}, []string{"objective", "state"}), anyObjectSchema(), annotations(false, false, false)),
-		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench routes zero-marginal and included-subscription workers before scarce Work/Codex and leaves metered APIs disabled unless explicitly enabled. Workbench-owned waiting_retry and waiting_dependency states do not hold a coding worker and resume automatically.", objSchema(map[string]any{"intent": strProp("Outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
+		tool("delegate_task", "Delegate autonomous coding task", "Delegate a genuinely autonomous coding task. Workbench routes zero-marginal and included-subscription workers before scarce Work/Codex and leaves metered APIs disabled unless explicitly enabled. Optional cloud_model is an explicit per-task OpenAI/Anthropic model override only if routing eventually reaches OpenClaw; it never selects OpenClaw or bypasses the existing provider hierarchy. Workbench-owned waiting_retry and waiting_dependency states do not hold a coding worker and resume automatically.", objSchema(map[string]any{"intent": strProp("Outcome to achieve"), "project_path": project, "cloud_model": strProp("Optional exact OpenAI/Anthropic provider/model reference to prefer only inside the OpenClaw cloud stage, for example openai/gpt-5.3-codex-spark. Omit for automatic/default cloud routing.")}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("get_task", "Get task status", "Read durable task status. Check active running work at a reasonable cadence. Do not busy-poll waiting_retry or waiting_dependency: Workbench owns those waits and resumes automatically. Only surface a needs_attention question to the human.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_tasks", "List Workbench tasks", "List recent Workbench tasks and their statuses.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ordinary Chat to a local or cluster project. Prefer this no-Work path when Chat can reason out the code and Workbench only needs to provide bounded hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
@@ -413,15 +413,23 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if errResult != nil {
 			return errResult
 		}
-		t, err := s.engine.Delegate("chatgpt-mcp", arg(a, "intent"), project)
+		cloudModel := arg(a, "cloud_model")
+		var t core.Task
+		var err error
+		if cloudModel == "" {
+			t, err = s.engine.Delegate("chatgpt-mcp", arg(a, "intent"), project)
+		} else {
+			t, err = s.engine.DelegateWithCloudModel("chatgpt-mcp", arg(a, "intent"), project, cloudModel)
+		}
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
 		return textContent(map[string]any{
-			"task_id":      t.ID,
-			"status":       t.Status,
-			"project_path": project,
-			"instruction":  "Check get_task at a reasonable cadence while an active worker is running. If status becomes waiting_retry or waiting_dependency, stop polling and do other useful work; Workbench owns that durable wait and resumes the same task automatically. Only surface needs_attention to the human.",
+			"task_id":              t.ID,
+			"status":               t.Status,
+			"project_path":         project,
+			"cloud_model_override": t.CloudModelOverride,
+			"instruction":          "Check get_task at a reasonable cadence while an active worker is running. If status becomes waiting_retry or waiting_dependency, stop polling and do other useful work; Workbench owns that durable wait and resumes the same task automatically. Only surface needs_attention to the human.",
 		}, false)
 
 	case "get_task":

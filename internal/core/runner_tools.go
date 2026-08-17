@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -66,7 +67,22 @@ func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerT
 	case "list_providers":
 		providers := providerInventoryWithConfiguredHarness(ScanProviders(), Preferences{})
 		providers = ApplyProviderHealth(providers, time.Now())
-		return RunnerToolResponse{OK: true, Providers: safeRunnerProviderInventory(providers)}, nil
+		safe := safeRunnerProviderInventory(providers)
+		// Model discovery is only an optional refinement of the already-usable
+		// runner inventory. Give it a much shorter deadline than the surrounding
+		// SSH/tool request so a slow/unhealthy OpenClaw catalogue can never make
+		// ordinary worker discovery time out or disappear from Settings.
+		modelCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		catalog, modelErr := DiscoverOpenClawCloudModels(modelCtx, "")
+		cancel()
+		if modelErr == nil {
+			for _, model := range catalog.Models {
+				if info, ok := runnerCloudModelProviderInfo(model); ok {
+					safe = append(safe, info)
+				}
+			}
+		}
+		return RunnerToolResponse{OK: true, Providers: safe}, nil
 	}
 
 	if strings.TrimSpace(req.Project) == "" {
@@ -123,6 +139,55 @@ func safeRunnerProviderInventory(providers []Provider) []RunnerProviderInfo {
 		})
 	}
 	return out
+}
+
+func runnerCloudModelProviderInfo(model OpenClawCloudModel) (RunnerProviderInfo, bool) {
+	id, err := RunnerCloudModelProviderID(model.Key)
+	if err != nil || !model.Available {
+		return RunnerProviderInfo{}, false
+	}
+	capability := "OpenClaw cloud model · " + canonicalOpenClawProvider(model.Provider)
+	if strings.TrimSpace(model.Input) != "" {
+		capability += " · " + strings.TrimSpace(model.Input)
+	} else if model.Image {
+		capability += " · text+image"
+	} else {
+		capability += " · text"
+	}
+	if model.ContextWindow > 0 {
+		capability += fmt.Sprintf(" · context %dk", (model.ContextWindow+999)/1000)
+	}
+	if model.ContextTokens > 0 && model.ContextTokens != model.ContextWindow {
+		capability += fmt.Sprintf(" · usable %dk", (model.ContextTokens+999)/1000)
+	}
+
+	status := "available · select to make OpenClaw default"
+	ready := false
+	if model.Default {
+		status = "current OpenClaw default · routine cloud preference"
+		ready = true
+	}
+	if model.Cooling {
+		status += " · Workbench cooldown"
+		if model.CooldownReason != "" {
+			status += " (" + model.CooldownReason + ")"
+		}
+		ready = false
+	}
+	name := strings.TrimSpace(model.Name)
+	if name == "" {
+		_, name = splitOpenClawModelKey(model.Key)
+	}
+	return RunnerProviderInfo{
+		ID:            id,
+		Name:          "OpenClaw model · " + name,
+		Capability:    capability,
+		Status:        status,
+		Cost:          CostIncluded,
+		Installed:     true,
+		Authenticated: true,
+		Ready:         ready,
+	}, true
 }
 
 func listRunnerProjects(ctx context.Context) ([]RunnerProjectInfo, error) {

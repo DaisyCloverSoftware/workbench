@@ -86,6 +86,7 @@ func (s *Shell) refreshProviders() {
 	runner := runnerProviderInventory(host)
 	procSendMessageW.Call(s.controls[idProviderList], lbResetContent, 0, 0)
 	s.providerIDs = nil
+	setWindowText(s.controls[idConnectProvider], "Connect selected")
 
 	appendLine := func(target, line string) {
 		ptr := wstr(line)
@@ -181,6 +182,7 @@ func (s *Shell) showSelectedProvider() {
 	if idx < 0 || idx >= len(s.providerIDs) {
 		return
 	}
+	setWindowText(s.controls[idConnectProvider], "Connect selected")
 	scope, id := providerListTarget(s.providerIDs[idx])
 	if scope == "status" {
 		messageBox(s.hwnd, "Cluster runner", "Workbench has not received a usable coding-worker inventory from the configured runner yet. Rescan after the runner is reachable and current.", mbOK|mbIconInformation)
@@ -190,6 +192,14 @@ func (s *Shell) showSelectedProvider() {
 		host := strings.TrimSpace(s.eng.State().Preferences.OpenClawSSHHost)
 		provider, ok := runnerProviderByID(host, id)
 		if !ok {
+			return
+		}
+		if model, isCloudModel := core.RunnerCloudModelRefFromProviderID(id); isCloudModel {
+			setWindowText(s.controls[idConnectProvider], "Set model default")
+			body := "Cloud stage: OpenClaw on the cluster runner\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
+			body += "\r\n\r\nModel reference: " + model
+			body += "\r\n\r\nThis does not move OpenClaw ahead of local models or other existing Workbench workers. It only changes OpenClaw's global routine default if Workbench's existing routing eventually reaches the OpenClaw cloud stage. Difficult/high-risk work may still auto-escalate within that stage."
+			messageBox(s.hwnd, provider.Name, body, mbOK|mbIconInformation)
 			return
 		}
 		body := "Execution host: Cluster runner\r\n\r\n" + provider.Capability + "\r\n\r\n" + provider.Status
@@ -225,6 +235,22 @@ func (s *Shell) connectSelectedProvider() {
 		provider, ok := runnerProviderByID(host, id)
 		if !ok {
 			messageBox(s.hwnd, "Runner worker", "Workbench no longer has this runner worker in its current inventory. Click Rescan.", mbOK|mbIconInformation)
+			return
+		}
+		if model, isCloudModel := core.RunnerCloudModelRefFromProviderID(id); isCloudModel {
+			if provider.Ready {
+				messageBox(s.hwnd, "Cloud model already selected", model+" is already OpenClaw's current global default. Workbench's outer routing hierarchy is unchanged.", mbOK|mbIconInformation)
+				return
+			}
+			body := "Set " + model + " as OpenClaw's global default model?\r\n\r\nThis only changes the default inside the OpenClaw cloud-model stage. Workbench will still try its existing local/cheaper/provider routes first, and high-risk work may still escalate to a stronger cloud model automatically."
+			if messageBox(s.hwnd, "Set OpenClaw cloud default", body, mbYesNo|mbIconInformation) != idYes {
+				return
+			}
+			if err := core.StartRunnerProviderLogin(host, id); err != nil {
+				messageBox(s.hwnd, "Cloud model setup", "Workbench could not open the fixed cloud-model selection operation on the runner.\r\n\r\n"+err.Error(), mbOK|mbIconWarning)
+				return
+			}
+			messageBox(s.hwnd, "Cloud model selection opened", "Workbench opened a human-visible runner console that can only set the validated OpenClaw model you selected. When it reports ok, close the console and click Rescan. No password or OAuth token is entered into Workbench.", mbOK|mbIconInformation)
 			return
 		}
 		if provider.Ready {

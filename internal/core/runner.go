@@ -122,6 +122,17 @@ func RunProvider(ctx context.Context, p Provider, task Task, prefs Preferences) 
 	}
 
 	cmd := exec.CommandContext(ctx, name, args...)
+	if p.ID == "openclaw" && strings.TrimSpace(task.CloudModelOverride) != "" {
+		model, modelErr := normalizeOpenClawCloudModelRef(task.CloudModelOverride)
+		if modelErr != nil {
+			return RunResult{}, fmt.Errorf("invalid OpenClaw cloud model override: %w", modelErr)
+		}
+		// The task override is process-local metadata for Workbench's runner shim.
+		// It is not appended to the worker prompt and cannot alter the outer
+		// provider route. A real OpenClaw binary simply ignores this environment
+		// variable; the Workbench runner shim consumes it when present.
+		cmd.Env = append(os.Environ(), "WORKBENCH_OPENCLAW_TASK_MODEL="+model)
+	}
 	if !remoteHarness {
 		cmd.Dir = abs
 	}
