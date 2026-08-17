@@ -8,60 +8,89 @@ if [ -z "$relay_url" ]; then
 fi
 
 public_url="${WORKBENCH_PUBLIC_REPO_URL:-https://github.com/DaisyCloverSoftware/workbench.git}"
-source_dir="${WORKBENCH_SOURCE_DIR:-$HOME/src/workbench}"
+project_source_dir="${WORKBENCH_SOURCE_DIR:-$HOME/src/workbench}"
+update_source_dir="$HOME/.local/share/workbench/update-source"
 relay_dir="${WORKBENCH_RELAY_REPO_DIR:-$HOME/.local/share/workbench/relay-private}"
-mkdir -p "$(dirname "$source_dir")" "$(dirname "$relay_dir")"
+mkdir -p "$(dirname "$project_source_dir")" "$(dirname "$update_source_dir")" "$(dirname "$relay_dir")"
 
-refresh_clone() {
+ensure_project_clone() {
   local url="$1"
   local dir="$2"
-  local label="$3"
 
   if [ -d "$dir/.git" ]; then
-    if [ -n "$(git -C "$dir" status --porcelain)" ]; then
-      echo "STOP: $label clone has local changes: $dir" >&2
-      echo "Commit, stash, or move those changes before rerunning this bootstrap." >&2
-      exit 1
-    fi
-
-    git -C "$dir" remote get-url origin >/dev/null 2>&1 || git -C "$dir" remote add origin "$url"
-    git -C "$dir" remote set-url origin "$url"
-    git -C "$dir" fetch --quiet origin main
-
-    if git -C "$dir" merge-base HEAD origin/main >/dev/null 2>&1; then
-      git -C "$dir" switch --quiet main
-      git -C "$dir" merge --ff-only --quiet origin/main
-      return 0
-    fi
-
-    local backup="${dir}-pre-bootstrap-$(date +%Y%m%d-%H%M%S)"
-    echo "$label clone has unrelated history; preserving it at $backup"
-    mv "$dir" "$backup"
-  elif [ -e "$dir" ]; then
-    echo "STOP: $label path exists but is not a git clone: $dir" >&2
+    # This is the developer/project checkout. Never reset, clean, switch or
+    # fast-forward it as part of maintenance; local work must survive updates.
+    return 0
+  fi
+  if [ -e "$dir" ]; then
+    echo "STOP: Workbench project source path exists but is not a git clone: $dir" >&2
     exit 1
   fi
-
   git clone --quiet "$url" "$dir"
 }
 
-echo "Refreshing Workbench source..."
-refresh_clone "$public_url" "$source_dir" "Workbench source"
+refresh_update_clone() {
+  local url="$1"
+  local dir="$2"
+
+  if [ -d "$dir/.git" ]; then
+    git -C "$dir" remote get-url origin >/dev/null 2>&1 || git -C "$dir" remote add origin "$url"
+    git -C "$dir" remote set-url origin "$url"
+    git -C "$dir" fetch --quiet origin main
+    git -C "$dir" reset --hard --quiet origin/main
+    git -C "$dir" clean -fdx -q
+    return 0
+  fi
+  if [ -e "$dir" ]; then
+    backup="${dir}-invalid-$(date +%Y%m%d-%H%M%S)"
+    mv "$dir" "$backup"
+  fi
+  git clone --quiet "$url" "$dir"
+}
+
+refresh_relay_clone() {
+  local url="$1"
+  local dir="$2"
+
+  if [ -d "$dir/.git" ]; then
+    if [ -n "$(git -C "$dir" status --porcelain)" ]; then
+      echo "STOP: Private relay clone has unexpected local changes: $dir" >&2
+      exit 1
+    fi
+    git -C "$dir" remote get-url origin >/dev/null 2>&1 || git -C "$dir" remote add origin "$url"
+    git -C "$dir" remote set-url origin "$url"
+    git -C "$dir" fetch --quiet origin main
+    git -C "$dir" switch --quiet main
+    git -C "$dir" merge --ff-only --quiet origin/main
+    return 0
+  fi
+  if [ -e "$dir" ]; then
+    echo "STOP: Private relay path exists but is not a git clone: $dir" >&2
+    exit 1
+  fi
+  git clone --quiet "$url" "$dir"
+}
+
+echo "Checking Workbench project checkout without modifying it..."
+ensure_project_clone "$public_url" "$project_source_dir"
+
+echo "Refreshing disposable Workbench maintenance source..."
+refresh_update_clone "$public_url" "$update_source_dir"
 
 echo "Refreshing private relay transport..."
-refresh_clone "$relay_url" "$relay_dir" "Private relay"
+refresh_relay_clone "$relay_url" "$relay_dir"
 
 echo "Installing current Workbench MCP service..."
-bash "$source_dir/scripts/install-cluster-mcp.sh" "$source_dir"
+bash "$update_source_dir/scripts/install-cluster-mcp.sh" "$project_source_dir"
 
 echo "Installing private bidirectional relay..."
 WORKBENCH_RELAY_REPO_DIR="$relay_dir" \
 WORKBENCH_RELAY_PRIVATE=1 \
-bash "$source_dir/scripts/install-github-relay.sh"
+bash "$update_source_dir/scripts/install-github-relay.sh"
 
 echo
 echo "WORKBENCH PRIVATE LOOP READY"
-echo "  source: $source_dir"
-echo "  relay transport: $relay_dir"
-echo "  relay mode: private bidirectional reports + attention answers"
+echo "  project source: $project_source_dir (left untouched by maintenance)"
+echo "  update source: app-owned disposable checkout"
+echo "  relay mode: private bidirectional safe hands + autonomous handoff"
 echo "  secrets: remain local; relay messages must not contain raw credentials"
