@@ -191,45 +191,73 @@ func runnerCloudModelProviderInfo(model OpenClawCloudModel) (RunnerProviderInfo,
 	}, true
 }
 
+type discoveredRunnerProject struct {
+	name       string
+	rootNumber int
+	path       string
+}
+
 func listRunnerProjects(ctx context.Context) ([]RunnerProjectInfo, error) {
-	configuredRoot, err := runnerRoot()
+	roots, err := runnerRoots()
 	if err != nil {
 		return nil, err
 	}
-	root, err := canonicalRunnerDirectory(configuredRoot)
-	if err != nil {
-		return nil, err
+	discovered := make([]discoveredRunnerProject, 0, 32)
+	seenPaths := map[string]bool{}
+	for rootIndex, root := range roots {
+		entries, readErr := os.ReadDir(root)
+		if readErr != nil {
+			return nil, readErr
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() || len(discovered) >= 500 {
+				continue
+			}
+			candidate := filepath.Join(root, entry.Name())
+			resolved, resolveErr := canonicalRunnerDirectory(candidate)
+			if resolveErr != nil || !withinRoot(root, resolved) || seenPaths[resolved] {
+				continue
+			}
+			gitRoot, gitErr := runGitLimited(ctx, resolved, 4096, "rev-parse", "--show-toplevel")
+			if gitErr != nil {
+				continue
+			}
+			canonicalGitRoot, canonicalErr := canonicalRunnerDirectory(strings.TrimSpace(gitRoot))
+			if canonicalErr != nil || filepath.Clean(canonicalGitRoot) != filepath.Clean(resolved) {
+				continue
+			}
+			if _, nameErr := validateRunnerProjectName(entry.Name()); nameErr != nil {
+				continue
+			}
+			seenPaths[resolved] = true
+			discovered = append(discovered, discoveredRunnerProject{name: entry.Name(), rootNumber: rootIndex + 1, path: resolved})
+		}
 	}
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return nil, err
+
+	nameCount := map[string]int{}
+	for _, project := range discovered {
+		nameCount[project.name]++
 	}
-	projects := make([]RunnerProjectInfo, 0, len(entries))
-	for _, entry := range entries {
-		if !entry.IsDir() || len(projects) >= 500 {
-			continue
+	projects := make([]RunnerProjectInfo, 0, len(discovered))
+	for _, project := range discovered {
+		var ref string
+		var refErr error
+		if nameCount[project.name] > 1 {
+			ref, refErr = RunnerScopedProjectReference(project.rootNumber, project.name)
+		} else {
+			ref, refErr = RunnerProjectReference(project.name)
 		}
-		candidate := filepath.Join(root, entry.Name())
-		resolved, resolveErr := canonicalRunnerDirectory(candidate)
-		if resolveErr != nil || !withinRoot(root, resolved) {
-			continue
-		}
-		gitRoot, gitErr := runGitLimited(ctx, resolved, 4096, "rev-parse", "--show-toplevel")
-		if gitErr != nil {
-			continue
-		}
-		canonicalGitRoot, canonicalErr := canonicalRunnerDirectory(strings.TrimSpace(gitRoot))
-		if canonicalErr != nil || filepath.Clean(canonicalGitRoot) != filepath.Clean(resolved) {
-			continue
-		}
-		ref, refErr := RunnerProjectReference(entry.Name())
 		if refErr != nil {
 			continue
 		}
-		projects = append(projects, RunnerProjectInfo{Name: entry.Name(), Ref: ref})
+		projects = append(projects, RunnerProjectInfo{Name: project.name, Ref: ref})
 	}
 	sort.Slice(projects, func(i, j int) bool {
-		return strings.ToLower(projects[i].Name) < strings.ToLower(projects[j].Name)
+		left, right := strings.ToLower(projects[i].Name), strings.ToLower(projects[j].Name)
+		if left != right {
+			return left < right
+		}
+		return projects[i].Ref < projects[j].Ref
 	})
 	return projects, nil
 }
