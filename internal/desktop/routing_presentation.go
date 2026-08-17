@@ -9,12 +9,19 @@ import (
 
 const primaryChatProviderID = "chatgpt"
 
-func primaryChatRoutingRow(bridgeReady bool) (target, line string) {
+func primaryChatRoutingRow(localMCPReady bool) (target, line string) {
 	mark := "○"
-	status := "MCP bridge unavailable"
-	if bridgeReady {
-		mark = "●"
-		status = "ready via local MCP bridge"
+	status := "primary brain · Workbench transport not verified"
+	if bridge := currentRunnerChatBridge(); bridge != nil {
+		status = bridge.Status
+		if bridge.Ready {
+			mark = "●"
+		}
+	} else if localMCPReady {
+		// A loopback MCP listener is useful infrastructure, but its existence is
+		// not proof that this ChatGPT conversation is attached to it. Personal
+		// plans may instead reach Workbench through the supported Git relay.
+		status = "primary brain · local MCP endpoint listening · chat transport not yet verified"
 	}
 	return "brain:" + primaryChatProviderID, fmt.Sprintf("%s PRIMARY · This PC · ChatGPT Chat  ·  %s  ·  included", mark, status)
 }
