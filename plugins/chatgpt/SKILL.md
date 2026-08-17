@@ -36,7 +36,7 @@ When direct Workbench write actions are unavailable but the GitHub app is connec
 - Do not invent a generic `run_command`, shell or arbitrary SSH action. The private control channel is an explicit allowlist, and autonomous delegation remains a separate channel.
 - Use a fresh control ID for each operation. Save context before a long conversation must be compacted, and restore it in the next conversation instead of replaying the transcript.
 - Search memory before implementing a recurring problem; prefer a verified saved routine or reusable code reference over creating another equivalent implementation.
-- A verified `update_workbench` private-control action may refresh the configured Workbench private loop using its fixed bootstrap; it accepts no remote URL or shell command from Chat. Use it only for intentional Workbench maintenance, never as a generic remote shell.
+- A verified `update_workbench` private-control action may refresh the configured Workbench private loop using its fixed bootstrap; it accepts no remote URL or shell command from Chat. The update runs from an app-owned disposable maintenance checkout and must not reset/clean/switch the developer project checkout. After scheduling it, use the argument-free `update_status` control action to read only categorical `scheduled`, `running`, `succeeded`, `failed`, or `never_run` state; do not make the human inspect systemd or journal output for routine maintenance.
 - Use a private relay repository for real work. Public relay mode is status-only, does not process control requests, and is for harmless dogfood; never put private task intent or project memory into a public repository.
 
 ## North-star UX
