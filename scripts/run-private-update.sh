@@ -24,11 +24,11 @@ if [ -z "$relay_url" ]; then
 fi
 
 write_status running
-if /bin/bash "$source_dir/scripts/bootstrap-private-relay.sh" "$relay_url"; then
-  write_status succeeded
-  exit 0
-fi
-
+/bin/bash "$source_dir/scripts/bootstrap-private-relay.sh" "$relay_url"
 rc=$?
-write_status failed
+if [ "$rc" -eq 0 ]; then
+  write_status succeeded
+else
+  write_status failed
+fi
 exit "$rc"
