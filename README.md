@@ -27,6 +27,7 @@ Workbench separates **intelligence** from **agency**:
 
 - One production task-first Windows application with a first-class multi-project sidebar, project-scoped notes/tasks, global attention navigation and advanced controls under Settings.
 - Headless Linux/cluster runner with cost-aware routing, durable detached jobs and operator-only verified updates.
+- Cluster project discovery across multiple authorised runner roots: legacy `WORKBENCH_RUNNER_ROOT` remains supported, `WORKBENCH_RUNNER_ROOTS` can configure a path-list, and conventional `~/src` plus `~/projects` roots are recognised by default when present. Duplicate repository names fail closed and receive opaque scoped `runner://rN/name` references rather than exposing host paths.
 - Adapter discovery for local models, coding CLIs and external harnesses.
 - Model-safe repository `list_files`, `search_text`, and `read_file` tools.
 - Persistent project/global knowledge for facts, decisions, constraints, patterns, routines and reusable code.
