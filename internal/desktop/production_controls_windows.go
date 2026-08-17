@@ -66,7 +66,7 @@ func (s *Shell) applyProductionControlTheme() {
 		idReportLabel:      "Result & activity",
 		idNotesLabel:       "Project context",
 		idAttentionLabel:   "Human decision — only answer when Workbench genuinely needs you",
-		idProvidersLabel:   "Coding workers · This PC + runner",
+		idProvidersLabel:   "Chat-first routing · primary brain + autonomous workers",
 		idMCPLabel:         "Chat & MCP bridge",
 		idRunnerLabel:      "Workbench Runner SSH host",
 		idHarnessLabel:     "Structured harness adapter executable",
@@ -85,7 +85,6 @@ func (s *Shell) applyProductionControlTheme() {
 			if hwnd != 0 {
 				procSendMessageW.Call(hwnd, wmSetFont, productionUIFont, 1)
 			}
-		}
 	}
 
 	for _, id := range productionFieldControlIDs() {
