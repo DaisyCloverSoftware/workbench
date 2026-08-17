@@ -42,7 +42,7 @@ func runProductionShell(s *Shell) error {
 	if strings.TrimSpace(s.version) != "" {
 		title += " " + strings.TrimSpace(s.version)
 	}
-	title += " — Autonomous developer workspace"
+	title += " — Chat-first developer workspace"
 	titlePtr := wstr(title)
 	hwnd, _, e := procCreateWindowExW.Call(
 		0,
