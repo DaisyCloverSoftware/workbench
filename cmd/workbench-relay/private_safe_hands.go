@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 )
@@ -140,7 +139,3 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 
 	return nil, errors.New("unsupported private safe-hands action")
 }
-
-// Keep json imported in this file so the strict envelope type remains obvious
-// to gofmt/go vet when this helper is built separately by editor tooling.
-var _ json.RawMessage
