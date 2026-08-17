@@ -113,10 +113,10 @@ Do not invent answers or use this path to bypass a permission boundary.
 
 ## Fresh-chat bootstrap
 
-A ChatGPT conversation that can access the user's connected GitHub account can bootstrap itself by locating a private repository containing `WORKBENCH_CHATGPT.md`, reading this file, and following it.
+A ChatGPT conversation that can access the user's connected GitHub account can bootstrap itself without code-search indexing: use repository search to locate the user's **private repository whose name contains `workbench-relay`**, then read `WORKBENCH_CHATGPT.md` from that repository root and follow it.
 
 A useful one-time global ChatGPT instruction is:
 
-> For software-development, repository, server and cluster work, use Workbench as my default execution layer. Use connected apps/tools to locate my private GitHub repository containing `WORKBENCH_CHATGPT.md`, read that guide, and follow it. ChatGPT is the primary brain/coder; prefer Workbench safe hands before autonomous delegation. Do not ask me to copy/paste prompts into OpenClaw, Codex, terminals or other chats when Workbench can carry the operation. Preserve Workbench routing and keep scarce Codex/Work as a last resort. If Workbench is unavailable, tell me what is unavailable instead of silently reverting to manual message shuttling.
+> For software-development, repository, server and cluster work, use Workbench as my default execution layer. Use my connected GitHub app to find my private repository whose name contains `workbench-relay`, read `WORKBENCH_CHATGPT.md` from its repository root, and follow that guide. ChatGPT is the primary brain/coder; prefer Workbench safe hands before autonomous delegation. Do not ask me to copy/paste prompts into OpenClaw, Codex, terminals or other chats when Workbench can carry the operation. Preserve Workbench routing and keep scarce Codex/Work as a last resort. If Workbench is unavailable, tell me what is unavailable instead of silently reverting to manual message shuttling.
 
 This bootstrap contains no Workbench bearer token or provider credential.
