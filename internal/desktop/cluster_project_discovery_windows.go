@@ -74,7 +74,7 @@ func (s *Shell) continueClusterProjectDiscovery() {
 		return
 	}
 	if len(result.response.Projects) == 0 {
-		messageBox(s.hwnd, "No cluster projects found", "The configured runner responded, but no Git repositories were found directly under its authorised project root.", mbOK|mbIconInformation)
+		messageBox(s.hwnd, "No cluster projects found", "The configured runner responded, but no Git repositories were found directly under its authorised project roots.", mbOK|mbIconInformation)
 		return
 	}
 	selection, ok := chooseRunnerProjects(s.hwnd, result.response.Projects)
