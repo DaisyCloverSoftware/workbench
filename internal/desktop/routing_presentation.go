@@ -37,7 +37,9 @@ func runnerAutonomousRoutingLine(provider core.RunnerProviderInfo) string {
 		mark = "●"
 	}
 	role := "AUTONOMOUS"
-	if provider.ID == "codex" || provider.Cost == core.CostScarce {
+	if _, isCloudModel := core.RunnerCloudModelRefFromProviderID(provider.ID); isCloudModel {
+		role = "CLOUD MODEL"
+	} else if provider.ID == "codex" || provider.Cost == core.CostScarce {
 		role = "LAST RESORT"
 	}
 	return fmt.Sprintf("%s %s · Runner · %s  ·  %s  ·  %s", mark, role, provider.Name, provider.Status, provider.Cost)
