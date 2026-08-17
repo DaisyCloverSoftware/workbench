@@ -8,9 +8,7 @@ import (
 )
 
 func TestPrimaryChatRoutingRowIsExplicitlyFirstClassBrain(t *testing.T) {
-	resetRunnerProviderInventory()
-	t.Cleanup(resetRunnerProviderInventory)
-	target, line := primaryChatRoutingRow(true)
+	target, line := primaryChatRoutingRowWithBridge(true, nil)
 	if target != "brain:chatgpt" {
 		t.Fatalf("target=%q want brain:chatgpt", target)
 	}
@@ -25,21 +23,15 @@ func TestPrimaryChatRoutingRowIsExplicitlyFirstClassBrain(t *testing.T) {
 }
 
 func TestPrimaryChatRoutingRowReportsUnverifiedTransportTruthfully(t *testing.T) {
-	resetRunnerProviderInventory()
-	t.Cleanup(resetRunnerProviderInventory)
-	_, line := primaryChatRoutingRow(false)
+	_, line := primaryChatRoutingRowWithBridge(false, nil)
 	if !strings.Contains(line, "Workbench transport not verified") || strings.HasPrefix(line, "●") {
 		t.Fatalf("unverified Chat row is misleading: %q", line)
 	}
 }
 
 func TestPrimaryChatRoutingRowUsesVerifiedPrivateRelayHealth(t *testing.T) {
-	resetRunnerProviderInventory()
-	t.Cleanup(resetRunnerProviderInventory)
-	runnerProviderCache.Lock()
-	runnerProviderCache.chatBridge = &core.RunnerChatBridgeInfo{Ready: true, Transport: "private-git-relay", Status: "private ChatGPT relay active · bidirectional control ready"}
-	runnerProviderCache.Unlock()
-	_, line := primaryChatRoutingRow(true)
+	bridge := &core.RunnerChatBridgeInfo{Ready: true, Transport: "private-git-relay", Status: "private ChatGPT relay active · bidirectional control ready"}
+	_, line := primaryChatRoutingRowWithBridge(true, bridge)
 	if !strings.HasPrefix(line, "●") || !strings.Contains(line, "bidirectional control ready") {
 		t.Fatalf("verified private relay was not presented as ready: %q", line)
 	}
