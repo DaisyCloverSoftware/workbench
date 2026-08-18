@@ -6,25 +6,30 @@ import (
 	"testing"
 )
 
-func TestDelegateTaskExposesOnlyInnerCloudModelOverride(t *testing.T) {
-	var delegate map[string]any
+func TestChatGPTToolSurfaceExposesOperationsNotCodingDelegation(t *testing.T) {
+	var operation map[string]any
 	for _, candidate := range toolsList() {
-		if candidate["name"] == "delegate_task" {
-			delegate = candidate
-			break
+		switch candidate["name"] {
+		case "delegate_task":
+			t.Fatal("delegate_task must not be advertised to ChatGPT; ChatGPT owns the development loop")
+		case "delegate_operation":
+			operation = candidate
 		}
 	}
-	if delegate == nil {
-		t.Fatal("delegate_task tool is missing")
+	if operation == nil {
+		t.Fatal("delegate_operation tool is missing")
 	}
-	body, err := json.Marshal(delegate)
+	body, err := json.Marshal(operation)
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(body)
-	for _, required := range []string{"cloud_model", "OpenClaw", "never selects OpenClaw", "provider hierarchy"} {
+	for _, required := range []string{"machine-side", "OpenClaw", "never the coder", "source code", "Git/GitHub", "CI", "GitHub Actions"} {
 		if !strings.Contains(text, required) {
-			t.Fatalf("delegate_task cloud override contract missing %q in %s", required, text)
+			t.Fatalf("delegate_operation ownership contract missing %q in %s", required, text)
 		}
+	}
+	if strings.Contains(text, "cloud_model") {
+		t.Fatalf("machine operations tool must not expose coding-model routing: %s", text)
 	}
 }

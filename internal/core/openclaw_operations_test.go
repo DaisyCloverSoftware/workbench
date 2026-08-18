@@ -13,8 +13,11 @@ func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *test
 	}
 	prompt := BuildOpenClawOperationPrompt(task, 2, "service restarted but verification not finished")
 	for _, want := range []string{
-		"ChatGPT is the primary reasoning and coding brain",
+		"ChatGPT owns the software-development loop",
+		"source code, Git/GitHub changes, pull requests, CI and GitHub Actions",
 		"Do not implement application features",
+		"do not mutate Git or GitHub state",
+		"shell/systemd/Docker/Kubernetes/Helm",
 		"do not stop merely to report progress",
 		"WORKBENCH_OPERATION_COMPLETE: verified",
 		"continuation pass 2 of 6",

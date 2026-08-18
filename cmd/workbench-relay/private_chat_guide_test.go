@@ -10,7 +10,10 @@ import (
 func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 	guide := string(privateChatGuide)
 	for _, want := range []string{
-		"ChatGPT is the primary reasoning and coding brain",
+		"ChatGPT owns the software-development loop",
+		"ChatGPT determines and writes the code",
+		"ChatGPT owns Git and GitHub",
+		"CI runs and GitHub Actions",
 		"relay/control/<id>.json",
 		"relay/control-outbox/<id>.json",
 		"list_projects",
@@ -19,11 +22,12 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"apply_patch",
 		"run_safe_command",
 		"relay/inbox/<id>.json",
+		"machine-operations bridge",
 		"[workbench:operations]",
-		"supervised operations lane",
-		"never the transport layer",
+		"supervised OpenClaw operations lane",
+		"human is never the transport layer",
 		"watch OpenClaw and type “continue”",
-		"Codex/Work remains a last resort",
+		"OpenClaw is an **operator only**",
 		"workbench-relay",
 		"repository search",
 		"WORKBENCH_CAPABILITIES.json",
@@ -31,6 +35,15 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 	} {
 		if !strings.Contains(guide, want) {
 			t.Fatalf("private ChatGPT guide missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{
+		"ordinary autonomous coding",
+		"ordinary development delegation",
+		"coding worker according to its configured routing policy",
+	} {
+		if strings.Contains(strings.ToLower(guide), strings.ToLower(forbidden)) {
+			t.Fatalf("private ChatGPT guide still advertises delegated development: %q", forbidden)
 		}
 	}
 	if core.LooksSecret(guide) {
