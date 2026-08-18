@@ -16,9 +16,9 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if core.LooksSecret(string(b)) {
 		t.Fatal("private relay capabilities must not contain secret-like material")
 	}
-	for _, literal := range []string{"relay/control/<id>.json", "relay/control-outbox/<id>.json", "relay/inbox/<id>.json", "relay/outbox/<id>.json", "relay/answers/<id>.json", "[workbench:operations]"} {
+	for _, literal := range []string{"relay/control/<id>.json", "relay/control-outbox/<id>.json", "relay/inbox/<id>.json", "relay/outbox/<id>.json", "relay/answers/<id>.json", "[workbench:operations]", "github_actions", "kubernetes"} {
 		if !strings.Contains(string(b), literal) {
-			t.Fatalf("capability manifest should keep protocol path/control marker human-readable: missing %q in %s", literal, b)
+			t.Fatalf("capability manifest should keep protocol ownership/path markers human-readable: missing %q in %s", literal, b)
 		}
 	}
 	var manifest privateChatCapabilities
@@ -28,15 +28,18 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if manifest.Protocol != 1 || manifest.WorkbenchVersion != relayVersion || manifest.Transport != "private-git-relay" || manifest.PrimaryBrain != "chatgpt" {
 		t.Fatalf("unexpected private relay manifest identity: %+v", manifest)
 	}
-	for _, want := range []string{"list_projects", "ensure_github_project", "read_file", "apply_patch", "run_safe_command", "search_memory", "save_context", "update_workbench"} {
-		found := false
-		for _, action := range manifest.ControlActions {
-			if action == want {
-				found = true
-				break
-			}
+	for _, want := range []string{"source_code", "git", "github", "pull_requests", "ci", "github_actions"} {
+		if !containsString(manifest.ChatGPTOwns, want) {
+			t.Fatalf("capability manifest must keep %q with ChatGPT: %+v", want, manifest.ChatGPTOwns)
 		}
-		if !found {
+	}
+	for _, want := range []string{"systemd", "kubernetes", "helm", "runner_host_repair", "deployment_runtime_operations"} {
+		if !containsString(manifest.OpenClawOwns, want) {
+			t.Fatalf("capability manifest missing OpenClaw machine-side operation %q: %+v", want, manifest.OpenClawOwns)
+		}
+	}
+	for _, want := range []string{"list_projects", "ensure_github_project", "read_file", "apply_patch", "run_safe_command", "search_memory", "save_context", "update_workbench"} {
+		if !containsString(manifest.ControlActions, want) {
 			t.Fatalf("capability manifest missing control action %q", want)
 		}
 	}
@@ -44,9 +47,10 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		manifest.ControlResult != "relay/control-outbox/<id>.json" ||
 		manifest.AutonomousRequest != "relay/inbox/<id>.json" ||
 		manifest.AutonomousResult != "relay/outbox/<id>.json" ||
+		manifest.AutonomousPurpose != "machine_side_operations_only" ||
 		manifest.AutonomousOperationsPrefix != core.RelayOperationsIntentPrefix ||
 		manifest.AttentionAnswer != "relay/answers/<id>.json" {
-		t.Fatalf("unexpected private relay protocol paths/operations marker: %+v", manifest)
+		t.Fatalf("unexpected private relay protocol paths/operations purpose: %+v", manifest)
 	}
 	if !strings.Contains(manifest.ProjectReference, "exact opaque ref returned by list_projects") {
 		t.Fatalf("capability manifest missing opaque project-ref rule: %q", manifest.ProjectReference)
@@ -73,4 +77,13 @@ func TestPrivateChatCapabilitiesMatchImplementedControlActions(t *testing.T) {
 			t.Fatalf("capability manifest advertises unimplemented control action %q", action)
 		}
 	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
