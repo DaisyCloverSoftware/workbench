@@ -4,17 +4,15 @@ import "strings"
 
 const RelayOperationsIntentPrefix = "[workbench:operations]"
 
-// TaskUsesOperationsLane recognises both first-class operations tasks and the
-// backwards-compatible private-relay marker. The Git relay prepends its own
-// [relay:<id>] trace tag, so accept the operations marker within the bounded
-// leading control-tag region rather than requiring it to be byte zero.
-func TaskUsesOperationsLane(task Task) bool {
-	if IsOperationsTask(task) {
-		return true
-	}
-	intent := strings.ToLower(strings.TrimSpace(task.Intent))
+func hasRelayOperationsMarker(intent string) bool {
+	intent = strings.ToLower(strings.TrimSpace(intent))
 	idx := strings.Index(intent, RelayOperationsIntentPrefix)
 	return idx >= 0 && idx < 160
+}
+
+// TaskUsesOperationsLane is a semantic alias used at execution boundaries.
+func TaskUsesOperationsLane(task Task) bool {
+	return IsOperationsTask(task)
 }
 
 func OperationsTaskIntent(task Task) string {
