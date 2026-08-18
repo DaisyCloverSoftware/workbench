@@ -1,6 +1,6 @@
 {
   "name": "workbench",
-  "version": "0.9.20",
+  "version": "0.9.21",
   "description": "ChatGPT-owned development bridge: bounded repository hands plus supervised OpenClaw machine operations.",
   "skills": "./skills/"
 }
