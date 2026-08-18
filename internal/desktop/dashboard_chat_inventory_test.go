@@ -60,3 +60,23 @@ func TestPruneUnavailableRunnerProjectsRemovesOnlyEmptyUnpinnedEntries(t *testin
 		t.Fatalf("canonical or pinned project was pruned: %+v", paths)
 	}
 }
+
+func TestPruneUnavailableRunnerProjectsDoesNothingFromEmptyInventory(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := eng.RegisterRunnerProjects([]core.RunnerProjectInfo{{Name: "workbench", Ref: "runner://workbench"}}); err != nil {
+		t.Fatal(err)
+	}
+	if removed := pruneUnavailableRunnerProjects(eng, nil); removed != 0 {
+		t.Fatalf("removed=%d from empty inventory", removed)
+	}
+	if len(eng.Projects()) != 1 {
+		t.Fatalf("empty inventory pruned registered project: %+v", eng.Projects())
+	}
+}
