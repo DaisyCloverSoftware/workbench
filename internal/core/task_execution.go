@@ -82,7 +82,13 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 		return RunResult{Retryable: true}, errors.New("remote OpenClaw execution requires the Workbench cluster runner so task isolation is enforced on the execution host")
 	}
 
-	ws, err := CreateTaskWorkspace(ctx, task.ProjectPath, task.ID)
+	var ws TaskWorkspace
+	var err error
+	if IsOperationsTask(task) {
+		ws, err = CreateOperationsTaskWorkspace(ctx, task.ProjectPath, task.ID)
+	} else {
+		ws, err = CreateTaskWorkspace(ctx, task.ProjectPath, task.ID)
+	}
 	if err != nil {
 		return RunResult{}, fmt.Errorf("create isolated task workspace: %w", err)
 	}
