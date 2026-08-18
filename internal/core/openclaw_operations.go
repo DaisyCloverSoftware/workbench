@@ -118,6 +118,7 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	cmd := exec.CommandContext(invokeCtx, name, args...)
 	if !remote {
 		cmd.Dir = task.ProjectPath
+		cmd.Env = environmentForUserExecutable(name)
 	}
 	configureChildProcess(cmd, false)
 	stdout := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
