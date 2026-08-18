@@ -22,7 +22,7 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"[workbench:operations]",
 		"supervised operations lane",
 		"never the transport layer",
-		"do not ask the user to watch OpenClaw",
+		"watch OpenClaw and type “continue”",
 		"Codex/Work remains a last resort",
 		"workbench-relay",
 		"repository search",
