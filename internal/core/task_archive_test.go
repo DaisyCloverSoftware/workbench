@@ -38,12 +38,19 @@ func engineWithArchiveTask(t *testing.T, status TaskStatus) (*Engine, *Store, st
 
 func TestSetTaskArchivedPreservesDurableRecordAndRestores(t *testing.T) {
 	eng, store, id := engineWithArchiveTask(t, TaskCompleted)
+	before, ok := eng.Task(id)
+	if !ok {
+		t.Fatal("fixture task missing")
+	}
 	if err := eng.SetTaskArchived(id, true); err != nil {
 		t.Fatal(err)
 	}
 	task, ok := eng.Task(id)
 	if !ok || !task.Archived || task.Output != "durable result" || len(task.Attempts) != 1 {
 		t.Fatalf("archive mutated durable task record: %+v", task)
+	}
+	if !task.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("archive rewrote task chronology: before=%s after=%s", before.UpdatedAt, task.UpdatedAt)
 	}
 	if len(eng.State().Tasks) != 1 {
 		t.Fatalf("archive deleted task record: %+v", eng.State().Tasks)
@@ -63,6 +70,9 @@ func TestSetTaskArchivedPreservesDurableRecordAndRestores(t *testing.T) {
 	restored, ok := reloaded.Task(id)
 	if !ok || restored.Archived || restored.Output != "durable result" {
 		t.Fatalf("restore did not preserve task record: %+v", restored)
+	}
+	if !restored.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("restore rewrote task chronology: before=%s after=%s", before.UpdatedAt, restored.UpdatedAt)
 	}
 }
 
