@@ -8,6 +8,8 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
+const dashboardChatActiveWindow = 45 * time.Minute
+
 type DashboardSnapshot struct {
 	GeneratedAt      time.Time
 	Summary          core.TaskDashboardSummary
@@ -65,6 +67,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 	if eng == nil {
 		return DashboardSnapshot{GeneratedAt: now}
 	}
+	ensureRunnerChatActivityMonitor(eng)
 	st := eng.State()
 	providers := eng.Providers()
 	projects := eng.Projects()
@@ -173,7 +176,138 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 			})
 		}
 	}
+	return applyRunnerChatActivity(snapshot, runnerChatActivitySnapshot(), now)
+}
+
+func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerChatActivityInfo, now time.Time) DashboardSnapshot {
+	if len(activity) == 0 {
+		return snapshot
+	}
+	sort.SliceStable(activity, func(i, j int) bool { return activity[i].UpdatedAt.After(activity[j].UpdatedAt) })
+	projectIndex := map[string]int{}
+	for i := range snapshot.Projects {
+		projectIndex[strings.TrimSpace(snapshot.Projects[i].Path)] = i
+	}
+
+	latestByProject := map[string]core.RunnerChatActivityInfo{}
+	for _, event := range activity {
+		ref := strings.TrimSpace(event.ProjectRef)
+		if ref == "" {
+			continue
+		}
+		if _, exists := latestByProject[ref]; !exists {
+			latestByProject[ref] = event
+		}
+	}
+
+	chatActive := make([]DashboardTaskItem, 0, len(latestByProject))
+	for ref, event := range latestByProject {
+		if event.UpdatedAt.Before(now.Add(-dashboardChatActiveWindow)) {
+			continue
+		}
+		snapshot.Summary.Active++
+		if idx, ok := projectIndex[ref]; ok {
+			snapshot.Projects[idx].Summary.Active++
+		}
+		chatActive = append(chatActive, DashboardTaskItem{
+			TaskID:      "chat:" + event.ID,
+			Title:       chatActivityProjectName(ref),
+			Provider:    "ChatGPT via Workbench",
+			Status:      core.TaskRunning,
+			StatusLabel: "Working",
+			NextAction:  "Latest Workbench action: " + friendlyChatAction(event.Action) + ".",
+		})
+	}
+	sort.SliceStable(chatActive, func(i, j int) bool {
+		return strings.ToLower(chatActive[i].Title) < strings.ToLower(chatActive[j].Title)
+	})
+	combinedActive := append(chatActive, snapshot.ActiveTasks...)
+	if len(combinedActive) > 6 {
+		combinedActive = combinedActive[:6]
+	}
+	snapshot.ActiveTasks = combinedActive
+
+	recent := make([]DashboardActivityItem, 0, len(activity)+len(snapshot.RecentActivity))
+	for _, event := range activity {
+		if event.UpdatedAt.Before(now.Add(-24 * time.Hour)) {
+			continue
+		}
+		status := core.TaskCompleted
+		label := "ChatGPT"
+		if event.State == "failed" {
+			status = core.TaskFailed
+			label = "Failed"
+		} else if event.State == "needs_attention" {
+			status = core.TaskNeedsAttention
+			label = "Needs you"
+		} else if event.State == "waiting" || event.State == "running" {
+			status = core.TaskRunning
+			label = "Working"
+		}
+		recent = append(recent, DashboardActivityItem{
+			TaskID:      "chat:" + event.ID,
+			Title:       chatActivityProjectName(event.ProjectRef),
+			Detail:      "ChatGPT via Workbench · " + friendlyChatAction(event.Action),
+			Status:      status,
+			StatusLabel: label,
+			UpdatedAt:   event.UpdatedAt,
+		})
+		if len(recent) >= 12 {
+			break
+		}
+	}
+	recent = append(recent, snapshot.RecentActivity...)
+	sort.SliceStable(recent, func(i, j int) bool { return recent[i].UpdatedAt.After(recent[j].UpdatedAt) })
+	if len(recent) > 6 {
+		recent = recent[:6]
+	}
+	snapshot.RecentActivity = recent
 	return snapshot
+}
+
+func chatActivityProjectName(ref string) string {
+	ref = strings.TrimSpace(ref)
+	ref = strings.TrimPrefix(ref, core.RunnerProjectPrefix)
+	if idx := strings.LastIndex(ref, "/"); idx >= 0 && idx+1 < len(ref) {
+		ref = ref[idx+1:]
+	}
+	if ref == "" {
+		return "Cluster project"
+	}
+	return ref
+}
+
+func friendlyChatAction(action string) string {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "list_files":
+		return "listed repository files"
+	case "search_text":
+		return "searched source"
+	case "read_file":
+		return "read source"
+	case "apply_patch":
+		return "applied ChatGPT's code change"
+	case "run_safe_command":
+		return "ran a safe build/test command"
+	case "save_note":
+		return "saved project context"
+	case "save_memory":
+		return "saved durable memory"
+	case "search_memory":
+		return "searched durable memory"
+	case "save_context":
+		return "saved continuation context"
+	case "get_context":
+		return "loaded continuation context"
+	case "delegate_task":
+		return "delegated autonomous work"
+	default:
+		value := strings.ReplaceAll(strings.TrimSpace(action), "_", " ")
+		if value == "" {
+			return "used Workbench"
+		}
+		return value
+	}
 }
 
 func isDashboardActiveStatus(status core.TaskStatus) bool {
