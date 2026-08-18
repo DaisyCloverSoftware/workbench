@@ -5,20 +5,23 @@ import "strings"
 const RelayOperationsIntentPrefix = "[workbench:operations]"
 
 // TaskUsesOperationsLane recognises both first-class operations tasks and the
-// backwards-compatible private-relay marker. The relay marker lets an upgraded
-// private Git bridge use the operations lane even while an older desktop MCP
-// only exposes delegate_task.
+// backwards-compatible private-relay marker. The Git relay prepends its own
+// [relay:<id>] trace tag, so accept the operations marker within the bounded
+// leading control-tag region rather than requiring it to be byte zero.
 func TaskUsesOperationsLane(task Task) bool {
 	if IsOperationsTask(task) {
 		return true
 	}
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(task.Intent)), RelayOperationsIntentPrefix)
+	intent := strings.ToLower(strings.TrimSpace(task.Intent))
+	idx := strings.Index(intent, RelayOperationsIntentPrefix)
+	return idx >= 0 && idx < 160
 }
 
 func OperationsTaskIntent(task Task) string {
 	intent := strings.TrimSpace(task.Intent)
-	if strings.HasPrefix(strings.ToLower(intent), RelayOperationsIntentPrefix) {
-		intent = strings.TrimSpace(intent[len(RelayOperationsIntentPrefix):])
+	low := strings.ToLower(intent)
+	if idx := strings.Index(low, RelayOperationsIntentPrefix); idx >= 0 && idx < 160 {
+		intent = strings.TrimSpace(intent[:idx] + intent[idx+len(RelayOperationsIntentPrefix):])
 	}
 	return intent
 }
