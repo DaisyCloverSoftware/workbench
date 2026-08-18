@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.16 — 2026-08-18
+
+- Fix the supervised OpenClaw operations handoff to use the current scripted `openclaw agent --message` CLI contract.
+- Remove the invalid browser-only `--headless` flag that caused machine-side operations to fail immediately after reaching OpenClaw.
+- Preserve the strict ownership boundary: ChatGPT owns code, Git/GitHub, pull requests, CI and GitHub Actions; OpenClaw remains the machine-side operator only.
+
 ## 0.9.15 — 2026-08-18
 
 - Repair the machine-operations handoff by discovering OpenClaw from common user-level install locations when systemd does not inherit the interactive shell PATH.
