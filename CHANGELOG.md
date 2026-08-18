@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.12 — 2026-08-18
+
+- Compute ChatGPT active-session state on the runner clock and return it explicitly to the desktop, eliminating desktop clock/skew from active-task visibility.
+- Keep Recent activity and Active tasks consistent by showing runner-active ChatGPT events as Working while preserving persisted autonomous task state.
+
 ## 0.9.11 — 2026-08-18
 
 - Keep ordinary ChatGPT Workbench sessions visible as active across unattended work blocks instead of expiring after 45 minutes.
