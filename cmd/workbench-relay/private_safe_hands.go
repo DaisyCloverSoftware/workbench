@@ -15,7 +15,7 @@ import (
 // autonomous work stays in relay/inbox and human answers stay in relay/answers.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
+	case "update_status", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
 		return true
 	default:
 		return false
@@ -70,6 +70,23 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			return nil, err
 		}
 		return map[string]any{"projects": response.Projects, "count": len(response.Projects)}, nil
+	}
+
+	if env.Action == "ensure_github_project" {
+		if env.Project != "" {
+			return nil, errors.New("ensure_github_project does not accept a project")
+		}
+		var a struct {
+			Repository string `json:"repository"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		project, cloned, err := core.EnsureRunnerGitHubProject(ctx, strings.TrimSpace(a.Repository))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"project": project, "cloned": cloned, "runner_ready": true}, nil
 	}
 
 	project, err := resolvePrivateSafeHandsProject(env.Project)
