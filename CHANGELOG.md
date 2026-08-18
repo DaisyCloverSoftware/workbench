@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.18 — 2026-08-18
+
+- Make machine-operation failures self-diagnosing for ChatGPT by surfacing bounded non-secret OpenClaw failure output instead of generic worker-failed messages.
+- Keep operations routing isolated to OpenClaw or the Workbench runner so machine-side work cannot fall through to coding workers.
+- Preserve ChatGPT ownership of source code, Git/GitHub, pull requests, CI and GitHub Actions while improving the OpenClaw bridge.
+
 ## 0.9.17 — 2026-08-18
 
 - Make supervised OpenClaw machine operations runnable from the Workbench systemd service environment by restoring bounded user-level executable and Node interpreter directories to PATH.
