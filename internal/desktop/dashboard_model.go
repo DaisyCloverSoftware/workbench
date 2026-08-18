@@ -11,7 +11,12 @@ import (
 // Older runners did not report an explicit active decision, so retain the same
 // bounded desktop fallback for compatibility. Current runners compute activity
 // on the runner clock and set ActiveKnown instead.
-const dashboardChatSessionWindow = 4 * time.Hour
+const (
+	dashboardChatSessionWindow      = 4 * time.Hour
+	dashboardActiveTaskLimit        = 100
+	dashboardActiveTaskRowHeight    = 42
+	dashboardActiveTaskFooterHeight = 22
+)
 
 type DashboardSnapshot struct {
 	GeneratedAt      time.Time
@@ -45,6 +50,7 @@ type DashboardTaskItem struct {
 	NextAction  string
 	NeedsHuman  bool
 	RetryAt     *time.Time
+	UpdatedAt   time.Time
 }
 
 type DashboardProjectItem struct {
@@ -162,7 +168,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 				UpdatedAt:   task.UpdatedAt,
 			})
 		}
-		if isDashboardActiveStatus(task.Status) && len(snapshot.ActiveTasks) < 6 {
+		if isDashboardActiveStatus(task.Status) && len(snapshot.ActiveTasks) < dashboardActiveTaskLimit {
 			provider := strings.TrimSpace(task.ProviderID)
 			if provider == "" {
 				provider = presentation.ProviderLabel
@@ -176,6 +182,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 				NextAction:  presentation.NextAction,
 				NeedsHuman:  presentation.NeedsHuman,
 				RetryAt:     task.RetryAt,
+				UpdatedAt:   task.UpdatedAt,
 			})
 		}
 	}
@@ -184,6 +191,7 @@ func BuildDashboardSnapshot(eng *core.Engine) DashboardSnapshot {
 
 func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerChatActivityInfo, now time.Time) DashboardSnapshot {
 	if len(activity) == 0 {
+		sortDashboardActiveTasks(snapshot.ActiveTasks)
 		return snapshot
 	}
 	sort.SliceStable(activity, func(i, j int) bool { return activity[i].UpdatedAt.After(activity[j].UpdatedAt) })
@@ -219,14 +227,13 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 			Status:      core.TaskRunning,
 			StatusLabel: "Working",
 			NextAction:  "Latest Workbench action: " + friendlyChatAction(event.Action) + ".",
+			UpdatedAt:   event.UpdatedAt,
 		})
 	}
-	sort.SliceStable(chatActive, func(i, j int) bool {
-		return strings.ToLower(chatActive[i].Title) < strings.ToLower(chatActive[j].Title)
-	})
-	combinedActive := append(chatActive, snapshot.ActiveTasks...)
-	if len(combinedActive) > 6 {
-		combinedActive = combinedActive[:6]
+	combinedActive := append(append([]DashboardTaskItem(nil), snapshot.ActiveTasks...), chatActive...)
+	sortDashboardActiveTasks(combinedActive)
+	if len(combinedActive) > dashboardActiveTaskLimit {
+		combinedActive = combinedActive[:dashboardActiveTaskLimit]
 	}
 	snapshot.ActiveTasks = combinedActive
 
@@ -269,6 +276,34 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 	}
 	snapshot.RecentActivity = recent
 	return snapshot
+}
+
+func sortDashboardActiveTasks(tasks []DashboardTaskItem) {
+	sort.SliceStable(tasks, func(i, j int) bool {
+		if !tasks[i].UpdatedAt.Equal(tasks[j].UpdatedAt) {
+			return tasks[i].UpdatedAt.After(tasks[j].UpdatedAt)
+		}
+		return strings.ToLower(tasks[i].Title) < strings.ToLower(tasks[j].Title)
+	})
+}
+
+func dashboardActiveTaskWindow(taskCount, availableHeight int) (visible, hidden int) {
+	if taskCount <= 0 || availableHeight <= 0 {
+		return 0, 0
+	}
+	visible = availableHeight / dashboardActiveTaskRowHeight
+	if visible >= taskCount {
+		return taskCount, 0
+	}
+	usable := availableHeight - dashboardActiveTaskFooterHeight
+	visible = usable / dashboardActiveTaskRowHeight
+	if visible < 1 {
+		visible = 1
+	}
+	if visible > taskCount {
+		visible = taskCount
+	}
+	return visible, taskCount - visible
 }
 
 func runnerChatEventIsActive(event core.RunnerChatActivityInfo, now time.Time) bool {
