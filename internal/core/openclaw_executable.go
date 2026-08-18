@@ -111,6 +111,7 @@ func environmentForUserExecutable(executable string) []string {
 				add = false
 				break
 			}
+		}
 		if add && strings.TrimSpace(dir) != "" {
 			parts = append(parts, dir)
 		}
