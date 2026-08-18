@@ -45,15 +45,16 @@ type RunnerProviderInfo struct {
 }
 
 type RunnerToolResponse struct {
-	OK         bool                  `json:"ok"`
-	Projects   []RunnerProjectInfo   `json:"projects,omitempty"`
-	Providers  []RunnerProviderInfo  `json:"providers,omitempty"`
-	ChatBridge *RunnerChatBridgeInfo `json:"chat_bridge,omitempty"`
-	Files      []string              `json:"files,omitempty"`
-	Hits       []SearchHit           `json:"hits,omitempty"`
-	Content    string                `json:"content,omitempty"`
-	Output     string                `json:"output,omitempty"`
-	Error      string                `json:"error,omitempty"`
+	OK           bool                     `json:"ok"`
+	Projects     []RunnerProjectInfo      `json:"projects,omitempty"`
+	Providers    []RunnerProviderInfo     `json:"providers,omitempty"`
+	ChatBridge   *RunnerChatBridgeInfo    `json:"chat_bridge,omitempty"`
+	ChatActivity []RunnerChatActivityInfo `json:"chat_activity,omitempty"`
+	Files        []string                 `json:"files,omitempty"`
+	Hits         []SearchHit              `json:"hits,omitempty"`
+	Content      string                   `json:"content,omitempty"`
+	Output       string                   `json:"output,omitempty"`
+	Error        string                   `json:"error,omitempty"`
 }
 
 func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerToolResponse, error) {
@@ -65,6 +66,12 @@ func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerT
 			return RunnerToolResponse{Error: "runner project discovery is unavailable"}, err
 		}
 		return RunnerToolResponse{OK: true, Projects: projects}, nil
+	case "chat_activity":
+		activity, err := ReadRunnerChatActivity(req.Limit)
+		if err != nil {
+			return RunnerToolResponse{Error: "ChatGPT activity is unavailable"}, err
+		}
+		return RunnerToolResponse{OK: true, ChatActivity: activity}, nil
 	case "list_providers":
 		providers := providerInventoryWithConfiguredHarness(ScanProviders(), Preferences{})
 		providers = ApplyProviderHealth(providers, time.Now())
