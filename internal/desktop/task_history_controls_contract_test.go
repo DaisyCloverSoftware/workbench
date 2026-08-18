@@ -14,12 +14,15 @@ func TestProductionWorkPageOwnsReversibleTaskHistoryControls(t *testing.T) {
 			`"Show archived"`,
 			`"Restore"`,
 			`s.eng.SetTaskArchived(task.ID, target)`,
+			`func (s *Shell) jumpToLatestVisibleReview() bool`,
+			`if task.Archived || task.Status != core.TaskCompleted`,
 		},
 		"production_shell_windows.go": {
 			`s.createTaskHistoryControls()`,
 			`s.handleTaskHistoryCommand(id)`,
 			`showWindow(s.controls[idShowArchivedTasks], s.page == pageWork)`,
 			`showWindow(s.controls[idArchiveTask], s.page == pageWork)`,
+			`s.jumpToLatestVisibleReview()`,
 		},
 		"production_layout_windows.go": {
 			`moveWindow(s.controls[idShowArchivedTasks]`,
