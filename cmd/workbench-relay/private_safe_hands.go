@@ -15,7 +15,7 @@ import (
 // autonomous work stays in relay/inbox and human answers stay in relay/answers.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
+	case "update_status", "list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note", "search_decisions", "get_knowledge_graph":
 		return true
 	default:
 		return false
@@ -23,9 +23,9 @@ func isPrivateSafeHandsAction(action string) bool {
 }
 
 // resolvePrivateSafeHandsProject adds a canonical-filesystem boundary on top of
-// the relay's existing single-directory-name validation. Safe hands can read or
-// modify source, so a symlink beneath WORKBENCH_RUNNER_ROOT must not be able to
-// redirect a project outside that root (or alias a differently named project).
+// the relay's existing project resolver. Safe hands can read or modify source,
+// so a symlink beneath an authorised runner root must not redirect a project
+// outside that root (or alias a differently named project).
 func resolvePrivateSafeHandsProject(name string) (string, error) {
 	project, err := resolveProject(name)
 	if err != nil {
@@ -95,6 +95,40 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			"limit":       a.Limit,
 		})
 
+	case "search_decisions":
+		var a struct {
+			Query string `json:"query,omitempty"`
+			Limit int    `json:"limit,omitempty"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		if a.Limit <= 0 || a.Limit > 100 {
+			a.Limit = 20
+		}
+		return callMCP(ctx, mcpURL, authFile, "search_decisions", map[string]any{
+			"project_path": project,
+			"query":        strings.TrimSpace(a.Query),
+			"limit":        a.Limit,
+		})
+
+	case "get_knowledge_graph":
+		var a struct {
+			Query string `json:"query,omitempty"`
+			Limit int    `json:"limit,omitempty"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		if a.Limit <= 0 || a.Limit > 100 {
+			a.Limit = 40
+		}
+		return callMCP(ctx, mcpURL, authFile, "get_knowledge_graph", map[string]any{
+			"project_path": project,
+			"query":        strings.TrimSpace(a.Query),
+			"limit":        a.Limit,
+		})
+
 	case "search_text":
 		var a struct {
 			Query  string `json:"query"`
@@ -115,7 +149,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			"project_path": project,
 			"query":        a.Query,
 			"subdir":       strings.TrimSpace(a.Subdir),
-			"limit":        a.Limit,
+			"limit":       a.Limit,
 		})
 
 	case "read_file":
