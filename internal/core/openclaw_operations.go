@@ -14,6 +14,7 @@ const (
 	maxOperationContinuationPasses = 6
 	operationInvocationTimeout      = 10 * time.Minute
 	maxOperationContinuationReport = 4000
+	defaultOpenClawOperationsAgent = "main"
 )
 
 // RunOpenClawOperationSupervised is the missing "keep going" loop. A clean
@@ -91,10 +92,12 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 }
 
 // openClawOperationAgentArgs follows OpenClaw's scripted `agent` command. The
-// agent command is already non-interactive; `--headless` is a browser flag, not
-// an agent flag, and causes current OpenClaw releases to reject the invocation.
+// command is already non-interactive, but current OpenClaw still requires an
+// explicit target (`--to`, `--session-id` or `--agent`). Workbench owns a
+// machine-operations conversation with the canonical main agent, so select it
+// explicitly rather than relying on interactive-session defaults.
 func openClawOperationAgentArgs(prompt string) []string {
-	return []string{"agent", "--message", prompt}
+	return []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--message", prompt}
 }
 
 func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, prefs Preferences, prompt string) (RunResult, bool, error) {
