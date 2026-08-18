@@ -32,7 +32,7 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 			return RunResult{}, err
 		}
 		prompt := BuildOpenClawOperationPrompt(task, pass, previous)
-		res, complete, runErr := runOpenClawOperationInvocation(ctx, p, task, prefs, prompt)
+		res, complete, runErr := runOpenClawOperationInvocationWithFallback(ctx, p, task, prefs, prompt)
 		if strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != "" {
 			return boundRunResultForPersistence(res), runErr
 		}
