@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.20 — 2026-08-18
+
+- Target the canonical main OpenClaw agent explicitly for scripted machine-side operations instead of relying on an interactive session target.
+- Fix the real end-to-end bridge failure where OpenClaw required --to, --session-id or --agent before accepting Workbench operations.
+- Preserve ChatGPT ownership of source code, Git/GitHub, pull requests, CI and GitHub Actions; OpenClaw remains machine-side operations only.
+
 ## 0.9.19 — 2026-08-18
 
 - Allow machine-side operations to run even when the canonical repository has unrelated local edits by using a disposable worktree pinned to committed HEAD.
