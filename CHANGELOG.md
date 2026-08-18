@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.23 — 2026-08-18
+
+- Expose private read-only get_task and list_tasks controls so ChatGPT can diagnose unusually long supervised machine operations without asking the human to watch or intervene.
+- Keep task diagnostics strictly non-mutating: they accept no project scope, cannot cancel/resume/schedule work, and their results remain protected by the private relay secret-like result guard.
+- Publish the diagnostic controls in Workbench capabilities and the canonical ChatGPT bootstrap so fresh chats can use them as troubleshooting/status tools while ChatGPT remains the developer.
+
 ## 0.9.22 — 2026-08-18
 
 - Keep machine-side operations available when OpenClaw's primary cloud model reaches a usage, quota, rate-limit or capacity ceiling by retrying through a suitable local Ollama model when one is available.
