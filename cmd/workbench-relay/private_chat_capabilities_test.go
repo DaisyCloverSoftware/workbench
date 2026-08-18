@@ -16,9 +16,9 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if core.LooksSecret(string(b)) {
 		t.Fatal("private relay capabilities must not contain secret-like material")
 	}
-	for _, literal := range []string{"relay/control/<id>.json", "relay/control-outbox/<id>.json", "relay/inbox/<id>.json", "relay/outbox/<id>.json", "relay/answers/<id>.json"} {
+	for _, literal := range []string{"relay/control/<id>.json", "relay/control-outbox/<id>.json", "relay/inbox/<id>.json", "relay/outbox/<id>.json", "relay/answers/<id>.json", "[workbench:operations]"} {
 		if !strings.Contains(string(b), literal) {
-			t.Fatalf("capability manifest should keep protocol path human-readable: missing %q in %s", literal, b)
+			t.Fatalf("capability manifest should keep protocol path/control marker human-readable: missing %q in %s", literal, b)
 		}
 	}
 	var manifest privateChatCapabilities
@@ -44,8 +44,9 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		manifest.ControlResult != "relay/control-outbox/<id>.json" ||
 		manifest.AutonomousRequest != "relay/inbox/<id>.json" ||
 		manifest.AutonomousResult != "relay/outbox/<id>.json" ||
+		manifest.AutonomousOperationsPrefix != core.RelayOperationsIntentPrefix ||
 		manifest.AttentionAnswer != "relay/answers/<id>.json" {
-		t.Fatalf("unexpected private relay protocol paths: %+v", manifest)
+		t.Fatalf("unexpected private relay protocol paths/operations marker: %+v", manifest)
 	}
 	if !strings.Contains(manifest.ProjectReference, "exact opaque ref returned by list_projects") {
 		t.Fatalf("capability manifest missing opaque project-ref rule: %q", manifest.ProjectReference)
