@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.14 — 2026-08-18
+
+- Add a supervised operations lane so ChatGPT can hand host, server, cluster and runtime work to OpenClaw through Workbench without the user copying prompts or nudging OpenClaw to continue.
+- Require verified operational completion and automatically re-engage progress-only or bounded stalled OpenClaw invocations, while preserving genuine human approval boundaries.
+- Keep ChatGPT as the coder by isolating and rejecting source or infrastructure-as-code edits made by OpenClaw during operations tasks.
+
 ## 0.9.13 — 2026-08-18
 
 - Show the active workload by recency, keep the full bounded active set, and explicitly indicate when additional active tasks are hidden from the compact dashboard panel.
