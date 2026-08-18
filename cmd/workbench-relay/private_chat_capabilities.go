@@ -38,6 +38,8 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"run_safe_command",
 			"save_note",
 			"search_memory",
+			"search_decisions",
+			"get_knowledge_graph",
 			"save_memory",
 			"get_context",
 			"save_context",
