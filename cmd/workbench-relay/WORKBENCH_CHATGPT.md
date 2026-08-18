@@ -10,7 +10,7 @@ ChatGPT is the primary reasoning/coding brain. Use Workbench safe hands before a
 
 For normal development work:
 
-1. Discover the target cluster project with `list_projects` if needed.
+1. Discover the target cluster project with `list_projects` if needed. If a known GitHub repository is missing from the runner, use `ensure_github_project` rather than asking the human to clone/import it manually.
 2. Inspect with `list_files`, `search_text`, and `read_file`.
 3. When ChatGPT can determine the change itself, use `apply_patch`, then `run_safe_command` to verify it.
 4. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
@@ -36,6 +36,8 @@ Base envelope:
 
 `list_projects` returns both a human-readable `name` and a stable `ref`. **Prefer the exact returned `ref` in later project-scoped requests.** A unique repository normally has a backwards-compatible ref such as `runner://family-vault`. If the same directory name exists under more than one authorised project root, Workbench returns an opaque scoped ref such as `runner://r2/shared`; do not guess which copy the user intended.
 
+If the target is a GitHub repository that ChatGPT already knows but it is absent from `list_projects`, `ensure_github_project` can make it runner-ready without human clipboard work. It accepts only a GitHub `owner/name` slug, never an arbitrary URL, never overwrites an existing directory, and uses only the runner's existing non-interactive GitHub credentials.
+
 Project-scoped example:
 
 ```json
@@ -55,6 +57,7 @@ Project-scoped example:
 ### Safe-hands actions
 
 - `list_projects` — no project; `args: {}`.
+- `ensure_github_project` — no project; `repository` is one GitHub `owner/name` slug. Returns the existing project untouched or clones it atomically into an authorised runner root. No arbitrary hosts/URLs and no overwrite.
 - `list_files` — project required; `subdir` optional, `limit` optional (max 1000).
 - `search_text` — project required; `query` required, `subdir` optional, `limit` optional (max 200).
 - `read_file` — project required; `path` required, `start_line`/`end_line` optional.
@@ -67,6 +70,19 @@ Project-scoped example:
 - `save_context` — project required; `objective`, `state`, and optional `decisions`, `constraints`, `references`, `open_threads`, `next_action`.
 - `update_status` — no project; `args: {}`; returns only categorical private-loop maintenance state.
 - `update_workbench` — no project; `args: {}`; schedules Workbench's app-owned non-destructive maintenance update. Use only when Workbench itself actually needs updating.
+
+Example runner-ready import:
+
+```json
+{
+  "version": 1,
+  "id": "ensure_project_001",
+  "action": "ensure_github_project",
+  "args": {
+    "repository": "ExampleOrg/example-project"
+  }
+}
+```
 
 Example safe command:
 
@@ -121,6 +137,6 @@ A ChatGPT conversation that can access the user's connected GitHub account can b
 
 A useful one-time global ChatGPT instruction is:
 
-> For software-development, repository, server and cluster work, use Workbench as my default execution layer. Use my connected GitHub app to find my private repository whose name contains `workbench-relay`, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from its repository root, and follow that Workbench protocol and guide. ChatGPT is the primary brain/coder; prefer Workbench safe hands before autonomous delegation. Do not ask me to copy/paste prompts into OpenClaw, Codex, terminals or other chats when Workbench can carry the operation. Preserve Workbench routing and keep scarce Codex/Work as a last resort. If Workbench is unavailable, tell me what is unavailable instead of silently reverting to manual message shuttling.
+> For software-development, repository, server and cluster work, use Workbench as my default execution layer. Use my connected GitHub app to find my private repository whose name contains `workbench-relay`, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from its repository root, and follow that Workbench protocol and guide. ChatGPT is the primary brain/coder; prefer Workbench safe hands before autonomous delegation. If a known GitHub project is absent from the Workbench runner, use Workbench's bounded runner-ready project import instead of asking me to clone it manually. Do not ask me to copy/paste prompts into OpenClaw, Codex, terminals or other chats when Workbench can carry the operation. Preserve Workbench routing and keep scarce Codex/Work as a last resort. If Workbench is unavailable, tell me what is unavailable instead of silently reverting to manual message shuttling.
 
 This bootstrap contains no Workbench bearer token or provider credential.
