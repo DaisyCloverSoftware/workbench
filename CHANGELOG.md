@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.15 — 2026-08-18
+
+- Repair the machine-operations handoff by discovering OpenClaw from common user-level install locations when systemd does not inherit the interactive shell PATH.
+- Keep ChatGPT as the developer while making OpenClaw available to Workbench only as the machine-side operations harness.
+- Add regression coverage for service-safe OpenClaw discovery and provider scanning.
+
 ## 0.9.14 — 2026-08-18
 
 - Make ChatGPT own the software-development loop: source code, Git/GitHub, pull requests, CI, GitHub Actions and release orchestration stay with ChatGPT.
