@@ -34,6 +34,9 @@ func TestBuildDashboardSnapshotUsesOnlyDurableWorkbenchFacts(t *testing.T) {
 	st := eng.State()
 	st.Preferences.OpenClawSSHHost = "runner.example"
 	st.Tasks = []core.Task{
+		// This archived completion is deliberately the newest record. It must not
+		// inflate completion metrics or take the top Recent activity slot.
+		{ID: "archived", ProjectPath: other.Path, Title: "Filed history", Status: core.TaskCompleted, Archived: true, UpdatedAt: now.Add(time.Minute)},
 		{ID: "attention", ProjectPath: pinned.Path, Title: "Choose release behaviour", Status: core.TaskNeedsAttention, ProviderID: "claude", UpdatedAt: now, AttentionQuestion: "Choose A or B"},
 		{ID: "retry", ProjectPath: pinned.Path, Title: "Retry provider", Status: core.TaskWaitingRetry, UpdatedAt: now.Add(-time.Minute), RetryAt: &retryAt},
 		{ID: "done", ProjectPath: other.Path, Title: "Finished task", Status: core.TaskCompleted, UpdatedAt: now.Add(-2 * time.Minute)},
@@ -67,13 +70,18 @@ func TestBuildDashboardSnapshotUsesOnlyDurableWorkbenchFacts(t *testing.T) {
 		t.Fatalf("compact active labels wrong: %#v", d.ActiveTasks)
 	}
 	if len(d.RecentActivity) != 4 || d.RecentActivity[0].TaskID != "attention" {
-		t.Fatalf("recent activity wrong: %#v", d.RecentActivity)
+		t.Fatalf("recent activity wrong or archived task leaked: %#v", d.RecentActivity)
 	}
 	if d.RecentActivity[2].StatusLabel != "Ready" || d.RecentActivity[3].StatusLabel != "Failed" {
 		t.Fatalf("compact terminal labels wrong: %#v", d.RecentActivity)
 	}
 	if len(d.Projects) != 2 || d.Projects[0].ID != pinned.ID || !d.Projects[0].Pinned {
 		t.Fatalf("project ordering/summary wrong: %#v", d.Projects)
+	}
+	for _, project := range d.Projects {
+		if project.ID == other.ID && project.Summary.Completed != 1 {
+			t.Fatalf("archived task inflated project summary: %#v", project.Summary)
+		}
 	}
 }
 

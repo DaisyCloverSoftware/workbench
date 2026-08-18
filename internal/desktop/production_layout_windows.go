@@ -82,16 +82,18 @@ func (s *Shell) layoutProductionWork(x, y, width, height int) {
 	moveWindow(s.controls[idIntent], xCenter+4, top+106, center-8, 66)
 	moveWindow(s.controls[idDelegate], xCenter+4, top+180, 196, 34)
 
-	moveWindow(s.controls[idTasksLabel], xCenter+4, top+226, center-8, 20)
+	moveWindow(s.controls[idTasksLabel], xCenter+4, top+226, center-142, 20)
+	moveWindow(s.controls[idShowArchivedTasks], xCenter+center-132, top+222, 128, 26)
 	moveWindow(s.controls[idTaskList], xCenter+4, top+250, center-8, 90)
-	moveWindow(s.controls[idTaskStatus], xCenter+4, top+348, center-8, 20)
-	moveWindow(s.controls[idNextAction], xCenter+4, top+372, center-8, 34)
-	moveWindow(s.controls[idReportLabel], xCenter+4, top+414, center-8, 20)
+	moveWindow(s.controls[idTaskStatus], xCenter+4, top+350, center-108, 20)
+	moveWindow(s.controls[idArchiveTask], xCenter+center-98, top+344, 94, 30)
+	moveWindow(s.controls[idNextAction], xCenter+4, top+378, center-8, 34)
+	moveWindow(s.controls[idReportLabel], xCenter+4, top+420, center-8, 20)
 
 	answerY := bottom - 34
 	attentionY := answerY - 22
 	buttonY := attentionY - 38
-	reportY := top + 438
+	reportY := top + 444
 	reportH := buttonY - 10 - reportY
 	if reportH < 72 {
 		reportH = 72

@@ -7,7 +7,7 @@ import "unsafe"
 func productionActionButtonIDs() []int {
 	return []int{
 		idAddProject, idRenameProject, idPinProject, idRemoveProject,
-		idDelegate, idCancelTask, idResumeTask, idOpenReview, idRetryReview, idCopyBranch, idSaveNotes,
+		idDelegate, idArchiveTask, idCancelTask, idResumeTask, idOpenReview, idRetryReview, idCopyBranch, idSaveNotes,
 		idConnectProvider, idRescanProviders, idCopyMCP, idCopyChatGPTBootstrap, idSaveRouting,
 		idSaveReviewPolicy, idSaveSecret, idRunUpdater,
 	}

@@ -101,7 +101,7 @@ func (s *Shell) applyProductionControlTheme() {
 			procSendMessageW.Call(hwnd, emSetMargins, ecLeftMargin|ecRightMargin, margin)
 		}
 	}
-	for _, id := range []int{idProtectWork, idAllowMetered, idPublishReviews} {
+	for _, id := range []int{idShowArchivedTasks, idProtectWork, idAllowMetered, idPublishReviews} {
 		applyDarkExplorerTheme(s.controls[id])
 	}
 }

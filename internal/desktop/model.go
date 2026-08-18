@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
@@ -29,6 +30,7 @@ type TaskItem struct {
 	RetryAt             *time.Time
 	NeedsHuman          bool
 	Terminal            bool
+	Archived            bool
 	Output              string
 	Error               string
 	AttentionQuestion   string
@@ -57,7 +59,25 @@ type Snapshot struct {
 	SelectedTaskID  string
 }
 
+var archivedTaskHistoryVisible atomic.Bool
+
 func BuildSnapshot(eng *core.Engine, selectedTaskID string) Snapshot {
+	return BuildSnapshotWithHistory(eng, selectedTaskID, archivedTaskHistoryVisible.Load())
+}
+
+func setArchivedTaskHistoryVisible(visible bool) {
+	archivedTaskHistoryVisible.Store(visible)
+}
+
+func isArchivedTaskHistoryVisible() bool {
+	return archivedTaskHistoryVisible.Load()
+}
+
+// BuildSnapshotWithHistory is the one Work-page history switch. Archived tasks
+// remain in durable engine state, but normal project summaries and task lists
+// omit them so old completed work does not bury live work. The explicit UI
+// toggle asks for the full record set and makes restore possible.
+func BuildSnapshotWithHistory(eng *core.Engine, selectedTaskID string, includeArchived bool) Snapshot {
 	if eng == nil {
 		return Snapshot{}
 	}
@@ -72,8 +92,9 @@ func BuildSnapshot(eng *core.Engine, selectedTaskID string) Snapshot {
 	}
 
 	for _, project := range projects {
-		tasks := eng.TasksForProject(project.ID)
-		summary := core.SummarizeTasks(tasks)
+		allTasks := eng.TasksForProject(project.ID)
+		tasks := visibleTaskHistory(allTasks, includeArchived)
+		summary := core.SummarizeTasks(visibleTaskHistory(allTasks, false))
 		snapshot.Projects = append(snapshot.Projects, ProjectItem{
 			ID:         project.ID,
 			Name:       project.Name,
@@ -95,6 +116,20 @@ func BuildSnapshot(eng *core.Engine, selectedTaskID string) Snapshot {
 	return snapshot
 }
 
+func visibleTaskHistory(tasks []core.Task, includeArchived bool) []core.Task {
+	if includeArchived {
+		return append([]core.Task(nil), tasks...)
+	}
+	visible := make([]core.Task, 0, len(tasks))
+	for _, task := range tasks {
+		if task.Archived {
+			continue
+		}
+		visible = append(visible, task)
+	}
+	return visible
+}
+
 // FirstAttentionTarget returns the first genuine human-attention task in the
 // same pinned/recent project order used by the production sidebar. It is
 // deliberately read-only; the Windows action performs the explicit project
@@ -104,7 +139,7 @@ func FirstAttentionTarget(eng *core.Engine) (AttentionTarget, bool) {
 		return AttentionTarget{}, false
 	}
 	for _, project := range eng.Projects() {
-		for _, task := range eng.TasksForProject(project.ID) {
+		for _, task := range visibleTaskHistory(eng.TasksForProject(project.ID), false) {
 			if task.Status == core.TaskNeedsAttention {
 				return AttentionTarget{ProjectID: project.ID, TaskID: task.ID}, true
 			}
@@ -121,17 +156,22 @@ func taskItems(tasks []core.Task) []TaskItem {
 		if presentation.RetryAt != nil {
 			nextAction += " Next attempt: " + presentation.RetryAt.Local().Format("2 Jan 15:04:05") + "."
 		}
+		statusLabel := presentation.StatusLabel
+		if task.Archived {
+			statusLabel = "Archived · " + statusLabel
+		}
 		item := TaskItem{
 			ID:                 task.ID,
 			Title:              task.Title,
 			Intent:             task.Intent,
 			Status:             task.Status,
-			StatusLabel:        presentation.StatusLabel,
+			StatusLabel:        statusLabel,
 			ProviderLabel:      presentation.ProviderLabel,
 			NextAction:         nextAction,
 			RetryAt:            presentation.RetryAt,
 			NeedsHuman:         presentation.NeedsHuman,
 			Terminal:           presentation.Terminal,
+			Archived:           task.Archived,
 			Output:             task.Output,
 			Error:              task.Error,
 			AttentionQuestion:  task.AttentionQuestion,
