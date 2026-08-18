@@ -21,7 +21,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-const relayVersion = "0.9.22"
+const relayVersion = "0.9.23"
 
 type envelope struct {
 	Version   int    `json:"version"`
