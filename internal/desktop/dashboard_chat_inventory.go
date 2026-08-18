@@ -32,11 +32,11 @@ func filterRunnerChatActivityToInventory(inventory []core.RunnerProjectInfo, act
 }
 
 // pruneUnavailableRunnerProjects removes only empty, unpinned runner entries
-// that no longer exist in a successful runner inventory. Durable task history
-// and explicitly pinned projects are retained. This cleans up auto-registered
-// temporary worktrees without losing project records that contain real work.
+// that no longer exist in a successful non-empty runner inventory. Durable task
+// history and explicitly pinned projects are retained. Refusing to prune from
+// an empty inventory makes transient discovery degradation non-destructive.
 func pruneUnavailableRunnerProjects(eng *core.Engine, inventory []core.RunnerProjectInfo) int {
-	if eng == nil {
+	if eng == nil || len(inventory) == 0 {
 		return 0
 	}
 	available := make(map[string]bool, len(inventory))
@@ -44,6 +44,9 @@ func pruneUnavailableRunnerProjects(eng *core.Engine, inventory []core.RunnerPro
 		if ref, ok := core.NormalizeRunnerProjectReference(project.Ref); ok {
 			available[strings.ToLower(ref)] = true
 		}
+	}
+	if len(available) == 0 {
+		return 0
 	}
 	removed := 0
 	for _, project := range eng.Projects() {
