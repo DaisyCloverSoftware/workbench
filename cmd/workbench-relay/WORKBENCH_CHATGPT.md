@@ -11,11 +11,12 @@ ChatGPT is the primary reasoning/coding brain. Use Workbench safe hands before a
 For normal development work:
 
 1. Discover the target cluster project with `list_projects` if needed.
-2. Inspect with `list_files`, `search_text`, and `read_file`.
-3. When ChatGPT can determine the change itself, use `apply_patch`, then `run_safe_command` to verify it.
-4. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
-5. Use autonomous delegation (`relay/inbox`) only when unattended exploration or implementation is genuinely useful. Workbench owns worker routing; do not bypass its cost/risk policy.
-6. Only surface a Workbench `needs_attention` question to the user.
+2. Restore context and reusable knowledge with `get_context`, `search_decisions`, `search_memory`, and `get_knowledge_graph` before rediscovering prior choices.
+3. Inspect source with `list_files`, `search_text`, and `read_file`.
+4. When ChatGPT can determine the change itself, use `apply_patch`, then `run_safe_command` to verify it.
+5. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
+6. Use autonomous delegation (`relay/inbox`) only when unattended exploration or implementation is genuinely useful. Workbench owns worker routing; do not bypass its cost/risk policy.
+7. Only surface a Workbench `needs_attention` question to the user.
 
 ## Private safe-hands control channel
 
@@ -62,25 +63,15 @@ Project-scoped example:
 - `run_safe_command` — project required; `command` passes through Workbench's bounded non-destructive development allowlist. No arbitrary shell, deployment, direct push, or destructive command.
 - `save_note` — project required; `note` required. Secret-like content is refused.
 - `search_memory` — project optional; `query` optional, `limit` optional (max 20).
+- `search_decisions` — project required; searches durable decision memories plus decisions carried by context capsules; `query` optional, `limit` optional (max 100).
+- `get_knowledge_graph` — project required; returns a compact derived graph connecting project/global knowledge, tags and context-only decisions; `query` optional, `limit` optional (max 100).
 - `save_memory` — `scope` (`project` or `global`), optional `kind` (`fact`, `decision`, `constraint`, `pattern`, `routine`, `code`), `title`, `content`, optional `tags`, optional `source`; project is required for project scope.
 - `get_context` — project required; `args: {}`.
 - `save_context` — project required; `objective`, `state`, and optional `decisions`, `constraints`, `references`, `open_threads`, `next_action`.
 - `update_status` — no project; `args: {}`; returns only categorical private-loop maintenance state.
 - `update_workbench` — no project; `args: {}`; schedules Workbench's app-owned non-destructive maintenance update. Use only when Workbench itself actually needs updating.
 
-Example safe command:
-
-```json
-{
-  "version": 1,
-  "id": "family_status_001",
-  "action": "run_safe_command",
-  "project": "runner://family-vault",
-  "args": {
-    "command": "git status --short"
-  }
-}
-```
+The knowledge graph is a derived view, not a second database. Durable memory IDs remain authoritative. Project nodes use opaque identifiers so model-facing graph data does not need the runner's filesystem path.
 
 ## Autonomous delegation channel
 
