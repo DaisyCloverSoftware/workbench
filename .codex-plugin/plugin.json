@@ -1,6 +1,6 @@
 {
   "name": "workbench",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "description": "AI development control plane: use chat for brains, safe tools for hands, and scarce autonomous-agent capacity only when it is genuinely needed.",
   "skills": "./skills/"
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.10 — 2026-08-18
+
+- Add reversible terminal task-history archiving without deleting durable task records or rewriting execution chronology.
+- Hide archived work from the default Work task list, Dashboard totals, recent activity, provider activity and project summaries so filed-away history does not bury live work.
+- Add explicit Show archived and Archive/Restore controls on the production Work page, with archived rows clearly labelled when revealed.
+- Fail closed when archiving active work: queued, routing, running, retry, dependency and human-attention tasks cannot be hidden.
+- Keep archived completed reviews out of the global Review & Publish shortcut until the task is explicitly restored.
+
 ## 0.9.9 — 2026-08-18
 
 - Add a one-click Copy ChatGPT bootstrap action to production Settings so fresh conversations can discover and use the private Workbench relay without the user reconstructing setup instructions.
