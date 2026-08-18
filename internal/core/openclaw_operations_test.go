@@ -36,7 +36,7 @@ func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *test
 func TestOpenClawOperationAgentArgsUseScriptedAgentCommand(t *testing.T) {
 	prompt := "verify runner health"
 	got := openClawOperationAgentArgs(prompt)
-	want := []string{"agent", "--message", prompt}
+	want := []string{"agent", "--agent", "main", "--message", prompt}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("OpenClaw agent args=%q want %q", got, want)
 	}
