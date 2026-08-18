@@ -2,14 +2,18 @@
 
 package desktop
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/DaisyCloverSoftware/workbench/internal/core"
+)
 
 func TestSortDashboardProjectsForDisplaySurfacesActionableWork(t *testing.T) {
 	projects := []DashboardProjectItem{
 		{Name: "inactive-pinned", Pinned: true},
-		{Name: "active-two", Summary: taskSummaryForDashboardTest(2, 0)},
-		{Name: "needs-you", Summary: taskSummaryForDashboardTest(0, 1)},
-		{Name: "active-one", Summary: taskSummaryForDashboardTest(1, 0)},
+		{Name: "active-two", Summary: core.TaskDashboardSummary{Active: 2}},
+		{Name: "needs-you", Summary: core.TaskDashboardSummary{NeedsHuman: 1}},
+		{Name: "active-one", Summary: core.TaskDashboardSummary{Active: 1}},
 		{Name: "inactive"},
 	}
 	sortDashboardProjectsForDisplay(projects)
