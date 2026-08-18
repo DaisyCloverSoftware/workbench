@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -29,6 +30,20 @@ func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *test
 	}
 	if strings.Contains(prompt, "[workbench:operations]") {
 		t.Fatalf("relay control marker leaked into operator objective: %s", prompt)
+	}
+}
+
+func TestOpenClawOperationAgentArgsUseScriptedAgentCommand(t *testing.T) {
+	prompt := "verify runner health"
+	got := openClawOperationAgentArgs(prompt)
+	want := []string{"agent", "--message", prompt}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("OpenClaw agent args=%q want %q", got, want)
+	}
+	for _, arg := range got {
+		if arg == "--headless" {
+			t.Fatal("OpenClaw agent does not accept the browser-only --headless flag")
+		}
 	}
 }
 

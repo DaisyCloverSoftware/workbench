@@ -90,6 +90,13 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	return b.String()
 }
 
+// openClawOperationAgentArgs follows OpenClaw's scripted `agent` command. The
+// agent command is already non-interactive; `--headless` is a browser flag, not
+// an agent flag, and causes current OpenClaw releases to reject the invocation.
+func openClawOperationAgentArgs(prompt string) []string {
+	return []string{"agent", "--message", prompt}
+}
+
 func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, prefs Preferences, prompt string) (RunResult, bool, error) {
 	invokeCtx, cancel := context.WithTimeout(ctx, operationInvocationTimeout)
 	defer cancel()
@@ -99,10 +106,11 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	remote := strings.TrimSpace(prefs.OpenClawSSHHost) != ""
 	if remote {
 		name = "ssh"
-		args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw", "agent", "--message", prompt, "--headless"}
+		args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw"}
+		args = append(args, openClawOperationAgentArgs(prompt)...)
 	} else if strings.TrimSpace(p.Command) != "" {
 		name = p.Command
-		args = []string{"agent", "--message", prompt, "--headless"}
+		args = openClawOperationAgentArgs(prompt)
 	} else {
 		return RunResult{Retryable: true}, false, errors.New("OpenClaw operations adapter is not configured")
 	}
