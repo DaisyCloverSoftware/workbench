@@ -125,7 +125,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.10"},
-			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, and search_memory. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. An optional cloud_model on delegate_task is only a per-task preference inside OpenClaw if the existing Workbench provider hierarchy eventually reaches that cloud stage; it never bypasses local or cheaper workers. While an active coding worker is running, check get_task at a reasonable cadence rather than hammering it. If status becomes waiting_retry or waiting_dependency, stop polling: that is a durable Workbench-owned wait, no coding worker is held, and Workbench will resume the same task automatically when the retry/dependency becomes ready. Continue other independent useful work instead. Only surface needs_attention to the human. Never ask the human to watch progress. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
+			"instructions":    "Workbench gives ordinary Chat safe repository eyes and hands plus autonomous workers and persistent knowledge. Start with get_workspace, get_context, search_decisions, and search_memory. Use get_knowledge_graph when relationships between project decisions, durable memories, global knowledge and retrieval tags matter. Reuse relevant routines/patterns before rebuilding them. Use list_files, search_text, and read_file to understand code without spending an autonomous-agent allowance. Prefer apply_patch and run_safe_command when Chat can supply the intelligence. Use delegate_task only when autonomous exploration is genuinely useful. An optional cloud_model on delegate_task is only a per-task preference inside OpenClaw if the existing Workbench provider hierarchy eventually reaches that cloud stage; it never bypasses local or cheaper workers. While an active coding worker is running, check get_task at a reasonable cadence rather than hammering it. If status becomes waiting_retry or waiting_dependency, stop polling: that is a durable Workbench-owned wait, no coding worker is held, and Workbench will resume the same task automatically when the retry/dependency becomes ready. Continue other independent useful work instead. Only surface needs_attention to the human. Never ask the human to watch progress. Before a conversation becomes too long, save a compact context capsule with save_context so a fresh conversation can resume without replaying the transcript.",
 		}
 	case "ping":
 		result = map[string]any{}
@@ -180,6 +180,8 @@ func toolsList() []map[string]any {
 		tool("get_workspace", "Get Workbench workspace", "Inspect the active project, registered projects, routing policy, and available workers before deciding how to execute a development request.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("get_context", "Get compact project context", "Read the latest bounded context capsule for the active project. Use this when resuming work in a fresh conversation instead of replaying a long transcript.", objSchema(map[string]any{"project_path": project}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("search_memory", "Search Workbench memory", "Search project-scoped and global durable knowledge, including decisions, constraints, patterns, routines and reusable code. Search this before rebuilding something similar.", objSchema(map[string]any{"project_path": project, "query": strProp("Words describing the current problem or reusable thing needed"), "limit": intProp("Maximum memories to return (1-100).")}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("search_decisions", "Search Workbench decisions", "Search explicit durable decision memories plus decisions carried forward in project context capsules. Duplicate context decisions collapse behind their durable decision memory.", objSchema(map[string]any{"project_path": project, "query": strProp("Words describing the decision to find"), "limit": intProp("Maximum decisions to return (1-100).")}, nil), anyObjectSchema(), annotations(true, false, false)),
+		tool("get_knowledge_graph", "Get project knowledge graph", "Return a compact derived graph connecting project/global knowledge, durable memories, retrieval tags and context-only decisions. Graph project identity is opaque; the graph is derived from the authoritative knowledge store rather than creating a second database.", objSchema(map[string]any{"project_path": project, "query": strProp("Optional words to focus the graph"), "limit": intProp("Maximum matching memories/decisions to seed (1-100).")}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_files", "List repository files", "List model-safe source files under the active project without traversing generated trees or credential directories. Cluster projects use the configured Workbench runner without copying the repository to the desktop.", objSchema(map[string]any{"project_path": project, "subdir": subdir, "limit": intProp("Maximum files to return (1-1000).")}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("search_text", "Search repository text", "Search model-safe source files for text. Binary, oversized, generated, credential-like, and probable-secret files are skipped; cluster projects use the bounded runner transport.", objSchema(map[string]any{"project_path": project, "query": strProp("Text to find, case-insensitive"), "subdir": subdir, "limit": intProp("Maximum matching lines to return (1-200).")}, []string{"query"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("read_file", "Read repository file", "Read a line range from one model-safe source file. Paths stay inside the active local or cluster project; credential files, binary files, oversized files, and files containing probable secret material are refused.", objSchema(map[string]any{"project_path": project, "path": strProp("Relative file path inside the project"), "start_line": intProp("Optional 1-based first line"), "end_line": intProp("Optional 1-based last line")}, []string{"path"}), anyObjectSchema(), annotations(true, false, false)),
@@ -253,7 +255,6 @@ func stringSliceArg(a map[string]any, k string) []string {
 			if strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
-		}
 	}
 	return out
 }
@@ -333,6 +334,22 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
 		return textContent(map[string]any{"project_path": project, "query": arg(a, "query"), "memories": items, "count": len(items)}, false)
+
+	case "search_decisions":
+		project := s.projectArg(a)
+		decisions, err := core.SearchDecisions(project, arg(a, "query"), intArg(a, "limit"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"project_path": project, "query": arg(a, "query"), "decisions": decisions, "count": len(decisions)}, false)
+
+	case "get_knowledge_graph":
+		project := s.projectArg(a)
+		graph, err := core.BuildKnowledgeGraph(project, arg(a, "query"), intArg(a, "limit"))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		return textContent(map[string]any{"project_path": project, "graph": graph, "node_count": len(graph.Nodes), "edge_count": len(graph.Edges)}, false)
 
 	case "list_files":
 		project, errResult := s.requireProject(a)
