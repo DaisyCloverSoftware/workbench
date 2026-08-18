@@ -244,7 +244,7 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 		s.layoutProduction()
 		return true
 	case idTopReview:
-		if !s.jumpToLatestReview() {
+		if !s.jumpToLatestVisibleReview() {
 			messageBox(s.hwnd, "No review waiting", "There is no completed Workbench review artifact waiting to be opened or delivered.", mbOK|mbIconInformation)
 			return true
 		}
