@@ -289,7 +289,15 @@ func (e *Engine) execute(taskID string) {
 					return
 				}
 			}
+			if IsOperationsTask(t) {
+				e.finishFailed(taskID, "The eligible Workbench machine-operations path is temporarily cooling down after a recent provider failure. Workbench will retry when the cooldown permits.\n\n"+strings.Join(cooling, "\n"))
+				return
+			}
 			e.finishFailed(taskID, "All eligible coding workers are temporarily cooling down after recent provider-level failures. Use Rescan after fixing provider setup, or retry after the cooldown.\n\n"+strings.Join(cooling, "\n"))
+			return
+		}
+		if IsOperationsTask(t) {
+			e.finishFailed(taskID, "OpenClaw is not currently available to Workbench for this machine-side operation. The task was not handed to a coding worker.")
 			return
 		}
 		e.finishFailed(taskID, "No eligible coding worker is connected. Connect Antigravity, Copilot, Claude, a structured harness adapter, OpenClaw, or Codex; Workbench will keep metered APIs disabled unless you opt in.")
@@ -316,6 +324,9 @@ func (e *Engine) execute(taskID string) {
 		runCancel()
 		record, coolingNow := RecordProviderRunOutcome(p.ID, res, err)
 		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, err))
+		if detail := operationFailureDetail(current, res, err); detail != "" {
+			attempt += ": " + detail
+		}
 		if coolingNow {
 			attempt += fmt.Sprintf("; cooldown until %s (%s)", record.CooldownUntil.UTC().Format(time.RFC3339), record.Reason)
 			retryAt = earlierAutomaticRetry(retryAt, p, record)
@@ -346,6 +357,10 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 	}
+	if IsOperationsTask(t) {
+		e.finishFailed(taskID, "The Workbench machine-side operation failed.\n\n"+strings.Join(errorsSeen, "\n"))
+		return
+	}
 	e.finishFailed(taskID, "Every eligible worker failed.\n\n"+strings.Join(errorsSeen, "\n"))
 }
 
@@ -355,6 +370,15 @@ func routeCandidates(providers []Provider, prefs Preferences, t Task) []Provider
 	for _, p := range providers {
 		if !p.Installed || !p.Authenticated || !p.CanWrite || strings.TrimSpace(p.Command) == "" {
 			continue
+		}
+		if IsOperationsTask(t) {
+			if IsRunnerProjectReference(t.ProjectPath) {
+				if p.ID != "workbench-runner" {
+					continue
+				}
+			} else if p.ID != "openclaw" {
+				continue
+			}
 		}
 		if p.ID == "workbench-runner" && strings.TrimSpace(prefs.OpenClawSSHHost) == "" {
 			continue
@@ -388,6 +412,27 @@ func attemptSummary(res RunResult, err error) string {
 		return "unavailable; tried next eligible worker"
 	}
 	return "failed; tried next eligible worker"
+}
+
+const maxOperationFailureDetailRunes = 1200
+
+func operationFailureDetail(task Task, res RunResult, err error) string {
+	if !IsOperationsTask(task) || err == nil {
+		return ""
+	}
+	detail := strings.TrimSpace(res.Output)
+	if detail == "" {
+		detail = strings.TrimSpace(err.Error())
+	}
+	if detail == "" || LooksSecret(detail) {
+		return ""
+	}
+	detail = strings.Join(strings.Fields(detail), " ")
+	runes := []rune(detail)
+	if len(runes) > maxOperationFailureDetailRunes {
+		detail = string(runes[:maxOperationFailureDetailRunes]) + "…"
+	}
+	return detail
 }
 
 func (e *Engine) updateRunning(id string, p Provider) {
