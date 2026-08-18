@@ -236,36 +236,39 @@ func drawActivityPanel(hdc uintptr, rect nativeRect, items []DashboardActivityIt
 }
 
 func drawActiveTasksPanel(hdc uintptr, rect nativeRect, tasks []DashboardTaskItem) {
-	body := drawPanelFrame(hdc, rect, "Active tasks")
+	body := drawPanelFrame(hdc, rect, fmt.Sprintf("Active tasks · %d", len(tasks)))
 	if len(tasks) == 0 {
 		drawTextStyled(hdc, "Nothing is currently running or waiting.", body, productionPalette.Muted, 12, fwNormal, dtLeft|dtWordBreak)
 		return
 	}
-	rowH := 58
-	for i, task := range tasks {
-		if i >= 5 || body.Top+int32((i+1)*rowH) > body.Bottom {
-			break
-		}
-		y := int(body.Top) + i*rowH
+	visible, hidden := dashboardActiveTaskWindow(len(tasks), int(body.Bottom-body.Top))
+	for i := 0; i < visible; i++ {
+		task := tasks[i]
+		y := int(body.Top) + i*dashboardActiveTaskRowHeight
 		color := statusColor(task.StatusLabel)
-		drawTextStyled(hdc, task.Title, rectWH(int(body.Left), y, int(body.Right-body.Left)-90, 22), productionPalette.Text, 12, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
-		drawTextStyled(hdc, task.StatusLabel, rectWH(int(body.Right)-86, y, 84, 22), color, 11, fwSemiBold, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, task.Title, rectWH(int(body.Left), y, int(body.Right-body.Left)-90, 19), productionPalette.Text, 11, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, task.StatusLabel, rectWH(int(body.Right)-86, y, 84, 19), color, 10, fwSemiBold, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
 		provider := strings.TrimSpace(task.Provider)
 		if provider == "" {
 			provider = "Router"
 		}
-		drawTextStyled(hdc, provider, rectWH(int(body.Left), y+23, 120, 18), productionPalette.Muted, 10, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, provider, rectWH(int(body.Left), y+19, 128, 15), productionPalette.Muted, 9, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
 		next := task.NextAction
 		if task.RetryAt != nil {
 			next = "Retries " + task.RetryAt.Local().Format("15:04")
 		}
-		drawTextStyled(hdc, next, rectWH(int(body.Left)+126, y+23, int(body.Right-body.Left)-128, 18), productionPalette.Muted, 10, fwNormal, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
-		bar := rectWH(int(body.Left), y+47, int(body.Right-body.Left), 3)
+		drawTextStyled(hdc, next, rectWH(int(body.Left)+134, y+19, int(body.Right-body.Left)-136, 15), productionPalette.Muted, 9, fwNormal, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
+		bar := rectWH(int(body.Left), y+36, int(body.Right-body.Left), 2)
 		fillRectColor(hdc, bar, productionPalette.Border)
 		fillRectColor(hdc, nativeRect{Left: bar.Left, Top: bar.Top, Right: bar.Right, Bottom: bar.Bottom}, color)
 	}
+	if hidden > 0 {
+		footerTop := int(body.Bottom) - dashboardActiveTaskFooterHeight
+		fillRectColor(hdc, nativeRect{Left: body.Left, Top: int32(footerTop), Right: body.Right, Bottom: int32(footerTop + 1)}, productionPalette.Border)
+		footer := fmt.Sprintf("+%d more active · %d of %d shown", hidden, visible, len(tasks))
+		drawTextStyled(hdc, footer, rectWH(int(body.Left), footerTop+2, int(body.Right-body.Left), dashboardActiveTaskFooterHeight-2), productionPalette.Muted, 9, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	}
 }
-
 func (s *Shell) drawSystemPanel(hdc uintptr, rect nativeRect, d DashboardSnapshot) {
 	body := drawPanelFrame(hdc, rect, "System status")
 	rows := []struct {
