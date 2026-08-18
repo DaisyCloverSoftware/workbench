@@ -91,13 +91,35 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	return b.String()
 }
 
+// newOpenClawOperationSessionID deliberately keeps Workbench operations away
+// from OpenClaw's long-lived agent main session. A fresh explicit session per
+// invocation prevents stale/retired provider bindings on an interactive session
+// from bricking unattended machine operations. Workbench already carries the
+// bounded continuation report between invocations, so no hidden chat-session
+// continuity is required for correctness.
+func newOpenClawOperationSessionID() string {
+	return newID("openclaw-op")
+}
+
 // openClawOperationAgentArgs follows OpenClaw's scripted `agent` command. The
-// command is already non-interactive, but current OpenClaw still requires an
-// explicit target (`--to`, `--session-id` or `--agent`). Workbench owns a
-// machine-operations conversation with the canonical main agent, so select it
-// explicitly rather than relying on interactive-session defaults.
+// command is already non-interactive, but current OpenClaw requires an explicit
+// target. Workbench targets the canonical main agent while also supplying a
+// fresh explicit session id so operations never inherit the agent's long-lived
+// interactive main-session bindings.
 func openClawOperationAgentArgs(prompt string) []string {
-	return []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--message", prompt}
+	return openClawOperationAgentArgsWithSession(prompt, "", newOpenClawOperationSessionID())
+}
+
+func openClawOperationAgentArgsWithSession(prompt, model, sessionID string) []string {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		sessionID = newOpenClawOperationSessionID()
+	}
+	args := []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--session-id", sessionID}
+	if model = strings.TrimSpace(model); model != "" {
+		args = append(args, "--model", model)
+	}
+	return append(args, "--message", prompt)
 }
 
 func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, prefs Preferences, prompt string) (RunResult, bool, error) {
@@ -165,7 +187,7 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 		}
 		low := strings.ToLower(out + " " + runErr.Error())
 		res.Authentication = strings.Contains(low, "login") || strings.Contains(low, "sign in") || strings.Contains(low, "authenticate") || strings.Contains(low, "unauthorized") || strings.Contains(low, "credential") || strings.Contains(low, "publickey") || strings.Contains(low, "permission denied")
-		res.Retryable = res.Authentication || strings.Contains(low, "not found") || strings.Contains(low, "unknown option") || strings.Contains(low, "rate limit") || strings.Contains(low, "quota") || strings.Contains(low, "timeout")
+		res.Retryable = res.Authentication || strings.Contains(low, "not found") || strings.Contains(low, "unknown option") || strings.Contains(low, "rate limit") || strings.Contains(low, "quota") || strings.Contains(low, "timeout") || strings.Contains(low, "binding generation was retired")
 		if strings.TrimSpace(res.Output) == "" {
 			res.Output = runErr.Error()
 		}
@@ -179,7 +201,7 @@ func operationInvocationCanBeReengaged(res RunResult, err error) bool {
 		return false
 	}
 	low := strings.ToLower(err.Error() + " " + res.Output)
-	return strings.Contains(low, "timed out") || strings.Contains(low, "timeout") || strings.Contains(low, "unresponsive")
+	return strings.Contains(low, "timed out") || strings.Contains(low, "timeout") || strings.Contains(low, "unresponsive") || strings.Contains(low, "binding generation was retired")
 }
 
 func stripOperationCompletionMarker(out string) (string, bool) {
