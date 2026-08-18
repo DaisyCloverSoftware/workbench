@@ -4,23 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
 
 const (
-	operationCompletePrefix       = "WORKBENCH_OPERATION_COMPLETE:"
+	operationCompletePrefix        = "WORKBENCH_OPERATION_COMPLETE:"
 	maxOperationContinuationPasses = 6
-	operationInvocationTimeout     = 10 * time.Minute
+	operationInvocationTimeout      = 10 * time.Minute
 	maxOperationContinuationReport = 4000
 )
 
 // RunOpenClawOperationSupervised is the missing "keep going" loop. A clean
 // OpenClaw process exit is not considered task completion unless OpenClaw has
 // explicitly verified the requested operational outcome. Progress-only exits
-// are re-invoked automatically against the same real host/cluster state.
+// and bounded unresponsive invocations are re-engaged automatically against the
+// same real host/cluster state instead of making the human type "continue".
 func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
 	if p.ID != "openclaw" {
 		return RunResult{}, errors.New("operations lane requires OpenClaw")
@@ -36,6 +36,13 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 			return boundRunResultForPersistence(res), runErr
 		}
 		if runErr != nil {
+			if pass < maxOperationContinuationPasses && operationInvocationCanBeReengaged(res, runErr) {
+				previous = operationContinuationReport(res.Output)
+				if !waitRunnerRetry(ctx, 2*time.Second) {
+					return boundRunResultForPersistence(res), ctx.Err()
+				}
+				continue
+			}
 			return boundRunResultForPersistence(res), runErr
 		}
 		if complete {
@@ -43,18 +50,15 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 		}
 		previous = operationContinuationReport(res.Output)
 	}
-	res := RunResult{
-		Output:    previous,
-		Retryable: true,
-	}
-	return boundRunResultForPersistence(res), fmt.Errorf("OpenClaw stopped %d times without verifying the operational objective; Workbench stopped the automatic continuation loop rather than asking the human to keep nudging it", maxOperationContinuationPasses)
+	res := RunResult{Output: previous, Retryable: true}
+	return boundRunResultForPersistence(res), fmt.Errorf("OpenClaw stopped %d times without verifying the operational objective; Workbench exhausted its automatic continuation budget instead of asking the human to keep nudging it", maxOperationContinuationPasses)
 }
 
 func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	var b strings.Builder
 	b.WriteString("You are OpenClaw acting only as Workbench's infrastructure/host/cluster operator. ChatGPT is the primary reasoning and coding brain. Your job is to execute operational work so the human never has to copy prompts here or keep telling you to continue.\n\n")
 	b.WriteString("Operational objective:\n")
-	b.WriteString(strings.TrimSpace(task.Intent))
+	b.WriteString(OperationsTaskIntent(task))
 	b.WriteString("\n\nRepository/context workspace:\n")
 	b.WriteString(strings.TrimSpace(task.ProjectPath))
 	b.WriteString("\n\nNon-negotiable role boundary:\n")
@@ -75,7 +79,7 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	}
 	if pass > 1 {
 		b.WriteString(fmt.Sprintf("\nWorkbench supervisor continuation pass %d of %d:\n", pass, maxOperationContinuationPasses))
-		b.WriteString("Your previous invocation ended without the verified-completion marker. Reinspect the current host/cluster/runtime state, preserve work already done, and continue the same objective. Do not return another progress-only answer.\n")
+		b.WriteString("Your previous invocation ended without the verified-completion marker or became unresponsive. Reinspect the current host/cluster/runtime state, preserve work already done, and continue the same objective. Do not return another progress-only answer.\n")
 		if previous = strings.TrimSpace(previous); previous != "" {
 			b.WriteString("Previous non-secret report (context only; verify actual state yourself):\n")
 			b.WriteString(previous)
@@ -157,6 +161,14 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	return boundRunResultForPersistence(res), complete, nil
 }
 
+func operationInvocationCanBeReengaged(res RunResult, err error) bool {
+	if err == nil || res.Authentication || strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != "" {
+		return false
+	}
+	low := strings.ToLower(err.Error() + " " + res.Output)
+	return strings.Contains(low, "timed out") || strings.Contains(low, "timeout") || strings.Contains(low, "unresponsive")
+}
+
 func stripOperationCompletionMarker(out string) (string, bool) {
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	kept := make([]string, 0, len(lines))
@@ -185,8 +197,3 @@ func operationContinuationReport(out string) string {
 	}
 	return strings.TrimSpace(out)
 }
-
-// keep os imported on platforms where exec child environment helpers need the
-// ordinary process environment in future OpenClaw adapters; currently the
-// operation runner deliberately inherits it through exec.CommandContext.
-var _ = os.Environ
