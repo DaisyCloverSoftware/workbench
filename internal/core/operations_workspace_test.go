@@ -27,7 +27,8 @@ func TestOperationsWorkspaceAllowsDirtySourceWithoutCopyingLocalEdits(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(workspaceBody) != "committed state\n" {
+	workspaceText := strings.ReplaceAll(string(workspaceBody), "\r\n", "\n")
+	if workspaceText != "committed state\n" {
 		t.Fatalf("operations workspace copied uncommitted source edits: %q", workspaceBody)
 	}
 	sourceBody, err := os.ReadFile(readme)
