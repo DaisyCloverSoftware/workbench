@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.13 — 2026-08-18
+
+- Show the active workload by recency, keep the full bounded active set, and explicitly indicate when additional active tasks are hidden from the compact dashboard panel.
+- Retry temporary GitHub DNS and network failures during update discovery and report a non-destructive update-check-unavailable warning when the current installation has not changed.
+
 ## 0.9.12 — 2026-08-18
 
 - Compute ChatGPT active-session state on the runner clock and return it explicitly to the desktop, eliminating desktop clock/skew from active-task visibility.
