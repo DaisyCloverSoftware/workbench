@@ -14,14 +14,19 @@ import (
 	"time"
 )
 
-const maxRelayActivityArchive = 8 << 20
+const (
+	maxRelayActivityArchive = 8 << 20
+	runnerChatSessionWindow  = 4 * time.Hour
+)
 
 type RunnerChatActivityInfo struct {
-	ID         string    `json:"id"`
-	ProjectRef string    `json:"project_ref"`
-	Action     string    `json:"action"`
-	State      string    `json:"state"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID          string    `json:"id"`
+	ProjectRef  string    `json:"project_ref"`
+	Action      string    `json:"action"`
+	State       string    `json:"state"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Active      bool      `json:"active"`
+	ActiveKnown bool      `json:"active_known"`
 }
 
 type relayControlActivity struct {
@@ -64,7 +69,31 @@ func ReadRunnerChatActivity(limit int) ([]RunnerChatActivityInfo, error) {
 	if len(out) > maxRelayActivityArchive {
 		return nil, errors.New("private Workbench relay activity exceeded bounds")
 	}
-	return parseRunnerChatActivity(out, limit)
+	items, err := parseRunnerChatActivity(out, limit)
+	if err != nil {
+		return nil, err
+	}
+	// Activity timestamps originate on this runner. Decide the bounded ChatGPT
+	// session lease here too, on the same clock, instead of asking the Windows
+	// desktop to compare a runner timestamp with a potentially skewed local clock.
+	now := time.Now().UTC()
+	for i := range items {
+		items[i].ActiveKnown = true
+		items[i].Active = runnerChatActivityIsActive(items[i], now)
+	}
+	return items, nil
+}
+
+func runnerChatActivityIsActive(event RunnerChatActivityInfo, now time.Time) bool {
+	if strings.EqualFold(strings.TrimSpace(event.Action), "delegate_task") {
+		switch strings.ToLower(strings.TrimSpace(event.State)) {
+		case "running", "waiting", "needs_attention":
+			return true
+		default:
+			return false
+		}
+	}
+	return !event.UpdatedAt.Before(now.Add(-runnerChatSessionWindow))
 }
 
 func runnerRelayRepoDir() (string, error) {
