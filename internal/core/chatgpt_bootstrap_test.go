@@ -12,13 +12,26 @@ func TestChatGPTBootstrapInstructionIsSafeAndActionable(t *testing.T) {
 		"workbench-relay",
 		"WORKBENCH_CAPABILITIES.json",
 		"WORKBENCH_CHATGPT.md",
-		"ChatGPT is the primary brain/coder",
+		"ChatGPT writes and edits the code",
+		"handles Git and GitHub",
+		"runs and diagnoses CI",
+		"operates GitHub Actions",
+		"OpenClaw is the operator, never the coder",
+		"shell, systemd, Docker, Kubernetes, Helm",
+		"Never ask me to copy/paste prompts",
+		"type \"continue\"",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("ChatGPT bootstrap instruction missing %q", want)
+		}
+	}
+	for _, forbiddenWorkflow := range []string{
 		"safe hands before autonomous delegation",
 		"Codex/Work as a last resort",
 		"metered API fallback opt-in",
 	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("ChatGPT bootstrap instruction missing %q", want)
+		if strings.Contains(text, forbiddenWorkflow) {
+			t.Fatalf("ChatGPT bootstrap still advertises delegated development policy %q", forbiddenWorkflow)
 		}
 	}
 	if LooksSecret(text) {
