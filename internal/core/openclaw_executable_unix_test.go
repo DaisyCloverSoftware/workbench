@@ -3,8 +3,10 @@
 package core
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -53,4 +55,41 @@ func TestScanProvidersUsesServiceSafeOpenClawDiscovery(t *testing.T) {
 		return
 	}
 	t.Fatal("OpenClaw provider row missing")
+}
+
+func TestOpenClawOperationRestoresSiblingNodeToServicePATH(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Model the common npm/NVM shape: OpenClaw is a script using
+	// /usr/bin/env node, but the systemd user service PATH cannot see node.
+	node := filepath.Join(bin, "node")
+	nodeBody := "#!/bin/sh\necho 'OpenClaw machine operation verified.'\necho 'WORKBENCH_OPERATION_COMPLETE: verified'\n"
+	if err := os.WriteFile(node, []byte(nodeBody), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	openclaw := filepath.Join(bin, "openclaw")
+	if err := os.WriteFile(openclaw, []byte("#!/usr/bin/env node\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", t.TempDir())
+	project := t.TempDir()
+	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: openclaw, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
+	task := Task{Mode: TaskModeOperations, ProjectPath: project, Intent: "Verify service execution"}
+
+	res, complete, err := runOpenClawOperationInvocation(context.Background(), provider, task, Preferences{}, "verify")
+	if err != nil {
+		t.Fatalf("OpenClaw operation failed with service-like PATH: %v; output=%q", err, res.Output)
+	}
+	if !complete {
+		t.Fatalf("OpenClaw completion marker was not observed: %q", res.Output)
+	}
+	if !strings.Contains(res.Output, "machine operation verified") {
+		t.Fatalf("unexpected operation output: %q", res.Output)
+	}
 }
