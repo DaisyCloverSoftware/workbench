@@ -125,7 +125,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.20"},
-			"instructions":    "Workbench is ChatGPT's execution bridge, not a replacement developer. ChatGPT owns reasoning, source code, Git/GitHub changes, pull requests, CI and GitHub Actions. Start with get_workspace, get_context and search_memory. Use list_files, search_text and read_file for repository visibility; use apply_patch for ChatGPT-authored source changes and run_safe_command for bounded local build/test/lint/status/diff work. Use delegate_operation only when a remaining step genuinely requires machine-side access ChatGPT cannot execute itself, such as shell, systemd, Docker, Kubernetes, Helm, runner repair or deployment/runtime commands. OpenClaw is the operator, never the coder. If an operation reveals that code, GitHub or CI changes are needed, return that work to ChatGPT. Check active operation state with get_task at a reasonable cadence; only surface needs_attention to the human and never ask the human to watch progress or type continue. Before a conversation becomes too long, save a compact context capsule with save_context.",
+			"instructions":    "Workbench is ChatGPT's execution bridge, not a replacement developer. ChatGPT owns reasoning, source code, Git/GitHub changes, pull requests, CI and GitHub Actions. Start with get_workspace, get_context and search_memory. Use list_files, search_text and read_file for repository visibility; use apply_patch for ChatGPT-authored source changes and run_safe_command for bounded local build/test/lint/status/diff work. Use delegate_operation only when a remaining step genuinely requires machine-side access ChatGPT cannot execute itself, such as shell, systemd, Docker, Kubernetes, Helm, runner repair or deployment/runtime commands. OpenClaw is the operator, never the coder. After delegating, use await_operation so Workbench owns the wait and returns when the operation completes, fails, needs attention, or the bounded wait expires. If a wait expires while the durable task is still active, call await_operation again rather than asking the human to watch or type continue. Use get_task only for diagnostic/status inspection. If an operation reveals that code, GitHub or CI changes are needed, return that work to ChatGPT. Only surface needs_attention to the human. Before a conversation becomes too long, save a compact context capsule with save_context.",
 		}
 	case "ping":
 		result = map[string]any{}
@@ -186,7 +186,8 @@ func toolsList() []map[string]any {
 		tool("save_memory", "Save durable Workbench memory", "Save a non-secret durable fact, decision, constraint, pattern, routine or reusable code item. Scope is project or global; project memory never silently becomes global.", objSchema(map[string]any{"project_path": project, "scope": strProp("project or global"), "kind": strProp("fact, decision, constraint, pattern, routine or code"), "title": strProp("Short retrieval title"), "content": strProp("Durable reusable content"), "tags": stringArrayProp("Optional retrieval tags"), "source": strProp("Optional provenance, such as task ID, commit or conversation capsule")}, []string{"scope", "title", "content"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("save_context", "Save compact continuation context", "Save a bounded continuation capsule before chat context becomes too long. Keep only current objective, verified state, decisions, constraints, references, open threads and next action.", objSchema(map[string]any{"project_path": project, "objective": strProp("Current outcome"), "state": strProp("Concise verified state of work"), "decisions": stringArrayProp("Decisions that still matter"), "constraints": stringArrayProp("Constraints that still matter"), "references": stringArrayProp("Task, memory, branch or artefact IDs needed to continue"), "open_threads": stringArrayProp("Unresolved work/questions"), "next_action": strProp("Most useful next action")}, []string{"objective", "state"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("delegate_operation", "Delegate machine-side operation", "Delegate only a host/server/cluster/runtime operation that ChatGPT cannot execute itself. OpenClaw is the operator, never the coder: do not use this for source code, Git/GitHub changes, pull requests, CI or GitHub Actions. Workbench supervises progress-only or stalled operator invocations and only returns genuine human decisions as needs_attention.", objSchema(map[string]any{"intent": strProp("Machine-side operational outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, false, false)),
-		tool("get_task", "Get task status", "Read durable task status. Check active running work at a reasonable cadence. Do not busy-poll waiting_retry or waiting_dependency: Workbench owns those waits and resumes automatically. Only surface a needs_attention question to the human.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("await_operation", "Wait for machine operation", "Wait for a durable Workbench machine-side operation to complete, fail, need genuine human attention, or reach a bounded timeout. Use this after delegate_operation instead of polling or asking the human to watch OpenClaw. A timeout does not cancel the operation.", objSchema(map[string]any{"task_id": strProp("Workbench operations task id"), "timeout_seconds": intProp("Optional wait duration in seconds; defaults to 120 and is capped at 600.")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("get_task", "Get task status", "Read durable task status for diagnostics. For normal ChatGPT operation flow, prefer await_operation so Workbench owns the wait. Do not ask the human to poll running, waiting_retry or waiting_dependency tasks.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_tasks", "List Workbench tasks", "List recent Workbench tasks and their statuses.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ChatGPT to a local or cluster project. ChatGPT remains responsible for the source change; Workbench only supplies bounded repository hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("run_safe_command", "Run safe development command", "Run a non-destructive build, test, lint, status, or diff command under Workbench's allowlist on the local or cluster project. No deploy, push, network shell, or destructive commands.", objSchema(map[string]any{"project_path": project, "command": strProp("Safe command, e.g. git diff, npm test, go test ./...")}, []string{"command"}), anyObjectSchema(), annotations(false, false, false)),
@@ -422,7 +423,22 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			"status":       t.Status,
 			"project_path": project,
 			"mode":         t.Mode,
-			"instruction":  "Workbench owns the machine-side operation and OpenClaw continuation loop. Check get_task at a reasonable cadence while active; only surface needs_attention to the human. Any code, GitHub or CI follow-up belongs back in ChatGPT.",
+			"instruction":  "Workbench owns the machine-side operation and OpenClaw continuation loop. Call await_operation for this task; only surface needs_attention to the human. Any code, GitHub or CI follow-up belongs back in ChatGPT.",
+		}, false)
+
+	case "await_operation":
+		wait, err := awaitOperation(ctx, s.engine, arg(a, "task_id"), operationWaitDuration(intArg(a, "timeout_seconds")))
+		if err != nil {
+			return textContent(map[string]any{"error": err.Error()}, true)
+		}
+		instruction := "The machine-side operation reached a terminal state. Continue the ChatGPT-owned workflow from this result; only ask the human if status is needs_attention."
+		if wait.WaitTimedOut {
+			instruction = "The bounded wait ended while the durable operation is still active. Call await_operation again; do not ask the human to watch OpenClaw or type continue."
+		}
+		return textContent(map[string]any{
+			"task":           wait.Task,
+			"wait_timed_out": wait.WaitTimedOut,
+			"instruction":    instruction,
 		}, false)
 
 	// Kept callable for backwards-compatible private relay traffic while older
@@ -516,7 +532,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if err := s.engine.ResolveAttention(arg(a, "task_id"), arg(a, "answer")); err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
-		return textContent(map[string]any{"ok": true, "instruction": "Continue checking the task while it is actively running; if it enters waiting_retry or waiting_dependency, Workbench owns that wait and will resume automatically."}, false)
+		return textContent(map[string]any{"ok": true, "instruction": "Workbench resumed the same durable operation. Call await_operation; if it enters waiting_retry or waiting_dependency, Workbench owns that wait and resumes automatically."}, false)
 
 	default:
 		return textContent(map[string]any{"error": fmt.Sprintf("unknown tool %q", name)}, true)
