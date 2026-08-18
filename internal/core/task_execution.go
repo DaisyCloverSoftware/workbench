@@ -41,12 +41,21 @@ type TaskReviewResult struct {
 // ordinary worker failure and human-attention pauses so another eligible worker
 // or the resumed task can continue the same isolated edits.
 //
+// ChatGPT-originated work has a stronger contract: ChatGPT owns source changes,
+// Git/GitHub operations, PRs, CI and GitHub Actions. It may use Workbench to
+// reach OpenClaw only for genuine host/server/cluster/runtime operations that
+// ChatGPT cannot execute itself. This guard makes that ownership executable
+// rather than relying on prompt discipline.
+//
 // Operations tasks use the same durable task/workspace machinery but have a
 // stricter role boundary: the cluster runner is only transport and OpenClaw is
 // the only worker allowed to execute host/cluster operations. Any repository
 // edits made by OpenClaw in that lane are isolated and discarded rather than
 // becoming a review branch, because ChatGPT remains the coder.
 func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
+	if strings.EqualFold(strings.TrimSpace(task.Origin), "chatgpt-mcp") && !IsOperationsTask(task) {
+		return RunResult{}, errors.New("ChatGPT owns coding, Git/GitHub, pull requests, CI and GitHub Actions; Workbench will not delegate that development loop to an autonomous worker")
+	}
 	if IsOperationsTask(task) && p.ID != "openclaw" && p.ID != "workbench-runner" {
 		return RunResult{}, fmt.Errorf("provider %s is not applicable to a Workbench operations task; operations are reserved for the cluster runner/OpenClaw operator lane", p.Name)
 	}
