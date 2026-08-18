@@ -38,7 +38,7 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 			t.Fatalf("capability manifest missing OpenClaw machine-side operation %q: %+v", want, manifest.OpenClawOwns)
 		}
 	}
-	for _, want := range []string{"list_projects", "ensure_github_project", "read_file", "apply_patch", "run_safe_command", "search_memory", "save_context", "update_workbench"} {
+	for _, want := range []string{"list_projects", "ensure_github_project", "get_task", "list_tasks", "read_file", "apply_patch", "run_safe_command", "search_memory", "save_context", "update_workbench"} {
 		if !containsString(manifest.ControlActions, want) {
 			t.Fatalf("capability manifest missing control action %q", want)
 		}

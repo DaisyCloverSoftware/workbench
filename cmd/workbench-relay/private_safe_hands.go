@@ -11,11 +11,13 @@ import (
 
 // Private relay safe controls let ordinary ChatGPT do the reasoning while
 // Workbench supplies bounded repository eyes/hands and privacy-safe maintenance
-// status. They deliberately exclude delegate_task and resolve_attention:
+// status. Read-only task diagnostics are included so a lead chat can inspect a
+// long-running supervised operation without asking the human to watch it.
+// They deliberately exclude delegate_task, cancellation and resolve_attention:
 // autonomous work stays in relay/inbox and human answers stay in relay/answers.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
 		return true
 	default:
 		return false
@@ -56,6 +58,33 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			return nil, err
 		}
 		return readPrivateUpdateStatus()
+	}
+
+	if env.Action == "get_task" {
+		if env.Project != "" {
+			return nil, errors.New("get_task does not accept a project")
+		}
+		var a struct {
+			TaskID string `json:"task_id"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		a.TaskID = strings.TrimSpace(a.TaskID)
+		if a.TaskID == "" || len(a.TaskID) > 160 {
+			return nil, errors.New("get_task task_id is required and must be bounded")
+		}
+		return callMCP(ctx, mcpURL, authFile, "get_task", map[string]any{"task_id": a.TaskID})
+	}
+
+	if env.Action == "list_tasks" {
+		if env.Project != "" {
+			return nil, errors.New("list_tasks does not accept a project")
+		}
+		if err := decodePrivateControlArgs(env.Args, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return callMCP(ctx, mcpURL, authFile, "list_tasks", map[string]any{})
 	}
 
 	if env.Action == "list_projects" {

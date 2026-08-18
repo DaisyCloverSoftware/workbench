@@ -62,6 +62,8 @@ Project-scoped example:
 
 - `list_projects` — no project; `args: {}`.
 - `ensure_github_project` — no project; `repository` is one GitHub `owner/name` slug. Returns the existing project untouched or clones it atomically into an authorised runner root. No arbitrary hosts/URLs and no overwrite.
+- `get_task` — no project; `task_id` required. Read-only durable task diagnostics for a known Workbench task. Use this when an operation is taking unusually long or its relay outbox has not changed; it does not cancel, resume or otherwise mutate the task.
+- `list_tasks` — no project; `args: {}`. Read-only recent task diagnostics. This is for troubleshooting/continuation context, not a second scheduling interface.
 - `list_files` — project required; `subdir` optional, `limit` optional (max 1000).
 - `search_text` — project required; `query` required, `subdir` optional, `limit` optional (max 200).
 - `read_file` — project required; `path` required, `start_line`/`end_line` optional.
@@ -117,7 +119,7 @@ For a host/server/cluster/runtime operation that ChatGPT genuinely cannot execut
 }
 ```
 
-Workbench writes task state/result to `relay/outbox/<id>.json`. The marker is a control instruction between ChatGPT and Workbench; the user should never have to type it.
+Workbench writes task state/result to `relay/outbox/<id>.json`. The marker is a control instruction between ChatGPT and Workbench; the user should never have to type it. If an outbox remains active for longer than expected, ChatGPT may use the private read-only `get_task` control with the corresponding `workbench_task_id` to inspect durable status/detail without interrupting or cancelling the operation.
 
 Operations-lane guarantees:
 
