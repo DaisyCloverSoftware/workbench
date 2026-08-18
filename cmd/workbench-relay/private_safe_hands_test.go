@@ -25,7 +25,7 @@ func privateSafeHandsFixture(t *testing.T) (root, project string) {
 }
 
 func TestPrivateSafeHandsActionBoundary(t *testing.T) {
-	for _, action := range []string{"list_projects", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
+	for _, action := range []string{"list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
 		if !isPrivateSafeHandsAction(action) {
 			t.Fatalf("expected %q to be a private safe-hands action", action)
 		}
@@ -70,6 +70,20 @@ func TestPrivateSafeHandsListsOnlyRunnerRepositoryRoots(t *testing.T) {
 	text := string(b)
 	if !strings.Contains(text, `"name":"sample"`) || strings.Contains(text, "not-a-repo") {
 		t.Fatalf("private project discovery leaked non-repository entries: %s", text)
+	}
+}
+
+func TestPrivateEnsureGitHubProjectFailsClosedBeforeNetworkForUnsafeSlug(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("WORKBENCH_RUNNER_ROOT", root)
+	_, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "ensure_github_project",
+		Args:    json.RawMessage(`{"repository":"https://example.invalid/repo"}`),
+	}, "http://127.0.0.1:1", "unused")
+	if err == nil || !strings.Contains(err.Error(), "owner/name") {
+		t.Fatalf("unsafe GitHub import did not fail closed: %v", err)
 	}
 }
 
