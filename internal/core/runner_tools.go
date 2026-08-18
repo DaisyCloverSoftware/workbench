@@ -244,6 +244,9 @@ func listRunnerProjects(ctx context.Context) ([]RunnerProjectInfo, error) {
 			if canonicalErr != nil || filepath.Clean(canonicalGitRoot) != filepath.Clean(resolved) {
 				continue
 			}
+			if !runnerProjectVisible(ctx, resolved, entry.Name()) {
+				continue
+			}
 			if _, nameErr := validateRunnerProjectName(entry.Name()); nameErr != nil {
 				continue
 			}

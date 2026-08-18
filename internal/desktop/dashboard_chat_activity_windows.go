@@ -28,12 +28,15 @@ func ensureRunnerChatActivityMonitor(eng *core.Engine) {
 				response, err := core.RunRunnerToolSSH(ctx, host, core.RunnerToolRequest{Action: "chat_activity", Limit: 100})
 				cancel()
 				if err == nil {
-					runnerChatActivityCache.Store(append([]core.RunnerChatActivityInfo(nil), response.ChatActivity...))
+					activity := filterRunnerChatActivityToInventory(response.Projects, response.ChatActivity)
+					runnerChatActivityCache.Store(activity)
 					// ChatGPT is the normal entry point. If it has genuinely used a
 					// current runner project, register that project in the desktop
 					// automatically rather than making the user import the same repo by
-					// hand. The helper filters to recent activity and current inventory.
-					_, _ = registerActiveChatProjects(eng, response.Projects, response.ChatActivity, time.Now().UTC())
+					// hand. Activity for review worktrees or vanished runner projects is
+					// filtered before it can become user-facing state.
+					_, _ = registerActiveChatProjects(eng, response.Projects, activity, time.Now().UTC())
+					pruneUnavailableRunnerProjects(eng, response.Projects)
 				}
 			}
 			if runningShell != nil && runningShell.hwnd != 0 {
