@@ -23,7 +23,7 @@ func freePort(t *testing.T) int {
 	return p
 }
 
-func TestMCPRequiresTokenAndListsEyesAndHandsTools(t *testing.T) {
+func TestMCPRequiresTokenAndListsEyesHandsAndOperationsTools(t *testing.T) {
 	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -66,10 +66,13 @@ func TestMCPRequiresTokenAndListsEyesAndHandsTools(t *testing.T) {
 	text := string(b)
 	for _, name := range []string{
 		"get_workspace", "list_files", "search_text", "read_file",
-		"apply_patch", "run_safe_command", "delegate_task", "get_task",
+		"apply_patch", "run_safe_command", "delegate_operation", "get_task",
 	} {
 		if !bytes.Contains(b, []byte(name)) {
 			t.Fatalf("missing tool %s in %s", name, text)
 		}
+	}
+	if bytes.Contains(b, []byte(`"name":"delegate_task"`)) {
+		t.Fatalf("coding delegation must not be advertised to ChatGPT: %s", text)
 	}
 }
