@@ -8,11 +8,9 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-// A normal ChatGPT conversation does not continuously emit runner events while
-// it is reasoning, waiting on CI, or working in another connected tool. Treat a
-// recent safe-hands operation as a session lease long enough to cover an
-// unattended work block. Autonomous delegate_task events carry a real state and
-// are therefore handled by their state instead of this lease.
+// Older runners did not report an explicit active decision, so retain the same
+// bounded desktop fallback for compatibility. Current runners compute activity
+// on the runner clock and set ActiveKnown instead.
 const dashboardChatSessionWindow = 4 * time.Hour
 
 type DashboardSnapshot struct {
@@ -239,7 +237,10 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 		}
 		status := core.TaskCompleted
 		label := "ChatGPT"
-		if event.State == "failed" {
+		if runnerChatEventIsActive(event, now) {
+			status = core.TaskRunning
+			label = "Working"
+		} else if event.State == "failed" {
 			status = core.TaskFailed
 			label = "Failed"
 		} else if event.State == "needs_attention" {
@@ -271,6 +272,9 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 }
 
 func runnerChatEventIsActive(event core.RunnerChatActivityInfo, now time.Time) bool {
+	if event.ActiveKnown {
+		return event.Active
+	}
 	if strings.EqualFold(strings.TrimSpace(event.Action), "delegate_task") {
 		switch strings.ToLower(strings.TrimSpace(event.State)) {
 		case "running", "waiting", "needs_attention":
