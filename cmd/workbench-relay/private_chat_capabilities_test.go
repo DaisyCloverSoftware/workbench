@@ -28,7 +28,7 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if manifest.Protocol != 1 || manifest.WorkbenchVersion != relayVersion || manifest.Transport != "private-git-relay" || manifest.PrimaryBrain != "chatgpt" {
 		t.Fatalf("unexpected private relay manifest identity: %+v", manifest)
 	}
-	for _, want := range []string{"list_projects", "read_file", "apply_patch", "run_safe_command", "search_memory", "save_context", "update_workbench"} {
+	for _, want := range []string{"list_projects", "ensure_github_project", "read_file", "apply_patch", "run_safe_command", "search_memory", "save_context", "update_workbench"} {
 		found := false
 		for _, action := range manifest.ControlActions {
 			if action == want {

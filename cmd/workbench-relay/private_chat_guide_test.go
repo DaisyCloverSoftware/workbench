@@ -14,6 +14,7 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"relay/control/<id>.json",
 		"relay/control-outbox/<id>.json",
 		"list_projects",
+		"ensure_github_project",
 		"read_file",
 		"apply_patch",
 		"run_safe_command",
