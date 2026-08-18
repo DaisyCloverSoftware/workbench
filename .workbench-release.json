@@ -1,9 +1,0 @@
-{
-  "version": "0.9.14",
-  "date": "2026-08-18",
-  "notes": [
-    "Make ChatGPT own the software-development loop: source code, Git/GitHub, pull requests, CI, GitHub Actions and release orchestration stay with ChatGPT.",
-    "Restrict Workbench/OpenClaw handoff to machine-side operations ChatGPT cannot execute itself, including shell, systemd, Docker, Kubernetes, Helm, runner-host repair and deployment/runtime operations.",
-    "Automatically re-engage OpenClaw when a machine operation stops with progress rather than verified completion, while rejecting source/IaC/GitHub/CI work and preserving genuine human approval boundaries."
-  ]
-}
