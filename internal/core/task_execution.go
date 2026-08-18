@@ -8,7 +8,6 @@ import (
 )
 
 type ReviewPublicationStatus string
-
 type ReviewPullRequestStatus string
 
 const (
@@ -41,7 +40,17 @@ type TaskReviewResult struct {
 // task worktree rather than the user's source checkout. A workspace survives
 // ordinary worker failure and human-attention pauses so another eligible worker
 // or the resumed task can continue the same isolated edits.
+//
+// Operations tasks use the same durable task/workspace machinery but have a
+// stricter role boundary: the cluster runner is only transport and OpenClaw is
+// the only worker allowed to execute host/cluster operations. Any repository
+// edits made by OpenClaw in that lane are isolated and discarded rather than
+// becoming a review branch, because ChatGPT remains the coder.
 func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
+	if IsOperationsTask(task) && p.ID != "openclaw" && p.ID != "workbench-runner" {
+		return RunResult{}, fmt.Errorf("provider %s is not applicable to a Workbench operations task; operations are reserved for the cluster runner/OpenClaw operator lane", p.Name)
+	}
+
 	// A runner:// project deliberately has no desktop-local worktree. It may only
 	// be executed by the Workbench cluster runner, which resolves the logical
 	// reference inside its authorised runner root and creates isolation there.
@@ -61,7 +70,7 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 	// When a runner host is configured, require the structured Workbench runner
 	// route instead of falling back to an unisolated remote coding session.
 	if p.ID == "openclaw" && strings.TrimSpace(prefs.OpenClawSSHHost) != "" {
-		return RunResult{Retryable: true}, errors.New("remote OpenClaw coding requires the Workbench cluster runner so task isolation is enforced on the execution host")
+		return RunResult{Retryable: true}, errors.New("remote OpenClaw execution requires the Workbench cluster runner so task isolation is enforced on the execution host")
 	}
 
 	ws, err := CreateTaskWorkspace(ctx, task.ProjectPath, task.ID)
@@ -71,6 +80,36 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 	workerTask := task
 	workerTask.memoryProjectPath = taskMemoryProject(task)
 	workerTask.ProjectPath = ws.Workspace
+
+	if IsOperationsTask(task) {
+		res, runErr := RunOpenClawOperationSupervised(ctx, p, workerTask, prefs)
+		if strings.TrimSpace(res.Attention) != "" || runErr != nil {
+			return boundRunResultForPersistence(res), runErr
+		}
+		inspection, inspectErr := InspectChangeset(ctx, ws.Workspace)
+		if inspectErr != nil {
+			return boundRunResultForPersistence(res), fmt.Errorf("verify OpenClaw operations workspace remained source-clean: %w", inspectErr)
+		}
+		if !inspection.Clean {
+			removeErr := RemoveTaskWorkspace(ctx, ws.Project, ws.TaskID)
+			message := "OpenClaw attempted repository/source changes during an operations task. Workbench isolated and discarded those edits because ChatGPT is the coder; the operational result was not accepted as complete."
+			if removeErr != nil {
+				message += " The isolated workspace also could not be removed automatically."
+			}
+			if strings.TrimSpace(res.Output) != "" {
+				res.Output = strings.TrimSpace(res.Output) + "\n\n" + message
+			} else {
+				res.Output = message
+			}
+			return boundRunResultForPersistence(res), errors.New("OpenClaw operations lane crossed the source-code boundary")
+		}
+		if err := RemoveTaskWorkspace(ctx, ws.Project, ws.TaskID); err != nil {
+			return boundRunResultForPersistence(res), fmt.Errorf("remove clean operations workspace: %w", err)
+		}
+		_ = DeleteTaskProviderSessions(task.ID)
+		return boundRunResultForPersistence(res), nil
+	}
+
 	res, runErr := RunProvider(ctx, p, workerTask, prefs)
 	if strings.TrimSpace(res.Attention) != "" || runErr != nil {
 		return boundRunResultForPersistence(res), runErr
