@@ -81,10 +81,10 @@ func ScanProviders() []Provider {
 		providers = append(providers, Provider{ID: "claude", Name: "Anthropic Claude Code", Capability: "coding agent / reviewer", Status: "not detected · install Claude Code CLI first", Cost: CostIncluded, Priority: 40, CanWrite: true, CanRunTools: true, Notes: "Official setup: install Node.js 18+ and Git for Windows, then run npm install -g @anthropic-ai/claude-code. After installation click Rescan, select Claude Code, then Connect selected. Claude App Pro/Max login is supported by Claude Code."})
 	}
 
-	if p, ok := scanCommand("openclaw"); ok {
-		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "agent harness", Command: p, Installed: true, Authenticated: true, Status: "CLI detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Execution adapter. Workbench stays harness-agnostic."})
+	if p, ok := findOpenClawExecutable(); ok {
+		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "machine-side operations harness", Command: p, Installed: true, Authenticated: true, Status: "CLI detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Workbench uses OpenClaw only for machine-side operations ChatGPT cannot execute itself."})
 	} else {
-		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "agent harness", Status: "not detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Optional built-in CLI provider. Structured harness adapters are configured separately."})
+		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "machine-side operations harness", Status: "not detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Install OpenClaw or configure its command before machine-side operations can run."})
 	}
 
 	if p, ok := scanCommand("codex"); ok {
