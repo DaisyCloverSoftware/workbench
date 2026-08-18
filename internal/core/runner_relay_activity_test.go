@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"testing"
+	"time"
 )
 
 func relayActivityArchive(t *testing.T, files map[string]string) []byte {
@@ -58,5 +59,34 @@ func TestParseRunnerChatActivityNeverExposesHostProjectPaths(t *testing.T) {
 	}
 	if len(items) != 0 {
 		t.Fatalf("host path leaked into activity: %#v", items)
+	}
+}
+
+func TestRunnerChatActivityLeaseUsesRunnerClock(t *testing.T) {
+	now := time.Date(2026, 8, 18, 14, 29, 0, 0, time.UTC)
+	event := RunnerChatActivityInfo{
+		ID:         "read_12345678",
+		ProjectRef: "runner://override",
+		Action:     "read_file",
+		State:      "completed",
+		UpdatedAt:  time.Date(2026, 8, 18, 11, 33, 31, 0, time.UTC),
+	}
+	if !runnerChatActivityIsActive(event, now) {
+		t.Fatalf("screenshot-equivalent safe-hands event should still be active: %#v", event)
+	}
+	if runnerChatActivityIsActive(event, now.Add(2*time.Hour)) {
+		t.Fatalf("expired safe-hands event remained active: %#v", event)
+	}
+}
+
+func TestRunnerChatActivityUsesPersistedAutonomousState(t *testing.T) {
+	now := time.Date(2026, 8, 18, 14, 29, 0, 0, time.UTC)
+	running := RunnerChatActivityInfo{Action: "delegate_task", State: "running", UpdatedAt: now.Add(-12 * time.Hour)}
+	if !runnerChatActivityIsActive(running, now) {
+		t.Fatal("running autonomous task should remain active regardless of age")
+	}
+	completed := RunnerChatActivityInfo{Action: "delegate_task", State: "completed", UpdatedAt: now.Add(-time.Minute)}
+	if runnerChatActivityIsActive(completed, now) {
+		t.Fatal("completed autonomous task must not remain active")
 	}
 }
