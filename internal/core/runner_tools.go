@@ -71,7 +71,14 @@ func ApplyRunnerToolRequest(ctx context.Context, req RunnerToolRequest) (RunnerT
 		if err != nil {
 			return RunnerToolResponse{Error: "ChatGPT activity is unavailable"}, err
 		}
-		return RunnerToolResponse{OK: true, ChatActivity: activity}, nil
+		projects, err := listRunnerProjects(ctx)
+		if err != nil {
+			return RunnerToolResponse{Error: "runner project discovery is unavailable"}, err
+		}
+		// Pair activity with the current privacy-minimal project inventory in one
+		// SSH round trip. The desktop can then auto-register only projects that
+		// ChatGPT genuinely touched and that still exist on the runner.
+		return RunnerToolResponse{OK: true, ChatActivity: activity, Projects: projects}, nil
 	case "list_providers":
 		providers := providerInventoryWithConfiguredHarness(ScanProviders(), Preferences{})
 		providers = ApplyProviderHealth(providers, time.Now())

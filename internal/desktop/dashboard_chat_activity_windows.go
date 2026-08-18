@@ -29,6 +29,11 @@ func ensureRunnerChatActivityMonitor(eng *core.Engine) {
 				cancel()
 				if err == nil {
 					runnerChatActivityCache.Store(append([]core.RunnerChatActivityInfo(nil), response.ChatActivity...))
+					// ChatGPT is the normal entry point. If it has genuinely used a
+					// current runner project, register that project in the desktop
+					// automatically rather than making the user import the same repo by
+					// hand. The helper filters to recent activity and current inventory.
+					_, _ = registerActiveChatProjects(eng, response.Projects, response.ChatActivity, time.Now().UTC())
 				}
 			}
 			if runningShell != nil && runningShell.hwnd != 0 {
