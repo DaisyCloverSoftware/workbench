@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.17 — 2026-08-18
+
+- Make supervised OpenClaw machine operations runnable from the Workbench systemd service environment by restoring bounded user-level executable and Node interpreter directories to PATH.
+- Support common npm, pnpm, NVM, FNM, Volta, Bun and local-bin OpenClaw installations without depending on an interactive shell PATH.
+- Preserve the ownership boundary: ChatGPT owns code, Git/GitHub, pull requests, CI and GitHub Actions; OpenClaw remains machine-side operations only.
+
 ## 0.9.16 — 2026-08-18
 
 - Fix the supervised OpenClaw operations handoff to use the current scripted `openclaw agent --message` CLI contract.
