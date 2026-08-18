@@ -30,20 +30,48 @@ func ensureRunnerGitHubProject(ctx context.Context, repository string, clone run
 	if err != nil {
 		return RunnerProjectInfo{}, false, err
 	}
+	canonicalSlug := strings.ToLower(owner + "/" + name)
 	projects, err := listRunnerProjects(ctx)
 	if err != nil {
 		return RunnerProjectInfo{}, false, err
 	}
-	matches := make([]RunnerProjectInfo, 0, 1)
+
+	// Prefer exact GitHub remote identity over directory naming. Long-lived
+	// checkouts sometimes keep historical local names (for example a product's
+	// old codename) even after the GitHub repository is renamed. Workbench must
+	// reuse that checkout instead of silently cloning a duplicate merely because
+	// its basename differs from the current repository name.
+	remoteMatches := make([]RunnerProjectInfo, 0, 1)
 	for _, project := range projects {
-		if strings.EqualFold(project.Name, name) {
-			matches = append(matches, project)
+		path, resolveErr := ResolveRunnerProject(project.Ref)
+		if resolveErr != nil {
+			continue
+		}
+		remote, remoteErr := runGitLimited(ctx, path, 4096, "remote", "get-url", "origin")
+		if remoteErr != nil {
+			continue
+		}
+		if slug, ok := githubSlugFromRemote(strings.TrimSpace(remote)); ok && strings.EqualFold(slug, canonicalSlug) {
+			remoteMatches = append(remoteMatches, project)
 		}
 	}
-	if len(matches) == 1 {
-		return matches[0], false, nil
+	if len(remoteMatches) == 1 {
+		return remoteMatches[0], false, nil
 	}
-	if len(matches) > 1 {
+	if len(remoteMatches) > 1 {
+		return RunnerProjectInfo{}, false, errors.New("runner contains multiple checkouts for the requested GitHub repository; choose one existing project explicitly")
+	}
+
+	nameMatches := make([]RunnerProjectInfo, 0, 1)
+	for _, project := range projects {
+		if strings.EqualFold(project.Name, name) {
+			nameMatches = append(nameMatches, project)
+		}
+	}
+	if len(nameMatches) == 1 {
+		return nameMatches[0], false, nil
+	}
+	if len(nameMatches) > 1 {
 		return RunnerProjectInfo{}, false, fmt.Errorf("runner already contains multiple projects named %q; choose the existing scoped project explicitly", name)
 	}
 
@@ -128,6 +156,32 @@ func validGitHubSlugPart(value string) bool {
 		return false
 	}
 	return true
+}
+
+func githubSlugFromRemote(remote string) (string, bool) {
+	remote = strings.TrimSpace(remote)
+	if remote == "" {
+		return "", false
+	}
+	var slug string
+	switch {
+	case strings.HasPrefix(remote, "git@github.com:"):
+		slug = strings.TrimPrefix(remote, "git@github.com:")
+	case strings.HasPrefix(remote, "ssh://git@github.com/"):
+		slug = strings.TrimPrefix(remote, "ssh://git@github.com/")
+	case strings.HasPrefix(remote, "https://github.com/"):
+		slug = strings.TrimPrefix(remote, "https://github.com/")
+	case strings.HasPrefix(remote, "http://github.com/"):
+		slug = strings.TrimPrefix(remote, "http://github.com/")
+	default:
+		return "", false
+	}
+	slug = strings.TrimSuffix(strings.TrimSpace(slug), ".git")
+	owner, name, err := validateGitHubRepositorySlug(slug)
+	if err != nil {
+		return "", false
+	}
+	return strings.ToLower(owner + "/" + name), true
 }
 
 func cloneGitHubRepository(ctx context.Context, repository, target string) error {
