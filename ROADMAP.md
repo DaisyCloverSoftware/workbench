@@ -83,9 +83,17 @@
 - Windows CI captures real Dashboard, Work and Settings windows and packages only the production app plus verified updater; releases include matching Linux runner/server/relay binaries and checksums
 - reversible terminal task-history archiving hides filed-away work from default Work/Dashboard views without deleting durable task records or rewriting execution chronology
 
+## v0.10 — searchable decisions and project knowledge graph
+
+- kind-filtered durable knowledge retrieval shared by MCP, private relay and future desktop search
+- explicit decision search combines durable decision memories with project context-capsule decisions while preserving project isolation and de-duplicating repeated decisions
+- a compact derived knowledge graph connects authoritative memory IDs, opaque project/global scope nodes, retrieval tags and context-only decisions without creating a second knowledge database
+- model-facing graph project identity remains opaque rather than embedding runner filesystem paths
+- read-only `search_decisions` and `get_knowledge_graph` MCP tools plus equivalent private-relay safe-hands controls
+- machine-readable private relay capabilities and ChatGPT bootstrap guidance advertise the same knowledge retrieval path
+
 ## Next
 
-- searchable decisions and a project knowledge graph
 - automatic cross-model review policies for higher-risk changes
 - complete per-monitor DPI-aware desktop layout/font scaling
 - desktop/tablet/phone preview and test targets
