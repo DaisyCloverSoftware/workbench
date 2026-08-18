@@ -12,11 +12,14 @@ type privateChatCapabilities struct {
 	WorkbenchVersion           string   `json:"workbench_version"`
 	Transport                  string   `json:"transport"`
 	PrimaryBrain               string   `json:"primary_brain"`
+	ChatGPTOwns                []string `json:"chatgpt_owns"`
+	OpenClawOwns               []string `json:"openclaw_owns"`
 	ControlRequest             string   `json:"control_request"`
 	ControlResult              string   `json:"control_result"`
 	ControlActions             []string `json:"control_actions"`
 	AutonomousRequest          string   `json:"autonomous_request"`
 	AutonomousResult           string   `json:"autonomous_result"`
+	AutonomousPurpose          string   `json:"autonomous_purpose"`
 	AutonomousOperationsPrefix string   `json:"autonomous_operations_prefix,omitempty"`
 	AttentionAnswer            string   `json:"attention_answer"`
 	ProjectReference           string   `json:"project_reference"`
@@ -28,8 +31,27 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		WorkbenchVersion: relayVersion,
 		Transport:        "private-git-relay",
 		PrimaryBrain:     "chatgpt",
-		ControlRequest:   "relay/control/<id>.json",
-		ControlResult:    "relay/control-outbox/<id>.json",
+		ChatGPTOwns: []string{
+			"reasoning",
+			"source_code",
+			"git",
+			"github",
+			"pull_requests",
+			"ci",
+			"github_actions",
+			"release_orchestration",
+		},
+		OpenClawOwns: []string{
+			"shell_when_chatgpt_cannot_execute",
+			"systemd",
+			"docker_runtime",
+			"kubernetes",
+			"helm",
+			"runner_host_repair",
+			"deployment_runtime_operations",
+		},
+		ControlRequest: "relay/control/<id>.json",
+		ControlResult:  "relay/control-outbox/<id>.json",
 		ControlActions: []string{
 			"list_projects",
 			"ensure_github_project",
@@ -48,6 +70,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		},
 		AutonomousRequest:          "relay/inbox/<id>.json",
 		AutonomousResult:           "relay/outbox/<id>.json",
+		AutonomousPurpose:          "machine_side_operations_only",
 		AutonomousOperationsPrefix: "[workbench:operations]",
 		AttentionAnswer:            "relay/answers/<id>.json",
 		ProjectReference:           "Use the exact opaque ref returned by list_projects; do not infer a runner filesystem path.",
