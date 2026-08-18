@@ -31,6 +31,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		ControlResult:    "relay/control-outbox/<id>.json",
 		ControlActions: []string{
 			"list_projects",
+			"ensure_github_project",
 			"list_files",
 			"search_text",
 			"read_file",
