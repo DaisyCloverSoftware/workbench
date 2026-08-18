@@ -25,8 +25,8 @@ const (
 )
 
 var (
-	updaterUser32       = syscall.NewLazyDLL("user32.dll")
-	updaterMessageBoxW  = updaterUser32.NewProc("MessageBoxW")
+	updaterUser32      = syscall.NewLazyDLL("user32.dll")
+	updaterMessageBoxW = updaterUser32.NewProc("MessageBoxW")
 )
 
 func main() {
@@ -49,8 +49,16 @@ func runUpdater() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	release, err := core.FetchOfficialLatestRelease(ctx)
+	release, err := core.FetchOfficialLatestReleaseResilient(ctx)
 	if err != nil {
+		if core.IsUpdateCheckUnavailable(err) {
+			updaterMessage(
+				"Workbench update check unavailable",
+				"Workbench could not reach GitHub after several attempts. Your current Workbench installation has not been changed.\n\nThis is usually a temporary network or DNS problem; try the update check again later.\n\nDetails:\n"+err.Error(),
+				mbIconWarning,
+			)
+			return nil
+		}
 		return fmt.Errorf("could not check the official Workbench release: %w", err)
 	}
 	asset, err := core.DownloadVerifiedReleaseAsset(ctx, release, core.WindowsReleaseAsset, core.WindowsReleaseChecksumAsset, 128<<20)
