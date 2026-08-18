@@ -10,7 +10,7 @@ import (
 func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 	guide := string(privateChatGuide)
 	for _, want := range []string{
-		"ChatGPT is the primary reasoning/coding brain",
+		"ChatGPT is the primary reasoning and coding brain",
 		"relay/control/<id>.json",
 		"relay/control-outbox/<id>.json",
 		"list_projects",
@@ -19,6 +19,10 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"apply_patch",
 		"run_safe_command",
 		"relay/inbox/<id>.json",
+		"[workbench:operations]",
+		"supervised operations lane",
+		"never the transport layer",
+		"watch OpenClaw and type “continue”",
 		"Codex/Work remains a last resort",
 		"workbench-relay",
 		"repository search",

@@ -40,6 +40,24 @@ const (
 	TaskCancelled         TaskStatus = "cancelled"
 )
 
+type TaskMode string
+
+const (
+	// TaskModeDevelopment is the historic/default Workbench lane. ChatGPT owns
+	// the reasoning and source changes; autonomous coding workers are only an
+	// escalation path when safe hands are insufficient.
+	TaskModeDevelopment TaskMode = "development"
+	// TaskModeOperations is deliberately separate. It is for the host/cluster /
+	// runtime actions the user otherwise has to copy into OpenClaw manually.
+	// OpenClaw acts as an operator in this lane and is not allowed to become the
+	// application coder.
+	TaskModeOperations TaskMode = "operations"
+)
+
+func IsOperationsTask(task Task) bool {
+	return task.Mode == TaskModeOperations || hasRelayOperationsMarker(task.Intent)
+}
+
 type DependencyKind string
 
 const DependencyGitHubActions DependencyKind = "github_actions"
@@ -69,6 +87,7 @@ type Task struct {
 	Title              string            `json:"title"`
 	Intent             string            `json:"intent"`
 	ProjectPath        string            `json:"project_path"`
+	Mode               TaskMode          `json:"mode,omitempty"`
 	Status             TaskStatus        `json:"status"`
 	Archived           bool              `json:"archived,omitempty"`
 	ProviderID         string            `json:"provider_id,omitempty"`
