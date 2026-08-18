@@ -1,8 +1,0 @@
-{
-  "version": "0.9.12",
-  "date": "2026-08-18",
-  "notes": [
-    "Compute ChatGPT active-session state on the runner clock and return it explicitly to the desktop, eliminating desktop clock/skew from active-task visibility.",
-    "Keep Recent activity and Active tasks consistent by showing runner-active ChatGPT events as Working while preserving persisted autonomous task state."
-  ]
-}
