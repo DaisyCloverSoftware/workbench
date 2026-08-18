@@ -55,7 +55,7 @@ const (
 )
 
 func IsOperationsTask(task Task) bool {
-	return task.Mode == TaskModeOperations
+	return task.Mode == TaskModeOperations || hasRelayOperationsMarker(task.Intent)
 }
 
 type DependencyKind string
