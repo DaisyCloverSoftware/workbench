@@ -229,9 +229,16 @@ func processPath(ctx context.Context, repo, ref, path, mcpURL, authFile string) 
 	if intent == "" || len(intent) > 32000 {
 		return recordError(idFromPath, path, "relay intent is empty or too large")
 	}
+	if !strings.HasPrefix(intent, core.RelayOperationsIntentPrefix) {
+		return recordError(idFromPath, path, "relay/inbox accepts machine-side operations only; ChatGPT owns source code, Git/GitHub, pull requests, CI and GitHub Actions")
+	}
+	operationIntent := strings.TrimSpace(strings.TrimPrefix(intent, core.RelayOperationsIntentPrefix))
+	if operationIntent == "" {
+		return recordError(idFromPath, path, "operations relay intent is empty")
+	}
 
-	taggedIntent := "[relay:" + env.ID + "] " + intent
-	taskID, err := delegateMCP(ctx, mcpURL, authFile, taggedIntent, project)
+	taggedIntent := "[relay:" + env.ID + "] " + operationIntent
+	taskID, err := delegateOperationMCP(ctx, mcpURL, authFile, taggedIntent, project)
 	rec := core.RelayRecord{RelayID: env.ID, Source: "github-git-relay", SourcePath: path, Project: project}
 	if err != nil {
 		rec.Error = err.Error()
@@ -242,7 +249,7 @@ func processPath(ctx context.Context, repo, ref, path, mcpURL, authFile string) 
 	if err := core.SaveRelayRecord(rec); err != nil {
 		return err
 	}
-	fmt.Printf("accepted relay %s -> task %s (%s)\n", env.ID, taskID, filepath.Base(project))
+	fmt.Printf("accepted operations relay %s -> task %s (%s)\n", env.ID, taskID, filepath.Base(project))
 	return nil
 }
 
@@ -324,8 +331,8 @@ func resolveProject(name string) (string, error) {
 	return core.ResolveRunnerProject(name)
 }
 
-func delegateMCP(ctx context.Context, url, authFile, intent, project string) (string, error) {
-	result, err := callMCP(ctx, url, authFile, "delegate_task", map[string]any{"intent": intent, "project_path": project})
+func delegateOperationMCP(ctx context.Context, url, authFile, intent, project string) (string, error) {
+	result, err := callMCP(ctx, url, authFile, "delegate_operation", map[string]any{"intent": intent, "project_path": project})
 	if err != nil {
 		return "", err
 	}
