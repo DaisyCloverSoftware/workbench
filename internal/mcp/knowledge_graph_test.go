@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestKnowledgeDiscoveryToolsReturnStructuredDecisionAndGraphResults(t *testi
 	}
 	s := New(eng, 0, "")
 
-	decisionResult, ok := s.callTool(t.Context(), "search_decisions", map[string]any{"project_path": project, "query": "metered", "limit": 10}).(map[string]any)
+	decisionResult, ok := s.callTool(context.Background(), "search_decisions", map[string]any{"project_path": project, "query": "metered", "limit": 10}).(map[string]any)
 	if !ok || decisionResult["isError"] == true {
 		t.Fatalf("search_decisions result=%+v", decisionResult)
 	}
@@ -64,7 +65,7 @@ func TestKnowledgeDiscoveryToolsReturnStructuredDecisionAndGraphResults(t *testi
 		t.Fatalf("decision structured content=%+v", decisionStructured)
 	}
 
-	graphResult, ok := s.callTool(t.Context(), "get_knowledge_graph", map[string]any{"project_path": project, "limit": 20}).(map[string]any)
+	graphResult, ok := s.callTool(context.Background(), "get_knowledge_graph", map[string]any{"project_path": project, "limit": 20}).(map[string]any)
 	if !ok || graphResult["isError"] == true {
 		t.Fatalf("get_knowledge_graph result=%+v", graphResult)
 	}
