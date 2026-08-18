@@ -25,12 +25,12 @@ func privateSafeHandsFixture(t *testing.T) (root, project string) {
 }
 
 func TestPrivateSafeHandsActionBoundary(t *testing.T) {
-	for _, action := range []string{"list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
+	for _, action := range []string{"update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note"} {
 		if !isPrivateSafeHandsAction(action) {
 			t.Fatalf("expected %q to be a private safe-hands action", action)
 		}
 	}
-	for _, action := range []string{"delegate_task", "resolve_attention", "update_workbench", "run_command"} {
+	for _, action := range []string{"delegate_task", "resolve_attention", "cancel_task", "update_workbench", "run_command"} {
 		if isPrivateSafeHandsAction(action) {
 			t.Fatalf("%q must not cross the safe-hands boundary", action)
 		}
@@ -134,6 +134,96 @@ func TestPrivateSafeHandsForwardsBoundedCommandToLocalMCP(t *testing.T) {
 	}
 	if gotArgs["project_path"] != canonicalProject || gotArgs["command"] != "go test ./..." {
 		t.Fatalf("unexpected MCP args: %#v", gotArgs)
+	}
+}
+
+func TestPrivateTaskDiagnosticsForwardReadOnlyCallsWithoutProject(t *testing.T) {
+	var calls []string
+	var args []map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			Params struct {
+				Name      string         `json:"name"`
+				Arguments map[string]any `json:"arguments"`
+			} `json:"params"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		calls = append(calls, req.Params.Name)
+		args = append(args, req.Params.Arguments)
+		w.Header().Set("Content-Type", "application/json")
+		if req.Params.Name == "get_task" {
+			_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"structuredContent":{"id":"task-123","status":"running"},"isError":false}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"structuredContent":{"tasks":[]},"isError":false}}`))
+	}))
+	defer ts.Close()
+
+	authFile := filepath.Join(t.TempDir(), "auth")
+	if err := os.WriteFile(authFile, []byte("Bearer test-only\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "get_task",
+		Args:    json.RawMessage(`{"task_id":"task-123"}`),
+	}, ts.URL, authFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["id"] != "task-123" || result["status"] != "running" {
+		t.Fatalf("unexpected get_task result: %#v", result)
+	}
+
+	if _, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-87654321",
+		Action:  "list_tasks",
+		Args:    json.RawMessage(`{}`),
+	}, ts.URL, authFile); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 || calls[0] != "get_task" || calls[1] != "list_tasks" {
+		t.Fatalf("unexpected task diagnostic calls: %#v", calls)
+	}
+	if args[0]["task_id"] != "task-123" {
+		t.Fatalf("get_task task_id not forwarded exactly: %#v", args[0])
+	}
+	if len(args[1]) != 0 {
+		t.Fatalf("list_tasks should carry no arguments: %#v", args[1])
+	}
+}
+
+func TestPrivateTaskDiagnosticsRejectProjectAndLooseArguments(t *testing.T) {
+	if _, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "get_task",
+		Project: "sample",
+		Args:    json.RawMessage(`{"task_id":"task-123"}`),
+	}, "http://127.0.0.1:1", "unused"); err == nil || !strings.Contains(err.Error(), "does not accept a project") {
+		t.Fatalf("get_task project scope was not rejected: %v", err)
+	}
+	if _, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "list_tasks",
+		Args:    json.RawMessage(`{"cancel":true}`),
+	}, "http://127.0.0.1:1", "unused"); err == nil || !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("list_tasks loose args were not rejected: %v", err)
+	}
+	if _, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "control-12345678",
+		Action:  "get_task",
+		Args:    json.RawMessage(`{"task_id":""}`),
+	}, "http://127.0.0.1:1", "unused"); err == nil || !strings.Contains(err.Error(), "task_id") {
+		t.Fatalf("empty get_task task_id was not rejected: %v", err)
 	}
 }
 
