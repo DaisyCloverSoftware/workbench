@@ -32,4 +32,11 @@ func TestChatGPTToolSurfaceExposesOperationsNotCodingDelegation(t *testing.T) {
 	if strings.Contains(text, "cloud_model") {
 		t.Fatalf("machine operations tool must not expose coding-model routing: %s", text)
 	}
+	ann, ok := operation["annotations"].(map[string]any)
+	if !ok {
+		t.Fatalf("delegate_operation annotations missing: %#v", operation)
+	}
+	if ann["readOnlyHint"] != false || ann["destructiveHint"] != true || ann["openWorldHint"] != true {
+		t.Fatalf("machine operations must be advertised as permission-worthy write/open-world actions: %#v", ann)
+	}
 }
