@@ -80,6 +80,13 @@ refresh_update_clone "$public_url" "$update_source_dir"
 echo "Refreshing private relay transport..."
 refresh_relay_clone "$relay_url" "$relay_dir"
 
+# The desktop talks to workbench-runner directly over unattended SSH, while the
+# private relay talks to the local MCP service. They must be upgraded together;
+# otherwise the picker/dashboard can silently observe an older project protocol
+# than ChatGPT's relay does.
+echo "Installing current Workbench cluster runner..."
+bash "$update_source_dir/scripts/install-runner.sh"
+
 echo "Installing current Workbench MCP service..."
 bash "$update_source_dir/scripts/install-cluster-mcp.sh" "$project_source_dir"
 
@@ -92,5 +99,6 @@ echo
 echo "WORKBENCH PRIVATE LOOP READY"
 echo "  project source: $project_source_dir (left untouched by maintenance)"
 echo "  update source: app-owned disposable checkout"
+echo "  cluster runner: refreshed from the same maintenance source"
 echo "  relay mode: private bidirectional safe hands + autonomous handoff"
 echo "  secrets: remain local; relay messages must not contain raw credentials"
