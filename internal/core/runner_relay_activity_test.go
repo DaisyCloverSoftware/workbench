@@ -49,7 +49,7 @@ func TestParseRunnerChatActivityCombinesSafeHandsAndAutonomousWork(t *testing.T)
 
 func TestParseRunnerChatActivityNeverExposesHostProjectPaths(t *testing.T) {
 	raw := relayActivityArchive(t, map[string]string{
-		"relay/control/bad_12345678.json": `{"version":1,"id":"bad_12345678","action":"read_file","project":"/home/operator/src/private","args":{}}`,
+		"relay/control/bad_12345678.json": `{"version":1,"id":"bad_12345678","action":"read_file","project":"C:\\example\\private","args":{}}`,
 		"relay/control-outbox/bad_12345678.json": `{"version":1,"id":"bad_12345678","action":"read_file","status":"completed","updated_at":"2026-08-18T10:00:00Z"}`,
 	})
 	items, err := parseRunnerChatActivity(raw, 10)
