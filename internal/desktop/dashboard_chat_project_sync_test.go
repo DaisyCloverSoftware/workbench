@@ -37,7 +37,11 @@ func TestRegisterActiveChatProjectsAddsOnlyRecentAvailableProjects(t *testing.T)
 		t.Fatalf("added=%d want 2", added)
 	}
 	projects := eng.Projects()
-	if len(projects) != 2 || projects[0].Path != "runner://garage" || projects[1].Path != "runner://rum" {
+	seen := map[string]bool{}
+	for _, project := range projects {
+		seen[project.Path] = true
+	}
+	if len(projects) != 2 || !seen["runner://garage"] || !seen["runner://rum"] || seen["runner://old-project"] || seen["runner://removed"] {
 		t.Fatalf("unexpected projects: %#v", projects)
 	}
 	added, err = registerActiveChatProjects(eng, inventory, activity, now)
