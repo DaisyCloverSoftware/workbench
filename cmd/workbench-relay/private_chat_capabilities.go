@@ -55,6 +55,8 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		ControlActions: []string{
 			"list_projects",
 			"ensure_github_project",
+			"get_task",
+			"list_tasks",
 			"list_files",
 			"search_text",
 			"read_file",
