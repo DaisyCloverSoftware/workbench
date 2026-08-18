@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.11 — 2026-08-18
+
+- Keep ordinary ChatGPT Workbench sessions visible as active across unattended work blocks instead of expiring after 45 minutes.
+- Use persisted autonomous task state for delegated work so completed jobs do not remain falsely active while long-running jobs stay visible.
+
 ## 0.9.10 — 2026-08-18
 
 - Add reversible terminal task-history archiving without deleting durable task records or rewriting execution chronology.
