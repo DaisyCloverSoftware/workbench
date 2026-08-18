@@ -6,22 +6,20 @@ Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That f
 
 ## Operating rule
 
-ChatGPT is the primary reasoning and coding brain. **The human is never the transport layer.** Use Workbench safe hands before autonomous delegation. Do **not** ask the user to copy prompts into OpenClaw, Codex, a terminal, or another chat when this relay can carry the operation. Do **not** ask the user to watch OpenClaw and type “continue” when it stops: Workbench owns supervised continuation. Never put passwords, API keys, OAuth tokens, private keys, cookies, or other raw secrets in this repository.
+**ChatGPT owns the software-development loop. The human is never the transport layer.** ChatGPT writes and edits source, makes Git/GitHub changes, creates and updates PRs, triggers/reads/fixes CI, operates GitHub Actions, reviews results, and decides the next development step. Workbench supplies bounded repository hands and the bridge to machine-side operations; it must not replace ChatGPT as the developer.
 
-There are two deliberately different autonomous lanes:
-
-- **Development lane:** ordinary autonomous coding escalation. ChatGPT remains the normal coder and should prefer safe hands when it can determine the change itself.
-- **Operations lane:** host/server/cluster/runtime work that ChatGPT cannot execute directly. Workbench sends this to OpenClaw as an operator, not as the application coder. Workbench automatically re-engages progress-only or bounded stalled OpenClaw invocations until the requested outcome is verified or the continuation budget is exhausted. OpenClaw source edits are isolated and rejected/discarded; source changes come back to ChatGPT.
+Do **not** ask the user to copy prompts into OpenClaw, Codex, a terminal, or another chat when Workbench can carry the operation. Do **not** ask the user to watch OpenClaw and type “continue” when it stops. Never put passwords, API keys, OAuth tokens, private keys, cookies, or other raw secrets in this repository.
 
 For normal development work:
 
 1. Discover the target cluster project with `list_projects` if needed. If a known GitHub repository is missing from the runner, use `ensure_github_project` rather than asking the human to clone/import it manually.
-2. Inspect with `list_files`, `search_text`, and `read_file`.
-3. When ChatGPT can determine the change itself, use `apply_patch`, then `run_safe_command` to verify it.
-4. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
-5. Use ordinary autonomous delegation (`relay/inbox`) only when unattended exploration or implementation is genuinely useful. Workbench owns worker routing; do not bypass its cost/risk policy.
-6. For shell/systemd/Docker/Kubernetes/Helm/deployment/runner/host operations that ChatGPT itself cannot perform, use the **operations lane** described below instead of telling the human to open OpenClaw.
-7. Only surface a Workbench `needs_attention` question to the user.
+2. Inspect with `list_files`, `search_text`, and `read_file` when local/cluster repository visibility is useful.
+3. **ChatGPT determines and writes the code.** Use `apply_patch` for exact source changes when Workbench safe hands are needed.
+4. Use `run_safe_command` for bounded local build/test/lint/status/diff verification when useful.
+5. **ChatGPT owns Git and GitHub:** commits, branches, pushes, pull requests, reviews, merges, releases, CI runs and GitHub Actions are handled by ChatGPT through its GitHub capabilities, not delegated to OpenClaw.
+6. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
+7. Only when the remaining step genuinely requires machine-side access ChatGPT does not have — for example shell, systemd, Docker, Kubernetes, Helm, runner repair or deployment/runtime commands — use the supervised OpenClaw operations lane below.
+8. Only surface a Workbench `needs_attention` question to the user.
 
 ## Private safe-hands control channel
 
@@ -67,8 +65,8 @@ Project-scoped example:
 - `list_files` — project required; `subdir` optional, `limit` optional (max 1000).
 - `search_text` — project required; `query` required, `subdir` optional, `limit` optional (max 200).
 - `read_file` — project required; `path` required, `start_line`/`end_line` optional.
-- `apply_patch` — project required; `patch` is a unified Git patch. Prefer this when ChatGPT has reasoned out the exact source change.
-- `run_safe_command` — project required; `command` passes through Workbench's bounded non-destructive development allowlist. No arbitrary shell, deployment, direct push, or destructive command.
+- `apply_patch` — project required; `patch` is a unified Git patch supplied by ChatGPT.
+- `run_safe_command` — project required; `command` passes through Workbench's bounded non-destructive development allowlist. No deploy, push, network shell, or destructive command.
 - `save_note` — project required; `note` required. Secret-like content is refused.
 - `search_memory` — project optional; `query` optional, `limit` optional (max 20).
 - `save_memory` — `scope` (`project` or `global`), optional `kind` (`fact`, `decision`, `constraint`, `pattern`, `routine`, `code`), `title`, `content`, optional `tags`, optional `source`; project is required for project scope.
@@ -104,54 +102,41 @@ Example safe command:
 }
 ```
 
-## Autonomous delegation channel
+## Supervised OpenClaw operations lane
 
-Write `relay/inbox/<id>.json` using the exact project `ref` returned by `list_projects`:
+`relay/inbox/<id>.json` is the **machine-operations bridge**, not a second coding queue. ChatGPT must not put implementation, GitHub, PR, CI, or GitHub Actions work in this inbox.
 
-```json
-{
-  "version": 1,
-  "id": "unique_task_id",
-  "project": "runner://family-vault",
-  "intent": "Outcome to achieve; describe the result, not shell commands"
-}
-```
-
-Workbench writes task state/result to `relay/outbox/<id>.json`.
-
-For ordinary development delegation, use a normal intent. Workbench chooses the coding worker according to its configured routing policy. Do not assume Codex/Work is the default. Local/cheap/included routes retain first refusal; OpenClaw cloud-model selection happens only if Workbench routing reaches that stage; scarce Codex/Work remains a last resort.
-
-### Supervised OpenClaw operations lane
-
-For **host/server/cluster/runtime operations that ChatGPT cannot execute through safe hands**, use the same inbox but prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
+For a host/server/cluster/runtime operation that ChatGPT genuinely cannot execute through its own tools or Workbench safe hands, write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
 
 ```json
 {
   "version": 1,
   "id": "cluster_operation_001",
   "project": "runner://infrastructure",
-  "intent": "[workbench:operations] Deploy the already-approved DEV change, verify rollout health and report the resulting image/revision. Do not modify source files."
+  "intent": "[workbench:operations] Deploy the already-built DEV image, verify the Kubernetes rollout and report the running image digest. Do not modify source, GitHub, CI or Git state."
 }
 ```
 
-This marker is a control instruction between ChatGPT and Workbench; the user should never have to type it.
+Workbench writes task state/result to `relay/outbox/<id>.json`. The marker is a control instruction between ChatGPT and Workbench; the user should never have to type it.
 
 Operations-lane guarantees:
 
-- Workbench reserves execution for its cluster-runner/OpenClaw operator path rather than handing infrastructure work to a coding model.
-- OpenClaw is explicitly told that ChatGPT owns application/source changes.
+- OpenClaw is an **operator only**. ChatGPT remains responsible for code, Git/GitHub, PRs, CI and GitHub Actions.
+- OpenClaw may use shell/systemd/Docker/Kubernetes/Helm and equivalent runtime/host tools needed for the requested operation.
+- Repository inspection may be read-only when needed to identify state; OpenClaw must not create commits/branches/PRs, push/merge, trigger CI, or operate GitHub Actions.
+- If an operation reveals that code, infrastructure-as-code, GitHub or CI changes are required, OpenClaw returns that fact to ChatGPT instead of making the change itself.
 - A clean OpenClaw exit is **not** treated as success merely because it stopped talking. It must verify the objective and emit Workbench's completion marker.
 - If OpenClaw returns a progress-only response, Workbench automatically invokes it again against the current host/cluster state. Bounded unresponsive invocations are also re-engaged automatically.
 - Workbench performs up to six supervised continuation passes before reporting a worker failure back to ChatGPT. It does not ask the human to type “continue”.
-- If OpenClaw changes repository files anyway, those edits stay in an isolated Workbench task workspace and are discarded/rejected. ChatGPT must make any required code/IaC change itself.
+- If OpenClaw changes repository files anyway, those edits stay in an isolated Workbench task workspace and are discarded/rejected.
 - Ordinary login/quota/tool problems are worker failures for ChatGPT/Workbench to handle, not reasons to make the user babysit OpenClaw.
 - Only a genuine human decision or ungranted irreversible/destructive/production permission becomes `needs_attention`.
 
-When an operations task finishes or fails, read its `relay/outbox/<id>.json` report and continue the ChatGPT-side workflow yourself. Do not ask the human to copy the report back from OpenClaw.
+When an operations task finishes or fails, ChatGPT reads its `relay/outbox/<id>.json` report and continues the development/release workflow itself. The user does not copy the result back from OpenClaw.
 
 ## Genuine human attention
 
-If an autonomous task reaches `needs_attention`, ask the user only the exact decision/permission Workbench needs. Then write `relay/answers/<id>.json`:
+If an operations task reaches `needs_attention`, ask the user only the exact decision/permission Workbench needs. Then write `relay/answers/<id>.json`:
 
 ```json
 {
@@ -169,6 +154,6 @@ A ChatGPT conversation that can access the user's connected GitHub account can b
 
 A useful one-time global ChatGPT instruction is:
 
-> For software-development, repository, server and cluster work, use Workbench as my default execution layer. Use my connected GitHub app to find my private repository whose name contains `workbench-relay`, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from its repository root, and follow that Workbench protocol and guide. ChatGPT is the primary brain/coder; prefer Workbench safe hands before autonomous delegation. If a known GitHub project is absent from the Workbench runner, use Workbench's bounded runner-ready project import instead of asking me to clone it manually. For host/server/cluster/runtime operations that ChatGPT cannot execute itself, use Workbench's supervised operations lane so OpenClaw acts as the operator and Workbench automatically keeps it moving; do not ask me to copy/paste prompts into OpenClaw, Codex, terminals or other chats, and do not ask me to nudge OpenClaw with “continue”. Preserve Workbench routing and keep scarce Codex/Work as a last resort. If Workbench is unavailable, tell me what is unavailable instead of silently reverting to manual message shuttling.
+> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Use Workbench safe hands when bounded repository access is useful. Only pass to Workbench/OpenClaw the machine-side work ChatGPT genuinely cannot execute itself, such as shell, systemd, Docker, Kubernetes, Helm, runner repair and deployment/runtime commands. OpenClaw is the operator, never the coder. Workbench must automatically keep OpenClaw moving until the requested operation is verified; never ask me to copy/paste prompts or type “continue”. If the operation discovers that code, GitHub or CI changes are required, return that to ChatGPT to handle.
 
 This bootstrap contains no Workbench bearer token or provider credential.
