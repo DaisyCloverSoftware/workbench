@@ -1,0 +1,9 @@
+{
+  "version": "0.9.22",
+  "date": "2026-08-18",
+  "notes": [
+    "Keep machine-side operations available when OpenClaw's primary cloud model reaches a usage, quota, rate-limit or capacity ceiling by retrying through a suitable local Ollama model when one is available.",
+    "Prefer an explicitly configured WORKBENCH_OPENCLAW_OPERATION_FALLBACK_MODEL, otherwise detect the OpenClaw host's local Ollama inventory and prefer Qwen Coder-class models without exposing credentials or model files.",
+    "Preserve strict failure boundaries: authentication, genuine human attention and explicit worker-local unavailability are never hidden by model fallback, and ChatGPT remains the owner of source code, Git/GitHub and CI."
+  ]
+}
