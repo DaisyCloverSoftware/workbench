@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.21 — 2026-08-18
+
+- Add an app-first await_operation bridge so ChatGPT can hand off machine-side work and let Workbench own the bounded wait instead of polling or asking the human to keep watching.
+- Keep durable operations running across wait expiry, return immediately for completion/failure/attention, and reject development tasks so OpenClaw cannot become a second coding path.
+- Mark machine-side delegation as permission-worthy open-world work while preserving ChatGPT ownership of source code, Git/GitHub, pull requests, CI and GitHub Actions.
+
 ## 0.9.20 — 2026-08-18
 
 - Target the canonical main OpenClaw agent explicitly for scripted machine-side operations instead of relying on an interactive session target.
