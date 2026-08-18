@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.19 — 2026-08-18
+
+- Allow machine-side operations to run even when the canonical repository has unrelated local edits by using a disposable worktree pinned to committed HEAD.
+- Keep uncommitted user edits out of the OpenClaw workspace while preserving the existing rejection/discard boundary for any source changes OpenClaw attempts.
+- Keep autonomous coding workspaces fail-closed on dirty repositories; the relaxed isolation path applies only to machine operations.
+
 ## 0.9.18 — 2026-08-18
 
 - Make machine-operation failures self-diagnosing for ChatGPT by surfacing bounded non-secret OpenClaw failure output instead of generic worker-failed messages.
