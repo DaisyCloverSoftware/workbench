@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.14 — 2026-08-18
+
+- Make ChatGPT own the software-development loop: source code, Git/GitHub, pull requests, CI, GitHub Actions and release orchestration stay with ChatGPT.
+- Restrict Workbench/OpenClaw handoff to machine-side operations ChatGPT cannot execute itself, including shell, systemd, Docker, Kubernetes, Helm, runner-host repair and deployment/runtime operations.
+- Automatically re-engage OpenClaw when a machine operation stops with progress rather than verified completion, while rejecting source/IaC/GitHub/CI work and preserving genuine human approval boundaries.
+
 ## 0.9.13 — 2026-08-18
 
 - Show the active workload by recency, keep the full bounded active set, and explicitly indicate when additional active tasks are hidden from the compact dashboard panel.

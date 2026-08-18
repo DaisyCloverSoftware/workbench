@@ -124,7 +124,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.13"},
+			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.14"},
 			"instructions":    "Workbench is ChatGPT's execution bridge, not a replacement developer. ChatGPT owns reasoning, source code, Git/GitHub changes, pull requests, CI and GitHub Actions. Start with get_workspace, get_context and search_memory. Use list_files, search_text and read_file for repository visibility; use apply_patch for ChatGPT-authored source changes and run_safe_command for bounded local build/test/lint/status/diff work. Use delegate_operation only when a remaining step genuinely requires machine-side access ChatGPT cannot execute itself, such as shell, systemd, Docker, Kubernetes, Helm, runner repair or deployment/runtime commands. OpenClaw is the operator, never the coder. If an operation reveals that code, GitHub or CI changes are needed, return that work to ChatGPT. Check active operation state with get_task at a reasonable cadence; only surface needs_attention to the human and never ask the human to watch progress or type continue. Before a conversation becomes too long, save a compact context capsule with save_context.",
 		}
 	case "ping":
