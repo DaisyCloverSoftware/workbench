@@ -134,6 +134,7 @@ func (s *Shell) paintDashboard(hdc uintptr, client nativeRect) {
 		s.ensureRunnerProviderInventory(false)
 		d = applyRunnerProviderDashboard(d, runnerProviderInventory(host))
 	}
+	sortDashboardProjectsForDisplay(d.Projects)
 	contentX := productionSidebarWidth + 20
 	contentY := productionHeaderHeight + 18
 	contentW := int(client.Right) - contentX - 18
@@ -304,25 +305,29 @@ func (s *Shell) drawSystemPanel(hdc uintptr, rect nativeRect, d DashboardSnapsho
 }
 
 func drawProjectsPanel(hdc uintptr, rect nativeRect, projects []DashboardProjectItem) {
-	body := drawPanelFrame(hdc, rect, "Projects")
+	body := drawPanelFrame(hdc, rect, fmt.Sprintf("Projects · %d", len(projects)))
 	if len(projects) == 0 {
 		drawTextStyled(hdc, "Add a repository from Work to start.", body, productionPalette.Muted, 12, fwNormal, dtLeft|dtWordBreak)
 		return
 	}
-	rowH := 43
-	for i, project := range projects {
-		if i >= 5 || body.Top+int32((i+1)*rowH) > body.Bottom {
-			break
-		}
-		y := int(body.Top) + i*rowH
+	visible, hidden := dashboardProjectWindow(len(projects), int(body.Bottom-body.Top))
+	for i := 0; i < visible; i++ {
+		project := projects[i]
+		y := int(body.Top) + i*dashboardProjectRowHeight
 		name := project.Name
 		if project.Pinned {
 			name = "★ " + name
 		}
-		drawTextStyled(hdc, name, rectWH(int(body.Left), y, int(body.Right-body.Left)-185, 22), productionPalette.Text, 12, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, name, rectWH(int(body.Left), y, int(body.Right-body.Left)-185, 19), productionPalette.Text, 11, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
 		detail := fmt.Sprintf("%d active  ·  %d need you  ·  %d ready", project.Summary.Active, project.Summary.NeedsHuman, project.Summary.Completed)
-		drawTextStyled(hdc, detail, rectWH(int(body.Right)-180, y, 178, 22), productionPalette.Muted, 10, fwNormal, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
-		drawTextStyled(hdc, project.Path, rectWH(int(body.Left), y+21, int(body.Right-body.Left), 18), productionPalette.Muted, 9, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, detail, rectWH(int(body.Right)-180, y, 178, 19), productionPalette.Muted, 9, fwNormal, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, project.Path, rectWH(int(body.Left), y+19, int(body.Right-body.Left), 15), productionPalette.Muted, 9, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	}
+	if hidden > 0 {
+		footerTop := int(body.Bottom) - dashboardProjectFooterHeight
+		fillRectColor(hdc, nativeRect{Left: body.Left, Top: int32(footerTop), Right: body.Right, Bottom: int32(footerTop + 1)}, productionPalette.Border)
+		footer := fmt.Sprintf("+%d more projects · %d of %d shown", hidden, visible, len(projects))
+		drawTextStyled(hdc, footer, rectWH(int(body.Left), footerTop+2, int(body.Right-body.Left), dashboardProjectFooterHeight-2), productionPalette.Muted, 9, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
 	}
 }
 
