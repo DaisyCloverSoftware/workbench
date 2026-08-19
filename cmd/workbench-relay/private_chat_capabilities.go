@@ -16,28 +16,28 @@ type privateBuiltinOperation struct {
 }
 
 type privateChatCapabilities struct {
-	Protocol                     int                       `json:"protocol"`
-	WorkbenchVersion             string                    `json:"workbench_version"`
-	Transport                    string                    `json:"transport"`
-	PrimaryBrain                 string                    `json:"primary_brain"`
-	PreferredWriteTransport      string                    `json:"preferred_write_transport"`
-	MCPRole                      string                    `json:"mcp_role"`
-	NoModelCreditRequired        bool                      `json:"no_model_credit_required"`
-	FreshChatBootstrap           string                    `json:"fresh_chat_bootstrap"`
-	OperationsScriptPolicy       string                    `json:"operations_script_policy"`
-	BuiltinOperationsCommitRule  string                    `json:"builtin_operations_commit_rule"`
-	BuiltinReadonlyOperations    []privateBuiltinOperation `json:"builtin_readonly_operations"`
-	ChatGPTOwns                  []string                  `json:"chatgpt_owns"`
-	OpenClawOwns                 []string                  `json:"openclaw_owns"`
-	ControlRequest               string                    `json:"control_request"`
-	ControlResult                string                    `json:"control_result"`
-	ControlActions               []string                  `json:"control_actions"`
-	AutonomousRequest            string                    `json:"autonomous_request"`
-	AutonomousResult             string                    `json:"autonomous_result"`
-	AutonomousPurpose            string                    `json:"autonomous_purpose"`
-	AutonomousOperationsPrefix   string                    `json:"autonomous_operations_prefix,omitempty"`
-	AttentionAnswer              string                    `json:"attention_answer"`
-	ProjectReference             string                    `json:"project_reference"`
+	Protocol                    int                       `json:"protocol"`
+	WorkbenchVersion            string                    `json:"workbench_version"`
+	Transport                   string                    `json:"transport"`
+	PrimaryBrain                string                    `json:"primary_brain"`
+	PreferredWriteTransport     string                    `json:"preferred_write_transport"`
+	MCPRole                     string                    `json:"mcp_role"`
+	NoModelCreditRequired       bool                      `json:"no_model_credit_required"`
+	FreshChatBootstrap          string                    `json:"fresh_chat_bootstrap"`
+	OperationsScriptPolicy      string                    `json:"operations_script_policy"`
+	BuiltinOperationsCommitRule string                    `json:"builtin_operations_commit_rule"`
+	BuiltinReadonlyOperations   []privateBuiltinOperation `json:"builtin_readonly_operations"`
+	ChatGPTOwns                 []string                  `json:"chatgpt_owns"`
+	OpenClawOwns                []string                  `json:"openclaw_owns"`
+	ControlRequest              string                    `json:"control_request"`
+	ControlResult               string                    `json:"control_result"`
+	ControlActions              []string                  `json:"control_actions"`
+	AutonomousRequest           string                    `json:"autonomous_request"`
+	AutonomousResult            string                    `json:"autonomous_result"`
+	AutonomousPurpose           string                    `json:"autonomous_purpose"`
+	AutonomousOperationsPrefix  string                    `json:"autonomous_operations_prefix,omitempty"`
+	AttentionAnswer             string                    `json:"attention_answer"`
+	ProjectReference            string                    `json:"project_reference"`
 }
 
 func privateChatCapabilitiesJSON() ([]byte, error) {
@@ -104,6 +104,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"apply_patch",
 			"run_safe_command",
 			"inspect_machine",
+			"inspect_machine_batch",
 			"run_machine_command",
 			"run_operations_script",
 			"save_note",
