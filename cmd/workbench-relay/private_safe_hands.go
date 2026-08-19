@@ -261,6 +261,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 		var a struct {
 			Path           string   `json:"path"`
 			Args           []string `json:"args,omitempty"`
+			Commit         string   `json:"commit,omitempty"`
 			TimeoutSeconds int      `json:"timeout_seconds,omitempty"`
 		}
 		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
@@ -269,6 +270,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 		result, runErr := core.RunOperationsScript(ctx, project, core.OperationsScriptRequest{
 			Path:           strings.TrimSpace(a.Path),
 			Args:           a.Args,
+			Commit:         strings.TrimSpace(a.Commit),
 			TimeoutSeconds: a.TimeoutSeconds,
 		})
 		if runErr != nil {
