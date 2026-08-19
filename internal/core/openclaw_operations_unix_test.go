@@ -15,8 +15,9 @@ func TestOpenClawOperationsSupervisorReusesAndArchivesOneJobConversation(t *test
 	script := filepath.Join(dir, "fake-openclaw")
 	body := `#!/usr/bin/env bash
 set -euo pipefail
+script_dir="$(cd "$(dirname "$0")" && pwd)"
 if [ "${1:-}" = "sessions" ] && [ "${2:-}" = "archive" ]; then
-  printf '%s' "${3:-}" > "$PWD/.workbench-fake-archive"
+  printf '%s' "${3:-}" > "$script_dir/.workbench-fake-archive"
   exit 0
 fi
 count_file="$PWD/.workbench-fake-count"
