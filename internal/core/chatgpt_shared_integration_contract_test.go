@@ -59,14 +59,14 @@ func TestChatGPTPluginPackagingScriptCreatesLocalBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(manifest), `"apps": "./.app.json"`) {
+	if !strings.Contains(string(manifest), "\"apps\": \"./.app.json\"") {
 		t.Fatalf("generated manifest does not bind .app.json: %s", manifest)
 	}
 	market, err := os.ReadFile(filepath.Join(home, ".agents", "plugins", "marketplace.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(market), `"path": "./.codex/plugins/workbench"`) {
+	if !strings.Contains(string(market), "\"path\": \"./.codex/plugins/workbench\"") {
 		t.Fatalf("personal marketplace missing Workbench entry: %s", market)
 	}
 }
