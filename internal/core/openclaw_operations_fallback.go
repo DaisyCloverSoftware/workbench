@@ -82,7 +82,14 @@ func runOpenClawOperationInvocationWithFallback(ctx context.Context, p Provider,
 }
 
 func operationFallbackMustStop(res RunResult) bool {
-	return res.Authentication || strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != ""
+	if res.Authentication || strings.TrimSpace(res.Attention) != "" {
+		return true
+	}
+	workerUnavailable := strings.TrimSpace(res.WorkerUnavailable)
+	if workerUnavailable == "" {
+		return false
+	}
+	return !operationModelCapacityText(workerUnavailable + " " + res.Output)
 }
 
 // operationModelCapacityFailure covers both provider-capacity exhaustion and a
@@ -92,10 +99,18 @@ func operationFallbackMustStop(res RunResult) bool {
 // available larger cloud route (normally Claude) instead of cooling the entire
 // OpenClaw operator and repeating the same bad route.
 func operationModelCapacityFailure(res RunResult, err error) bool {
-	if err == nil || res.Authentication || strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != "" {
+	if err == nil || res.Authentication || strings.TrimSpace(res.Attention) != "" {
 		return false
 	}
-	low := strings.ToLower(err.Error() + " " + res.Output)
+	workerUnavailable := strings.TrimSpace(res.WorkerUnavailable)
+	if workerUnavailable != "" && !operationModelCapacityText(workerUnavailable+" "+res.Output) {
+		return false
+	}
+	return operationModelCapacityText(err.Error() + " " + res.Output + " " + workerUnavailable)
+}
+
+func operationModelCapacityText(text string) bool {
+	low := strings.ToLower(text)
 	for _, marker := range []string{
 		"usage limit",
 		"quota",
