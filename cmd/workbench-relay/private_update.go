@@ -11,7 +11,10 @@ import (
 	"time"
 )
 
-const privateUpdateDelay = 8 * time.Second
+// Private control results are pushed to the Git relay before the updater is
+// allowed to restart the daemon. Thirty seconds leaves enough room for a
+// contended Git fetch/worktree/commit/push while keeping self-update responsive.
+const privateUpdateDelay = 30 * time.Second
 
 const (
 	privateUpdateScheduled = "scheduled"
