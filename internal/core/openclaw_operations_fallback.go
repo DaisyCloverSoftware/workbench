@@ -153,11 +153,7 @@ func preferredOllamaOperationsModel(listOutput string) string {
 }
 
 func openClawOperationAgentArgsForModel(prompt, model string) []string {
-	args := []string{"agent", "--agent", defaultOpenClawOperationsAgent}
-	if model = strings.TrimSpace(model); model != "" {
-		args = append(args, "--model", model)
-	}
-	return append(args, "--message", prompt)
+	return openClawOperationAgentArgsWithSession(prompt, model, newOpenClawOperationSessionID())
 }
 
 func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, model string) (RunResult, bool, error) {
