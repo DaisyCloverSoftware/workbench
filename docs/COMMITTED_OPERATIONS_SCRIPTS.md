@@ -9,17 +9,17 @@ A runnable operations script must:
 - belong to a project already inside Workbench's authorised project scope;
 - have a canonical relative path beneath `scripts/ops/`;
 - end in `.sh`;
-- exist as a regular Git blob at the project's current `HEAD` commit;
+- exist as a regular Git blob at the selected commit; by default that is local `HEAD`, or callers may supply a full 40-character `commit` currently advertised by a branch head on the project's credential-free `github.com` `origin`;
 - not be a symlink;
 - receive only bounded literal argv entries that do not resemble secret material.
 
-Workbench resolves the full `HEAD` SHA, creates a disposable detached Git worktree at that exact commit, hashes the committed script, and executes:
+Workbench normally resolves the full local `HEAD` SHA. If `commit` is supplied, Workbench verifies the SHA is currently advertised by an `origin` branch head, fetches that branch into a separate disposable Git repository, verifies the fetched commit matches exactly, and leaves the registered checkout untouched. It then creates a detached worktree at the selected commit, hashes the committed script, and executes:
 
 ```text
 bash --noprofile --norc <committed-script-path> <literal argv...>
 ```
 
-Workbench never accepts `bash -c`, pipes, redirects, command substitutions, or arbitrary shell source through this action. Dirty edits in the developer checkout are not copied into the detached worktree and therefore cannot alter the operation.
+Workbench never accepts `bash -c`, pipes, redirects, command substitutions, or arbitrary shell source through this action. Dirty edits in the developer checkout are not copied into the detached worktree and therefore cannot alter the operation. Remote-commit mode also avoids switching, pulling, resetting, merging, or fast-forwarding the registered checkout merely to obtain the reviewed script.
 
 ## Result evidence
 
@@ -32,7 +32,7 @@ The result includes:
 - bounded stdout/stderr;
 - exit code;
 - whether output was truncated;
-- transport marker `git-worktree-bash`.
+- transport marker `git-worktree-bash` for local HEAD or `github-origin-commit-worktree-bash` for an exact advertised origin commit.
 
 Secret-like output is withheld rather than returned to ChatGPT.
 
