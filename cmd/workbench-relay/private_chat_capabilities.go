@@ -7,27 +7,37 @@ import (
 
 const privateChatCapabilitiesPath = "WORKBENCH_CAPABILITIES.json"
 
+type privateBuiltinOperation struct {
+	Name    string   `json:"name"`
+	Project string   `json:"project"`
+	Path    string   `json:"path"`
+	Args    []string `json:"args,omitempty"`
+	Purpose string   `json:"purpose"`
+}
+
 type privateChatCapabilities struct {
-	Protocol                   int      `json:"protocol"`
-	WorkbenchVersion           string   `json:"workbench_version"`
-	Transport                  string   `json:"transport"`
-	PrimaryBrain               string   `json:"primary_brain"`
-	PreferredWriteTransport    string   `json:"preferred_write_transport"`
-	MCPRole                    string   `json:"mcp_role"`
-	NoModelCreditRequired      bool     `json:"no_model_credit_required"`
-	FreshChatBootstrap         string   `json:"fresh_chat_bootstrap"`
-	OperationsScriptPolicy     string   `json:"operations_script_policy"`
-	ChatGPTOwns                []string `json:"chatgpt_owns"`
-	OpenClawOwns               []string `json:"openclaw_owns"`
-	ControlRequest             string   `json:"control_request"`
-	ControlResult              string   `json:"control_result"`
-	ControlActions             []string `json:"control_actions"`
-	AutonomousRequest          string   `json:"autonomous_request"`
-	AutonomousResult           string   `json:"autonomous_result"`
-	AutonomousPurpose          string   `json:"autonomous_purpose"`
-	AutonomousOperationsPrefix string   `json:"autonomous_operations_prefix,omitempty"`
-	AttentionAnswer            string   `json:"attention_answer"`
-	ProjectReference           string   `json:"project_reference"`
+	Protocol                     int                       `json:"protocol"`
+	WorkbenchVersion             string                    `json:"workbench_version"`
+	Transport                    string                    `json:"transport"`
+	PrimaryBrain                 string                    `json:"primary_brain"`
+	PreferredWriteTransport      string                    `json:"preferred_write_transport"`
+	MCPRole                      string                    `json:"mcp_role"`
+	NoModelCreditRequired        bool                      `json:"no_model_credit_required"`
+	FreshChatBootstrap           string                    `json:"fresh_chat_bootstrap"`
+	OperationsScriptPolicy       string                    `json:"operations_script_policy"`
+	BuiltinOperationsCommitRule  string                    `json:"builtin_operations_commit_rule"`
+	BuiltinReadonlyOperations    []privateBuiltinOperation `json:"builtin_readonly_operations"`
+	ChatGPTOwns                  []string                  `json:"chatgpt_owns"`
+	OpenClawOwns                 []string                  `json:"openclaw_owns"`
+	ControlRequest               string                    `json:"control_request"`
+	ControlResult                string                    `json:"control_result"`
+	ControlActions               []string                  `json:"control_actions"`
+	AutonomousRequest            string                    `json:"autonomous_request"`
+	AutonomousResult             string                    `json:"autonomous_result"`
+	AutonomousPurpose            string                    `json:"autonomous_purpose"`
+	AutonomousOperationsPrefix   string                    `json:"autonomous_operations_prefix,omitempty"`
+	AttentionAnswer              string                    `json:"attention_answer"`
+	ProjectReference             string                    `json:"project_reference"`
 }
 
 func privateChatCapabilitiesJSON() ([]byte, error) {
@@ -39,8 +49,30 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		PreferredWriteTransport: "private-git-relay",
 		MCPRole:                 "optional_direct_read_fetch_on_personal_plans; full_tools_when_the_chatgpt_plan_supports_full_mcp",
 		NoModelCreditRequired:   true,
-		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md.",
+		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md. For common read-only health questions, prefer the built-in operations advertised in this manifest before issuing many individual machine reads.",
 		OperationsScriptPolicy:  "run_operations_script requires a project and a Git-tracked regular .sh beneath scripts/ops/. Without commit, Workbench executes exact local HEAD. With an optional full 40-character commit currently advertised by a credential-free github.com origin branch head, Workbench fetches into a disposable repository, creates a detached worktree at that exact commit, and executes without moving or modifying the registered checkout. Bash receives literal argv, never bash -c. Results include the commit and script SHA-256.",
+		BuiltinOperationsCommitRule: "Resolve the current full 40-character head SHA of DaisyCloverSoftware/workbench main through connected GitHub and pass it as run_operations_script.args.commit. The registered runner://workbench checkout does not need to be updated.",
+		BuiltinReadonlyOperations: []privateBuiltinOperation{
+			{
+				Name:    "workbench_health",
+				Project: "runner://workbench",
+				Path:    "scripts/ops/workbench-health.sh",
+				Purpose: "Check Workbench binaries, MCP and relay services, loopback MCP health, and relay checkout cleanliness without reading credentials or restarting anything.",
+			},
+			{
+				Name:    "cluster_health",
+				Project: "runner://workbench",
+				Path:    "scripts/ops/cluster-health.sh",
+				Purpose: "Return a compact read-only cluster snapshot covering nodes, current abnormal pods, recent warnings, ARC assignments, Longhorn node readiness/schedulability, and attached unhealthy volumes.",
+			},
+			{
+				Name:    "namespace_health",
+				Project: "runner://workbench",
+				Path:    "scripts/ops/namespace-health.sh",
+				Args:    []string{"<namespace>"},
+				Purpose: "Return a compact read-only namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs, and recent Warning events.",
+			},
+		},
 		ChatGPTOwns: []string{
 			"reasoning",
 			"source_code",
