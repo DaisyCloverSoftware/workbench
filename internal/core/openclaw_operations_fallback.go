@@ -18,10 +18,11 @@ const (
 
 // runOpenClawOperationInvocationWithFallback keeps the configured OpenClaw
 // model as first choice, then performs model-level failover inside the same
-// Workbench job conversation. A provider usage ceiling therefore does not make
-// the user babysit OpenClaw: Workbench first tries an explicitly configured
-// model, otherwise a live model on the other cloud provider (Claude when the
-// exhausted route is OpenAI/Codex), and finally a suitable local Ollama model.
+// Workbench job conversation. A provider usage ceiling or model-route failure
+// therefore does not make the user babysit OpenClaw: Workbench first tries an
+// explicitly configured model, otherwise a live model on the other cloud
+// provider (Claude when the exhausted/undersized route is OpenAI/Codex), and
+// finally a suitable local Ollama model.
 func runOpenClawOperationInvocationWithFallback(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, sessionID string) (RunResult, bool, error) {
 	res, complete, err := runOpenClawOperationInvocation(ctx, p, task, prefs, prompt, sessionID)
 	if err == nil || !operationModelCapacityFailure(res, err) || ctx.Err() != nil {
@@ -71,9 +72,9 @@ func runOpenClawOperationInvocationWithFallback(ctx context.Context, p Provider,
 			}
 			fallbackRes.Retryable = true
 			if strings.TrimSpace(fallbackRes.Output) == "" {
-				fallbackRes.Output = "OpenClaw's primary cloud model was unavailable and its cloud/local operations fallbacks could not complete the task."
+				fallbackRes.Output = "OpenClaw's primary/cloud operations route was unavailable and its remaining model fallbacks could not complete the task."
 			}
-			return boundRunResultForPersistence(fallbackRes), false, fmt.Errorf("OpenClaw model capacity was exhausted and fallback model %s also failed: %w", localModel, fallbackErr)
+			return boundRunResultForPersistence(fallbackRes), false, fmt.Errorf("OpenClaw model route was unavailable and fallback model %s also failed: %w", localModel, fallbackErr)
 		}
 	}
 
@@ -84,6 +85,12 @@ func operationFallbackMustStop(res RunResult) bool {
 	return res.Authentication || strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != ""
 }
 
+// operationModelCapacityFailure covers both provider-capacity exhaustion and a
+// model whose context window cannot hold Workbench's operation prompt. The
+// latter commonly appears after OpenClaw internally falls from an exhausted
+// cloud model to a small local model. In both cases Workbench should try an
+// available larger cloud route (normally Claude) instead of cooling the entire
+// OpenClaw operator and repeating the same bad route.
 func operationModelCapacityFailure(res RunResult, err error) bool {
 	if err == nil || res.Authentication || strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != "" {
 		return false
@@ -100,6 +107,11 @@ func operationModelCapacityFailure(res RunResult, err error) bool {
 		"capacity exhausted",
 		"too many requests",
 		"subscription usage",
+		"context overflow",
+		"prompt too large for the model",
+		"context length exceeded",
+		"maximum context length",
+		"context window",
 	} {
 		if strings.Contains(low, marker) {
 			return true
