@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.26 — 2026-08-19
+
+- Allow OpenClaw quota/context-capacity failures reported through WorkerUnavailable to continue through Workbench's model fallback chain while preserving genuine worker-local unavailability as authoritative.
+- Add the shared ChatGPT Workbench integration package so ordinary project chats can use one reusable MCP connection for bounded repository hands and supervised machine-side operations.
+- Update Secure MCP Tunnel installation to the current named-profile flow, keep runtime credentials in local file references, and automatically refresh obsolete tunnel-client binaries.
+- Add POSIX and Windows personal plugin packagers that inject the workspace-specific plugin_asdk_app binding only on the user's machine, with CI coverage for both packaging paths.
+
 ## 0.9.25 — 2026-08-19
 
 - Treat OpenClaw model context overflow and prompt-too-large failures as model-route capacity problems so Workbench can fail over instead of cooling and repeating the same unusable route.
