@@ -1,0 +1,142 @@
+name: apply-private-control-index
+
+on:
+  push:
+    branches:
+      - perf/private-control-pending-index
+    paths:
+      - .workbench-private-control-index-request.json
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.23.x'
+      - name: Replace per-control Git probes with one outbox index
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('cmd/workbench-relay/private_control.go')
+          text = p.read_text(encoding='utf-8')
+          old = '''func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, authFile string) error {
+          paths, err := relayPaths(repo, ref, "relay/control")
+          if err != nil {
+          	return err
+          }
+'''.replace('          ', '')
+          new = '''func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, authFile string) error {
+          paths, err := relayPaths(repo, ref, "relay/control")
+          if err != nil {
+          	return err
+          }
+          outboxPaths, err := relayPaths(repo, ref, "relay/control-outbox")
+          if err != nil {
+          	return err
+          }
+          paths = pendingPrivateControlPaths(paths, outboxPaths)
+'''.replace('          ', '')
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one sync header target, found {text.count(old)}')
+          text = text.replace(old, new, 1)
+
+          old = '''		outPath := "relay/control-outbox/" + id + ".json"
+          		if refFileExists(repo, ref, outPath) {
+          			continue
+          		}
+
+'''.replace('          ', '')
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one per-control existence probe, found {text.count(old)}')
+          text = text.replace(old, '', 1)
+
+          marker = 'func executePrivateControlCandidate(ctx context.Context, candidate privateControlCandidate, repo, mcpURL, authFile string) privateControlOutbox {'
+          helper = '''func pendingPrivateControlPaths(controlPaths, outboxPaths []string) []string {
+          	completed := make(map[string]struct{}, len(outboxPaths))
+          	for _, outboxPath := range outboxPaths {
+          		id := strings.TrimSuffix(filepath.Base(outboxPath), ".json")
+          		if validRelayID(id) {
+          			completed[id] = struct{}{}
+          		}
+          	}
+
+          	pending := make([]string, 0, len(controlPaths))
+          	for _, controlPath := range controlPaths {
+          		id := strings.TrimSuffix(filepath.Base(controlPath), ".json")
+          		if !validRelayID(id) {
+          			continue
+          		}
+          		if _, done := completed[id]; done {
+          			continue
+          		}
+          		pending = append(pending, controlPath)
+          	}
+          	return pending
+          }
+
+          '''.replace('          ', '')
+          if text.count(marker) != 1:
+              raise SystemExit('candidate marker missing or duplicated')
+          text = text.replace(marker, helper + marker, 1)
+          p.write_text(text, encoding='utf-8')
+          PY
+          gofmt -w cmd/workbench-relay/private_control.go
+          cat > cmd/workbench-relay/private_control_pending_test.go <<'EOF'
+          package main
+
+          import (
+          	"fmt"
+          	"reflect"
+          	"testing"
+          )
+
+          func TestPendingPrivateControlPathsUsesOutboxIndex(t *testing.T) {
+          	controls := make([]string, 0, 1002)
+          	outboxes := make([]string, 0, 1000)
+          	for i := 0; i < 1000; i++ {
+          		id := fmt.Sprintf("control-%08d", i)
+          		controls = append(controls, "relay/control/"+id+".json")
+          		if i < 998 {
+          			outboxes = append(outboxes, "relay/control-outbox/"+id+".json")
+          		}
+          	}
+          	controls = append(controls, "relay/control/not valid.json")
+          	outboxes = append(outboxes, "relay/control-outbox/not valid.json")
+
+          	got := pendingPrivateControlPaths(controls, outboxes)
+          	want := []string{
+          		"relay/control/control-00000998.json",
+          		"relay/control/control-00000999.json",
+          	}
+          	if !reflect.DeepEqual(got, want) {
+          		t.Fatalf("pending=%#v want %#v", got, want)
+          	}
+          }
+          EOF
+      - name: Verify indexed pending discovery
+        run: |
+          set -euo pipefail
+          git diff --check
+          go test ./...
+      - name: Commit prepared branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .workbench-private-control-index-request.json .github/workflows/apply-private-control-index.yml
+          git config user.name 'Workbench Performance Automation'
+          git config user.email 'workbench-automation@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && { echo 'No pending-index changes produced.' >&2; exit 1; }
+          git commit -m 'Index completed private controls once per poll'
+          git push origin HEAD:perf/private-control-pending-index
