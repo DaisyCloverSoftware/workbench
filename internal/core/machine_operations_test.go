@@ -33,13 +33,18 @@ func TestMachineCommandPolicyRejectsShellsPivotsSecretsAndDestructiveVerbs(t *te
 		{Program: "bash", Args: []string{"-lc", "kubectl get pods"}},
 		{Program: "/usr/bin/kubectl", Args: []string{"get", "pods"}},
 		{Program: "kubectl", Args: []string{"get", "secrets", "-A"}},
+		{Program: "kubectl", Args: []string{"get", "secret.v1", "example"}},
+		{Program: "kubectl", Args: []string{"get", "pods,secrets", "-A"}},
 		{Program: "kubectl", Args: []string{"delete", "pod", "web"}},
 		{Program: "kubectl", Args: []string{"get", "pods", "--kubeconfig=/tmp/other"}},
 		{Program: "kubectl", Args: []string{"get", "pods", "--server", "https://other.invalid"}},
+		{Program: "kubectl", Args: []string{"get", "-f", "/tmp/object.yaml"}},
 		{Program: "helm", Args: []string{"uninstall", "prod"}},
 		{Program: "helm", Args: []string{"upgrade", "web", "./chart", "--post-renderer", "/tmp/script"}},
 		{Program: "systemctl", Args: []string{"reboot"}},
+		{Program: "systemctl", Args: []string{"-Hremote.example", "status", "ssh.service"}},
 		{Program: "journalctl", Args: []string{"--vacuum-time=1d"}},
+		{Program: "docker", Args: []string{"-Htcp://other:2375", "ps"}},
 		{Program: "docker", Args: []string{"exec", "web", "sh"}},
 		{Program: "docker", Args: []string{"rm", "web"}},
 		{Program: "crictl", Args: []string{"rm", "deadbeef"}},
@@ -58,8 +63,17 @@ func TestMachineCommandPolicyRequiresBoundedReadForms(t *testing.T) {
 	if readOnly, err := validateMachineCommand(MachineCommandRequest{Program: "docker", Args: []string{"stats", "--no-stream"}}); err != nil || !readOnly {
 		t.Fatalf("bounded docker stats rejected: readOnly=%t err=%v", readOnly, err)
 	}
-	if _, err := validateMachineCommand(MachineCommandRequest{Program: "journalctl", Args: []string{"-f", "-u", "workbench-mcp"}}); err == nil {
-		t.Fatal("journalctl follow must be rejected")
+	for _, req := range []MachineCommandRequest{
+		{Program: "journalctl", Args: []string{"-f", "-u", "workbench-mcp"}},
+		{Program: "kubectl", Args: []string{"get", "pods", "-w"}},
+		{Program: "kubectl", Args: []string{"logs", "-f", "pod/web"}},
+		{Program: "docker", Args: []string{"logs", "--follow", "web"}},
+		{Program: "docker", Args: []string{"compose", "logs", "-f"}},
+		{Program: "crictl", Args: []string{"logs", "-f", "deadbeef"}},
+	} {
+		if _, err := validateMachineCommand(req); err == nil {
+			t.Fatalf("unbounded read form accepted: %+v", req)
+		}
 	}
 	if _, err := validateMachineCommand(MachineCommandRequest{Program: "hostname", Args: []string{"new-hostname"}}); err == nil {
 		t.Fatal("hostname mutation must be rejected")
