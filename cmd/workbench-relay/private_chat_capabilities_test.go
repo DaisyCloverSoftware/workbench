@@ -26,9 +26,11 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		"github_actions",
 		"inspect_machine",
 		"run_machine_command",
+		"run_operations_script",
 		"optional_machine_side_autonomy_fallback",
 		"preferred_write_transport",
 		"no_model_credit_required",
+		"operations_script_policy",
 		"workbench-relay",
 	} {
 		if !strings.Contains(string(b), literal) {
@@ -51,9 +53,14 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") {
 		t.Fatalf("fresh-chat relay bootstrap missing: %q", manifest.FreshChatBootstrap)
 	}
+	for _, want := range []string{"scripts/ops/", "Git-tracked", "detached worktree", "literal argv", "SHA-256"} {
+		if !strings.Contains(manifest.OperationsScriptPolicy, want) {
+			t.Fatalf("operations-script safety contract missing %q: %q", want, manifest.OperationsScriptPolicy)
+		}
+	}
 	for _, want := range []string{
 		"source_code", "git", "github", "pull_requests", "ci", "github_actions",
-		"bounded_machine_inspection", "bounded_machine_mutation",
+		"bounded_machine_inspection", "bounded_machine_mutation", "committed_operations_script_execution",
 	} {
 		if !containsString(manifest.ChatGPTOwns, want) {
 			t.Fatalf("capability manifest must keep %q with ChatGPT: %+v", want, manifest.ChatGPTOwns)
@@ -70,7 +77,7 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	}
 	for _, want := range []string{
 		"list_projects", "ensure_github_project", "get_task", "list_tasks", "read_file", "apply_patch",
-		"run_safe_command", "inspect_machine", "run_machine_command", "search_memory", "save_context", "update_workbench",
+		"run_safe_command", "inspect_machine", "run_machine_command", "run_operations_script", "search_memory", "save_context", "update_workbench",
 	} {
 		if !containsString(manifest.ControlActions, want) {
 			t.Fatalf("capability manifest missing control action %q", want)
