@@ -12,6 +12,10 @@ type privateChatCapabilities struct {
 	WorkbenchVersion           string   `json:"workbench_version"`
 	Transport                  string   `json:"transport"`
 	PrimaryBrain               string   `json:"primary_brain"`
+	PreferredWriteTransport    string   `json:"preferred_write_transport"`
+	MCPRole                    string   `json:"mcp_role"`
+	NoModelCreditRequired      bool     `json:"no_model_credit_required"`
+	FreshChatBootstrap         string   `json:"fresh_chat_bootstrap"`
 	ChatGPTOwns                []string `json:"chatgpt_owns"`
 	OpenClawOwns               []string `json:"openclaw_owns"`
 	ControlRequest             string   `json:"control_request"`
@@ -27,10 +31,14 @@ type privateChatCapabilities struct {
 
 func privateChatCapabilitiesJSON() ([]byte, error) {
 	manifest := privateChatCapabilities{
-		Protocol:         1,
-		WorkbenchVersion: relayVersion,
-		Transport:        "private-git-relay",
-		PrimaryBrain:     "chatgpt",
+		Protocol:                1,
+		WorkbenchVersion:        relayVersion,
+		Transport:               "private-git-relay",
+		PrimaryBrain:            "chatgpt",
+		PreferredWriteTransport: "private-git-relay",
+		MCPRole:                 "optional_direct_read_fetch_on_personal_plans; full_tools_when_the_chatgpt_plan_supports_full_mcp",
+		NoModelCreditRequired:   true,
+		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md.",
 		ChatGPTOwns: []string{
 			"reasoning",
 			"source_code",
