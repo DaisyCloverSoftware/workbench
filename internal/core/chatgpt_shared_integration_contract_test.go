@@ -12,10 +12,13 @@ import (
 
 const testChatGPTAppID = "plugin_asdk_app_0123456789abcdef0123456789abcdef"
 
-func TestOpenAITunnelInstallerUsesProfileAndSecretReferences(t *testing.T) {
-	text := installerScript(t, "install-openai-tunnel.sh")
+func TestOpenAITunnelInstallerUsesPublishedReleaseAssetsAndSecretReferences(t *testing.T) {
+	text := strings.ReplaceAll(installerScript(t, "install-openai-tunnel.sh"), "\r\n", "\n")
 	for _, want := range []string{
-		"releases/latest/download",
+		"api.github.com/repos/openai/tunnel-client/releases/latest",
+		"persistent.oaistatic.com/tunnel-client/$tag",
+		"tunnel-client-$tag-$platform.zip",
+		"SHA256SUMS.txt",
 		"current_client_usable",
 		"init --help",
 		"--sample sample_mcp_remote_no_auth",
@@ -25,11 +28,19 @@ func TestOpenAITunnelInstallerUsesProfileAndSecretReferences(t *testing.T) {
 		"doctor --profile \"$profile\" --explain",
 	} {
 		if !strings.Contains(text, want) {
-			t.Fatalf("tunnel installer missing current secure profile contract %q", want)
+			t.Fatalf("tunnel installer missing current secure release/profile contract %q", want)
 		}
 	}
-	if strings.Contains(text, "releases/download/$version") {
-		t.Fatal("tunnel installer must not depend on a guessed fallback release version")
+	if strings.Contains(text, "releases/latest/download") {
+		t.Fatal("tunnel installer must not assume unversioned GitHub release asset names")
+	}
+	if strings.Contains(text, "download \"$base/$platform.zip\"") {
+		t.Fatal("tunnel installer must use OpenAI's versioned tunnel-client asset filename")
+	}
+	validation := strings.Index(text, "Invalid tunnel ID. Expected tunnel_")
+	installCall := strings.Index(text, "\ninstall_tunnel_client\n")
+	if validation < 0 || installCall < 0 || validation > installCall {
+		t.Fatal("tunnel id must be validated before any tunnel-client download/install work")
 	}
 }
 

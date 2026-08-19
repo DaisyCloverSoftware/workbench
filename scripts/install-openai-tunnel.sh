@@ -28,6 +28,28 @@ download() {
   fi
 }
 
+fetch_latest_tunnel_client_tag() {
+  local json tag
+  if [ -n "${TUNNEL_CLIENT_VERSION:-}" ]; then
+    tag="$TUNNEL_CLIENT_VERSION"
+  else
+    if command -v curl >/dev/null 2>&1; then
+      json="$(curl -fsSL --retry 3 --connect-timeout 15 https://api.github.com/repos/openai/tunnel-client/releases/latest)"
+    elif command -v wget >/dev/null 2>&1; then
+      json="$(wget -qO- https://api.github.com/repos/openai/tunnel-client/releases/latest)"
+    else
+      echo "curl or wget is required." >&2
+      exit 1
+    fi
+    tag="$(printf '%s\n' "$json" | sed -n 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+  fi
+  if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "Could not resolve a stable tunnel-client release tag; got: ${tag:-empty}." >&2
+    exit 1
+  fi
+  printf '%s\n' "$tag"
+}
+
 current_client_usable() {
   local init_help doctor_help
   [ -x "$bin_dir/tunnel-client" ] || return 1
@@ -40,7 +62,7 @@ current_client_usable() {
 }
 
 install_tunnel_client() {
-  local machine platform tmp archive sums expected actual candidate base label
+  local machine platform tag asset tmp archive sums expected actual candidate base
   machine="$(uname -m)"
   case "$machine" in
     x86_64|amd64) platform="linux-amd64" ;;
@@ -56,46 +78,39 @@ install_tunnel_client() {
     echo "Refreshing tunnel-client because the installed binary is missing the current profile/doctor command surface."
   fi
 
-  if [ -n "${TUNNEL_CLIENT_VERSION:-}" ]; then
-    base="https://github.com/openai/tunnel-client/releases/download/$TUNNEL_CLIENT_VERSION"
-    label="$TUNNEL_CLIENT_VERSION"
-  else
-    base="https://github.com/openai/tunnel-client/releases/latest/download"
-    label="latest"
-  fi
-  echo "Installing OpenAI tunnel-client $label ($platform)..."
+  tag="$(fetch_latest_tunnel_client_tag)"
+  asset="tunnel-client-$tag-$platform.zip"
+  base="https://persistent.oaistatic.com/tunnel-client/$tag"
+  echo "Installing OpenAI tunnel-client $tag ($platform)..."
   tmp="$(mktemp -d)"
   trap 'rm -rf "${tmp:-}"' EXIT
-  archive="$tmp/$platform.zip"
+  archive="$tmp/$asset"
   sums="$tmp/SHA256SUMS.txt"
-  download "$base/$platform.zip" "$archive"
+  download "$base/$asset" "$archive"
   download "$base/SHA256SUMS.txt" "$sums"
 
-  expected="$(awk -v f="$platform.zip" '$2 == f || $2 == "*" f {print $1; exit}' "$sums")"
-  if command -v sha256sum >/dev/null 2>&1 && [ -n "$expected" ]; then
+  expected="$(awk -v f="$asset" '$2 == f || $2 == "*" f {print $1; exit}' "$sums")"
+  [ -n "$expected" ] || { echo "Could not find $asset in OpenAI's SHA256SUMS.txt." >&2; exit 1; }
+  if command -v sha256sum >/dev/null 2>&1; then
     actual="$(sha256sum "$archive" | awk '{print $1}')"
-    [ "$actual" = "$expected" ] || { echo "tunnel-client checksum verification failed." >&2; exit 1; }
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$archive" | awk '{print $1}')"
+  else
+    echo "sha256sum or shasum is required to verify tunnel-client." >&2
+    exit 1
   fi
+  [ "$actual" = "$expected" ] || { echo "tunnel-client checksum verification failed." >&2; exit 1; }
 
   command -v unzip >/dev/null 2>&1 || { echo "unzip is required to install tunnel-client." >&2; exit 1; }
   mkdir -p "$tmp/unpacked"
   unzip -q "$archive" -d "$tmp/unpacked"
-  candidate="$(find "$tmp/unpacked" -type f \( -name 'tunnel-client' -o -name 'client' \) | head -n 1)"
+  candidate="$(find "$tmp/unpacked" -type f -name 'tunnel-client' | head -n 1)"
   [ -n "$candidate" ] || { echo "Could not find tunnel-client in release archive." >&2; exit 1; }
   install -m 0755 "$candidate" "$bin_dir/tunnel-client"
   echo "Installed $($bin_dir/tunnel-client --version 2>/dev/null || echo tunnel-client)"
   rm -rf "$tmp"
   trap - EXIT
 }
-
-install_tunnel_client
-
-if [ ! -s "$mcp_auth_file" ]; then
-  echo "Workbench MCP auth file is missing: $mcp_auth_file" >&2
-  echo "Run scripts/install-cluster-mcp.sh first." >&2
-  exit 1
-fi
-chmod 0600 "$mcp_auth_file"
 
 tunnel_id="${CONTROL_PLANE_TUNNEL_ID:-${WORKBENCH_TUNNEL_ID:-}}"
 if [ -z "$tunnel_id" ]; then
@@ -107,6 +122,15 @@ if ! printf '%s' "$tunnel_id" | grep -Eq '^tunnel_[0-9a-f]{32}$'; then
   echo "Invalid tunnel ID. Expected tunnel_ followed by 32 lowercase hexadecimal characters." >&2
   exit 1
 fi
+
+install_tunnel_client
+
+if [ ! -s "$mcp_auth_file" ]; then
+  echo "Workbench MCP auth file is missing: $mcp_auth_file" >&2
+  echo "Run scripts/install-cluster-mcp.sh first." >&2
+  exit 1
+fi
+chmod 0600 "$mcp_auth_file"
 
 if [ ! -s "$key_file" ]; then
   echo
