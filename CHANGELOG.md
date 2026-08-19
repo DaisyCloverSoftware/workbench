@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.24 — 2026-08-19
+
+- Give every durable Workbench machine-operation job its own fresh OpenClaw conversation, reuse that conversation across supervised continuation, retries, attention resumes and model failover, and best-effort archive it after verified completion.
+- When an OpenAI/Codex operations route reaches a genuine usage, quota, rate-limit or capacity ceiling, prefer an available Claude model (Sonnet first) in the same job conversation before falling back to local Ollama.
+- Keep project chats independent of OpenClaw state: different Workbench jobs get different conversations and never inherit the long-lived interactive main session's stale bindings or history.
+
 ## 0.9.23 — 2026-08-18
 
 - Expose private read-only get_task and list_tasks controls so ChatGPT can diagnose unusually long supervised machine operations without asking the human to watch or intervene.
