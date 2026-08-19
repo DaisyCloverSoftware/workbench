@@ -84,3 +84,24 @@ func TestOperationModelCapacityFailureRecognisesProviderUsageExhaustion(t *testi
 		t.Fatal("explicit worker-local unavailability must remain authoritative")
 	}
 }
+
+func TestOperationModelCapacityFailureRecognisesUndersizedFallbackContext(t *testing.T) {
+	for _, output := range []string{
+		"Context overflow: prompt too large for the model. Try /reset (or /new) to start a fresh session, or use a larger-context model.",
+		"context length exceeded",
+		"maximum context length reached",
+		"operation does not fit the context window",
+	} {
+		if !operationModelCapacityFailure(RunResult{Output: output}, errors.New("OpenClaw operations invocation exited with error")) {
+			t.Fatalf("context-size failure was not treated as model-route capacity: %q", output)
+		}
+	}
+}
+
+func TestContextOverflowDefaultsFailedProviderToConfiguredOpenAIDefault(t *testing.T) {
+	catalog := OpenClawCloudCatalog{DefaultModel: "openai/gpt-5.3-codex-spark"}
+	res := RunResult{Output: "Context overflow: prompt too large for the model."}
+	if got := operationFailedCloudProvider(res, errors.New("model could not fit prompt"), catalog); got != "openai" {
+		t.Fatalf("failed provider=%q want openai", got)
+	}
+}
