@@ -17,7 +17,11 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-const maxPrivateControlResult = 256 << 10
+const (
+	maxPrivateControlResult     = 256 << 10
+	maxPrivateControlErrorBytes = 32 << 10
+	maxPrivateControlsPerPoll   = 12
+)
 
 type privateControlEnvelope struct {
 	Version int             `json:"version"`
@@ -37,29 +41,49 @@ type privateControlOutbox struct {
 	UpdatedAt string         `json:"updated_at"`
 }
 
+type privateControlCandidate struct {
+	path      string
+	id        string
+	env       privateControlEnvelope
+	readErr   error
+	decodeErr error
+}
+
 // syncPrivateControl exposes a small, private-only control surface over the Git
 // relay. It exists for personal ChatGPT plans where GitHub writes are supported
 // but custom MCP write tools are not: a lead chat can use Workbench memory,
 // compact context and bounded safe repository eyes/hands without turning the
 // human into a clipboard or consuming an autonomous coding worker.
+//
+// Results are deliberately published one request at a time. A slow, malformed,
+// oversized, or secret-like request therefore cannot prevent unrelated project
+// chats from receiving their own results. update_workbench is prioritised and
+// returned immediately after its acknowledgement is pushed, giving the fixed
+// updater grace time to restart the relay without losing that acknowledgement.
 func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, authFile string) error {
 	paths, err := relayPaths(repo, ref, "relay/control")
 	if err != nil {
 		return err
 	}
-	files := map[string][]byte{}
+
+	metadata := map[string][]byte{}
 	if current, readErr := readRefFile(repo, ref, privateChatGuidePath, 128<<10); readErr != nil || !bytes.Equal(current, privateChatGuide) {
-		files[privateChatGuidePath] = append([]byte(nil), privateChatGuide...)
+		metadata[privateChatGuidePath] = append([]byte(nil), privateChatGuide...)
 	}
 	capabilities, err := privateChatCapabilitiesJSON()
 	if err != nil {
 		return err
 	}
 	if current, readErr := readRefFile(repo, ref, privateChatCapabilitiesPath, 128<<10); readErr != nil || !bytes.Equal(current, capabilities) {
-		files[privateChatCapabilitiesPath] = capabilities
+		metadata[privateChatCapabilitiesPath] = capabilities
 	}
-	for _, path := range paths {
-		id := strings.TrimSuffix(filepath.Base(path), ".json")
+	if err := publishPrivateControlFiles(ctx, repo, remote, branch, metadata); err != nil {
+		return err
+	}
+
+	candidates := make([]privateControlCandidate, 0, len(paths))
+	for _, controlPath := range paths {
+		id := strings.TrimSuffix(filepath.Base(controlPath), ".json")
 		if !validRelayID(id) {
 			continue
 		}
@@ -67,32 +91,81 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 		if refFileExists(repo, ref, outPath) {
 			continue
 		}
-		out := privateControlOutbox{Version: 1, ID: id, Status: "failed", UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
-		raw, readErr := readRefFile(repo, ref, path, 64<<10)
-		if readErr != nil {
-			out.Error = readErr.Error()
-		} else {
-			env, decodeErr := decodePrivateControl(raw, id)
-			if decodeErr != nil {
-				out.Error = decodeErr.Error()
-			} else {
-				out.Action = env.Action
-				result, execErr := executePrivateControlForRepo(ctx, env, repo, mcpURL, authFile)
-				if execErr != nil {
-					out.Error = execErr.Error()
-				} else {
-					out.Status = "completed"
-					out.Result = result
-				}
-			}
+
+		candidate := privateControlCandidate{path: controlPath, id: id}
+		raw, readErr := readRefFile(repo, ref, controlPath, 64<<10)
+		candidate.readErr = readErr
+		if readErr == nil {
+			candidate.env, candidate.decodeErr = decodePrivateControl(raw, id)
 		}
+		candidates = append(candidates, candidate)
+	}
+
+	sort.SliceStable(candidates, func(i, j int) bool {
+		left := privateControlPriority(candidates[i].env.Action)
+		right := privateControlPriority(candidates[j].env.Action)
+		if left != right {
+			return left < right
+		}
+		return candidates[i].path < candidates[j].path
+	})
+	if len(candidates) > maxPrivateControlsPerPoll {
+		candidates = candidates[:maxPrivateControlsPerPoll]
+	}
+
+	for _, candidate := range candidates {
+		out := executePrivateControlCandidate(ctx, candidate, repo, mcpURL, authFile)
 		b, marshalErr := marshalPrivateControlOutbox(out)
 		if marshalErr != nil {
 			return marshalErr
 		}
-		files[outPath] = b
+		outPath := "relay/control-outbox/" + candidate.id + ".json"
+		if err := publishPrivateControlFiles(ctx, repo, remote, branch, map[string][]byte{outPath: b}); err != nil {
+			return err
+		}
+		if candidate.env.Action == "update_workbench" && candidate.readErr == nil && candidate.decodeErr == nil {
+			return nil
+		}
 	}
-	return publishPrivateControlFiles(ctx, repo, remote, branch, files)
+	return nil
+}
+
+func executePrivateControlCandidate(ctx context.Context, candidate privateControlCandidate, repo, mcpURL, authFile string) privateControlOutbox {
+	out := privateControlOutbox{
+		Version:   1,
+		ID:        candidate.id,
+		Status:    "failed",
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if candidate.readErr != nil {
+		out.Error = candidate.readErr.Error()
+		return out
+	}
+	if candidate.decodeErr != nil {
+		out.Error = candidate.decodeErr.Error()
+		return out
+	}
+
+	out.Action = candidate.env.Action
+	result, execErr := executePrivateControlForRepo(ctx, candidate.env, repo, mcpURL, authFile)
+	if execErr != nil {
+		out.Error = execErr.Error()
+		return out
+	}
+	out.Status = "completed"
+	out.Result = result
+	return out
+}
+
+func privateControlPriority(action string) int {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "update_workbench":
+		return 0
+	case "update_status":
+		return 1
+	default:
+		return 10
+	}
 }
 
 func decodePrivateControl(raw []byte, idFromPath string) (privateControlEnvelope, error) {
@@ -273,12 +346,25 @@ func marshalPrivateControlOutbox(out privateControlOutbox) ([]byte, error) {
 			out.Error = "private control result was withheld because it resembled secret material"
 		}
 	}
+	if len(out.Error) > maxPrivateControlErrorBytes {
+		out.Error = out.Error[:maxPrivateControlErrorBytes] + "\n… private control error truncated by Workbench …"
+	}
+
 	b, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return nil, err
 	}
 	if len(b) > maxPrivateControlResult {
-		return nil, errors.New("private control result exceeds 256 KiB")
+		out.Status = "failed"
+		out.Result = nil
+		out.Error = "private control result exceeded 256 KiB and was withheld; request a narrower bounded result"
+		b, err = json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(b) > maxPrivateControlResult {
+		return nil, errors.New("private control failure envelope unexpectedly exceeds 256 KiB")
 	}
 	return append(b, '\n'), nil
 }
