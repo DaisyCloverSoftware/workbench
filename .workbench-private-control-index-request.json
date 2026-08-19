@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "purpose": "replace per-control existence probes with one outbox index"
+}
