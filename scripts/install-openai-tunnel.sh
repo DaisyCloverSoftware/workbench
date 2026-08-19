@@ -29,9 +29,13 @@ download() {
 }
 
 current_client_usable() {
+  local init_help doctor_help
   [ -x "$bin_dir/tunnel-client" ] || return 1
-  "$bin_dir/tunnel-client" init --help >/dev/null 2>&1 || return 1
-  "$bin_dir/tunnel-client" doctor --help >/dev/null 2>&1 || return 1
+  init_help="$("$bin_dir/tunnel-client" init --help 2>&1)" || return 1
+  doctor_help="$("$bin_dir/tunnel-client" doctor --help 2>&1)" || return 1
+  printf '%s\n' "$init_help" | grep -q -- '--sample' || return 1
+  printf '%s\n' "$init_help" | grep -q -- '--profile' || return 1
+  printf '%s\n' "$doctor_help" | grep -q -- '--profile' || return 1
   return 0
 }
 
