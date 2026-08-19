@@ -10,16 +10,30 @@ import (
 	"testing"
 )
 
-func TestOpenClawOperationsSupervisorAutomaticallyContinuesProgressOnlyExit(t *testing.T) {
+func TestOpenClawOperationsSupervisorReusesAndArchivesOneJobConversation(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "fake-openclaw")
 	body := `#!/usr/bin/env bash
 set -euo pipefail
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+if [ "${1:-}" = "sessions" ] && [ "${2:-}" = "archive" ]; then
+  printf '%s' "${3:-}" > "$script_dir/.workbench-fake-archive"
+  exit 0
+fi
 count_file="$PWD/.workbench-fake-count"
+session_file="$PWD/.workbench-fake-session"
 count=0
 if [ -f "$count_file" ]; then count="$(cat "$count_file")"; fi
 count=$((count+1))
 printf '%s' "$count" > "$count_file"
+session=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--session-id" ] && [ "$#" -gt 1 ]; then session="$2"; shift 2; continue; fi
+  shift
+done
+if [ -z "$session" ]; then echo 'missing session id' >&2; exit 2; fi
+if [ -f "$session_file" ] && [ "$(cat "$session_file")" != "$session" ]; then echo 'session changed during one job' >&2; exit 3; fi
+printf '%s' "$session" > "$session_file"
 if [ "$count" -eq 1 ]; then
   echo "Restart complete; still checking health."
   exit 0
@@ -42,7 +56,21 @@ echo "WORKBENCH_OPERATION_COMPLETE: verified"
 		t.Fatal(err)
 	}
 	if strings.TrimSpace(string(count)) != "2" {
-		t.Fatalf("invocations=%q want 2", count)
+		t.Fatalf("agent invocations=%q want 2", count)
+	}
+	session, err := os.ReadFile(filepath.Join(dir, ".workbench-fake-session"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.TrimSpace(string(session)), openClawOperationSessionID(task); got != want {
+		t.Fatalf("job session=%q want %q", got, want)
+	}
+	archive, err := os.ReadFile(filepath.Join(dir, ".workbench-fake-archive"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.TrimSpace(string(archive)), openClawOperationSessionKey(task); got != want {
+		t.Fatalf("archived session=%q want %q", got, want)
 	}
 	if strings.Contains(res.Output, operationCompletePrefix) || !strings.Contains(res.Output, "health verification complete") {
 		t.Fatalf("unexpected final report: %q", res.Output)

@@ -9,6 +9,7 @@ import (
 
 func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *testing.T) {
 	task := Task{
+		ID:          "task-operation-001",
 		Intent:      "[relay:op_001] [workbench:operations] Restart the runner and verify it is healthy",
 		ProjectPath: "/tmp/project",
 	}
@@ -22,6 +23,7 @@ func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *test
 		"do not stop merely to report progress",
 		"WORKBENCH_OPERATION_COMPLETE: verified",
 		"continuation pass 2 of 6",
+		"same Workbench job conversation",
 		"Restart the runner and verify it is healthy",
 	} {
 		if !strings.Contains(strings.ToLower(prompt), strings.ToLower(want)) {
@@ -33,10 +35,12 @@ func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *test
 	}
 }
 
-func TestOpenClawOperationAgentArgsUseScriptedIsolatedSession(t *testing.T) {
+func TestOpenClawOperationAgentArgsUseScriptedJobSession(t *testing.T) {
+	task := Task{ID: "task-operation-001"}
 	prompt := "verify runner health"
-	got := openClawOperationAgentArgsWithSession(prompt, "", "openclaw-op-test")
-	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--message", prompt}
+	sessionID := openClawOperationSessionID(task)
+	got := openClawOperationAgentArgsWithSession(prompt, "", sessionID)
+	want := []string{"agent", "--agent", "main", "--session-id", sessionID, "--message", prompt}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("OpenClaw agent args=%q want %q", got, want)
 	}
@@ -47,23 +51,23 @@ func TestOpenClawOperationAgentArgsUseScriptedIsolatedSession(t *testing.T) {
 	}
 }
 
-func TestOpenClawOperationAgentArgsUseFreshSessions(t *testing.T) {
-	sessionID := func(args []string) string {
-		for i := 0; i+1 < len(args); i++ {
-			if args[i] == "--session-id" {
-				return args[i+1]
-			}
-		}
-		return ""
+func TestOpenClawOperationSessionIsStablePerJobAndDifferentAcrossJobs(t *testing.T) {
+	firstJob := Task{ID: "task-operation-001"}
+	secondJob := Task{ID: "task-operation-002"}
+	first := openClawOperationSessionID(firstJob)
+	continued := openClawOperationSessionID(firstJob)
+	second := openClawOperationSessionID(secondJob)
+	if !strings.HasPrefix(first, "workbench-op-") {
+		t.Fatalf("operation session id=%q", first)
 	}
-
-	first := sessionID(openClawOperationAgentArgs("first operation"))
-	second := sessionID(openClawOperationAgentArgs("second operation"))
-	if !strings.HasPrefix(first, "openclaw-op-") || !strings.HasPrefix(second, "openclaw-op-") {
-		t.Fatalf("operation session IDs must be explicit Workbench-owned IDs: first=%q second=%q", first, second)
+	if first != continued {
+		t.Fatalf("same Workbench job changed OpenClaw conversation: %q != %q", first, continued)
 	}
 	if first == second {
-		t.Fatalf("separate scripted operation invocations reused session %q", first)
+		t.Fatalf("different Workbench jobs shared OpenClaw conversation %q", first)
+	}
+	if got := openClawOperationSessionKey(firstJob); got != "agent:main:explicit:"+first {
+		t.Fatalf("session key=%q", got)
 	}
 }
 
@@ -79,10 +83,10 @@ func TestStripOperationCompletionMarker(t *testing.T) {
 
 func TestOperationInvocationReengagesOnlyBoundedStall(t *testing.T) {
 	if !operationInvocationCanBeReengaged(RunResult{Retryable: true}, errors.New("OpenClaw operations invocation timed out")) {
-		t.Fatal("timeout should be re-engaged automatically")
+		t.Fatal("timeout should be re-engaged automatically in the same job conversation")
 	}
-	if !operationInvocationCanBeReengaged(RunResult{Retryable: true}, errors.New("Codex binding generation was retired: session-key:main:deadbeef")) {
-		t.Fatal("retired operation binding should be re-engaged with a fresh session")
+	if operationInvocationCanBeReengaged(RunResult{Retryable: true}, errors.New("Codex binding generation was retired: session-key:main:deadbeef")) {
+		t.Fatal("a corrupted job conversation should fail rather than loop forever on the same retired binding")
 	}
 	if operationInvocationCanBeReengaged(RunResult{Retryable: true, Authentication: true}, errors.New("authentication failed")) {
 		t.Fatal("authentication failure must not be hammered by supervisor")

@@ -6,15 +6,17 @@ import (
 )
 
 func TestOpenClawOperationAgentArgsSelectMainAgent(t *testing.T) {
-	got := openClawOperationAgentArgsWithSession("verify runtime health", "", "openclaw-op-test")
-	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--message", "verify runtime health"}
+	task := Task{ID: "task-operation-001"}
+	sessionID := openClawOperationSessionID(task)
+	got := openClawOperationAgentArgs(task, "verify runtime health")
+	want := []string{"agent", "--agent", "main", "--session-id", sessionID, "--message", "verify runtime health"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("operation args=%q want %q", got, want)
 	}
 }
 
 func TestOpenClawOperationsAgentTargetAndSessionAreExplicit(t *testing.T) {
-	args := openClawOperationAgentArgs("test")
+	args := openClawOperationAgentArgs(Task{ID: "task-operation-001"}, "test")
 	agent := ""
 	session := ""
 	for i := 0; i+1 < len(args); i++ {
@@ -29,6 +31,6 @@ func TestOpenClawOperationsAgentTargetAndSessionAreExplicit(t *testing.T) {
 		t.Fatalf("operations invocation has no explicit OpenClaw agent target: %q", args)
 	}
 	if session == "" {
-		t.Fatalf("operations invocation has no explicit isolated session target: %q", args)
+		t.Fatalf("operations invocation has no explicit job-scoped session target: %q", args)
 	}
 }
