@@ -132,7 +132,7 @@ func detectOpenClawOperationsCloudFallback(ctx context.Context, p Provider, pref
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	catalog, err := DiscoverOpenClawCloudModels(probeCtx, p.Command)
+	catalog, err := discoverOpenClawOperationsCloudCatalog(probeCtx, p.Command)
 	if err != nil {
 		return ""
 	}
@@ -288,6 +288,9 @@ func preferredOllamaOperationsModel(listOutput string) string {
 func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, sessionID, model string) (RunResult, bool, error) {
 	invokeCtx, cancel := context.WithTimeout(ctx, operationInvocationTimeout)
 	defer cancel()
+	if sessionID != openClawOperationSessionID(task) {
+		return RunResult{}, false, errors.New("OpenClaw operations session identity mismatch")
+	}
 
 	var name string
 	var args []string
@@ -295,18 +298,12 @@ func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Tas
 	if remote {
 		name = "ssh"
 		args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw"}
-		args = append(args, openClawOperationAgentArgsForModel(task, prompt, model)...)
+		args = append(args, openClawOperationAgentArgsWithSession(prompt, model, sessionID)...)
 	} else if strings.TrimSpace(p.Command) != "" {
 		name = p.Command
-		args = openClawOperationAgentArgsForModel(task, prompt, model)
+		args = openClawOperationAgentArgsWithSession(prompt, model, sessionID)
 	} else {
 		return RunResult{Retryable: true}, false, errors.New("OpenClaw operations adapter is not configured")
-	}
-	// Keep the function signature explicit about the job session it is expected
-	// to reuse. The deterministic task-derived ID is authoritative; mismatch is
-	// a programming error and should never cause a second hidden conversation.
-	if sessionID != openClawOperationSessionID(task) {
-		return RunResult{}, false, errors.New("OpenClaw operations session identity mismatch")
 	}
 
 	cmd := exec.CommandContext(invokeCtx, name, args...)
