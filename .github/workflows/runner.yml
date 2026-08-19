@@ -40,7 +40,9 @@ jobs:
             workbench-relay
 
   arc-recovery-probe:
-    runs-on: [self-hosted, linux, x64, arc, claw-node-3]
+    runs-on:
+      group: daisyclover-private-ci
+      labels: [self-hosted, linux, x64, arc, claw-node-3]
     timeout-minutes: 5
     steps:
       - name: Probe sanctioned recovery capabilities
