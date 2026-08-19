@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.34 — 2026-08-19
+
+- Index completed private-relay control results once per poll instead of spawning one Git existence subprocess for every historical control request.
+- Preserve existing maintenance priority, per-request fault isolation, and bounded controls-per-poll behavior while making relay cost scale with current pending work rather than accumulated multi-chat history.
+
 ## 0.9.33 — 2026-08-19
 
 - Publish machine-readable built-in Workbench, cluster, and namespace health operations in the private relay capability manifest so fresh project chats can discover the right zero-credit diagnostic directly.
