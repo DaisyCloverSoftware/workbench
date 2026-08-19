@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.28 — 2026-08-19
+
+- Make direct Kubernetes access work on the K3s control host while preserving the existing root-owned kubeconfig boundary.
+- After Workbench validates an allowlisted kubectl program-plus-argv request, retry only the specific K3s kubeconfig permission failure through the cluster's existing non-interactive sudo -n k3s kubectl path.
+- Keep sudo completely outside the public Workbench command surface and add regression proof that generic kubectl failures never trigger elevation and that the validated argv is preserved exactly.
+
 ## 0.9.27 — 2026-08-19
 
 - Make routine host and cluster operations a direct Workbench execution path owned by ChatGPT, with no OpenClaw, Claude, Codex, Work-credit or other external AI-worker requirement.
