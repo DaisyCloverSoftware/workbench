@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.25 — 2026-08-19
+
+- Treat OpenClaw model context overflow and prompt-too-large failures as model-route capacity problems so Workbench can fail over instead of cooling and repeating the same unusable route.
+- When an OpenAI/Codex operations route is exhausted or too small for the job context, prefer an available Claude model in the same job-scoped OpenClaw conversation before falling back to local Ollama.
+- Add end-to-end regression coverage proving context overflow can move to Claude Sonnet, preserve the same Workbench job conversation and reach verified completion without human nudging.
+
 ## 0.9.24 — 2026-08-19
 
 - Give every durable Workbench machine-operation job its own fresh OpenClaw conversation, reuse that conversation across supervised continuation, retries, attention resumes and model failover, and best-effort archive it after verified completion.
