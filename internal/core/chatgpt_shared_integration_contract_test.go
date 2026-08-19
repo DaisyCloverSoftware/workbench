@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,9 +56,23 @@ func TestChatGPTPluginPackagingScriptCreatesLocalBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(market), "\"path\": \"./.codex/plugins/workbench\"") {
-		t.Fatalf("personal marketplace missing Workbench entry: %s", market)
+	var marketplace struct {
+		Plugins []struct {
+			Name   string `json:"name"`
+			Source struct {
+				Path string `json:"path"`
+			} `json:"source"`
+		} `json:"plugins"`
 	}
+	if err := json.Unmarshal(market, &marketplace); err != nil {
+		t.Fatalf("generated marketplace is invalid JSON: %v", err)
+	}
+	for _, pluginEntry := range marketplace.Plugins {
+		if pluginEntry.Name == "workbench" && pluginEntry.Source.Path == "./.codex/plugins/workbench" {
+			return
+		}
+	}
+	t.Fatalf("personal marketplace missing Workbench entry: %s", market)
 }
 
 func TestChatGPTPluginPowerShellPackagingCreatesLocalBinding(t *testing.T) {
@@ -96,14 +111,27 @@ func assertGeneratedChatGPTPlugin(t *testing.T, plugin string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(app), testChatGPTAppID) {
+	var appDoc struct {
+		Apps map[string]struct {
+			ID string `json:"id"`
+		} `json:"apps"`
+	}
+	if err := json.Unmarshal(app, &appDoc); err != nil {
+		t.Fatalf("generated app binding is invalid JSON: %v", err)
+	}
+	if appDoc.Apps["workbench"].ID != testChatGPTAppID {
 		t.Fatalf("generated app binding missing technical id: %s", app)
 	}
+
 	manifest, err := os.ReadFile(filepath.Join(plugin, ".codex-plugin", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(manifest), "\"apps\": \"./.app.json\"") {
+	var manifestDoc map[string]any
+	if err := json.Unmarshal(manifest, &manifestDoc); err != nil {
+		t.Fatalf("generated manifest is invalid JSON: %v", err)
+	}
+	if manifestDoc["apps"] != "./.app.json" {
 		t.Fatalf("generated manifest does not bind .app.json: %s", manifest)
 	}
 }
