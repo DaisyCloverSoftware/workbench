@@ -6,7 +6,10 @@ import (
 	"strings"
 )
 
-const MaxMachineInspectBatch = 8
+const (
+	MaxMachineInspectBatch                = 8
+	maxMachineInspectBatchItemOutputBytes = 24 << 10
+)
 
 type MachineInspectBatchItem struct {
 	Index   int                  `json:"index"`
@@ -36,6 +39,9 @@ func InspectMachineBatch(ctx context.Context, requests []MachineCommandRequest) 
 	batch := MachineInspectBatchResult{Commands: make([]MachineInspectBatchItem, 0, len(requests))}
 	for i, request := range requests {
 		result, err := InspectMachine(ctx, request)
+		if len(result.Output) > maxMachineInspectBatchItemOutputBytes {
+			result.Output = result.Output[:maxMachineInspectBatchItemOutputBytes] + "\n… batch item output truncated by Workbench …"
+		}
 		item := MachineInspectBatchItem{
 			Index:   i,
 			Status:  "completed",
