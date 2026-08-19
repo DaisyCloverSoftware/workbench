@@ -31,6 +31,7 @@ type MachineCommandResult struct {
 	ReadOnly  bool     `json:"read_only"`
 	ExitCode  int      `json:"exit_code"`
 	Truncated bool     `json:"truncated,omitempty"`
+	Transport string   `json:"transport,omitempty"`
 }
 
 // InspectMachine executes one explicitly allowlisted read-only machine command
@@ -351,10 +352,57 @@ func kubectlArgsReferenceSecret(args []string) bool {
 	return false
 }
 
+type machineInvocationResult struct {
+	output    string
+	truncated bool
+	exitCode  int
+	err       error
+}
+
+func runMachineInvocation(ctx context.Context, name string, args []string) machineInvocationResult {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = append(os.Environ(),
+		"PAGER=cat",
+		"GIT_PAGER=cat",
+		"SYSTEMD_PAGER=cat",
+		"SYSTEMD_COLORS=0",
+		"NO_COLOR=1",
+	)
+	configureChildProcess(cmd, false)
+	output := &limitedCapture{limit: maxMachineCommandOutputBytes}
+	cmd.Stdout, cmd.Stderr = output, output
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = -1
+		}
+	}
+	return machineInvocationResult{
+		output:    strings.TrimSpace(output.String()),
+		truncated: output.exceeded,
+		exitCode:  exitCode,
+		err:       err,
+	}
+}
+
+func isK3sKubeconfigPermissionFailure(out string, err error) bool {
+	if err == nil {
+		return false
+	}
+	low := strings.ToLower(out + " " + err.Error())
+	if !strings.Contains(low, "/etc/rancher/k3s/k3s.yaml") {
+		return false
+	}
+	return strings.Contains(low, "permission denied") || strings.Contains(low, "unable to read")
+}
+
 func executeMachineCommand(ctx context.Context, req MachineCommandRequest, readOnly bool) (MachineCommandResult, error) {
 	program := strings.ToLower(strings.TrimSpace(req.Program))
 	args := append([]string(nil), req.Args...)
-	result := MachineCommandResult{Program: program, Args: args, ReadOnly: readOnly, ExitCode: 0}
+	result := MachineCommandResult{Program: program, Args: args, ReadOnly: readOnly, ExitCode: 0, Transport: "direct"}
 
 	timeout := defaultMachineCommandTimeout
 	if req.TimeoutSeconds > 0 {
@@ -369,39 +417,44 @@ func executeMachineCommand(ctx context.Context, req MachineCommandRequest, readO
 	commandCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(commandCtx, program, args...)
-	cmd.Env = append(os.Environ(),
-		"PAGER=cat",
-		"GIT_PAGER=cat",
-		"SYSTEMD_PAGER=cat",
-		"SYSTEMD_COLORS=0",
-		"NO_COLOR=1",
-	)
-	configureChildProcess(cmd, false)
-	output := &limitedCapture{limit: maxMachineCommandOutputBytes}
-	cmd.Stdout, cmd.Stderr = output, output
-	err := cmd.Run()
-	out := strings.TrimSpace(output.String())
-	result.Truncated = output.exceeded
-	if output.exceeded {
-		out += "\n… output truncated by Workbench …"
-	}
-	if LooksSecret(out) {
+	attempt := runMachineInvocation(commandCtx, program, args)
+	if LooksSecret(attempt.output) {
 		result.Output = "[withheld by Workbench: machine command output resembled secret material]"
+		result.ExitCode = attempt.exitCode
 		return result, errors.New("machine command output was withheld because it resembled secret material")
 	}
-	result.Output = out
 
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			result.ExitCode = exitErr.ExitCode()
-		} else {
-			result.ExitCode = -1
+	// DaisyClover's K3s host deliberately keeps /etc/rancher/k3s/k3s.yaml
+	// root-readable and its existing cluster runbooks use non-interactive sudo
+	// for kubectl. Keep that privilege boundary intact: only after the request has
+	// passed Workbench's strict kubectl policy, and only when direct kubectl fails
+	// specifically on the K3s kubeconfig permission boundary, retry the exact argv
+	// through `sudo -n k3s kubectl`. `sudo` is never exposed as a Workbench
+	// program and no shell text is evaluated.
+	if program == "kubectl" && isK3sKubeconfigPermissionFailure(attempt.output, attempt.err) && commandCtx.Err() == nil {
+		elevatedArgs := append([]string{"-n", "k3s", "kubectl"}, args...)
+		attempt = runMachineInvocation(commandCtx, "sudo", elevatedArgs)
+		result.Transport = "k3s-sudo"
+		if LooksSecret(attempt.output) {
+			result.Output = "[withheld by Workbench: machine command output resembled secret material]"
+			result.ExitCode = attempt.exitCode
+			return result, errors.New("machine command output was withheld because it resembled secret material")
 		}
+	}
+
+	out := attempt.output
+	result.Truncated = attempt.truncated
+	if attempt.truncated {
+		out += "\n… output truncated by Workbench …"
+	}
+	result.Output = out
+	result.ExitCode = attempt.exitCode
+
+	if attempt.err != nil {
 		if errors.Is(commandCtx.Err(), context.DeadlineExceeded) {
 			return result, errors.New("machine command timed out")
 		}
-		return result, fmt.Errorf("machine command failed: %w", err)
+		return result, fmt.Errorf("machine command failed: %w", attempt.err)
 	}
 	return result, nil
 }
