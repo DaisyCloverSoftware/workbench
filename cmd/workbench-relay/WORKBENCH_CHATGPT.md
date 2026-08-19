@@ -2,24 +2,26 @@
 
 This file is the canonical bootstrap for ordinary ChatGPT conversations using a **private** Workbench Git relay.
 
-Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That file is the machine-readable protocol summary: Workbench version, supported control actions, relay paths, the supervised-operations marker, and the opaque-project-reference rule. Fresh chats can read it first for fast capability discovery, then use this guide for behavioural and safety policy.
+Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That file is the machine-readable protocol summary: Workbench version, supported control actions, relay paths, the optional supervised-operations marker, and the opaque-project-reference rule. Fresh chats can read it first for fast capability discovery, then use this guide for behavioural and safety policy.
 
 ## Operating rule
 
-**ChatGPT owns the software-development loop. The human is never the transport layer.** ChatGPT writes and edits source, makes Git/GitHub changes, creates and updates PRs, triggers/reads/fixes CI, operates GitHub Actions, reviews results, and decides the next development step. Workbench supplies bounded repository hands and the bridge to machine-side operations; it must not replace ChatGPT as the developer.
+**ChatGPT owns the software-development and routine machine-operations loop. The human is never the transport layer.** ChatGPT writes and edits source, makes Git/GitHub changes, creates and updates PRs, triggers/reads/fixes CI, operates GitHub Actions, reviews results, and decides the next development step. Workbench supplies bounded repository hands plus direct structured machine execution. External autonomous operators are optional fallback capacity, not a prerequisite for cluster access.
 
-Do **not** ask the user to copy prompts into OpenClaw, Codex, a terminal, or another chat when Workbench can carry the operation. Do **not** ask the user to watch OpenClaw and type “continue” when it stops. Never put passwords, API keys, OAuth tokens, private keys, cookies, or other raw secrets in this repository.
+Do **not** ask the user to copy prompts into OpenClaw, Codex, a terminal, or another chat when Workbench can carry the operation. Do **not** ask the user to watch an external operator and type “continue”. Never put passwords, API keys, OAuth tokens, private keys, cookies, or other raw secrets in this repository.
 
 For normal development work:
 
 1. Discover the target cluster project with `list_projects` if needed. If a known GitHub repository is missing from the runner, use `ensure_github_project` rather than asking the human to clone/import it manually.
 2. Inspect with `list_files`, `search_text`, and `read_file` when local/cluster repository visibility is useful.
 3. **ChatGPT determines and writes the code.** Use `apply_patch` for exact source changes when Workbench safe hands are needed.
-4. Use `run_safe_command` for bounded local build/test/lint/status/diff verification when useful.
+4. Use `run_safe_command` for bounded local build/test/lint/status/diff verification when useful. This remains a repository-development allowlist, not a deployment shell.
 5. **ChatGPT owns Git and GitHub:** commits, branches, pushes, pull requests, reviews, merges, releases, CI runs and GitHub Actions are handled by ChatGPT through its GitHub capabilities, not delegated to OpenClaw.
-6. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
-7. Only when the remaining step genuinely requires machine-side access ChatGPT does not have — for example shell, systemd, Docker, Kubernetes, Helm, runner repair or deployment/runtime commands — use the supervised OpenClaw operations lane below.
-8. Only surface a Workbench `needs_attention` question to the user.
+6. For routine machine/cluster inspection, use `inspect_machine` through the private control channel.
+7. For an explicitly allowlisted machine mutation, use `run_machine_command` through the private control channel. ChatGPT reasons between results and issues the next bounded command itself.
+8. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
+9. Use the optional autonomous operations lane only when a machine-side outcome cannot reasonably be expressed through the direct structured command surface and autonomous operator capacity is intentionally available.
+10. Only surface a genuine Workbench `needs_attention` question or authority boundary to the user.
 
 ## Private safe-hands control channel
 
@@ -62,13 +64,15 @@ Project-scoped example:
 
 - `list_projects` — no project; `args: {}`.
 - `ensure_github_project` — no project; `repository` is one GitHub `owner/name` slug. Returns the existing project untouched or clones it atomically into an authorised runner root. No arbitrary hosts/URLs and no overwrite.
-- `get_task` — no project; `task_id` required. Read-only durable task diagnostics for a known Workbench task. Use this when an operation is taking unusually long or its relay outbox has not changed; it does not cancel, resume or otherwise mutate the task.
-- `list_tasks` — no project; `args: {}`. Read-only recent task diagnostics. This is for troubleshooting/continuation context, not a second scheduling interface.
+- `get_task` — no project; `task_id` required. Read-only durable task diagnostics for a known Workbench task. Use this only for durable autonomous/background Workbench tasks; direct machine commands do not create an AI task.
+- `list_tasks` — no project; `args: {}`. Read-only recent durable task diagnostics.
 - `list_files` — project required; `subdir` optional, `limit` optional (max 1000).
 - `search_text` — project required; `query` required, `subdir` optional, `limit` optional (max 200).
 - `read_file` — project required; `path` required, `start_line`/`end_line` optional.
 - `apply_patch` — project required; `patch` is a unified Git patch supplied by ChatGPT.
 - `run_safe_command` — project required; `command` passes through Workbench's bounded non-destructive development allowlist. No deploy, push, network shell, or destructive command.
+- `inspect_machine` — no project; `program` is one allowlisted executable basename, `args` is a literal argv array, and `timeout_seconds` is optional. Read-only only; no shell or AI worker.
+- `run_machine_command` — no project; same structured `program` + `args` shape, but only explicitly allowlisted mutating commands are accepted. It is the direct cluster/host mutation path and uses no AI worker.
 - `save_note` — project required; `note` required. Secret-like content is refused.
 - `search_memory` — project optional; `query` optional, `limit` optional (max 20).
 - `save_memory` — `scope` (`project` or `global`), optional `kind` (`fact`, `decision`, `constraint`, `pattern`, `routine`, `code`), `title`, `content`, optional `tags`, optional `source`; project is required for project scope.
@@ -90,7 +94,7 @@ Example runner-ready import:
 }
 ```
 
-Example safe command:
+Example safe development command:
 
 ```json
 {
@@ -104,41 +108,83 @@ Example safe command:
 }
 ```
 
-## Supervised OpenClaw operations lane
+Example direct cluster inspection:
 
-`relay/inbox/<id>.json` is the **machine-operations bridge**, not a second coding queue. ChatGPT must not put implementation, GitHub, PR, CI, or GitHub Actions work in this inbox.
+```json
+{
+  "version": 1,
+  "id": "cluster_nodes_001",
+  "action": "inspect_machine",
+  "args": {
+    "program": "kubectl",
+    "args": ["get", "nodes", "-o", "wide"],
+    "timeout_seconds": 60
+  }
+}
+```
 
-For a host/server/cluster/runtime operation that ChatGPT genuinely cannot execute through its own tools or Workbench safe hands, write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
+Example direct cluster mutation:
+
+```json
+{
+  "version": 1,
+  "id": "restart_dev_web_001",
+  "action": "run_machine_command",
+  "args": {
+    "program": "kubectl",
+    "args": ["rollout", "restart", "deployment/web", "-n", "example-dev"],
+    "timeout_seconds": 90
+  }
+}
+```
+
+### Direct machine-command safety boundary
+
+Direct machine control is deliberately **not** a generic shell.
+
+- Workbench executes the exact program basename and argv directly; it never evaluates `bash -c`, `sh -c`, PowerShell, pipes, redirects, substitutions, command chains or arbitrary script text.
+- Executables and subcommands are allowlisted.
+- Read-only inspection and mutation are separate actions.
+- Alternate Kubernetes/Docker/systemd host/credential targets, credential-bearing flags, Kubernetes Secret reads, arbitrary scripts, and high-risk primitives such as delete/exec/remove are rejected by the initial policy.
+- Unbounded stream/follow modes are rejected.
+- Secret-like command arguments are rejected and secret-like command output is withheld.
+- If the direct allowlist cannot express an operation, decompose it into safer bounded primitives when possible. Do not silently escalate authority.
+
+## Optional supervised OpenClaw operations lane
+
+`relay/inbox/<id>.json` is an **optional autonomous machine-operations bridge**, not a second coding queue and not the normal route for Kubernetes/systemd/Docker/Helm commands. ChatGPT must not put implementation, GitHub, PR, CI, or GitHub Actions work in this inbox.
+
+Use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed through `inspect_machine` / `run_machine_command` and autonomous operator capacity is intentionally available. Write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
 
 ```json
 {
   "version": 1,
   "id": "cluster_operation_001",
   "project": "runner://infrastructure",
-  "intent": "[workbench:operations] Deploy the already-built DEV image, verify the Kubernetes rollout and report the running image digest. Do not modify source, GitHub, CI or Git state."
+  "intent": "[workbench:operations] Diagnose the remaining runtime issue that cannot be expressed through Workbench's direct machine allowlist. Do not modify source, GitHub, CI or Git state."
 }
 ```
 
 Workbench writes task state/result to `relay/outbox/<id>.json`. The marker is a control instruction between ChatGPT and Workbench; the user should never have to type it. If an outbox remains active for longer than expected, ChatGPT may use the private read-only `get_task` control with the corresponding `workbench_task_id` to inspect durable status/detail without interrupting or cancelling the operation.
 
-Operations-lane guarantees:
+Autonomous-operations guarantees:
 
-- OpenClaw is an **operator only**. ChatGPT remains responsible for code, Git/GitHub, PRs, CI and GitHub Actions.
-- OpenClaw may use shell/systemd/Docker/Kubernetes/Helm and equivalent runtime/host tools needed for the requested operation.
+- OpenClaw is **optional operator capacity only**. ChatGPT remains responsible for code, Git/GitHub, PRs, CI, GitHub Actions, and routine direct machine commands.
+- Running out of OpenClaw/Claude/Codex/Work/model credit does not make direct Workbench machine access unavailable.
+- OpenClaw may use broader machine tools only within the requested operation and existing authority boundary.
 - Repository inspection may be read-only when needed to identify state; OpenClaw must not create commits/branches/PRs, push/merge, trigger CI, or operate GitHub Actions.
 - If an operation reveals that code, infrastructure-as-code, GitHub or CI changes are required, OpenClaw returns that fact to ChatGPT instead of making the change itself.
-- A clean OpenClaw exit is **not** treated as success merely because it stopped talking. It must verify the objective and emit Workbench's completion marker.
-- If OpenClaw returns a progress-only response, Workbench automatically invokes it again against the current host/cluster state. Bounded unresponsive invocations are also re-engaged automatically.
-- Workbench performs up to six supervised continuation passes before reporting a worker failure back to ChatGPT. It does not ask the human to type “continue”.
+- A clean OpenClaw exit is not treated as success merely because it stopped talking. It must verify the objective and emit Workbench's completion marker.
+- Workbench supervises progress-only or stalled operator invocations; it does not ask the human to type “continue”.
 - If OpenClaw changes repository files anyway, those edits stay in an isolated Workbench task workspace and are discarded/rejected.
-- Ordinary login/quota/tool problems are worker failures for ChatGPT/Workbench to handle, not reasons to make the user babysit OpenClaw.
+- Ordinary login/quota/tool problems are worker failures, not reasons to make the user babysit OpenClaw.
 - Only a genuine human decision or ungranted irreversible/destructive/production permission becomes `needs_attention`.
 
-When an operations task finishes or fails, ChatGPT reads its `relay/outbox/<id>.json` report and continues the development/release workflow itself. The user does not copy the result back from OpenClaw.
+When an optional autonomous task finishes or fails, ChatGPT reads its `relay/outbox/<id>.json` report and continues the workflow itself. The user does not copy the result back from OpenClaw.
 
 ## Genuine human attention
 
-If an operations task reaches `needs_attention`, ask the user only the exact decision/permission Workbench needs. Then write `relay/answers/<id>.json`:
+If an autonomous operations task reaches `needs_attention`, ask the user only the exact decision/permission Workbench needs. Then write `relay/answers/<id>.json`:
 
 ```json
 {
@@ -156,6 +202,6 @@ A ChatGPT conversation that can access the user's connected GitHub account can b
 
 A useful one-time global ChatGPT instruction is:
 
-> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Use Workbench safe hands when bounded repository access is useful. Only pass to Workbench/OpenClaw the machine-side work ChatGPT genuinely cannot execute itself, such as shell, systemd, Docker, Kubernetes, Helm, runner repair and deployment/runtime commands. OpenClaw is the operator, never the coder. Workbench must automatically keep OpenClaw moving until the requested operation is verified; never ask me to copy/paste prompts or type “continue”. If the operation discovers that code, GitHub or CI changes are required, return that to ChatGPT to handle.
+> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Use Workbench safe repository hands when bounded repository access is useful. For routine server/cluster work use Workbench's direct structured `inspect_machine` and `run_machine_command` controls so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when the direct allowlist cannot express the remaining machine-side outcome and operator capacity is available. Never ask me to copy/paste prompts or type “continue”.
 
 This bootstrap contains no Workbench bearer token or provider credential.

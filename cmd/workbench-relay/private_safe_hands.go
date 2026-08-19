@@ -10,14 +10,16 @@ import (
 )
 
 // Private relay safe controls let ordinary ChatGPT do the reasoning while
-// Workbench supplies bounded repository eyes/hands and privacy-safe maintenance
-// status. Read-only task diagnostics are included so a lead chat can inspect a
-// long-running supervised operation without asking the human to watch it.
+// Workbench supplies bounded repository eyes/hands, direct structured machine
+// commands, and privacy-safe maintenance status. Read-only task diagnostics are
+// included so a lead chat can inspect a long-running supervised operation
+// without asking the human to watch it.
 // They deliberately exclude delegate_task, cancellation and resolve_attention:
-// autonomous work stays in relay/inbox and human answers stay in relay/answers.
+// autonomous AI work stays in relay/inbox and human answers stay in
+// relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "save_note":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "run_machine_command", "save_note":
 		return true
 	default:
 		return false
@@ -116,6 +118,43 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			return nil, err
 		}
 		return map[string]any{"project": project, "cloned": cloned, "runner_ready": true}, nil
+	}
+
+	if env.Action == "inspect_machine" || env.Action == "run_machine_command" {
+		if env.Project != "" {
+			return nil, errors.New(env.Action + " does not accept a project; it targets the configured Workbench operator host")
+		}
+		var a struct {
+			Program        string   `json:"program"`
+			Args           []string `json:"args,omitempty"`
+			TimeoutSeconds int      `json:"timeout_seconds,omitempty"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		req := core.MachineCommandRequest{
+			Program:        strings.TrimSpace(a.Program),
+			Args:           a.Args,
+			TimeoutSeconds: a.TimeoutSeconds,
+		}
+		var result core.MachineCommandResult
+		var err error
+		if env.Action == "inspect_machine" {
+			result, err = core.InspectMachine(ctx, req)
+		} else {
+			result, err = core.RunMachineCommand(ctx, req)
+		}
+		if err != nil {
+			message := err.Error()
+			if output := strings.TrimSpace(result.Output); output != "" {
+				if len(output) > 16<<10 {
+					output = output[:16<<10] + "\n… error output truncated by Workbench relay …"
+				}
+				message += ": " + output
+			}
+			return nil, errors.New(message)
+		}
+		return map[string]any{"command": result}, nil
 	}
 
 	project, err := resolvePrivateSafeHandsProject(env.Project)

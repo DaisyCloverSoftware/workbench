@@ -10,7 +10,7 @@ import (
 func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 	guide := string(privateChatGuide)
 	for _, want := range []string{
-		"ChatGPT owns the software-development loop",
+		"ChatGPT owns the software-development and routine machine-operations loop",
 		"ChatGPT determines and writes the code",
 		"ChatGPT owns Git and GitHub",
 		"CI runs and GitHub Actions",
@@ -21,13 +21,15 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"read_file",
 		"apply_patch",
 		"run_safe_command",
+		"inspect_machine",
+		"run_machine_command",
+		"no shell or AI worker",
 		"relay/inbox/<id>.json",
-		"machine-operations bridge",
+		"optional autonomous machine-operations bridge",
 		"[workbench:operations]",
-		"supervised OpenClaw operations lane",
+		"Optional supervised OpenClaw operations lane",
 		"human is never the transport layer",
-		"watch OpenClaw and type “continue”",
-		"OpenClaw is an **operator only**",
+		"optional operator capacity",
 		"workbench-relay",
 		"repository search",
 		"WORKBENCH_CAPABILITIES.json",
@@ -41,9 +43,10 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"ordinary autonomous coding",
 		"ordinary development delegation",
 		"coding worker according to its configured routing policy",
+		"OpenClaw is an **operator only**",
 	} {
 		if strings.Contains(strings.ToLower(guide), strings.ToLower(forbidden)) {
-			t.Fatalf("private ChatGPT guide still advertises delegated development: %q", forbidden)
+			t.Fatalf("private ChatGPT guide still advertises obsolete delegated-development/ownership wording: %q", forbidden)
 		}
 	}
 	if core.LooksSecret(guide) {
