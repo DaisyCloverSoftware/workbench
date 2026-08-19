@@ -25,11 +25,13 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		"[workbench:operations]",
 		"github_actions",
 		"inspect_machine",
+		"inspect_machine_batch",
 		"run_machine_command",
 		"run_operations_script",
 		"optional_machine_side_autonomy_fallback",
 		"preferred_write_transport",
 		"no_model_credit_required",
+		"machine_read_batch_policy",
 		"operations_script_policy",
 		"builtin_operations_commit_rule",
 		"builtin_readonly_operations",
@@ -57,6 +59,11 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	}
 	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") || !strings.Contains(manifest.FreshChatBootstrap, "built-in operations") {
 		t.Fatalf("fresh-chat relay bootstrap missing: %q", manifest.FreshChatBootstrap)
+	}
+	for _, want := range []string{"1-8", "sequentially", "exact inspect_machine read-only policy", "does not stop later reads", "no run_machine_command_batch", "one-at-a-time"} {
+		if !strings.Contains(manifest.MachineReadBatchPolicy, want) {
+			t.Fatalf("machine-read batch policy missing %q: %q", want, manifest.MachineReadBatchPolicy)
+		}
 	}
 	for _, want := range []string{"scripts/ops/", "Git-tracked", "detached worktree", "literal argv", "SHA-256"} {
 		if !strings.Contains(manifest.OperationsScriptPolicy, want) {
@@ -113,11 +120,14 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	}
 	for _, want := range []string{
 		"list_projects", "ensure_github_project", "get_task", "list_tasks", "read_file", "apply_patch",
-		"run_safe_command", "inspect_machine", "run_machine_command", "run_operations_script", "search_memory", "save_context", "update_workbench",
+		"run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "search_memory", "save_context", "update_workbench",
 	} {
 		if !containsString(manifest.ControlActions, want) {
 			t.Fatalf("capability manifest missing control action %q", want)
 		}
+	}
+	if containsString(manifest.ControlActions, "run_machine_command_batch") {
+		t.Fatal("capability manifest must not advertise a mutation batch action")
 	}
 	if manifest.ControlRequest != "relay/control/<id>.json" ||
 		manifest.ControlResult != "relay/control-outbox/<id>.json" ||
