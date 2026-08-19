@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.30 — 2026-08-19
+
+- Add a zero-external-model-credit committed operations script path for reviewed multi-step Bash deployment and runbook scripts.
+- Allow only Git-tracked regular .sh files beneath scripts/ops/, executed from a disposable detached worktree at the exact HEAD commit with literal argv rather than bash -c or arbitrary shell source.
+- Return exact Git commit and script SHA-256 evidence, keep dirty checkout edits out of execution, bound runtime/output, reject symlink/untracked/traversal/secret-like input, and expose the action through the private Workbench relay for personal-plan writes.
+
 ## 0.9.29 — 2026-08-19
 
 - Make Workbench transport plan-aware so project chats use the private Git relay as the preferred write/mutation path whenever full custom MCP write actions are unavailable.
