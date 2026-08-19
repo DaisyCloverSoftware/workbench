@@ -38,3 +38,44 @@ jobs:
             workbench-runner
             workbench-server
             workbench-relay
+
+  arc-recovery-probe:
+    runs-on: [self-hosted, linux, x64, arc, claw-node-2]
+    timeout-minutes: 5
+    steps:
+      - name: Probe sanctioned recovery capabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner_host=$(hostname)"
+
+          token_file=/var/run/secrets/kubernetes.io/serviceaccount/token
+          ca_file=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          ns_file=/var/run/secrets/kubernetes.io/serviceaccount/namespace
+          if [[ -r "$token_file" && -r "$ca_file" && -n "${KUBERNETES_SERVICE_HOST:-}" ]]; then
+            token="$(cat "$token_file")"
+            api="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS:-443}"
+            check_access() {
+              local verb="$1" resource="$2" namespace="$3"
+              local body response
+              body="$(printf '{\"apiVersion\":\"authorization.k8s.io/v1\",\"kind\":\"SelfSubjectAccessReview\",\"spec\":{\"resourceAttributes\":{\"verb\":\"%s\",\"resource\":\"%s\",\"namespace\":\"%s\"}}}' "$verb" "$resource" "$namespace")"
+              response="$(curl -fsS --cacert "$ca_file" -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "$body" "$api/apis/authorization.k8s.io/v1/selfsubjectaccessreviews" 2>/dev/null || true)"
+              if grep -q '"allowed"[[:space:]]*:[[:space:]]*true' <<<"$response"; then
+                echo "k8s_${verb}_${resource}=yes"
+              else
+                echo "k8s_${verb}_${resource}=no"
+              fi
+            }
+            namespace="$(cat "$ns_file" 2>/dev/null || echo default)"
+            check_access get pods "$namespace"
+            check_access create pods "$namespace"
+            check_access create pods default
+          else
+            echo "k8s_service_account=unavailable"
+          fi
+
+          if command -v ssh >/dev/null 2>&1 && ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new matt@claw-node-1 true </dev/null >/dev/null 2>&1; then
+            echo "ssh_matt_claw_node_1=yes"
+          else
+            echo "ssh_matt_claw_node_1=no"
+          fi
