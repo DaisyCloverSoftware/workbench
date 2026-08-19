@@ -56,6 +56,7 @@ On the private-relay write path, when a repository already contains a reviewed m
 Workbench's own repository carries reviewed read-only operations that fresh project chats can reuse through `runner://workbench` and an exact advertised Workbench commit:
 
 - `scripts/ops/workbench-health.sh` checks the Workbench runner/server/relay binaries, MCP and relay service state, loopback MCP health and relay checkout cleanliness without reading credentials or restarting anything.
+- `scripts/ops/cluster-health.sh` returns one compact cluster-wide snapshot: Kubernetes node state, only currently abnormal pods, the 20 most recent Warning events, concise ARC runner assignments, named Longhorn node readiness/schedulability, total Longhorn volume count and only attached unhealthy volumes. It never reads Secrets or mutates cluster state.
 - `scripts/ops/namespace-health.sh <namespace>` returns one compact Kubernetes namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs and the 12 most recent Warning events. It validates the namespace as a bounded DNS label, uses only sanctioned read-only Kubernetes calls, and never reads Secrets.
 - Prefer these single reviewed snapshots over a burst of repetitive `inspect_machine` calls when they answer the question. This reduces shared-relay traffic while preserving exact commit and script-hash evidence.
 - Treat warning events as diagnostic history rather than automatic proof of a current outage; compare them with the current deployment/pod state before deciding on a mutation.
