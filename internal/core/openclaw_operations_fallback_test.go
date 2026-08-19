@@ -3,22 +3,37 @@ package core
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
 func TestOpenClawOperationAgentArgsForModelAddsExplicitOverride(t *testing.T) {
 	prompt := "verify cluster health"
-	got := openClawOperationAgentArgsForModel(prompt, "ollama/qwen2.5-coder:7b")
-	want := []string{"agent", "--agent", "main", "--model", "ollama/qwen2.5-coder:7b", "--message", prompt}
+	got := openClawOperationAgentArgsWithSession(prompt, "ollama/qwen2.5-coder:7b", "openclaw-op-test")
+	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--model", "ollama/qwen2.5-coder:7b", "--message", prompt}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("fallback args=%q want %q", got, want)
 	}
 }
 
+func TestOpenClawOperationAgentArgsForModelUsesFreshSession(t *testing.T) {
+	prompt := "verify cluster health"
+	got := openClawOperationAgentArgsForModel(prompt, "ollama/qwen2.5-coder:7b")
+	for i := 0; i+1 < len(got); i++ {
+		if got[i] == "--session-id" {
+			if !strings.HasPrefix(got[i+1], "openclaw-op-") {
+				t.Fatalf("fallback session id=%q", got[i+1])
+			}
+			return
+		}
+	}
+	t.Fatalf("fallback invocation missing explicit isolated session: %q", got)
+}
+
 func TestOpenClawOperationAgentArgsForModelPreservesPrimaryShapeWithoutOverride(t *testing.T) {
 	prompt := "verify cluster health"
-	got := openClawOperationAgentArgsForModel(prompt, "")
-	want := openClawOperationAgentArgs(prompt)
+	got := openClawOperationAgentArgsWithSession(prompt, "", "openclaw-op-test")
+	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--message", prompt}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unoverridden args=%q want %q", got, want)
 	}
