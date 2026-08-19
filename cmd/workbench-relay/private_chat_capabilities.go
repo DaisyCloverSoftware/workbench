@@ -50,6 +50,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"release_orchestration",
 			"bounded_machine_inspection",
 			"bounded_machine_mutation",
+			"committed_operations_script_execution",
 		},
 		OpenClawOwns: []string{
 			"optional_autonomous_machine_investigation",
@@ -70,6 +71,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"run_safe_command",
 			"inspect_machine",
 			"run_machine_command",
+			"run_operations_script",
 			"save_note",
 			"search_memory",
 			"save_memory",
