@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.29 — 2026-08-19
+
+- Make Workbench transport plan-aware so project chats use the private Git relay as the preferred write/mutation path whenever full custom MCP write actions are unavailable.
+- Publish machine-readable preferred write transport, MCP role, zero-external-model-credit and fresh-chat bootstrap metadata in WORKBENCH_CAPABILITIES.json.
+- Update shared integration and ChatGPT skills so Secure MCP Tunnel remains optional for personal-plan writes while full-MCP-capable workspaces can use the same Workbench tools directly.
+
 ## 0.9.28 — 2026-08-19
 
 - Make direct Kubernetes access work on the K3s control host while preserving the existing root-owned kubeconfig boundary.
