@@ -1,8 +1,0 @@
-{
-  "version": "0.9.33",
-  "date": "2026-08-19",
-  "notes": [
-    "Publish machine-readable built-in Workbench, cluster, and namespace health operations in the private relay capability manifest so fresh project chats can discover the right zero-credit diagnostic directly.",
-    "Document run_operations_script and the exact-current-main-commit recipe in the private ChatGPT bootstrap guide, keeping direct Workbench execution primary and OpenClaw optional."
-  ]
-}
