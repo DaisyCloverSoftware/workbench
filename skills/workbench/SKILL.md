@@ -44,8 +44,8 @@ Routine host and cluster work should **not** require OpenClaw or another AI mode
 On the private-relay write path, when a repository already contains a reviewed multi-step Bash deployment/runbook under `scripts/ops/`, use the advertised `run_operations_script` relay control instead of asking the human to paste a Bash block or delegating it to OpenClaw. If a full-MCP connection does not advertise this action, use its structured machine tools instead; never invent a nonexistent MCP tool.
 
 - The relay action is project-scoped and accepts only a canonical Git-tracked regular `.sh` beneath `scripts/ops/`.
-- Workbench resolves the repository's exact HEAD commit, creates a disposable detached worktree at that commit, and runs `bash --noprofile --norc <script> <literal argv...>` from the worktree root. It never accepts `bash -c` or arbitrary shell source as an argument.
-- Dirty edits in the developer checkout cannot affect the executed script.
+- Without `commit`, Workbench resolves the repository's exact local HEAD. When GitHub has a newer reviewed version, pass its full 40-character `commit`; Workbench requires that SHA to be currently advertised by the project's credential-free `github.com` origin branch head, fetches it into a disposable repository, verifies the fetched SHA exactly, and never moves or updates the registered checkout.
+- Workbench creates a detached disposable worktree at the selected commit and runs `bash --noprofile --norc <script> <literal argv...>` from that worktree. It never accepts `bash -c` or arbitrary shell source as an argument. Dirty developer-checkout edits cannot affect execution.
 - Symlink/non-blob/untracked scripts, traversal, secret-like arguments and secret-like output are refused; runtime and output are bounded.
 - The result reports the exact commit and SHA-256 of the script that ran. Preserve those identifiers in deployment evidence when they matter.
 - This is an explicit mutating/open-world operations path. Use it only for an already-reviewed committed operations script whose effect matches the current user authority. Do not use it to bypass a permission boundary.
