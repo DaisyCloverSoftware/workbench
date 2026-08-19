@@ -109,8 +109,9 @@ func validateKubectlMachineCommand(args []string) (bool, error) {
 		"--kubeconfig", "--server", "--token", "--username", "--password",
 		"--client-key", "--client-certificate", "--certificate-authority",
 		"--proxy-url", "--context", "--as", "--as-group", "--raw",
+		"--filename", "-f", "--watch", "-w",
 	) {
-		return false, errors.New("kubectl connection, credential, impersonation or raw-API overrides are not allowed")
+		return false, errors.New("kubectl connection, credential, impersonation, raw-API, filename or watch overrides are not allowed")
 	}
 	if kubectlArgsReferenceSecret(args) {
 		return false, errors.New("kubectl Secret resources are not exposed through direct machine commands")
@@ -118,7 +119,12 @@ func validateKubectlMachineCommand(args []string) (bool, error) {
 
 	verb := strings.ToLower(args[0])
 	switch verb {
-	case "get", "describe", "logs", "top", "version", "cluster-info", "api-resources", "api-versions", "explain", "events", "wait":
+	case "get", "describe", "top", "version", "cluster-info", "api-resources", "api-versions", "explain", "events", "wait":
+		return true, nil
+	case "logs":
+		if machineArgsContainFlag(args, "--follow", "-f") {
+			return false, errors.New("kubectl logs follow mode is not allowed; request a bounded log window")
+		}
 		return true, nil
 	case "config":
 		if len(args) >= 2 && strings.EqualFold(args[1], "current-context") {
@@ -197,7 +203,7 @@ func validateSystemctlMachineCommand(args []string) (bool, error) {
 		return false, errors.New("systemctl command is required")
 	}
 	switch strings.ToLower(args[idx]) {
-	case "status", "show", "is-active", "is-enabled", "is-failed", "list-units", "list-unit-files", "cat", "get-default":
+	case "status", "is-active", "is-enabled", "is-failed", "list-units", "list-unit-files", "get-default":
 		return true, nil
 	case "restart", "start", "stop", "reload", "try-restart", "enable", "disable", "daemon-reload", "reset-failed":
 		return false, nil
@@ -213,10 +219,8 @@ func validateJournalctlMachineCommand(args []string) (bool, error) {
 	) {
 		return false, errors.New("journalctl mutation or alternate-root/file access is not allowed")
 	}
-	for _, arg := range args {
-		if arg == "-f" || arg == "--follow" {
-			return false, errors.New("journalctl follow mode is not allowed; request a bounded log window instead")
-		}
+	if machineArgsContainFlag(args, "-f", "--follow") {
+		return false, errors.New("journalctl follow mode is not allowed; request a bounded log window instead")
 	}
 	return true, nil
 }
@@ -229,7 +233,12 @@ func validateDockerMachineCommand(args []string) (bool, error) {
 		return false, errors.New("docker host/context/TLS overrides are not allowed")
 	}
 	switch strings.ToLower(args[0]) {
-	case "ps", "logs", "images", "info", "version":
+	case "ps", "images", "info", "version":
+		return true, nil
+	case "logs":
+		if machineArgsContainFlag(args, "--follow", "-f") {
+			return false, errors.New("docker logs follow mode is not allowed; request a bounded log window")
+		}
 		return true, nil
 	case "stats":
 		if !machineArgsContainFlag(args, "--no-stream") {
@@ -248,7 +257,12 @@ func validateDockerMachineCommand(args []string) (bool, error) {
 			return false, errors.New("docker compose subcommand is required")
 		}
 		switch strings.ToLower(args[1]) {
-		case "ps", "logs", "images":
+		case "ps", "images":
+			return true, nil
+		case "logs":
+			if machineArgsContainFlag(args[2:], "--follow", "-f") {
+				return false, errors.New("docker compose logs follow mode is not allowed; request a bounded log window")
+			}
 			return true, nil
 		case "up", "restart", "start", "stop", "pull":
 			return false, nil
@@ -268,7 +282,12 @@ func validateCrictlMachineCommand(args []string) (bool, error) {
 		return false, errors.New("crictl endpoint/config/credential overrides are not allowed")
 	}
 	switch strings.ToLower(args[0]) {
-	case "ps", "pods", "images", "logs", "stats", "info", "version":
+	case "ps", "pods", "images", "stats", "info", "version":
+		return true, nil
+	case "logs":
+		if machineArgsContainFlag(args, "--follow", "-f") {
+			return false, errors.New("crictl logs follow mode is not allowed; request a bounded log window")
+		}
 		return true, nil
 	default:
 		return false, errors.New("crictl command is not allowlisted for direct execution")
@@ -303,6 +322,12 @@ func machineArgsContainFlag(args []string, flags ...string) bool {
 			if low == f || strings.HasPrefix(low, f+"=") {
 				return true
 			}
+			// Several CLIs accept a short option with its value attached, e.g.
+			// docker -Htcp://host or systemctl -Hhost. Treat those exactly like
+			// the separate-argv form when the short flag itself is blocked.
+			if len(f) == 2 && strings.HasPrefix(f, "-") && !strings.HasPrefix(f, "--") && strings.HasPrefix(low, f) && len(low) > len(f) {
+				return true
+			}
 		}
 	}
 	return false
@@ -310,9 +335,17 @@ func machineArgsContainFlag(args []string, flags ...string) bool {
 
 func kubectlArgsReferenceSecret(args []string) bool {
 	for _, arg := range args {
-		low := strings.ToLower(strings.TrimSpace(arg))
-		if low == "secret" || low == "secrets" || strings.HasPrefix(low, "secret/") || strings.HasPrefix(low, "secrets/") {
-			return true
+		for _, token := range strings.Split(strings.ToLower(strings.TrimSpace(arg)), ",") {
+			resource := token
+			if slash := strings.Index(resource, "/"); slash >= 0 {
+				resource = resource[:slash]
+			}
+			if dot := strings.Index(resource, "."); dot >= 0 {
+				resource = resource[:dot]
+			}
+			if resource == "secret" || resource == "secrets" {
+				return true
+			}
 		}
 	}
 	return false
