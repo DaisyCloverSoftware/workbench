@@ -1,6 +1,6 @@
 {
   "name": "workbench",
-  "version": "0.9.31",
+  "version": "0.9.32",
   "description": "Shared ChatGPT execution bridge: bounded repository hands plus supervised machine-side operations.",
   "author": {
     "name": "DaisyCloverSoftware"

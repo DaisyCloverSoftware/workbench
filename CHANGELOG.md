@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.32 — 2026-08-19
+
+- Allow reviewed scripts/ops/*.sh operations to target an exact full commit currently advertised by the registered project's credential-free github.com origin without moving or updating the long-lived checkout.
+- Fetch exact origin commits into disposable Git state, execute from a detached worktree with literal argv only, and preserve commit plus script SHA-256 evidence while retaining existing secret, path and symlink boundaries.
+
 ## 0.9.31 — 2026-08-19
 
 - Combine zero-credit committed operations-script execution with private-relay fault isolation for concurrent ChatGPT project use.
