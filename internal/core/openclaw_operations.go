@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -15,6 +17,7 @@ const (
 	operationInvocationTimeout      = 10 * time.Minute
 	maxOperationContinuationReport = 4000
 	defaultOpenClawOperationsAgent = "main"
+	openClawOperationArchiveTimeout = 15 * time.Second
 )
 
 // RunOpenClawOperationSupervised is the missing "keep going" loop. A clean
@@ -22,6 +25,12 @@ const (
 // explicitly verified the requested operational outcome. Progress-only exits
 // and bounded unresponsive invocations are re-engaged automatically against the
 // same real host/cluster state instead of making the human type "continue".
+//
+// Every durable Workbench task owns one explicit OpenClaw conversation. All
+// continuation passes and model failover attempts for that task reuse the same
+// session, while a different task receives a different session. This preserves
+// useful per-job context without inheriting stale bindings from OpenClaw's
+// long-lived interactive main conversation.
 func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
 	if p.ID != "openclaw" {
 		return RunResult{}, errors.New("operations lane requires OpenClaw")
@@ -47,6 +56,7 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 			return boundRunResultForPersistence(res), runErr
 		}
 		if complete {
+			archiveOpenClawOperationSessionBestEffort(p, task, prefs)
 			return boundRunResultForPersistence(res), nil
 		}
 		previous = operationContinuationReport(res.Output)
@@ -81,7 +91,7 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	}
 	if pass > 1 {
 		b.WriteString(fmt.Sprintf("\nWorkbench supervisor continuation pass %d of %d:\n", pass, maxOperationContinuationPasses))
-		b.WriteString("Your previous invocation ended without the verified-completion marker or became unresponsive. Reinspect the current host/cluster/runtime state, preserve operational work already done, and continue the same objective. Do not return another progress-only answer.\n")
+		b.WriteString("Your previous invocation ended without the verified-completion marker or became unresponsive. Reinspect the current host/cluster/runtime state, preserve operational work already done, and continue the same objective in this same Workbench job conversation. Do not return another progress-only answer.\n")
 		if previous = strings.TrimSpace(previous); previous != "" {
 			b.WriteString("Previous non-secret report (context only; verify actual state yourself):\n")
 			b.WriteString(previous)
@@ -91,31 +101,29 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	return b.String()
 }
 
-// newOpenClawOperationSessionID deliberately keeps Workbench operations away
-// from OpenClaw's long-lived agent main session. A fresh explicit session per
-// invocation prevents stale/retired provider bindings on an interactive session
-// from bricking unattended machine operations. Workbench already carries the
-// bounded continuation report between invocations, so no hidden chat-session
-// continuity is required for correctness.
-func newOpenClawOperationSessionID() string {
-	return newID("openclaw-op")
-}
-
-// openClawOperationAgentArgs follows OpenClaw's scripted `agent` command. The
-// command is already non-interactive, but current OpenClaw requires an explicit
-// target. Workbench targets the canonical main agent while also supplying a
-// fresh explicit session id so operations never inherit the agent's long-lived
-// interactive main-session bindings.
-func openClawOperationAgentArgs(prompt string) []string {
-	return openClawOperationAgentArgsWithSession(prompt, "", newOpenClawOperationSessionID())
-}
-
-func openClawOperationAgentArgsWithSession(prompt, model, sessionID string) []string {
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		sessionID = newOpenClawOperationSessionID()
+// openClawOperationSessionID is deterministic for one durable Workbench task
+// and deliberately opaque. Automatic retries, attention resumes and supervisor
+// continuation passes therefore reconnect to the same OpenClaw conversation;
+// a different Workbench task gets a different conversation.
+func openClawOperationSessionID(task Task) string {
+	identity := strings.TrimSpace(task.ID)
+	if identity == "" {
+		identity = strings.TrimSpace(task.ProjectPath) + "\x00" + strings.TrimSpace(OperationsTaskIntent(task))
 	}
-	args := []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--session-id", sessionID}
+	sum := sha256.Sum256([]byte(identity))
+	return "workbench-op-" + hex.EncodeToString(sum[:12])
+}
+
+func openClawOperationSessionKey(task Task) string {
+	return "agent:" + defaultOpenClawOperationsAgent + ":explicit:" + openClawOperationSessionID(task)
+}
+
+func openClawOperationAgentArgs(task Task, prompt string) []string {
+	return openClawOperationAgentArgsForModel(task, prompt, "")
+}
+
+func openClawOperationAgentArgsForModel(task Task, prompt, model string) []string {
+	args := []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--session-id", openClawOperationSessionID(task)}
 	if model = strings.TrimSpace(model); model != "" {
 		args = append(args, "--model", model)
 	}
@@ -132,10 +140,10 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	if remote {
 		name = "ssh"
 		args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw"}
-		args = append(args, openClawOperationAgentArgs(prompt)...)
+		args = append(args, openClawOperationAgentArgs(task, prompt)...)
 	} else if strings.TrimSpace(p.Command) != "" {
 		name = p.Command
-		args = openClawOperationAgentArgs(prompt)
+		args = openClawOperationAgentArgs(task, prompt)
 	} else {
 		return RunResult{Retryable: true}, false, errors.New("OpenClaw operations adapter is not configured")
 	}
@@ -194,6 +202,24 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 		return boundRunResultForPersistence(res), false, fmt.Errorf("OpenClaw operations invocation exited with error: %w", runErr)
 	}
 	return boundRunResultForPersistence(res), complete, nil
+}
+
+func archiveOpenClawOperationSessionBestEffort(p Provider, task Task, prefs Preferences) {
+	ctx, cancel := context.WithTimeout(context.Background(), openClawOperationArchiveTimeout)
+	defer cancel()
+	key := openClawOperationSessionKey(task)
+	remote := strings.TrimSpace(prefs.OpenClawSSHHost) != ""
+	var cmd *exec.Cmd
+	if remote {
+		cmd = exec.CommandContext(ctx, "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw", "sessions", "archive", key)
+	} else if strings.TrimSpace(p.Command) != "" {
+		cmd = exec.CommandContext(ctx, p.Command, "sessions", "archive", key)
+		cmd.Env = environmentForUserExecutable(p.Command)
+	} else {
+		return
+	}
+	configureChildProcess(cmd, false)
+	_ = cmd.Run()
 }
 
 func operationInvocationCanBeReengaged(res RunResult, err error) bool {
