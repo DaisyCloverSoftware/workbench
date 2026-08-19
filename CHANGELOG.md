@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.31 — 2026-08-19
+
+- Combine zero-credit committed operations-script execution with private-relay fault isolation for concurrent ChatGPT project use.
+- Publish private control results one request at a time, prioritize and acknowledge Workbench maintenance before restart, bound each poll, and convert oversized individual results into isolated failed outboxes instead of wedging other conversations.
+- Increase self-update restart grace to 30 seconds so the acknowledgement can be pushed under Git contention before the private relay restarts.
+
 ## 0.9.30 — 2026-08-19
 
 - Add a zero-external-model-credit committed operations script path for reviewed multi-step Bash deployment and runbook scripts.
