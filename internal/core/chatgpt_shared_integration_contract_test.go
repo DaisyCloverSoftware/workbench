@@ -13,7 +13,7 @@ import (
 const testChatGPTAppID = "plugin_asdk_app_0123456789abcdef0123456789abcdef"
 
 func TestOpenAITunnelInstallerUsesPublishedReleaseAssetsAndSecretReferences(t *testing.T) {
-	text := installerScript(t, "install-openai-tunnel.sh")
+	text := strings.ReplaceAll(installerScript(t, "install-openai-tunnel.sh"), "\r\n", "\n")
 	for _, want := range []string{
 		"api.github.com/repos/openai/tunnel-client/releases/latest",
 		"persistent.oaistatic.com/tunnel-client/$tag",
