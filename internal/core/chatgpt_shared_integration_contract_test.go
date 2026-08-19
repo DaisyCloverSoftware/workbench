@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+const testChatGPTAppID = "plugin_asdk_app_0123456789abcdef0123456789abcdef"
+
 func TestOpenAITunnelInstallerUsesProfileAndSecretReferences(t *testing.T) {
 	text := installerScript(t, "install-openai-tunnel.sh")
 	for _, want := range []string{
@@ -41,18 +43,60 @@ func TestChatGPTPluginPackagingScriptCreatesLocalBinding(t *testing.T) {
 	repo := filepath.Clean(filepath.Join(wd, "..", ".."))
 	script := filepath.Join(repo, "scripts", "package-chatgpt-plugin.sh")
 	home := t.TempDir()
-	cmd := exec.Command("bash", script, "plugin_asdk_app_0123456789abcdef0123456789abcdef")
+	cmd := exec.Command("bash", script, testChatGPTAppID)
 	cmd.Env = append(os.Environ(), "HOME="+home)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("package script failed: %v\n%s", err, out)
 	}
 	plugin := filepath.Join(home, ".codex", "plugins", "workbench")
+	assertGeneratedChatGPTPlugin(t, plugin)
+	market, err := os.ReadFile(filepath.Join(home, ".agents", "plugins", "marketplace.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(market), "\"path\": \"./.codex/plugins/workbench\"") {
+		t.Fatalf("personal marketplace missing Workbench entry: %s", market)
+	}
+}
+
+func TestChatGPTPluginPowerShellPackagingCreatesLocalBinding(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows PowerShell packaging smoke")
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := filepath.Clean(filepath.Join(wd, "..", ".."))
+	script := filepath.Join(repo, "scripts", "package-chatgpt-plugin.ps1")
+	plugin := filepath.Join(t.TempDir(), "workbench")
+	market := filepath.Join(t.TempDir(), "marketplace.json")
+	cmd := exec.Command(
+		"powershell.exe",
+		"-NoLogo",
+		"-NoProfile",
+		"-NonInteractive",
+		"-ExecutionPolicy", "Bypass",
+		"-File", script,
+		"-AppId", testChatGPTAppID,
+		"-Destination", plugin,
+		"-Marketplace", market,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("PowerShell package script failed: %v\n%s", err, out)
+	}
+	assertGeneratedChatGPTPlugin(t, plugin)
+}
+
+func assertGeneratedChatGPTPlugin(t *testing.T, plugin string) {
+	t.Helper()
 	app, err := os.ReadFile(filepath.Join(plugin, ".app.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(app), "plugin_asdk_app_0123456789abcdef0123456789abcdef") {
+	if !strings.Contains(string(app), testChatGPTAppID) {
 		t.Fatalf("generated app binding missing technical id: %s", app)
 	}
 	manifest, err := os.ReadFile(filepath.Join(plugin, ".codex-plugin", "plugin.json"))
@@ -61,13 +105,6 @@ func TestChatGPTPluginPackagingScriptCreatesLocalBinding(t *testing.T) {
 	}
 	if !strings.Contains(string(manifest), "\"apps\": \"./.app.json\"") {
 		t.Fatalf("generated manifest does not bind .app.json: %s", manifest)
-	}
-	market, err := os.ReadFile(filepath.Join(home, ".agents", "plugins", "marketplace.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(market), "\"path\": \"./.codex/plugins/workbench\"") {
-		t.Fatalf("personal marketplace missing Workbench entry: %s", market)
 	}
 }
 
