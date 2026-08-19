@@ -27,6 +27,9 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		"inspect_machine",
 		"run_machine_command",
 		"optional_machine_side_autonomy_fallback",
+		"preferred_write_transport",
+		"no_model_credit_required",
+		"workbench-relay",
 	} {
 		if !strings.Contains(string(b), literal) {
 			t.Fatalf("capability manifest should keep protocol ownership/path markers human-readable: missing %q in %s", literal, b)
@@ -38,6 +41,15 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	}
 	if manifest.Protocol != 1 || manifest.WorkbenchVersion != relayVersion || manifest.Transport != "private-git-relay" || manifest.PrimaryBrain != "chatgpt" {
 		t.Fatalf("unexpected private relay manifest identity: %+v", manifest)
+	}
+	if manifest.PreferredWriteTransport != "private-git-relay" || !manifest.NoModelCreditRequired {
+		t.Fatalf("personal-plan write transport/model-credit contract missing: %+v", manifest)
+	}
+	if !strings.Contains(manifest.MCPRole, "read_fetch_on_personal_plans") || !strings.Contains(manifest.MCPRole, "full_mcp") {
+		t.Fatalf("MCP plan-role contract missing: %q", manifest.MCPRole)
+	}
+	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") {
+		t.Fatalf("fresh-chat relay bootstrap missing: %q", manifest.FreshChatBootstrap)
 	}
 	for _, want := range []string{
 		"source_code", "git", "github", "pull_requests", "ci", "github_actions",
