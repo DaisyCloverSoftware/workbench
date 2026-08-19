@@ -80,9 +80,10 @@ func TestOpenClawOperationRestoresSiblingNodeToServicePATH(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	project := t.TempDir()
 	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: openclaw, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
-	task := Task{Mode: TaskModeOperations, ProjectPath: project, Intent: "Verify service execution"}
+	task := Task{ID: "task-service-path", Mode: TaskModeOperations, ProjectPath: project, Intent: "Verify service execution"}
+	sessionID := openClawOperationSessionID(task)
 
-	res, complete, err := runOpenClawOperationInvocation(context.Background(), provider, task, Preferences{}, "verify")
+	res, complete, err := runOpenClawOperationInvocation(context.Background(), provider, task, Preferences{}, "verify", sessionID)
 	if err != nil {
 		t.Fatalf("OpenClaw operation failed with service-like PATH: %v; output=%q", err, res.Output)
 	}
