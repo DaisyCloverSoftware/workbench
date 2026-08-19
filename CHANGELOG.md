@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.33 — 2026-08-19
+
+- Publish machine-readable built-in Workbench, cluster, and namespace health operations in the private relay capability manifest so fresh project chats can discover the right zero-credit diagnostic directly.
+- Document run_operations_script and the exact-current-main-commit recipe in the private ChatGPT bootstrap guide, keeping direct Workbench execution primary and OpenClaw optional.
+
 ## 0.9.32 — 2026-08-19
 
 - Allow reviewed scripts/ops/*.sh operations to target an exact full commit currently advertised by the registered project's credential-free github.com origin without moving or updating the long-lived checkout.
