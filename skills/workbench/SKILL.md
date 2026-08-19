@@ -9,7 +9,7 @@ Workbench is the shared execution bridge for ordinary ChatGPT project chats. Cha
 
 ## Choose the transport, not a different execution model
 
-- If the current ChatGPT workspace exposes Workbench's full custom MCP write actions, use the direct Workbench app/MCP tools.
+- If the current ChatGPT workspace exposes Workbench's full custom MCP write actions, use the direct Workbench app/MCP tools that are actually advertised by that connection.
 - If full custom MCP writes are unavailable, use the private Workbench Git relay as the **primary write/mutation transport**. With connected GitHub, locate the user's private repository whose name contains `workbench-relay`, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md`, then use `relay/control`.
 - The relay and MCP paths represent the same Workbench authority model. Do not treat the relay as an AI-worker handoff.
 - Never make the human upgrade a plan, paste terminal commands, or open OpenClaw merely because one ChatGPT transport cannot expose writes.
@@ -41,9 +41,9 @@ Routine host and cluster work should **not** require OpenClaw or another AI mode
 
 ## Committed operations scripts
 
-When a repository already contains a reviewed multi-step Bash deployment/runbook under `scripts/ops/`, prefer `run_operations_script` over asking the human to paste a Bash block or delegating it to OpenClaw.
+On the private-relay write path, when a repository already contains a reviewed multi-step Bash deployment/runbook under `scripts/ops/`, use the advertised `run_operations_script` relay control instead of asking the human to paste a Bash block or delegating it to OpenClaw. If a full-MCP connection does not advertise this action, use its structured machine tools instead; never invent a nonexistent MCP tool.
 
-- The action is project-scoped and accepts only a canonical Git-tracked regular `.sh` beneath `scripts/ops/`.
+- The relay action is project-scoped and accepts only a canonical Git-tracked regular `.sh` beneath `scripts/ops/`.
 - Workbench resolves the repository's exact HEAD commit, creates a disposable detached worktree at that commit, and runs `bash --noprofile --norc <script> <literal argv...>` from the worktree root. It never accepts `bash -c` or arbitrary shell source as an argument.
 - Dirty edits in the developer checkout cannot affect the executed script.
 - Symlink/non-blob/untracked scripts, traversal, secret-like arguments and secret-like output are refused; runtime and output are bounded.
@@ -72,4 +72,4 @@ Never request raw Workbench vault values. Treat `vault://...` references as sens
 
 ## North-star experience
 
-A project chat should be able to receive an intent, use the Workbench transport available to that plan, perform safe repository work, direct machine operations and reviewed committed operations scripts, and return either a verified result or one genuine human decision request. Running out of external AI-worker credit or lacking full-MCP write support must not stop ordinary Workbench development or cluster operations.
+A project chat should be able to receive an intent, use the Workbench transport available to that plan, perform safe repository work, direct machine operations and reviewed committed operations scripts where the selected transport exposes them, and return either a verified result or one genuine human decision request. Running out of external AI-worker credit or lacking full-MCP write support must not stop ordinary Workbench development or cluster operations.
