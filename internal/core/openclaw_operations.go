@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	operationCompletePrefix        = "WORKBENCH_OPERATION_COMPLETE:"
-	maxOperationContinuationPasses = 6
-	operationInvocationTimeout      = 10 * time.Minute
-	maxOperationContinuationReport = 4000
-	defaultOpenClawOperationsAgent = "main"
+	operationCompletePrefix         = "WORKBENCH_OPERATION_COMPLETE:"
+	maxOperationContinuationPasses  = 6
+	operationInvocationTimeout       = 10 * time.Minute
+	maxOperationContinuationReport  = 4000
+	defaultOpenClawOperationsAgent  = "main"
 	openClawOperationArchiveTimeout = 15 * time.Second
 )
 
@@ -35,13 +35,14 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 	if p.ID != "openclaw" {
 		return RunResult{}, errors.New("operations lane requires OpenClaw")
 	}
+	sessionID := openClawOperationSessionID(task)
 	previous := ""
 	for pass := 1; pass <= maxOperationContinuationPasses; pass++ {
 		if err := ctx.Err(); err != nil {
 			return RunResult{}, err
 		}
 		prompt := BuildOpenClawOperationPrompt(task, pass, previous)
-		res, complete, runErr := runOpenClawOperationInvocationWithFallback(ctx, p, task, prefs, prompt)
+		res, complete, runErr := runOpenClawOperationInvocationWithFallback(ctx, p, task, prefs, prompt, sessionID)
 		if strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != "" {
 			return boundRunResultForPersistence(res), runErr
 		}
@@ -56,7 +57,7 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 			return boundRunResultForPersistence(res), runErr
 		}
 		if complete {
-			archiveOpenClawOperationSessionBestEffort(p, task, prefs)
+			archiveOpenClawOperationSessionBestEffort(p, task, prefs, sessionID)
 			return boundRunResultForPersistence(res), nil
 		}
 		previous = operationContinuationReport(res.Output)
@@ -114,25 +115,40 @@ func openClawOperationSessionID(task Task) string {
 	return "workbench-op-" + hex.EncodeToString(sum[:12])
 }
 
+func openClawOperationSessionKeyForID(sessionID string) string {
+	return "agent:" + defaultOpenClawOperationsAgent + ":explicit:" + strings.TrimSpace(sessionID)
+}
+
 func openClawOperationSessionKey(task Task) string {
-	return "agent:" + defaultOpenClawOperationsAgent + ":explicit:" + openClawOperationSessionID(task)
+	return openClawOperationSessionKeyForID(openClawOperationSessionID(task))
 }
 
 func openClawOperationAgentArgs(task Task, prompt string) []string {
-	return openClawOperationAgentArgsForModel(task, prompt, "")
+	return openClawOperationAgentArgsWithSession(prompt, "", openClawOperationSessionID(task))
 }
 
 func openClawOperationAgentArgsForModel(task Task, prompt, model string) []string {
-	args := []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--session-id", openClawOperationSessionID(task)}
+	return openClawOperationAgentArgsWithSession(prompt, model, openClawOperationSessionID(task))
+}
+
+func openClawOperationAgentArgsWithSession(prompt, model, sessionID string) []string {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return nil
+	}
+	args := []string{"agent", "--agent", defaultOpenClawOperationsAgent, "--session-id", sessionID}
 	if model = strings.TrimSpace(model); model != "" {
 		args = append(args, "--model", model)
 	}
 	return append(args, "--message", prompt)
 }
 
-func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, prefs Preferences, prompt string) (RunResult, bool, error) {
+func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, sessionID string) (RunResult, bool, error) {
 	invokeCtx, cancel := context.WithTimeout(ctx, operationInvocationTimeout)
 	defer cancel()
+	if strings.TrimSpace(sessionID) == "" || sessionID != openClawOperationSessionID(task) {
+		return RunResult{}, false, errors.New("OpenClaw operations session identity mismatch")
+	}
 
 	var name string
 	var args []string
@@ -140,10 +156,10 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	if remote {
 		name = "ssh"
 		args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw"}
-		args = append(args, openClawOperationAgentArgs(task, prompt)...)
+		args = append(args, openClawOperationAgentArgsWithSession(prompt, "", sessionID)...)
 	} else if strings.TrimSpace(p.Command) != "" {
 		name = p.Command
-		args = openClawOperationAgentArgs(task, prompt)
+		args = openClawOperationAgentArgsWithSession(prompt, "", sessionID)
 	} else {
 		return RunResult{Retryable: true}, false, errors.New("OpenClaw operations adapter is not configured")
 	}
@@ -195,7 +211,7 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 		}
 		low := strings.ToLower(out + " " + runErr.Error())
 		res.Authentication = strings.Contains(low, "login") || strings.Contains(low, "sign in") || strings.Contains(low, "authenticate") || strings.Contains(low, "unauthorized") || strings.Contains(low, "credential") || strings.Contains(low, "publickey") || strings.Contains(low, "permission denied")
-		res.Retryable = res.Authentication || strings.Contains(low, "not found") || strings.Contains(low, "unknown option") || strings.Contains(low, "rate limit") || strings.Contains(low, "quota") || strings.Contains(low, "timeout") || strings.Contains(low, "binding generation was retired")
+		res.Retryable = res.Authentication || strings.Contains(low, "not found") || strings.Contains(low, "unknown option") || strings.Contains(low, "rate limit") || strings.Contains(low, "quota") || strings.Contains(low, "timeout")
 		if strings.TrimSpace(res.Output) == "" {
 			res.Output = runErr.Error()
 		}
@@ -204,10 +220,13 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	return boundRunResultForPersistence(res), complete, nil
 }
 
-func archiveOpenClawOperationSessionBestEffort(p Provider, task Task, prefs Preferences) {
+func archiveOpenClawOperationSessionBestEffort(p Provider, task Task, prefs Preferences, sessionID string) {
+	if strings.TrimSpace(sessionID) == "" || sessionID != openClawOperationSessionID(task) {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), openClawOperationArchiveTimeout)
 	defer cancel()
-	key := openClawOperationSessionKey(task)
+	key := openClawOperationSessionKeyForID(sessionID)
 	remote := strings.TrimSpace(prefs.OpenClawSSHHost) != ""
 	var cmd *exec.Cmd
 	if remote {
@@ -227,7 +246,7 @@ func operationInvocationCanBeReengaged(res RunResult, err error) bool {
 		return false
 	}
 	low := strings.ToLower(err.Error() + " " + res.Output)
-	return strings.Contains(low, "timed out") || strings.Contains(low, "timeout") || strings.Contains(low, "unresponsive") || strings.Contains(low, "binding generation was retired")
+	return strings.Contains(low, "timed out") || strings.Contains(low, "timeout") || strings.Contains(low, "unresponsive")
 }
 
 func stripOperationCompletionMarker(out string) (string, bool) {
