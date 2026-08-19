@@ -51,6 +51,15 @@ On the private-relay write path, when a repository already contains a reviewed m
 - This is an explicit mutating/open-world operations path. Use it only for an already-reviewed committed operations script whose effect matches the current user authority. Do not use it to bypass a permission boundary.
 - If no reviewed committed script exists, prefer direct `inspect_machine` / `run_machine_command` primitives rather than inventing and immediately executing arbitrary shell text.
 
+### Built-in read-only health operations
+
+Workbench's own repository carries reviewed read-only operations that fresh project chats can reuse through `runner://workbench` and an exact advertised Workbench commit:
+
+- `scripts/ops/workbench-health.sh` checks the Workbench runner/server/relay binaries, MCP and relay service state, loopback MCP health and relay checkout cleanliness without reading credentials or restarting anything.
+- `scripts/ops/namespace-health.sh <namespace>` returns one compact Kubernetes namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs and the 12 most recent Warning events. It validates the namespace as a bounded DNS label, uses only sanctioned read-only Kubernetes calls, and never reads Secrets.
+- Prefer these single reviewed snapshots over a burst of repetitive `inspect_machine` calls when they answer the question. This reduces shared-relay traffic while preserving exact commit and script-hash evidence.
+- Treat warning events as diagnostic history rather than automatic proof of a current outage; compare them with the current deployment/pod state before deciding on a mutation.
+
 ## Optional autonomous operator fallback
 
 Use `delegate_operation` / `relay/inbox` only when the remaining machine-side outcome cannot reasonably be expressed through direct Workbench commands or a reviewed committed operations script **and** external autonomous operator capacity is intentionally available.
