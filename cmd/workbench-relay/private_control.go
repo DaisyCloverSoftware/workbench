@@ -65,6 +65,11 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 	if err != nil {
 		return err
 	}
+	outboxPaths, err := relayPaths(repo, ref, "relay/control-outbox")
+	if err != nil {
+		return err
+	}
+	paths = pendingPrivateControlPaths(paths, outboxPaths)
 
 	metadata := map[string][]byte{}
 	if current, readErr := readRefFile(repo, ref, privateChatGuidePath, 128<<10); readErr != nil || !bytes.Equal(current, privateChatGuide) {
@@ -85,10 +90,6 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 	for _, controlPath := range paths {
 		id := strings.TrimSuffix(filepath.Base(controlPath), ".json")
 		if !validRelayID(id) {
-			continue
-		}
-		outPath := "relay/control-outbox/" + id + ".json"
-		if refFileExists(repo, ref, outPath) {
 			continue
 		}
 
@@ -128,6 +129,29 @@ func syncPrivateControl(ctx context.Context, repo, remote, branch, ref, mcpURL, 
 		}
 	}
 	return nil
+}
+
+func pendingPrivateControlPaths(controlPaths, outboxPaths []string) []string {
+	completed := make(map[string]struct{}, len(outboxPaths))
+	for _, outboxPath := range outboxPaths {
+		id := strings.TrimSuffix(filepath.Base(outboxPath), ".json")
+		if validRelayID(id) {
+			completed[id] = struct{}{}
+		}
+	}
+
+	pending := make([]string, 0, len(controlPaths))
+	for _, controlPath := range controlPaths {
+		id := strings.TrimSuffix(filepath.Base(controlPath), ".json")
+		if !validRelayID(id) {
+			continue
+		}
+		if _, done := completed[id]; done {
+			continue
+		}
+		pending = append(pending, controlPath)
+	}
+	return pending
 }
 
 func executePrivateControlCandidate(ctx context.Context, candidate privateControlCandidate, repo, mcpURL, authFile string) privateControlOutbox {
@@ -367,10 +391,6 @@ func marshalPrivateControlOutbox(out privateControlOutbox) ([]byte, error) {
 		return nil, errors.New("private control failure envelope unexpectedly exceeds 256 KiB")
 	}
 	return append(b, '\n'), nil
-}
-
-func refFileExists(repo, ref, path string) bool {
-	return exec.Command("git", "-C", repo, "cat-file", "-e", ref+":"+path).Run() == nil
 }
 
 func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string, files map[string][]byte) error {
