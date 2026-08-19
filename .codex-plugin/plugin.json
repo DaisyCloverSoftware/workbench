@@ -1,6 +1,23 @@
 {
   "name": "workbench",
   "version": "0.9.25",
-  "description": "ChatGPT-owned development bridge: bounded repository hands plus supervised OpenClaw machine operations.",
-  "skills": "./skills/"
+  "description": "Shared ChatGPT execution bridge: bounded repository hands plus supervised machine-side operations.",
+  "author": {
+    "name": "DaisyCloverSoftware"
+  },
+  "repository": "https://github.com/DaisyCloverSoftware/workbench",
+  "license": "MIT",
+  "keywords": ["developer-tools", "mcp", "chatgpt", "operations"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Workbench",
+    "shortDescription": "Shared repository and machine-side execution bridge",
+    "longDescription": "Use ChatGPT as the developer while Workbench supplies bounded repository access and supervised host, cluster, deployment, and runtime operations.",
+    "developerName": "DaisyCloverSoftware",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Use Workbench to continue this project and handle any required machine-side work."
+    ]
+  }
 }
