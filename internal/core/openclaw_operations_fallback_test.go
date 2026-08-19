@@ -3,39 +3,47 @@ package core
 import (
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 )
 
-func TestOpenClawOperationAgentArgsForModelAddsExplicitOverride(t *testing.T) {
+func TestOpenClawOperationAgentArgsForModelAddsExplicitOverrideInSameJobSession(t *testing.T) {
+	task := Task{ID: "task-operation-001"}
 	prompt := "verify cluster health"
-	got := openClawOperationAgentArgsWithSession(prompt, "ollama/qwen2.5-coder:7b", "openclaw-op-test")
-	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--model", "ollama/qwen2.5-coder:7b", "--message", prompt}
+	sessionID := openClawOperationSessionID(task)
+	got := openClawOperationAgentArgsForModel(task, prompt, "anthropic/claude-sonnet")
+	want := []string{"agent", "--agent", "main", "--session-id", sessionID, "--model", "anthropic/claude-sonnet", "--message", prompt}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("fallback args=%q want %q", got, want)
 	}
-}
-
-func TestOpenClawOperationAgentArgsForModelUsesFreshSession(t *testing.T) {
-	prompt := "verify cluster health"
-	got := openClawOperationAgentArgsForModel(prompt, "ollama/qwen2.5-coder:7b")
-	for i := 0; i+1 < len(got); i++ {
-		if got[i] == "--session-id" {
-			if !strings.HasPrefix(got[i+1], "openclaw-op-") {
-				t.Fatalf("fallback session id=%q", got[i+1])
-			}
-			return
-		}
+	primary := openClawOperationAgentArgs(task, prompt)
+	if primary[4] != got[4] {
+		t.Fatalf("model failover changed OpenClaw job conversation: primary=%q fallback=%q", primary, got)
 	}
-	t.Fatalf("fallback invocation missing explicit isolated session: %q", got)
 }
 
-func TestOpenClawOperationAgentArgsForModelPreservesPrimaryShapeWithoutOverride(t *testing.T) {
-	prompt := "verify cluster health"
-	got := openClawOperationAgentArgsWithSession(prompt, "", "openclaw-op-test")
-	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--message", prompt}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("unoverridden args=%q want %q", got, want)
+func TestPreferredOpenClawOperationsCloudFallbackMovesFromCodexToClaude(t *testing.T) {
+	catalog := OpenClawCloudCatalog{
+		DefaultModel: "openai/gpt-5.3-codex-spark",
+		Models: []OpenClawCloudModel{
+			{Key: "openai/gpt-5.3-codex-spark", Provider: "openai", Available: true, Default: true},
+			{Key: "anthropic/claude-opus", Provider: "anthropic", Available: true},
+			{Key: "anthropic/claude-sonnet", Provider: "anthropic", Available: true},
+		},
+	}
+	model, ok := preferredOpenClawOperationsCloudFallback(catalog, "openai")
+	if !ok || model.Key != "anthropic/claude-sonnet" {
+		t.Fatalf("Claude operations fallback=%+v ok=%t", model, ok)
+	}
+}
+
+func TestPreferredOpenClawOperationsCloudFallbackSkipsCoolingClaude(t *testing.T) {
+	catalog := OpenClawCloudCatalog{Models: []OpenClawCloudModel{
+		{Key: "anthropic/claude-sonnet", Provider: "anthropic", Available: true, Cooling: true},
+		{Key: "anthropic/claude-opus", Provider: "anthropic", Available: true},
+	}}
+	model, ok := preferredOpenClawOperationsCloudFallback(catalog, "openai")
+	if !ok || model.Key != "anthropic/claude-opus" {
+		t.Fatalf("fallback should skip cooling Sonnet: %+v ok=%t", model, ok)
 	}
 }
 
@@ -64,7 +72,10 @@ bge-m3:latest           790764642607    1.2 GB
 func TestOperationModelCapacityFailureRecognisesProviderUsageExhaustion(t *testing.T) {
 	res := RunResult{Output: "You've reached your Codex subscription usage limit. Next reset later."}
 	if !operationModelCapacityFailure(res, errors.New("OpenClaw operations invocation exited with error")) {
-		t.Fatal("subscription usage exhaustion should trigger local model fallback")
+		t.Fatal("subscription usage exhaustion should trigger cloud/local model fallback")
+	}
+	if provider := operationFailedCloudProvider(res, errors.New("provider failure"), OpenClawCloudCatalog{}); provider != "openai" {
+		t.Fatalf("failed provider=%q want openai", provider)
 	}
 	if operationModelCapacityFailure(RunResult{Authentication: true}, errors.New("quota text but authentication failed")) {
 		t.Fatal("authentication failures must not be disguised as model-capacity fallback")
