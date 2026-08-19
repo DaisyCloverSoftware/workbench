@@ -33,11 +33,14 @@ Workbench is the shared execution bridge for ordinary ChatGPT project chats. Cha
 
 Routine host and cluster work should **not** require OpenClaw or another AI model.
 
-- Use `inspect_machine` (or the relay action of the same name) for read-only allowlisted diagnostics such as Kubernetes status/logs, Helm status/history, systemd state, journal windows, Docker/runtime status, disk/memory/mount/network summaries and related host checks.
+- Use `inspect_machine` (or the relay action of the same name) for one read-only allowlisted diagnostic.
+- Use `inspect_machine_batch` when 2-8 independent read-only diagnostics are naturally needed together. It executes sequentially in the supplied order. Every item is independently passed through the exact `inspect_machine` policy, and one rejected/failed item does not prevent later safe reads from running. Batch item output is additionally bounded for transport safety.
+- There is deliberately **no** `run_machine_command_batch`. Mutations remain one-at-a-time so ChatGPT can inspect each result before granting itself the next bounded action.
 - Use `run_machine_command` for an explicitly allowlisted mutation such as Kubernetes rollout restart/undo/scale/patch/set/label/annotate, Helm install/upgrade/rollback, systemd service lifecycle actions, or approved Docker lifecycle actions.
 - Pass a program basename plus a literal argv array. Do not construct shell strings, pipes, redirects, substitutions, credential flags, arbitrary scripts, alternate cluster targets, Kubernetes Secret reads, delete/exec/remove primitives or commands outside Workbench's policy.
 - Direct commands execute through Workbench itself. They do not create an AI-worker task and do not consume Claude/Codex/Work/model credit.
-- Reason between command results in the current ChatGPT conversation and issue the next bounded command only when needed.
+- Prefer a built-in reviewed health operation when it already answers the question more compactly than a custom batch.
+- Reason between mutation results in the current ChatGPT conversation and issue the next bounded mutation only when needed.
 
 ## Committed operations scripts
 
@@ -49,7 +52,7 @@ On the private-relay write path, when a repository already contains a reviewed m
 - Symlink/non-blob/untracked scripts, traversal, secret-like arguments and secret-like output are refused; runtime and output are bounded.
 - The result reports the exact commit and SHA-256 of the script that ran. Preserve those identifiers in deployment evidence when they matter.
 - This is an explicit mutating/open-world operations path. Use it only for an already-reviewed committed operations script whose effect matches the current user authority. Do not use it to bypass a permission boundary.
-- If no reviewed committed script exists, prefer direct `inspect_machine` / `run_machine_command` primitives rather than inventing and immediately executing arbitrary shell text.
+- If no reviewed committed script exists, prefer direct `inspect_machine` / `inspect_machine_batch` / `run_machine_command` primitives rather than inventing and immediately executing arbitrary shell text.
 
 ### Built-in read-only health operations
 
@@ -58,7 +61,7 @@ Workbench's own repository carries reviewed read-only operations that fresh proj
 - `scripts/ops/workbench-health.sh` checks the Workbench runner/server/relay binaries, MCP and relay service state, loopback MCP health and relay checkout cleanliness without reading credentials or restarting anything.
 - `scripts/ops/cluster-health.sh` returns one compact cluster-wide snapshot: Kubernetes node state, only currently abnormal pods, the 20 most recent Warning events, concise ARC runner assignments, named Longhorn node readiness/schedulability, total Longhorn volume count and only attached unhealthy volumes. It never reads Secrets or mutates cluster state.
 - `scripts/ops/namespace-health.sh <namespace>` returns one compact Kubernetes namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs and the 12 most recent Warning events. It validates the namespace as a bounded DNS label, uses only sanctioned read-only Kubernetes calls, and never reads Secrets.
-- Prefer these single reviewed snapshots over a burst of repetitive `inspect_machine` calls when they answer the question. This reduces shared-relay traffic while preserving exact commit and script-hash evidence.
+- Prefer these single reviewed snapshots over a burst of repetitive `inspect_machine` or `inspect_machine_batch` calls when they answer the question. This reduces shared-relay traffic while preserving exact commit and script-hash evidence.
 - Treat warning events as diagnostic history rather than automatic proof of a current outage; compare them with the current deployment/pod state before deciding on a mutation.
 
 ## Optional autonomous operator fallback
