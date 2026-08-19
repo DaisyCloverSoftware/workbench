@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.24 — 2026-08-19
+
+- Isolate every scripted OpenClaw machine-operation invocation in a fresh explicit session so stale or retired provider bindings from the long-lived interactive main session cannot brick unattended Workbench operations.
+- Keep local-model fallback invocations isolated in the same way while retaining the canonical main OpenClaw agent selector.
+- Automatically re-engage retired-binding failures through a fresh operation session instead of asking the human to repair or nudge OpenClaw.
+
 ## 0.9.23 — 2026-08-18
 
 - Expose private read-only get_task and list_tasks controls so ChatGPT can diagnose unusually long supervised machine operations without asking the human to watch or intervene.
