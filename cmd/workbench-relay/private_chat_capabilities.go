@@ -16,6 +16,7 @@ type privateChatCapabilities struct {
 	MCPRole                    string   `json:"mcp_role"`
 	NoModelCreditRequired      bool     `json:"no_model_credit_required"`
 	FreshChatBootstrap         string   `json:"fresh_chat_bootstrap"`
+	OperationsScriptPolicy     string   `json:"operations_script_policy"`
 	ChatGPTOwns                []string `json:"chatgpt_owns"`
 	OpenClawOwns               []string `json:"openclaw_owns"`
 	ControlRequest             string   `json:"control_request"`
@@ -39,6 +40,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		MCPRole:                 "optional_direct_read_fetch_on_personal_plans; full_tools_when_the_chatgpt_plan_supports_full_mcp",
 		NoModelCreditRequired:   true,
 		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md.",
+		OperationsScriptPolicy:  "run_operations_script requires a project and a Git-tracked regular .sh beneath scripts/ops/. Workbench executes the exact HEAD version from a disposable detached worktree using bash with literal argv, never bash -c; dirty checkout edits cannot affect execution. Results include the commit and script SHA-256.",
 		ChatGPTOwns: []string{
 			"reasoning",
 			"source_code",
