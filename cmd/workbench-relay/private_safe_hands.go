@@ -19,7 +19,7 @@ import (
 // relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "run_machine_command", "run_operations_script", "save_note":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note":
 		return true
 	default:
 		return false
@@ -120,6 +120,35 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 		return map[string]any{"project": project, "cloned": cloned, "runner_ready": true}, nil
 	}
 
+	if env.Action == "inspect_machine_batch" {
+		if env.Project != "" {
+			return nil, errors.New("inspect_machine_batch does not accept a project; it targets the configured Workbench operator host")
+		}
+		var a struct {
+			Commands []struct {
+				Program        string   `json:"program"`
+				Args           []string `json:"args,omitempty"`
+				TimeoutSeconds int      `json:"timeout_seconds,omitempty"`
+			} `json:"commands"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		requests := make([]core.MachineCommandRequest, 0, len(a.Commands))
+		for _, command := range a.Commands {
+			requests = append(requests, core.MachineCommandRequest{
+				Program:        strings.TrimSpace(command.Program),
+				Args:           command.Args,
+				TimeoutSeconds: command.TimeoutSeconds,
+			})
+		}
+		batch, err := core.InspectMachineBatch(ctx, requests)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"batch": batch}, nil
+	}
+
 	if env.Action == "inspect_machine" || env.Action == "run_machine_command" {
 		if env.Project != "" {
 			return nil, errors.New(env.Action + " does not accept a project; it targets the configured Workbench operator host")
@@ -200,7 +229,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			"project_path": project,
 			"query":        a.Query,
 			"subdir":       strings.TrimSpace(a.Subdir),
-			"limit":        a.Limit,
+			"limit":       a.Limit,
 		})
 
 	case "read_file":
