@@ -40,7 +40,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		MCPRole:                 "optional_direct_read_fetch_on_personal_plans; full_tools_when_the_chatgpt_plan_supports_full_mcp",
 		NoModelCreditRequired:   true,
 		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md.",
-		OperationsScriptPolicy:  "run_operations_script requires a project and a Git-tracked regular .sh beneath scripts/ops/. Without commit, Workbench executes exact local HEAD. With an optional full 40-character commit currently advertised by a credential-free github.com origin branch head, Workbench fetches into a disposable repository and executes that exact commit without moving or modifying the registered checkout. Bash receives literal argv, never bash -c. Results include the commit and script SHA-256.",
+		OperationsScriptPolicy:  "run_operations_script requires a project and a Git-tracked regular .sh beneath scripts/ops/. Without commit, Workbench executes exact local HEAD. With an optional full 40-character commit currently advertised by a credential-free github.com origin branch head, Workbench fetches into a disposable repository, creates a detached worktree at that exact commit, and executes without moving or modifying the registered checkout. Bash receives literal argv, never bash -c. Results include the commit and script SHA-256.",
 		ChatGPTOwns: []string{
 			"reasoning",
 			"source_code",
