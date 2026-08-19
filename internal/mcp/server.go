@@ -253,11 +253,13 @@ func stringSliceArg(a map[string]any, k string) []string {
 			if s, ok := raw.(string); ok && strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	case []string:
 		for _, s := range values {
 			if strings.TrimSpace(s) != "" {
 				out = append(out, strings.TrimSpace(s))
 			}
+		}
 	}
 	return out
 }
@@ -274,6 +276,7 @@ func rawStringSliceArg(a map[string]any, k string) []string {
 			if s, ok := raw.(string); ok {
 				out = append(out, s)
 			}
+		}
 	case []string:
 		out = append(out, values...)
 	}
@@ -336,14 +339,14 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			})
 		}
 		return textContent(map[string]any{
-			"project_path":            st.ProjectPath,
-			"active_project_id":       st.ActiveProjectID,
-			"projects":                workspaceProjectSummaries(s.engine, st.ActiveProjectID),
-			"avoid_work_usage":        st.Preferences.AvoidWorkUsage,
-			"allow_metered_api":       st.Preferences.AllowMeteredAPI,
-			"autonomy_mode":           st.Preferences.AutonomyMode,
+			"project_path":             st.ProjectPath,
+			"active_project_id":        st.ActiveProjectID,
+			"projects":                 workspaceProjectSummaries(s.engine, st.ActiveProjectID),
+			"avoid_work_usage":         st.Preferences.AvoidWorkUsage,
+			"allow_metered_api":        st.Preferences.AllowMeteredAPI,
+			"autonomy_mode":            st.Preferences.AutonomyMode,
 			"direct_machine_execution": true,
-			"connected_workers":       workers,
+			"connected_workers":        workers,
 		}, false)
 
 	case "get_context":
