@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Installs OpenAI's tunnel-client next to Workbench and connects the loopback
-# Workbench MCP server to a user-provisioned Secure MCP Tunnel. Secrets are read
-# only in this terminal and stored in 0600 local files; they are never printed.
+# Connects Workbench's loopback MCP server to an OpenAI Secure MCP Tunnel.
+# The runtime key and MCP bearer remain local 0600 files and are referenced by
+# tunnel-client rather than placed on argv or committed into a profile.
 
 bin_dir="$HOME/.local/bin"
 config_dir="$HOME/.config/workbench"
@@ -12,6 +12,7 @@ key_file="$config_dir/openai-tunnel-runtime-key"
 mcp_auth_file="$config_dir/mcp-loopback-auth-value"
 health_file="$state_dir/openai-tunnel-health.url"
 mcp_url="${WORKBENCH_MCP_URL:-http://127.0.0.1:8765/mcp}"
+profile="${WORKBENCH_TUNNEL_PROFILE:-workbench}"
 mkdir -p "$bin_dir" "$config_dir" "$state_dir"
 chmod 0700 "$config_dir" "$state_dir"
 
@@ -27,27 +28,19 @@ download() {
   fi
 }
 
-latest_stable_version() {
-  if [ -n "${TUNNEL_CLIENT_VERSION:-}" ]; then
-    printf '%s\n' "$TUNNEL_CLIENT_VERSION"
-    return
-  fi
-  local json version
-  if command -v curl >/dev/null 2>&1; then
-    json="$(curl -fsSL --retry 2 --connect-timeout 10 https://api.github.com/repos/openai/tunnel-client/releases/latest 2>/dev/null || true)"
-  elif command -v wget >/dev/null 2>&1; then
-    json="$(wget -qO- https://api.github.com/repos/openai/tunnel-client/releases/latest 2>/dev/null || true)"
-  fi
-  version="$(printf '%s' "${json:-}" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-  case "$version" in
-    v[0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$version" ;;
-    *) printf '%s\n' "v0.0.11" ;;
-  esac
+current_client_usable() {
+  local init_help doctor_help
+  [ -x "$bin_dir/tunnel-client" ] || return 1
+  init_help="$("$bin_dir/tunnel-client" init --help 2>&1)" || return 1
+  doctor_help="$("$bin_dir/tunnel-client" doctor --help 2>&1)" || return 1
+  printf '%s\n' "$init_help" | grep -q -- '--sample' || return 1
+  printf '%s\n' "$init_help" | grep -q -- '--profile' || return 1
+  printf '%s\n' "$doctor_help" | grep -q -- '--profile' || return 1
+  return 0
 }
 
 install_tunnel_client() {
-  local version machine platform tmp archive sums expected actual candidate base
-  version="$(latest_stable_version)"
+  local machine platform tmp archive sums expected actual candidate base label
   machine="$(uname -m)"
   case "$machine" in
     x86_64|amd64) platform="linux-amd64" ;;
@@ -55,27 +48,33 @@ install_tunnel_client() {
     *) echo "Unsupported tunnel-client platform: linux/$machine" >&2; exit 1 ;;
   esac
 
-  if [ -x "$bin_dir/tunnel-client" ]; then
+  if [ "${WORKBENCH_TUNNEL_CLIENT_REFRESH:-0}" != "1" ] && current_client_usable; then
     echo "Using existing $($bin_dir/tunnel-client --version 2>/dev/null || echo tunnel-client)"
     return
   fi
+  if [ -x "$bin_dir/tunnel-client" ]; then
+    echo "Refreshing tunnel-client because the installed binary is missing the current profile/doctor command surface."
+  fi
 
-  echo "Installing OpenAI tunnel-client $version ($platform)..."
+  if [ -n "${TUNNEL_CLIENT_VERSION:-}" ]; then
+    base="https://github.com/openai/tunnel-client/releases/download/$TUNNEL_CLIENT_VERSION"
+    label="$TUNNEL_CLIENT_VERSION"
+  else
+    base="https://github.com/openai/tunnel-client/releases/latest/download"
+    label="latest"
+  fi
+  echo "Installing OpenAI tunnel-client $label ($platform)..."
   tmp="$(mktemp -d)"
   trap 'rm -rf "${tmp:-}"' EXIT
   archive="$tmp/$platform.zip"
   sums="$tmp/SHA256SUMS.txt"
-  base="https://github.com/openai/tunnel-client/releases/download/$version"
   download "$base/$platform.zip" "$archive"
   download "$base/SHA256SUMS.txt" "$sums"
 
   expected="$(awk -v f="$platform.zip" '$2 == f || $2 == "*" f {print $1; exit}' "$sums")"
   if command -v sha256sum >/dev/null 2>&1 && [ -n "$expected" ]; then
     actual="$(sha256sum "$archive" | awk '{print $1}')"
-    if [ "$actual" != "$expected" ]; then
-      echo "tunnel-client checksum verification failed." >&2
-      exit 1
-    fi
+    [ "$actual" = "$expected" ] || { echo "tunnel-client checksum verification failed." >&2; exit 1; }
   fi
 
   command -v unzip >/dev/null 2>&1 || { echo "unzip is required to install tunnel-client." >&2; exit 1; }
@@ -85,6 +84,8 @@ install_tunnel_client() {
   [ -n "$candidate" ] || { echo "Could not find tunnel-client in release archive." >&2; exit 1; }
   install -m 0755 "$candidate" "$bin_dir/tunnel-client"
   echo "Installed $($bin_dir/tunnel-client --version 2>/dev/null || echo tunnel-client)"
+  rm -rf "$tmp"
+  trap - EXIT
 }
 
 install_tunnel_client
@@ -96,12 +97,10 @@ if [ ! -s "$mcp_auth_file" ]; then
 fi
 chmod 0600 "$mcp_auth_file"
 
-# The tunnel ID is not secret, but it must be provisioned for the user's OpenAI
-# organization/workspace. Prefer env for automated reinstalls; otherwise prompt.
 tunnel_id="${CONTROL_PLANE_TUNNEL_ID:-${WORKBENCH_TUNNEL_ID:-}}"
 if [ -z "$tunnel_id" ]; then
   echo
-  echo "Workbench needs the tunnel ID you created in OpenAI Platform → Tunnels."
+  echo "Workbench needs the tunnel ID created in OpenAI Platform tunnel settings."
   read -r -p "Tunnel ID (tunnel_...): " tunnel_id
 fi
 if ! printf '%s' "$tunnel_id" | grep -Eq '^tunnel_[0-9a-f]{32}$'; then
@@ -122,7 +121,6 @@ if [ ! -s "$key_file" ]; then
 fi
 chmod 0600 "$key_file"
 
-# Prove the local Workbench endpoint exists before involving the control plane.
 if command -v curl >/dev/null 2>&1; then
   curl -fsS "${mcp_url%/mcp}/health" >/dev/null || {
     echo "Workbench MCP is not healthy at ${mcp_url%/mcp}/health." >&2
@@ -131,14 +129,23 @@ if command -v curl >/dev/null 2>&1; then
   }
 fi
 
+# Current tunnel-client uses named profiles. The profile stores only a file
+# reference to the runtime key; the Workbench MCP bearer is supplied at runtime
+# through MCP_EXTRA_HEADERS and never written into the profile.
 echo
+echo "Preparing tunnel-client profile '$profile'..."
+"$bin_dir/tunnel-client" init \
+  --sample sample_mcp_remote_no_auth \
+  --profile "$profile" \
+  --tunnel-id "$tunnel_id" \
+  --mcp-server-url "$mcp_url" \
+  --control-plane-api-key-ref "file:$key_file" \
+  --health-listen-addr 127.0.0.1:0 \
+  --force
+
 echo "Running tunnel-client preflight..."
-"$bin_dir/tunnel-client" doctor \
-  --control-plane.tunnel-id="$tunnel_id" \
-  --control-plane.api-key="file:$key_file" \
-  --mcp.server-url="$mcp_url" \
-  --mcp.extra-headers "Authorization: file:$mcp_auth_file" \
-  --explain
+MCP_EXTRA_HEADERS="Authorization: file:$mcp_auth_file" \
+  "$bin_dir/tunnel-client" doctor --profile "$profile" --explain
 
 rm -f "$health_file"
 
@@ -151,11 +158,8 @@ start_fallback() {
       sleep 1
     fi
   fi
-  nohup "$bin_dir/tunnel-client" run \
-    --control-plane.tunnel-id="$tunnel_id" \
-    --control-plane.api-key="file:$key_file" \
-    --mcp.server-url="$mcp_url" \
-    --mcp.extra-headers "Authorization: file:$mcp_auth_file" \
+  MCP_EXTRA_HEADERS="Authorization: file:$mcp_auth_file" nohup "$bin_dir/tunnel-client" run \
+    --profile "$profile" \
     --health.listen-addr=127.0.0.1:0 \
     --health.url-file="$health_file" \
     --log.level=info \
@@ -167,7 +171,11 @@ start_fallback() {
 service_mode="fallback"
 if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
   unit_dir="$HOME/.config/systemd/user"
+  env_file="$config_dir/openai-tunnel.env"
   mkdir -p "$unit_dir"
+  umask 077
+  printf 'MCP_EXTRA_HEADERS="Authorization: file:%s"\n' "$mcp_auth_file" > "$env_file"
+  chmod 0600 "$env_file"
   cat > "$unit_dir/workbench-openai-tunnel.service" <<EOF
 [Unit]
 Description=Workbench OpenAI Secure MCP Tunnel
@@ -176,7 +184,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=$bin_dir/tunnel-client run --control-plane.tunnel-id=$tunnel_id --control-plane.api-key=file:$key_file --mcp.server-url=$mcp_url --mcp.extra-headers=Authorization:\ file:$mcp_auth_file --health.listen-addr=127.0.0.1:0 --health.url-file=$health_file --log.level=info
+EnvironmentFile=$env_file
+ExecStart=$bin_dir/tunnel-client run --profile=$profile --health.listen-addr=127.0.0.1:0 --health.url-file=$health_file --log.level=info
 Restart=always
 RestartSec=3
 
@@ -184,13 +193,14 @@ RestartSec=3
 WantedBy=default.target
 EOF
   systemctl --user daemon-reload
-  systemctl --user enable --now workbench-openai-tunnel.service
+  systemctl --user enable workbench-openai-tunnel.service >/dev/null
+  systemctl --user restart workbench-openai-tunnel.service
   service_mode="systemd --user"
 else
   start_fallback
 fi
 
-for _ in $(seq 1 60); do
+for _ in $(seq 1 80); do
   [ -s "$health_file" ] && break
   sleep 0.25
 done
@@ -205,10 +215,11 @@ fi
 echo
 echo "WORKBENCH SECURE MCP TUNNEL READY"
 echo "  tunnel: $tunnel_id"
+echo "  profile: $profile"
 echo "  local MCP: $mcp_url"
 echo "  supervisor: $service_mode"
 echo "  inbound ports opened: none"
 echo "  Workbench MCP bearer: injected from local 0600 file (not displayed)"
-echo "  OpenAI runtime key: stored locally (not displayed)"
+echo "  OpenAI runtime key: stored locally and referenced by profile (not displayed)"
 echo
-echo "In ChatGPT Plugins developer mode, create/select a Tunnel connection using the tunnel ID above."
+echo "Next: in ChatGPT Plugins developer mode create one Workbench app using Tunnel and this tunnel ID."
