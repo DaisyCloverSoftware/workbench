@@ -71,7 +71,7 @@ fi
 printf '[longhorn-nodes]\n'
 if grep -qx 'nodes.longhorn.io' <<<"$api_resources"; then
   longhorn_nodes="$("${KUBECTL[@]}" get nodes.longhorn.io -n longhorn-system --no-headers \
-    -o 'custom-columns=NAME:.metadata.name,ALLOW_SCHEDULING:.spec.allowScheduling,EVICTION:.spec.evictionRequested,CONDITIONS:.status.conditions[*].status' 2>&1 || true)"
+    -o 'custom-columns=NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,SCHEDULABLE:.status.conditions[?(@.type=="Schedulable")].status,ALLOW_SCHEDULING:.spec.allowScheduling' 2>&1 || true)"
   if [ -n "$longhorn_nodes" ]; then
     printf '%s\n' "$longhorn_nodes" | limit_width
   else
