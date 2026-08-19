@@ -33,10 +33,10 @@ func TestOpenClawOperationsPromptEnforcesOperatorBoundaryAndContinuation(t *test
 	}
 }
 
-func TestOpenClawOperationAgentArgsUseScriptedAgentCommand(t *testing.T) {
+func TestOpenClawOperationAgentArgsUseScriptedIsolatedSession(t *testing.T) {
 	prompt := "verify runner health"
-	got := openClawOperationAgentArgs(prompt)
-	want := []string{"agent", "--agent", "main", "--message", prompt}
+	got := openClawOperationAgentArgsWithSession(prompt, "", "openclaw-op-test")
+	want := []string{"agent", "--agent", "main", "--session-id", "openclaw-op-test", "--message", prompt}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("OpenClaw agent args=%q want %q", got, want)
 	}
@@ -44,6 +44,26 @@ func TestOpenClawOperationAgentArgsUseScriptedAgentCommand(t *testing.T) {
 		if arg == "--headless" {
 			t.Fatal("OpenClaw agent does not accept the browser-only --headless flag")
 		}
+	}
+}
+
+func TestOpenClawOperationAgentArgsUseFreshSessions(t *testing.T) {
+	sessionID := func(args []string) string {
+		for i := 0; i+1 < len(args); i++ {
+			if args[i] == "--session-id" {
+				return args[i+1]
+			}
+		}
+		return ""
+	}
+
+	first := sessionID(openClawOperationAgentArgs("first operation"))
+	second := sessionID(openClawOperationAgentArgs("second operation"))
+	if !strings.HasPrefix(first, "openclaw-op-") || !strings.HasPrefix(second, "openclaw-op-") {
+		t.Fatalf("operation session IDs must be explicit Workbench-owned IDs: first=%q second=%q", first, second)
+	}
+	if first == second {
+		t.Fatalf("separate scripted operation invocations reused session %q", first)
 	}
 }
 
@@ -60,6 +80,9 @@ func TestStripOperationCompletionMarker(t *testing.T) {
 func TestOperationInvocationReengagesOnlyBoundedStall(t *testing.T) {
 	if !operationInvocationCanBeReengaged(RunResult{Retryable: true}, errors.New("OpenClaw operations invocation timed out")) {
 		t.Fatal("timeout should be re-engaged automatically")
+	}
+	if !operationInvocationCanBeReengaged(RunResult{Retryable: true}, errors.New("Codex binding generation was retired: session-key:main:deadbeef")) {
+		t.Fatal("retired operation binding should be re-engaged with a fresh session")
 	}
 	if operationInvocationCanBeReengaged(RunResult{Retryable: true, Authentication: true}, errors.New("authentication failed")) {
 		t.Fatal("authentication failure must not be hammered by supervisor")
