@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.27 — 2026-08-19
+
+- Make routine host and cluster operations a direct Workbench execution path owned by ChatGPT, with no OpenClaw, Claude, Codex, Work-credit or other external AI-worker requirement.
+- Add separate inspect_machine and run_machine_command tools using structured program-plus-argv execution with no shell, bounded time/output, explicit MCP authority annotations and matching private-relay controls.
+- Harden direct machine access with executable/subcommand allowlists, credential and alternate-target blocking, Kubernetes Secret protection, bounded logging/watch behavior, destructive primitive refusal and secret-like output withholding.
+- Keep repository run_safe_command isolated from deployment authority and demote OpenClaw to optional autonomous fallback capacity only when the direct structured command surface cannot express the remaining machine-side outcome.
+- Fix Secure MCP Tunnel client installation to resolve OpenAI's current stable release metadata, download the published versioned archive from the persistent public artifact bucket, verify SHA-256 checksums and reject placeholder tunnel IDs before network work.
+
 ## 0.9.26 — 2026-08-19
 
 - Allow OpenClaw quota/context-capacity failures reported through WorkerUnavailable to continue through Workbench's model fallback chain while preserving genuine worker-local unavailability as authoritative.
