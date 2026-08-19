@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 )
@@ -16,34 +17,71 @@ const (
 )
 
 // runOpenClawOperationInvocationWithFallback keeps the configured OpenClaw
-// agent/model as the primary operations worker, but prevents a provider quota
-// window from turning into a human babysitting problem. If the primary agent
-// process fails specifically because model capacity/usage is exhausted,
-// Workbench retries the same bounded operational prompt against an explicitly
-// configured fallback model or, when available, a suitable local Ollama model.
-func runOpenClawOperationInvocationWithFallback(ctx context.Context, p Provider, task Task, prefs Preferences, prompt string) (RunResult, bool, error) {
-	res, complete, err := runOpenClawOperationInvocation(ctx, p, task, prefs, prompt)
+// model as first choice, then performs model-level failover inside the same
+// Workbench job conversation. A provider usage ceiling therefore does not make
+// the user babysit OpenClaw: Workbench first tries an explicitly configured
+// model, otherwise a live model on the other cloud provider (Claude when the
+// exhausted route is OpenAI/Codex), and finally a suitable local Ollama model.
+func runOpenClawOperationInvocationWithFallback(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, sessionID string) (RunResult, bool, error) {
+	res, complete, err := runOpenClawOperationInvocation(ctx, p, task, prefs, prompt, sessionID)
 	if err == nil || !operationModelCapacityFailure(res, err) || ctx.Err() != nil {
 		return res, complete, err
 	}
 
-	model := strings.TrimSpace(os.Getenv(openClawOperationFallbackModelEnv))
-	if model == "" {
-		model = detectOpenClawOperationsLocalModel(ctx, prefs)
-	}
-	if model == "" {
-		return res, complete, err
+	tried := map[string]bool{}
+	tryModel := func(model string) (RunResult, bool, error, bool) {
+		model = strings.TrimSpace(model)
+		if model == "" || tried[strings.ToLower(model)] {
+			return RunResult{}, false, nil, false
+		}
+		tried[strings.ToLower(model)] = true
+		fallbackRes, fallbackComplete, fallbackErr := runOpenClawOperationModelOverride(ctx, p, task, prefs, prompt, sessionID, model)
+		return fallbackRes, fallbackComplete, fallbackErr, true
 	}
 
-	fallbackRes, fallbackComplete, fallbackErr := runOpenClawOperationModelOverride(ctx, p, task, prefs, prompt, model)
-	if fallbackErr == nil {
-		return fallbackRes, fallbackComplete, nil
+	if configured := strings.TrimSpace(os.Getenv(openClawOperationFallbackModelEnv)); configured != "" {
+		fallbackRes, fallbackComplete, fallbackErr, attempted := tryModel(configured)
+		if attempted {
+			if fallbackErr == nil {
+				return fallbackRes, fallbackComplete, nil
+			}
+			if operationFallbackMustStop(fallbackRes) {
+				return boundRunResultForPersistence(fallbackRes), false, fallbackErr
+			}
+		}
 	}
-	fallbackRes.Retryable = true
-	if strings.TrimSpace(fallbackRes.Output) == "" {
-		fallbackRes.Output = "OpenClaw's primary model was unavailable and the detected local operations fallback could not complete the task."
+
+	if cloudModel := detectOpenClawOperationsCloudFallback(ctx, p, prefs, res, err); cloudModel != "" {
+		fallbackRes, fallbackComplete, fallbackErr, attempted := tryModel(cloudModel)
+		if attempted {
+			if fallbackErr == nil {
+				return fallbackRes, fallbackComplete, nil
+			}
+			if operationFallbackMustStop(fallbackRes) {
+				return boundRunResultForPersistence(fallbackRes), false, fallbackErr
+			}
+		}
 	}
-	return boundRunResultForPersistence(fallbackRes), false, fmt.Errorf("OpenClaw primary model capacity was exhausted and fallback model %s also failed: %w", model, fallbackErr)
+
+	if localModel := detectOpenClawOperationsLocalModel(ctx, prefs); localModel != "" {
+		fallbackRes, fallbackComplete, fallbackErr, attempted := tryModel(localModel)
+		if attempted {
+			if fallbackErr == nil {
+				return fallbackRes, fallbackComplete, nil
+			}
+			fallbackRes.Retryable = true
+			if strings.TrimSpace(fallbackRes.Output) == "" {
+				fallbackRes.Output = "OpenClaw's primary cloud model was unavailable and its cloud/local operations fallbacks could not complete the task."
+			}
+			return boundRunResultForPersistence(fallbackRes), false, fmt.Errorf("OpenClaw model capacity was exhausted and fallback model %s also failed: %w", localModel, fallbackErr)
+		}
+	}
+
+	return res, complete, err
+}
+
+func operationFallbackMustStop(res RunResult) bool {
+	return res.Authentication || strings.TrimSpace(res.Attention) != "" || strings.TrimSpace(res.WorkerUnavailable) != ""
 }
 
 func operationModelCapacityFailure(res RunResult, err error) bool {
@@ -68,6 +106,101 @@ func operationModelCapacityFailure(res RunResult, err error) bool {
 		}
 	}
 	return false
+}
+
+func operationFailedCloudProvider(res RunResult, err error, catalog OpenClawCloudCatalog) string {
+	low := strings.ToLower(res.Output)
+	if err != nil {
+		low += " " + strings.ToLower(err.Error())
+	}
+	switch {
+	case strings.Contains(low, "codex"), strings.Contains(low, "openai"), strings.Contains(low, "gpt-"):
+		return "openai"
+	case strings.Contains(low, "claude"), strings.Contains(low, "anthropic"):
+		return "anthropic"
+	}
+	provider, _ := splitOpenClawModelKey(catalog.DefaultModel)
+	return canonicalOpenClawProvider(provider)
+}
+
+func detectOpenClawOperationsCloudFallback(ctx context.Context, p Provider, prefs Preferences, primary RunResult, primaryErr error) string {
+	// Runner-host operations execute this function locally on the runner. Direct
+	// remote SSH operation mode does not yet expose a privacy-minimal remote model
+	// catalogue, so leave that uncommon path to the local Ollama fallback.
+	if strings.TrimSpace(prefs.OpenClawSSHHost) != "" || strings.TrimSpace(p.Command) == "" {
+		return ""
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	catalog, err := DiscoverOpenClawCloudModels(probeCtx, p.Command)
+	if err != nil {
+		return ""
+	}
+	failedProvider := operationFailedCloudProvider(primary, primaryErr, catalog)
+	model, ok := preferredOpenClawOperationsCloudFallback(catalog, failedProvider)
+	if !ok {
+		return ""
+	}
+	return model.Key
+}
+
+func preferredOpenClawOperationsCloudFallback(catalog OpenClawCloudCatalog, failedProvider string) (OpenClawCloudModel, bool) {
+	failedProvider = canonicalOpenClawProvider(failedProvider)
+	candidates := make([]OpenClawCloudModel, 0, len(catalog.Models))
+	for _, model := range catalog.Models {
+		if !model.Available || model.Cooling {
+			continue
+		}
+		if failedProvider != "" && canonicalOpenClawProvider(model.Provider) == failedProvider {
+			continue
+		}
+		candidates = append(candidates, model)
+	}
+	if len(candidates) == 0 {
+		return OpenClawCloudModel{}, false
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		a, b := operationCloudFallbackScore(candidates[i]), operationCloudFallbackScore(candidates[j])
+		if a != b {
+			return a < b
+		}
+		return strings.ToLower(candidates[i].Key) < strings.ToLower(candidates[j].Key)
+	})
+	return candidates[0], true
+}
+
+func operationCloudFallbackScore(model OpenClawCloudModel) int {
+	provider := canonicalOpenClawProvider(model.Provider)
+	low := strings.ToLower(model.Key + " " + model.Name)
+	if provider == "anthropic" {
+		switch {
+		case strings.Contains(low, "sonnet"):
+			return 0
+		case strings.Contains(low, "opus"):
+			return 5
+		case strings.Contains(low, "haiku"):
+			return 10
+		default:
+			return 15
+		}
+	}
+	if provider == "openai" {
+		switch {
+		case strings.Contains(low, "terra"):
+			return 20
+		case strings.Contains(low, "gpt-5.5"):
+			return 25
+		case strings.Contains(low, "gpt-5.4") && !strings.Contains(low, "mini"):
+			return 30
+		case strings.Contains(low, "sol"):
+			return 35
+		case strings.Contains(low, "codex-spark"):
+			return 40
+		default:
+			return 45
+		}
+	}
+	return 100
 }
 
 // detectOpenClawOperationsLocalModel asks only the local Ollama inventory and
@@ -152,11 +285,7 @@ func preferredOllamaOperationsModel(listOutput string) string {
 	return best.name
 }
 
-func openClawOperationAgentArgsForModel(prompt, model string) []string {
-	return openClawOperationAgentArgsWithSession(prompt, model, newOpenClawOperationSessionID())
-}
-
-func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, model string) (RunResult, bool, error) {
+func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, sessionID, model string) (RunResult, bool, error) {
 	invokeCtx, cancel := context.WithTimeout(ctx, operationInvocationTimeout)
 	defer cancel()
 
@@ -166,12 +295,18 @@ func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Tas
 	if remote {
 		name = "ssh"
 		args = []string{"-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHostKeyChecking=accept-new", strings.TrimSpace(prefs.OpenClawSSHHost), "openclaw"}
-		args = append(args, openClawOperationAgentArgsForModel(prompt, model)...)
+		args = append(args, openClawOperationAgentArgsForModel(task, prompt, model)...)
 	} else if strings.TrimSpace(p.Command) != "" {
 		name = p.Command
-		args = openClawOperationAgentArgsForModel(prompt, model)
+		args = openClawOperationAgentArgsForModel(task, prompt, model)
 	} else {
 		return RunResult{Retryable: true}, false, errors.New("OpenClaw operations adapter is not configured")
+	}
+	// Keep the function signature explicit about the job session it is expected
+	// to reuse. The deterministic task-derived ID is authoritative; mismatch is
+	// a programming error and should never cause a second hidden conversation.
+	if sessionID != openClawOperationSessionID(task) {
+		return RunResult{}, false, errors.New("OpenClaw operations session identity mismatch")
 	}
 
 	cmd := exec.CommandContext(invokeCtx, name, args...)
@@ -215,7 +350,7 @@ func runOpenClawOperationModelOverride(ctx context.Context, p Provider, task Tas
 		if errors.Is(invokeCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
 			res.Retryable = true
 			if strings.TrimSpace(res.Output) == "" {
-				res.Output = "OpenClaw local fallback became unresponsive before confirming completion."
+				res.Output = "OpenClaw fallback became unresponsive before confirming completion."
 			}
 			return boundRunResultForPersistence(res), false, errors.New("OpenClaw fallback operations invocation timed out")
 		}
