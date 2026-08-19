@@ -11,15 +11,15 @@ import (
 
 // Private relay safe controls let ordinary ChatGPT do the reasoning while
 // Workbench supplies bounded repository eyes/hands, direct structured machine
-// commands, and privacy-safe maintenance status. Read-only task diagnostics are
-// included so a lead chat can inspect a long-running supervised operation
-// without asking the human to watch it.
+// commands, committed operations scripts, and privacy-safe maintenance status.
+// Read-only task diagnostics are included so a lead chat can inspect a
+// long-running supervised operation without asking the human to watch it.
 // They deliberately exclude delegate_task, cancellation and resolve_attention:
 // autonomous AI work stays in relay/inbox and human answers stay in
 // relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "run_machine_command", "save_note":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "run_machine_command", "run_operations_script", "save_note":
 		return true
 	default:
 		return false
@@ -256,6 +256,32 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			"project_path": project,
 			"command":      a.Command,
 		})
+
+	case "run_operations_script":
+		var a struct {
+			Path           string   `json:"path"`
+			Args           []string `json:"args,omitempty"`
+			TimeoutSeconds int      `json:"timeout_seconds,omitempty"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		result, runErr := core.RunOperationsScript(ctx, project, core.OperationsScriptRequest{
+			Path:           strings.TrimSpace(a.Path),
+			Args:           a.Args,
+			TimeoutSeconds: a.TimeoutSeconds,
+		})
+		if runErr != nil {
+			message := runErr.Error()
+			if output := strings.TrimSpace(result.Output); output != "" {
+				if len(output) > 16<<10 {
+					output = output[:16<<10] + "\n… error output truncated by Workbench relay …"
+				}
+				message += ": " + output
+			}
+			return nil, errors.New(message)
+		}
+		return map[string]any{"operation_script": result}, nil
 
 	case "save_note":
 		var a struct {
