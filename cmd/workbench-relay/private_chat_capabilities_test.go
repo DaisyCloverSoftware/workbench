@@ -25,6 +25,7 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		"[workbench:operations]",
 		"github_actions",
 		"inspect_machine",
+		"inspect_machine_batch",
 		"run_machine_command",
 		"run_operations_script",
 		"optional_machine_side_autonomy_fallback",
@@ -41,6 +42,9 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		if !strings.Contains(string(b), literal) {
 			t.Fatalf("capability manifest should keep protocol ownership/path markers human-readable: missing %q in %s", literal, b)
 		}
+	}
+	if strings.Contains(string(b), "run_machine_command_batch") {
+		t.Fatal("capability manifest must not advertise a mutation batch action")
 	}
 	var manifest privateChatCapabilities
 	if err := json.Unmarshal(b, &manifest); err != nil {
@@ -113,7 +117,7 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	}
 	for _, want := range []string{
 		"list_projects", "ensure_github_project", "get_task", "list_tasks", "read_file", "apply_patch",
-		"run_safe_command", "inspect_machine", "run_machine_command", "run_operations_script", "search_memory", "save_context", "update_workbench",
+		"run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "search_memory", "save_context", "update_workbench",
 	} {
 		if !containsString(manifest.ControlActions, want) {
 			t.Fatalf("capability manifest missing control action %q", want)
