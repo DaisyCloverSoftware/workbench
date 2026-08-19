@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.35 — 2026-08-19
+
+- Add private-relay inspect_machine_batch for one-to-eight ordered read-only machine inspections, reusing the exact existing InspectMachine safety policy with independent per-item failures and bounded output.
+- Keep mutations deliberately unbatched: mutation-shaped read items are rejected before execution while later safe reads continue, and no run_machine_command_batch action is exposed.
+
 ## 0.9.34 — 2026-08-19
 
 - Index completed private-relay control results once per poll instead of spawning one Git existence subprocess for every historical control request.
