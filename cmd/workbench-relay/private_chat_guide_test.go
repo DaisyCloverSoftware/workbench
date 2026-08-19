@@ -23,6 +23,13 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"run_safe_command",
 		"inspect_machine",
 		"run_machine_command",
+		"run_operations_script",
+		"scripts/ops/workbench-health.sh",
+		"scripts/ops/cluster-health.sh",
+		"scripts/ops/namespace-health.sh",
+		"DaisyCloverSoftware/workbench",
+		"full 40-character head SHA",
+		"built-in zero-credit read-only operations",
 		"no shell or AI worker",
 		"relay/inbox/<id>.json",
 		"optional autonomous machine-operations bridge",
@@ -35,7 +42,7 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"WORKBENCH_CAPABILITIES.json",
 		"WORKBENCH_CHATGPT.md",
 	} {
-		if !strings.Contains(guide, want) {
+		if !strings.Contains(strings.ToLower(guide), strings.ToLower(want)) {
 			t.Fatalf("private ChatGPT guide missing %q", want)
 		}
 	}

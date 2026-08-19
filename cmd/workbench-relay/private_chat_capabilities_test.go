@@ -31,6 +31,11 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		"preferred_write_transport",
 		"no_model_credit_required",
 		"operations_script_policy",
+		"builtin_operations_commit_rule",
+		"builtin_readonly_operations",
+		"workbench-health.sh",
+		"cluster-health.sh",
+		"namespace-health.sh",
 		"workbench-relay",
 	} {
 		if !strings.Contains(string(b), literal) {
@@ -50,12 +55,43 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if !strings.Contains(manifest.MCPRole, "read_fetch_on_personal_plans") || !strings.Contains(manifest.MCPRole, "full_mcp") {
 		t.Fatalf("MCP plan-role contract missing: %q", manifest.MCPRole)
 	}
-	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") {
+	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") || !strings.Contains(manifest.FreshChatBootstrap, "built-in operations") {
 		t.Fatalf("fresh-chat relay bootstrap missing: %q", manifest.FreshChatBootstrap)
 	}
 	for _, want := range []string{"scripts/ops/", "Git-tracked", "detached worktree", "literal argv", "SHA-256"} {
 		if !strings.Contains(manifest.OperationsScriptPolicy, want) {
 			t.Fatalf("operations-script safety contract missing %q: %q", want, manifest.OperationsScriptPolicy)
+		}
+	}
+	if !strings.Contains(manifest.BuiltinOperationsCommitRule, "DaisyCloverSoftware/workbench") || !strings.Contains(manifest.BuiltinOperationsCommitRule, "40-character") || !strings.Contains(manifest.BuiltinOperationsCommitRule, "runner://workbench") {
+		t.Fatalf("built-in operation commit rule is incomplete: %q", manifest.BuiltinOperationsCommitRule)
+	}
+	if len(manifest.BuiltinReadonlyOperations) != 3 {
+		t.Fatalf("expected three built-in read-only operations, got %+v", manifest.BuiltinReadonlyOperations)
+	}
+	wantOps := map[string]struct {
+		path string
+		args []string
+	}{
+		"workbench_health": {path: "scripts/ops/workbench-health.sh"},
+		"cluster_health":   {path: "scripts/ops/cluster-health.sh"},
+		"namespace_health": {path: "scripts/ops/namespace-health.sh", args: []string{"<namespace>"}},
+	}
+	for _, operation := range manifest.BuiltinReadonlyOperations {
+		want, ok := wantOps[operation.Name]
+		if !ok {
+			t.Fatalf("unexpected built-in operation: %+v", operation)
+		}
+		if operation.Project != "runner://workbench" || operation.Path != want.path || strings.TrimSpace(operation.Purpose) == "" {
+			t.Fatalf("invalid built-in operation contract: %+v", operation)
+		}
+		if len(operation.Args) != len(want.args) {
+			t.Fatalf("unexpected args for %s: %+v", operation.Name, operation.Args)
+		}
+		for i := range want.args {
+			if operation.Args[i] != want.args[i] {
+				t.Fatalf("unexpected args for %s: %+v", operation.Name, operation.Args)
+			}
 		}
 	}
 	for _, want := range []string{
