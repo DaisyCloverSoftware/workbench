@@ -38,11 +38,22 @@ Routine host and cluster work should **not** require OpenClaw or another AI mode
 - Pass a program basename plus a literal argv array. Do not construct shell strings, pipes, redirects, substitutions, credential flags, arbitrary scripts, alternate cluster targets, Kubernetes Secret reads, delete/exec/remove primitives or commands outside Workbench's policy.
 - Direct commands execute through Workbench itself. They do not create an AI-worker task and do not consume Claude/Codex/Work/model credit.
 - Reason between command results in the current ChatGPT conversation and issue the next bounded command only when needed.
-- If a direct command is refused because an operation is outside the allowlist, redesign the step into safer primitives when possible rather than silently escalating authority.
+
+## Committed operations scripts
+
+When a repository already contains a reviewed multi-step Bash deployment/runbook under `scripts/ops/`, prefer `run_operations_script` over asking the human to paste a Bash block or delegating it to OpenClaw.
+
+- The action is project-scoped and accepts only a canonical Git-tracked regular `.sh` beneath `scripts/ops/`.
+- Workbench resolves the repository's exact HEAD commit, creates a disposable detached worktree at that commit, and runs `bash --noprofile --norc <script> <literal argv...>` from the worktree root. It never accepts `bash -c` or arbitrary shell source as an argument.
+- Dirty edits in the developer checkout cannot affect the executed script.
+- Symlink/non-blob/untracked scripts, traversal, secret-like arguments and secret-like output are refused; runtime and output are bounded.
+- The result reports the exact commit and SHA-256 of the script that ran. Preserve those identifiers in deployment evidence when they matter.
+- This is an explicit mutating/open-world operations path. Use it only for an already-reviewed committed operations script whose effect matches the current user authority. Do not use it to bypass a permission boundary.
+- If no reviewed committed script exists, prefer direct `inspect_machine` / `run_machine_command` primitives rather than inventing and immediately executing arbitrary shell text.
 
 ## Optional autonomous operator fallback
 
-Use `delegate_operation` / `relay/inbox` only when the remaining machine-side outcome cannot reasonably be expressed through direct Workbench commands **and** external autonomous operator capacity is intentionally available.
+Use `delegate_operation` / `relay/inbox` only when the remaining machine-side outcome cannot reasonably be expressed through direct Workbench commands or a reviewed committed operations script **and** external autonomous operator capacity is intentionally available.
 
 - OpenClaw is optional operator capacity, never the coder and never required for routine cluster access.
 - Do not delegate merely because a provider exists; direct Workbench execution is preferred and costs no external model credit.
@@ -57,8 +68,8 @@ Only a real `needs_attention` result or a genuine authority boundary should norm
 
 ## Secrets
 
-Never request raw Workbench vault values. Treat `vault://...` references as sensitive capabilities handled outside model context. Do not save secret-like content in notes, memory, context capsules, Git, relay files, or direct machine-command arguments. Workbench may withhold command output that resembles secret material.
+Never request raw Workbench vault values. Treat `vault://...` references as sensitive capabilities handled outside model context. Do not save secret-like content in notes, memory, context capsules, Git, relay files, direct machine-command arguments, or operations-script arguments. Workbench may withhold command/script output that resembles secret material.
 
 ## North-star experience
 
-A project chat should be able to receive an intent, use the Workbench transport available to that plan, perform safe repository work and routine machine operations directly, and return either a verified result or one genuine human decision request. Running out of external AI-worker credit or lacking full-MCP write support must not stop ordinary Workbench development or cluster operations.
+A project chat should be able to receive an intent, use the Workbench transport available to that plan, perform safe repository work, direct machine operations and reviewed committed operations scripts, and return either a verified result or one genuine human decision request. Running out of external AI-worker credit or lacking full-MCP write support must not stop ordinary Workbench development or cluster operations.
