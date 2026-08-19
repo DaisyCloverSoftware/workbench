@@ -2,7 +2,7 @@
 
 This file is the canonical bootstrap for ordinary ChatGPT conversations using a **private** Workbench Git relay.
 
-Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That file is the machine-readable protocol summary: Workbench version, supported control actions, relay paths, the optional supervised-operations marker, and the opaque-project-reference rule. Fresh chats can read it first for fast capability discovery, then use this guide for behavioural and safety policy.
+Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That file is the machine-readable protocol summary: Workbench version, supported control actions, relay paths, built-in read-only operations, the optional supervised-operations marker, and the opaque-project-reference rule. Fresh chats can read it first for fast capability discovery, then use this guide for behavioural and safety policy.
 
 ## Operating rule
 
@@ -19,9 +19,10 @@ For normal development work:
 5. **ChatGPT owns Git and GitHub:** commits, branches, pushes, pull requests, reviews, merges, releases, CI runs and GitHub Actions are handled by ChatGPT through its GitHub capabilities, not delegated to OpenClaw.
 6. For routine machine/cluster inspection, use `inspect_machine` through the private control channel.
 7. For an explicitly allowlisted machine mutation, use `run_machine_command` through the private control channel. ChatGPT reasons between results and issues the next bounded command itself.
-8. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
-9. Use the optional autonomous operations lane only when a machine-side outcome cannot reasonably be expressed through the direct structured command surface and autonomous operator capacity is intentionally available.
-10. Only surface a genuine Workbench `needs_attention` question or authority boundary to the user.
+8. For a reviewed multi-step Bash operation already committed beneath `scripts/ops/`, use `run_operations_script`. Prefer the built-in Workbench health operations for common read-only bridge/cluster/namespace diagnostics.
+9. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
+10. Use the optional autonomous operations lane only when a machine-side outcome cannot reasonably be expressed through the direct structured command or committed-operation surface and autonomous operator capacity is intentionally available.
+11. Only surface a genuine Workbench `needs_attention` question or authority boundary to the user.
 
 ## Private safe-hands control channel
 
@@ -73,6 +74,7 @@ Project-scoped example:
 - `run_safe_command` — project required; `command` passes through Workbench's bounded non-destructive development allowlist. No deploy, push, network shell, or destructive command.
 - `inspect_machine` — no project; `program` is one allowlisted executable basename, `args` is a literal argv array, and `timeout_seconds` is optional. Read-only only; no shell or AI worker.
 - `run_machine_command` — no project; same structured `program` + `args` shape, but only explicitly allowlisted mutating commands are accepted. It is the direct cluster/host mutation path and uses no AI worker.
+- `run_operations_script` — project required; `path` must be one Git-tracked regular `.sh` beneath `scripts/ops/`, `args` is an optional literal argv array, `timeout_seconds` is optional, and `commit` may be an exact full 40-character SHA currently advertised by a branch head on the project's credential-free `github.com` origin. With `commit`, Workbench fetches into disposable Git state and never moves the registered checkout. No `bash -c` or caller-supplied remote URL is accepted.
 - `save_note` — project required; `note` required. Secret-like content is refused.
 - `search_memory` — project optional; `query` optional, `limit` optional (max 20).
 - `save_memory` — `scope` (`project` or `global`), optional `kind` (`fact`, `decision`, `constraint`, `pattern`, `routine`, `code`), `title`, `content`, optional `tags`, optional `source`; project is required for project scope.
@@ -138,6 +140,34 @@ Example direct cluster mutation:
 }
 ```
 
+### Built-in zero-credit read-only operations
+
+`WORKBENCH_CAPABILITIES.json` advertises the canonical built-in operations in machine-readable form. They all run from `runner://workbench` through `run_operations_script` and require no external AI worker.
+
+Before using one, resolve the current full 40-character head SHA of `DaisyCloverSoftware/workbench` `main` through connected GitHub and pass that SHA as `args.commit`. The long-lived `runner://workbench` checkout does **not** need to be current.
+
+- `scripts/ops/workbench-health.sh` — Workbench binaries/services, loopback MCP health, and relay checkout cleanliness.
+- `scripts/ops/cluster-health.sh` — compact cluster-wide snapshot: nodes, currently abnormal pods, recent warnings, ARC assignments, Longhorn node readiness/schedulability and attached unhealthy volumes.
+- `scripts/ops/namespace-health.sh <namespace>` — compact namespace snapshot: deployments, statefulsets, pods, jobs, PVCs and recent Warning events.
+
+Example cluster-health request after resolving `<CURRENT_WORKBENCH_MAIN_SHA>`:
+
+```json
+{
+  "version": 1,
+  "id": "cluster_health_001",
+  "action": "run_operations_script",
+  "project": "runner://workbench",
+  "args": {
+    "path": "scripts/ops/cluster-health.sh",
+    "commit": "<CURRENT_WORKBENCH_MAIN_SHA>",
+    "timeout_seconds": 60
+  }
+}
+```
+
+Prefer these reviewed snapshots over a burst of repetitive `inspect_machine` calls when they answer the question. Treat Warning events as historical diagnostics: compare them with current node/pod/deployment state before deciding that a current fault exists or applying a mutation.
+
 ### Direct machine-command safety boundary
 
 Direct machine control is deliberately **not** a generic shell.
@@ -154,14 +184,14 @@ Direct machine control is deliberately **not** a generic shell.
 
 `relay/inbox/<id>.json` is an **optional autonomous machine-operations bridge**, not a second coding queue and not the normal route for Kubernetes/systemd/Docker/Helm commands. ChatGPT must not put implementation, GitHub, PR, CI, or GitHub Actions work in this inbox.
 
-Use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed through `inspect_machine` / `run_machine_command` and autonomous operator capacity is intentionally available. Write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
+Use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed through `inspect_machine` / `run_machine_command` / a reviewed committed operation and autonomous operator capacity is intentionally available. Write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
 
 ```json
 {
   "version": 1,
   "id": "cluster_operation_001",
   "project": "runner://infrastructure",
-  "intent": "[workbench:operations] Diagnose the remaining runtime issue that cannot be expressed through Workbench's direct machine allowlist. Do not modify source, GitHub, CI or Git state."
+  "intent": "[workbench:operations] Diagnose the remaining runtime issue that cannot be expressed through Workbench's direct machine/committed-operation surfaces. Do not modify source, GitHub, CI or Git state."
 }
 ```
 
@@ -198,10 +228,10 @@ Do not invent answers or use this path to bypass a permission boundary. Workbenc
 
 ## Fresh-chat bootstrap
 
-A ChatGPT conversation that can access the user's connected GitHub account can bootstrap itself without code-search indexing: use repository search to locate the user's **private repository whose name contains `workbench-relay`**, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from that repository root, then follow the advertised protocol and this guide.
+A ChatGPT conversation that can access the user's connected GitHub account can bootstrap itself without code-search indexing: use repository search to locate the user's **private repository whose name contains `workbench-relay`**, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from that repository root, then follow the advertised protocol and this guide. For a common health question, inspect `builtin_readonly_operations` first and prefer the matching reviewed operation over constructing many individual relay reads.
 
 A useful one-time global ChatGPT instruction is:
 
-> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Use Workbench safe repository hands when bounded repository access is useful. For routine server/cluster work use Workbench's direct structured `inspect_machine` and `run_machine_command` controls so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when the direct allowlist cannot express the remaining machine-side outcome and operator capacity is available. Never ask me to copy/paste prompts or type “continue”.
+> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Use Workbench safe repository hands when bounded repository access is useful. For routine server/cluster work use Workbench's direct structured controls and reviewed built-in health operations so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when Workbench's direct surfaces cannot express the remaining machine-side outcome and operator capacity is available. Never ask me to copy/paste prompts or type “continue”.
 
 This bootstrap contains no Workbench bearer token or provider credential.
