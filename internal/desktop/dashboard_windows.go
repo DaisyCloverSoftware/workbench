@@ -134,64 +134,18 @@ func (s *Shell) paintDashboard(hdc uintptr, client nativeRect) {
 		s.ensureRunnerProviderInventory(false)
 		d = applyRunnerProviderDashboard(d, runnerProviderInventory(host))
 	}
-	sortDashboardProjectsForDisplay(d.Projects)
+	ops := BuildDashboardOperationsSnapshot(s.eng)
+
 	contentX := productionSidebarWidth + 20
 	contentY := productionHeaderHeight + 18
 	contentW := int(client.Right) - contentX - 18
 	contentH := int(client.Bottom) - contentY - 18
-	if contentW < 800 || contentH < 620 {
+	if contentW < 850 || contentH < 620 {
 		return
 	}
 
-	drawTextStyled(hdc, "Dashboard", rectWH(contentX, contentY, contentW, 32), productionPalette.Text, 27, fwBold, dtLeft|dtSingleLine|dtVCenter)
-	drawTextStyled(hdc, "ChatGPT-first overview and autonomous escalation activity", rectWH(contentX, contentY+34, contentW, 22), productionPalette.Muted, 14, fwNormal, dtLeft|dtSingleLine|dtVCenter)
-
-	metricsY := contentY + 70
-	metricGap := 10
-	metricH := 94
-	metricW := (contentW - metricGap*5) / 6
-	terminal := d.Summary.Completed + d.Summary.Failed
-	success := "—"
-	if terminal > 0 {
-		success = fmt.Sprintf("%d%%", d.SuccessRate)
-	}
-	metrics := []struct {
-		label, value, detail string
-		accent               uint32
-	}{
-		{"Active tasks", fmt.Sprintf("%d", d.Summary.Active), "running or waiting", productionPalette.Accent},
-		{"Needs you", fmt.Sprintf("%d", d.Summary.NeedsHuman), "human decisions", productionPalette.Amber},
-		{"Completed", fmt.Sprintf("%d", d.Summary.Completed), "durable results", productionPalette.Green},
-		{"Success rate", success, "completed vs failed", productionPalette.Purple},
-		{"Autonomous ready", fmt.Sprintf("%d / %d", d.ProviderReady, d.ProviderTotal), "escalation workers", productionPalette.Teal},
-		{"Projects", fmt.Sprintf("%d", d.ProjectCount), "registered workspaces", productionPalette.Accent},
-	}
-	for i, metric := range metrics {
-		rect := rectWH(contentX+i*(metricW+metricGap), metricsY, metricW, metricH)
-		drawMetricCard(hdc, rect, metric.label, metric.value, metric.detail, metric.accent)
-	}
-
-	mainY := metricsY + metricH + 14
-	bottomH := 250
-	bottomY := contentY + contentH - bottomH
-	mainH := bottomY - mainY - 14
-	rightW := 250
-	leftAvailable := contentW - rightW - 20
-	recentW := (leftAvailable * 52) / 100
-	activeW := leftAvailable - recentW - 10
-
-	recentRect := rectWH(contentX, mainY, recentW, mainH)
-	activeRect := rectWH(contentX+recentW+10, mainY, activeW, mainH)
-	systemRect := rectWH(contentX+recentW+activeW+20, mainY, rightW, mainH)
-	drawActivityPanel(hdc, recentRect, d.RecentActivity)
-	drawActiveTasksPanel(hdc, activeRect, d.ActiveTasks)
-	s.drawSystemPanel(hdc, systemRect, d)
-
-	projectsW := (contentW * 55) / 100
-	projectsRect := rectWH(contentX, bottomY, projectsW-6, bottomH)
-	providersRect := rectWH(contentX+projectsW+6, bottomY, contentW-projectsW-6, bottomH)
-	drawProjectsPanel(hdc, projectsRect, d.Projects)
-	drawProvidersPanel(hdc, providersRect, d.Providers)
+	drawTextStyled(hdc, "Operations", rectWH(contentX, contentY, contentW, 32), productionPalette.Text, 27, fwBold, dtLeft|dtSingleLine|dtVCenter)
+	drawTextStyled(hdc, "What is running, where it is running, and what is waiting", rectWH(contentX, contentY+34, contentW, 22), productionPalette.Muted, 14, fwNormal, dtLeft|dtSingleLine|dtVCenter)
 
 	healthText := "ChatGPT primary ready"
 	healthColor := productionPalette.Green
@@ -202,21 +156,235 @@ func (s *Shell) paintDashboard(hdc uintptr, client nativeRect) {
 	pill := rectWH(int(client.Right)-196, 78, 176, 30)
 	roundedPanel(hdc, pill, productionPalette.Panel, healthColor, 12)
 	drawTextStyled(hdc, "●  "+healthText, insetRect(pill, 10, 0), healthColor, 12, fwSemiBold, dtLeft|dtSingleLine|dtVCenter)
+
+	metricsY := contentY + 68
+	metricGap := 10
+	metricH := 72
+	metricW := (contentW - metricGap*4) / 5
+	metrics := []struct {
+		label, value, detail string
+		accent               uint32
+	}{
+		{"Running", fmt.Sprintf("%d", ops.Running), "executing now", productionPalette.Green},
+		{"Queued", fmt.Sprintf("%d", ops.Queued), "scheduler waiting", productionPalette.Accent},
+		{"Waiting", fmt.Sprintf("%d", ops.Waiting), "dependency or retry", productionPalette.Purple},
+		{"Needs you", fmt.Sprintf("%d", ops.NeedsHuman), "human decisions", productionPalette.Amber},
+		{"Worker capacity", fmt.Sprintf("%d / %d", d.ProviderReady, d.ProviderTotal), "autonomous ready", productionPalette.Teal},
+	}
+	for i, metric := range metrics {
+		rect := rectWH(contentX+i*(metricW+metricGap), metricsY, metricW, metricH)
+		drawMetricCard(hdc, rect, metric.label, metric.value, metric.detail, metric.accent)
+	}
+
+	boardY := metricsY + metricH + 12
+	resourceH := 164
+	resourceY := contentY + contentH - resourceH
+	boardH := resourceY - boardY - 12
+	colGap := 10
+	rowGap := 10
+	colW := (contentW - colGap*2) / 3
+	rowH := (boardH - rowGap) / 2
+	lanes := []core.WorkLane{
+		core.WorkLaneServerOps,
+		core.WorkLaneCIBuilds,
+		core.WorkLaneWindowsWorkstation,
+		core.WorkLaneAIWorkers,
+		core.WorkLaneWaiting,
+		core.WorkLaneNeedsYou,
+	}
+	for i, lane := range lanes {
+		col := i % 3
+		row := i / 3
+		rect := rectWH(contentX+col*(colW+colGap), boardY+row*(rowH+rowGap), colW, rowH)
+		drawOperationsLane(hdc, rect, lane, ops.ByLane[lane])
+	}
+
+	resourcesW := (contentW * 58) / 100
+	resourcesRect := rectWH(contentX, resourceY, resourcesW-6, resourceH)
+	projectsRect := rectWH(contentX+resourcesW+6, resourceY, contentW-resourcesW-6, resourceH)
+	drawOperationsResources(hdc, resourcesRect, d.Providers)
+	drawOperationsProjects(hdc, projectsRect, d.Projects)
+}
+
+func drawOperationsLane(hdc uintptr, rect nativeRect, lane core.WorkLane, items []core.WorkItem) {
+	body := drawPanelFrame(hdc, rect, fmt.Sprintf("%s · %d", workLaneTitle(lane), len(items)))
+	if len(items) == 0 {
+		drawTextStyled(hdc, "No tracked work in this lane.", body, productionPalette.Muted, 11, fwNormal, dtLeft|dtWordBreak)
+		return
+	}
+	rowH := 72
+	max := int(body.Bottom-body.Top) / rowH
+	if max < 1 {
+		max = 1
+	}
+	if max > 2 {
+		max = 2
+	}
+	if max > len(items) {
+		max = len(items)
+	}
+	for i := 0; i < max; i++ {
+		drawWorkItemCard(hdc, rectWH(int(body.Left), int(body.Top)+i*rowH, int(body.Right-body.Left), rowH-6), items[i])
+	}
+	if len(items) > max {
+		drawTextStyled(hdc, fmt.Sprintf("+%d more", len(items)-max), rectWH(int(body.Left), int(body.Bottom)-18, int(body.Right-body.Left), 16), productionPalette.Muted, 9, fwSemiBold, dtRight|dtSingleLine|dtVCenter)
+	}
+}
+
+func drawWorkItemCard(hdc uintptr, rect nativeRect, item core.WorkItem) {
+	fillRectColor(hdc, nativeRect{Left: rect.Left, Top: rect.Bottom - 1, Right: rect.Right, Bottom: rect.Bottom}, productionPalette.Border)
+	status := workStateLabel(item)
+	color := workStateColor(item)
+	project := strings.TrimSpace(item.ProjectName)
+	if project == "" {
+		project = "Workbench"
+	}
+	title := project + " — " + strings.TrimSpace(item.Title)
+	drawTextStyled(hdc, title, rectWH(int(rect.Left), int(rect.Top), int(rect.Right-rect.Left)-96, 20), productionPalette.Text, 11, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	drawTextStyled(hdc, status, rectWH(int(rect.Right)-94, int(rect.Top), 92, 20), color, 9, fwSemiBold, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
+
+	executor := strings.TrimSpace(item.Provider)
+	if executor == "" {
+		executor = "Workbench"
+	}
+	location := executor
+	if strings.TrimSpace(item.Machine) != "" {
+		location += " → " + item.Machine
+	}
+	drawTextStyled(hdc, location, rectWH(int(rect.Left), int(rect.Top)+21, int(rect.Right-rect.Left)-80, 16), productionPalette.Muted, 9, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	drawTextStyled(hdc, workItemElapsed(item, time.Now()), rectWH(int(rect.Right)-76, int(rect.Top)+21, 74, 16), productionPalette.Muted, 9, fwNormal, dtRight|dtSingleLine|dtVCenter)
+
+	detail := strings.TrimSpace(item.Dependency)
+	if detail == "" {
+		detail = strings.TrimSpace(item.Progress.Phase)
+	}
+	if item.QueuePosition > 0 {
+		if detail != "" {
+			detail += " · "
+		}
+		detail += fmt.Sprintf("queue #%d", item.QueuePosition)
+	}
+	if detail == "" {
+		detail = "Progress is indeterminate; Workbench will not invent a percentage."
+	}
+	drawTextStyled(hdc, detail, rectWH(int(rect.Left), int(rect.Top)+40, int(rect.Right-rect.Left), 17), productionPalette.Muted, 9, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+}
+
+func drawOperationsResources(hdc uintptr, rect nativeRect, providers []DashboardProviderItem) {
+	body := drawPanelFrame(hdc, rect, fmt.Sprintf("Execution capacity · %d", len(providers)))
+	if len(providers) == 0 {
+		drawTextStyled(hdc, "No autonomous execution capacity detected.", body, productionPalette.Muted, 11, fwNormal, dtLeft|dtWordBreak)
+		return
+	}
+	cols := 2
+	colGap := 16
+	colW := (int(body.Right-body.Left) - colGap) / cols
+	max := len(providers)
+	if max > 6 {
+		max = 6
+	}
+	for i := 0; i < max; i++ {
+		provider := providers[i]
+		col := i % cols
+		row := i / cols
+		x := int(body.Left) + col*(colW+colGap)
+		y := int(body.Top) + row*27
+		color := productionPalette.Muted
+		status := "Unavailable"
+		if provider.Ready {
+			color = productionPalette.Green
+			status = "Ready"
+		}
+		if provider.Cooling {
+			color = productionPalette.Purple
+			status = "Cooling"
+		}
+		roundedPanel(hdc, rectWH(x, y+8, 7, 7), color, color, 7)
+		drawTextStyled(hdc, provider.Name, rectWH(x+14, y, colW-94, 23), productionPalette.Text, 10, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+		drawTextStyled(hdc, status, rectWH(x+colW-76, y, 76, 23), color, 9, fwSemiBold, dtRight|dtSingleLine|dtVCenter)
+	}
+}
+
+func drawOperationsProjects(hdc uintptr, rect nativeRect, projects []DashboardProjectItem) {
+	active := make([]DashboardProjectItem, 0, len(projects))
+	for _, project := range projects {
+		if project.Summary.Active > 0 || project.Summary.NeedsHuman > 0 {
+			active = append(active, project)
+		}
+	}
+	body := drawPanelFrame(hdc, rect, fmt.Sprintf("Projects with work · %d", len(active)))
+	if len(active) == 0 {
+		drawTextStyled(hdc, fmt.Sprintf("%d registered projects · none currently active", len(projects)), body, productionPalette.Muted, 11, fwNormal, dtLeft|dtWordBreak)
+		return
+	}
+	max := len(active)
+	if max > 3 {
+		max = 3
+	}
+	for i := 0; i < max; i++ {
+		project := active[i]
+		y := int(body.Top) + i*27
+		drawTextStyled(hdc, project.Name, rectWH(int(body.Left), y, int(body.Right-body.Left)-120, 22), productionPalette.Text, 10, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+		detail := fmt.Sprintf("%d active · %d need you", project.Summary.Active, project.Summary.NeedsHuman)
+		drawTextStyled(hdc, detail, rectWH(int(body.Right)-116, y, 114, 22), productionPalette.Muted, 9, fwNormal, dtRight|dtSingleLine|dtVCenter)
+	}
+}
+
+func workLaneTitle(lane core.WorkLane) string {
+	switch lane {
+	case core.WorkLaneServerOps:
+		return "Server Operations"
+	case core.WorkLaneCIBuilds:
+		return "CI / Builds"
+	case core.WorkLaneWindowsWorkstation:
+		return "Windows Workstation"
+	case core.WorkLaneAIWorkers:
+		return "AI Workers"
+	case core.WorkLaneWaiting:
+		return "Waiting"
+	case core.WorkLaneNeedsYou:
+		return "Needs You"
+	default:
+		return "Work"
+	}
+}
+
+func workStateLabel(item core.WorkItem) string {
+	if item.State == core.TaskQueued && item.QueuePosition > 0 {
+		return fmt.Sprintf("%s · QUEUED #%d", strings.ToUpper(item.Priority.String()), item.QueuePosition)
+	}
+	return strings.ToUpper(dashboardStatusLabel(item.State, string(item.State)))
+}
+
+func workStateColor(item core.WorkItem) uint32 {
+	if item.State == core.TaskNeedsAttention {
+		return productionPalette.Amber
+	}
+	if item.State == core.TaskFailed {
+		return productionPalette.Red
+	}
+	if item.State == core.TaskWaitingDependency || item.State == core.TaskWaitingRetry {
+		return productionPalette.Purple
+	}
+	if item.State == core.TaskRunning || item.State == core.TaskRouting {
+		return productionPalette.Green
+	}
+	return productionPalette.Accent
 }
 
 func drawMetricCard(hdc uintptr, rect nativeRect, label, value, detail string, accent uint32) {
 	roundedPanel(hdc, rect, productionPalette.Panel, productionPalette.Border, 12)
 	fillRectColor(hdc, nativeRect{Left: rect.Left, Top: rect.Top, Right: rect.Left + 4, Bottom: rect.Bottom}, accent)
-	drawTextStyled(hdc, label, nativeRect{Left: rect.Left + 15, Top: rect.Top + 11, Right: rect.Right - 10, Bottom: rect.Top + 31}, productionPalette.Muted, 12, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
-	drawTextStyled(hdc, value, nativeRect{Left: rect.Left + 15, Top: rect.Top + 31, Right: rect.Right - 10, Bottom: rect.Top + 66}, productionPalette.Text, 25, fwBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
-	drawTextStyled(hdc, detail, nativeRect{Left: rect.Left + 15, Top: rect.Top + 67, Right: rect.Right - 10, Bottom: rect.Bottom - 7}, productionPalette.Muted, 11, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	drawTextStyled(hdc, label, nativeRect{Left: rect.Left + 15, Top: rect.Top + 8, Right: rect.Right - 10, Bottom: rect.Top + 27}, productionPalette.Muted, 11, fwSemiBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	drawTextStyled(hdc, value, nativeRect{Left: rect.Left + 15, Top: rect.Top + 25, Right: rect.Right - 10, Bottom: rect.Top + 51}, productionPalette.Text, 21, fwBold, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
+	drawTextStyled(hdc, detail, nativeRect{Left: rect.Left + 15, Top: rect.Top + 50, Right: rect.Right - 10, Bottom: rect.Bottom - 5}, productionPalette.Muted, 9, fwNormal, dtLeft|dtSingleLine|dtVCenter|dtEndEllipsis)
 }
 
 func drawPanelFrame(hdc uintptr, rect nativeRect, title string) nativeRect {
 	roundedPanel(hdc, rect, productionPalette.Panel, productionPalette.Border, 12)
-	drawTextStyled(hdc, title, nativeRect{Left: rect.Left + 14, Top: rect.Top + 10, Right: rect.Right - 14, Bottom: rect.Top + 36}, productionPalette.Text, 15, fwSemiBold, dtLeft|dtSingleLine|dtVCenter)
-	fillRectColor(hdc, nativeRect{Left: rect.Left + 1, Top: rect.Top + 42, Right: rect.Right - 1, Bottom: rect.Top + 43}, productionPalette.Border)
-	return nativeRect{Left: rect.Left + 12, Top: rect.Top + 51, Right: rect.Right - 12, Bottom: rect.Bottom - 10}
+	drawTextStyled(hdc, title, nativeRect{Left: rect.Left + 14, Top: rect.Top + 8, Right: rect.Right - 14, Bottom: rect.Top + 32}, productionPalette.Text, 14, fwSemiBold, dtLeft|dtSingleLine|dtVCenter)
+	fillRectColor(hdc, nativeRect{Left: rect.Left + 1, Top: rect.Top + 38, Right: rect.Right - 1, Bottom: rect.Top + 39}, productionPalette.Border)
+	return nativeRect{Left: rect.Left + 12, Top: rect.Top + 46, Right: rect.Right - 12, Bottom: rect.Bottom - 8}
 }
 
 func drawActivityPanel(hdc uintptr, rect nativeRect, items []DashboardActivityItem) {
@@ -264,9 +432,6 @@ func drawActiveTasksPanel(hdc uintptr, rect nativeRect, tasks []DashboardTaskIte
 			next = "Retries " + task.RetryAt.Local().Format("15:04")
 		}
 		drawTextStyled(hdc, next, rectWH(int(body.Left)+134, y+19, int(body.Right-body.Left)-136, 15), productionPalette.Muted, 9, fwNormal, dtRight|dtSingleLine|dtVCenter|dtEndEllipsis)
-		bar := rectWH(int(body.Left), y+36, int(body.Right-body.Left), 2)
-		fillRectColor(hdc, bar, productionPalette.Border)
-		fillRectColor(hdc, nativeRect{Left: bar.Left, Top: bar.Top, Right: bar.Right, Bottom: bar.Bottom}, color)
 	}
 	if hidden > 0 {
 		footerTop := int(body.Bottom) - dashboardActiveTaskFooterHeight
