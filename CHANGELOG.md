@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.36 — 2026-08-20
+
+- Add an outbound-only Windows host bridge that reuses the configured Workbench Runner SSH channel, opens no inbound Windows listener, and requires no external AI/model credit.
+- Add durable typed host jobs plus strict host-json poll/complete RPC and private-relay actions to discover Windows hosts, request a Blender version probe, and inspect the resulting host job.
+- Keep the first local-tool tranche fail-closed to exact blender.exe --version execution with bounded output and a second Windows-side allowlist check; generic Windows commands and rendering remain disabled until the bridge is live-proven.
+
 ## 0.9.35 — 2026-08-19
 
 - Add private-relay inspect_machine_batch for one-to-eight ordered read-only machine inspections, reusing the exact existing InspectMachine safety policy with independent per-item failures and bounded output.
