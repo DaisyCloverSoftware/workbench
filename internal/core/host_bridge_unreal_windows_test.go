@@ -47,3 +47,33 @@ func TestFindUnrealEditorCmdUsesLauncherManifestAndNewestVersion(t *testing.T) {
 		t.Fatalf("selected Unreal executable %q, want %q", got, newerExe)
 	}
 }
+
+func TestPrepareUnrealSmokeProjectCreatesAndRemovesOwnedWorkspace(t *testing.T) {
+	cache := t.TempDir()
+	t.Setenv("LocalAppData", cache)
+	project, cleanup, err := prepareUnrealSmokeProject("hostjob_testunreal123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Dir(project)
+	if filepath.Base(project) != "WorkbenchSmoke.uproject" {
+		t.Fatalf("project=%q", project)
+	}
+	if _, err := os.Stat(project); err != nil {
+		t.Fatalf("prepared project missing: %v", err)
+	}
+	if _, _, err := unrealSmokeInvocation(unrealTestInstall(t, 5, 8, 1), project); err != nil {
+		t.Fatalf("prepared project rejected by fixed smoke invocation: %v", err)
+	}
+	cleanup()
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("smoke workspace was not removed: %v", err)
+	}
+}
+
+func TestPrepareUnrealSmokeProjectRejectsNonJobIdentifiers(t *testing.T) {
+	t.Setenv("LocalAppData", t.TempDir())
+	if _, _, err := prepareUnrealSmokeProject("windows_not_a_job"); err == nil {
+		t.Fatal("non-job identifier was accepted for Unreal smoke workspace")
+	}
+}
