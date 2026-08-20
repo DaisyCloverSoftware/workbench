@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.49 — 2026-08-20
+
+- Force headless Blender smoke renders to configure Cycles GPU rendering explicitly instead of relying on GUI preferences that are bypassed by factory startup.
+- Select OptiX and enable non-CPU Cycles devices so Windows render jobs can use the NVIDIA GPU automatically.
+
 ## 0.9.48 — 2026-08-20
 
 - Restore durable private Git relay operations so long-running Workbench machine tasks survive the originating chat and resume through the private relay until a genuine human-attention gate is reached.
