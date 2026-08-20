@@ -1,0 +1,9 @@
+{
+  "version": "0.9.50",
+  "date": "2026-08-20",
+  "notes": [
+    "Add an explicit authenticated private-relay continuation lane so ChatGPT can hand the remaining development workflow to Workbench before a wait and leave Workbench responsible for resuming it.",
+    "HMAC-seal private-relay continuation intents with the local loopback MCP credential; direct ChatGPT development delegation remains blocked and forged or tampered continuation intents are rejected.",
+    "Carry durable GitHub Actions dependency waits through to automatic task requeue and execution, so terminal CI can resume the same development task without the user typing continue."
+  ]
+}
