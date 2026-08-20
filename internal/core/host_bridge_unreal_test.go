@@ -133,7 +133,7 @@ func TestSubmitUnrealSmokeJobUsesDedicatedTypedOperation(t *testing.T) {
 }
 
 func TestCompareUnrealBuildVersionsUsesNumericComponents(t *testing.T) {
-	if compareUnrealBuildVersions(unrealBuildVersion{MajorVersion: 5, MinorVersion: 10}, unrealBuildBuildVersion{MajorVersion: 5, MinorVersion: 9}) <= 0 {
+	if compareUnrealBuildVersions(unrealBuildVersion{MajorVersion: 5, MinorVersion: 10}, unrealBuildVersion{MajorVersion: 5, MinorVersion: 9}) <= 0 {
 		t.Fatal("5.10 must sort after 5.9")
 	}
 }
