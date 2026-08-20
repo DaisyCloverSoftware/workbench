@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.41 — 2026-08-20
+
+- Add bounded Windows Unreal Engine detection by validating UnrealEditor-Cmd.exe in the canonical Engine/Binaries/Win64 layout and reading the adjacent Build.version metadata.
+- Add a dedicated engine-only Unreal headless smoke operation using fixed unattended/null-RHI/help arguments with Python, project loading, shader compilation and cache writes disabled.
+- Keep the generic Windows host-job path version-only and preserve the outbound-only bridge boundary; arbitrary Unreal projects, scripts, commandlets, builds, cooks and renders remain disabled until lower-risk live proof succeeds.
+
 ## 0.9.40 — 2026-08-20
 
 - Fix the Windows verified-updater handoff so, after explicit user approval, the updater gracefully closes the running Workbench process, waits for its single-instance mutex and MCP listener to exit, installs the verified replacement, and relaunches the new Workbench instance without requiring a manual close/reopen.
