@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.50 — 2026-08-20
+
+- Add an explicit authenticated private-relay continuation lane so ChatGPT can hand the remaining development workflow to Workbench before a wait and leave Workbench responsible for resuming it.
+- HMAC-seal private-relay continuation intents with the local loopback MCP credential; direct ChatGPT development delegation remains blocked and forged or tampered continuation intents are rejected.
+- Carry durable GitHub Actions dependency waits through to automatic task requeue and execution, so terminal CI can resume the same development task without the user typing continue.
+
 ## 0.9.49 — 2026-08-20
 
 - Force headless Blender smoke renders to configure Cycles GPU rendering explicitly instead of relying on GUI preferences that are bypassed by factory startup.
