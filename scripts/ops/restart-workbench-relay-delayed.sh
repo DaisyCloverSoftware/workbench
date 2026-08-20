@@ -24,9 +24,9 @@ fi
 unit="workbench-relay-restart-$(date +%s)-$$"
 "$systemd_run" --user --quiet --collect \
   --unit="$unit" \
-  --on-active=15s \
+  --on-active=60s \
   "$systemctl_bin" --user restart workbench-github-relay.service
 
 printf 'scheduled_unit=%s\n' "$unit"
-printf 'delay_seconds=15\n'
+printf 'delay_seconds=60\n'
 printf 'target=workbench-github-relay.service\n'
