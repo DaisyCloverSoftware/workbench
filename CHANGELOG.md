@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.51 — 2026-08-20
+
+- Replace the old activity-first Dashboard with a six-lane operations board covering server operations, CI/builds, Windows workstation jobs, AI workers, waiting dependencies and genuine human-attention gates.
+- Add durable scheduler-owned queued-to-routing dispatch with lane capacity, persisted Critical/High/Normal/Low priority and priority-then-FIFO queue positions instead of immediately launching every delegated task.
+- Add truthful measured, stage-based and indeterminate work progress metadata plus executor, dependency and elapsed-time context for operations-board work items.
+- Preserve unattended CI continuation after Workbench appends its own dependency result to an authenticated private-relay continuation intent while arbitrary post-proof content remains rejected.
+
 ## 0.9.50 — 2026-08-20
 
 - Add an explicit authenticated private-relay continuation lane so ChatGPT can hand the remaining development workflow to Workbench before a wait and leave Workbench responsible for resuming it.
