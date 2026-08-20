@@ -11,13 +11,13 @@ import (
 // UI migrates, so the scheduling model can become trustworthy before old panels
 // are removed.
 type OperationsDashboardSnapshot struct {
-	GeneratedAt     time.Time
-	Items           []core.WorkItem
-	Lanes           []DashboardWorkLane
-	Running         int
-	Queued          int
-	Waiting         int
-	NeedsHuman      int
+	GeneratedAt time.Time
+	Items       []core.WorkItem
+	Lanes       []DashboardWorkLane
+	Running     int
+	Queued      int
+	Waiting     int
+	NeedsHuman  int
 }
 
 type DashboardWorkLane struct {
@@ -45,6 +45,17 @@ func BuildOperationsDashboardSnapshot(eng *core.Engine) OperationsDashboardSnaps
 		activeTasks = append(activeTasks, task)
 	}
 	items := core.WorkItemsFromTasks(activeTasks, eng.Projects())
+
+	// Windows host jobs are already durable Workbench-owned records, so they can
+	// join the dashboard without polling the cluster or inventing another queue.
+	// Inventory failures are non-fatal to the desktop: the lane remains visible
+	// and the rest of the control room still renders.
+	if jobs, err := core.ListHostBridgeJobs(); err == nil {
+		hosts, _ := core.ListHostBridgeHosts()
+		items = append(items, core.ActiveWorkItemsFromHostJobs(jobs, hosts)...)
+	}
+	items = core.AssignLaneQueuePositions(items)
+
 	result := summarizeOperationsDashboard(items)
 	result.GeneratedAt = now
 	return result
