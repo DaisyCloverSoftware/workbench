@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.39 — 2026-08-20
+
+- Stop ChatGPT-originated machine operations from implicitly creating OpenClaw operator tasks; bounded ChatGPT machine work must use direct Workbench controls.
+- On supervised startup recovery, retire non-terminal legacy chatgpt-mcp operations tasks as cancelled instead of resurrecting their OpenClaw sessions after every Workbench restart.
+- Preserve manual/local OpenClaw operator workflows from other origins, and retain the bounded Windows Blender smoke-render capability introduced in 0.9.38.
+
 ## 0.9.38 — 2026-08-20
 
 - Add the first bounded Windows Blender headless-render operation after the live 0.9.37 version bridge proved Blender 5.1.2 on the connected host.
