@@ -47,46 +47,40 @@ const (
 	ProgressStages        ProgressKind = "stages"
 )
 
-// WorkProgress never invents completion. Measured progress requires Total > 0;
-// stage progress requires StageTotal > 0; otherwise callers render it as
-// indeterminate with phase/elapsed information only.
 type WorkProgress struct {
-	Kind       ProgressKind `json:"kind,omitempty"`
-	Current    int64        `json:"current,omitempty"`
-	Total      int64        `json:"total,omitempty"`
-	Unit       string       `json:"unit,omitempty"`
-	Phase      string       `json:"phase,omitempty"`
-	Stage      int          `json:"stage,omitempty"`
-	StageTotal int          `json:"stage_total,omitempty"`
+	Kind       ProgressKind
+	Current    int64
+	Total      int64
+	Unit       string
+	Phase      string
+	Stage      int
+	StageTotal int
 }
 
 type WorkItem struct {
-	ID           string
-	ProjectPath  string
-	ProjectName  string
-	Title        string
-	State        TaskStatus
-	Priority     WorkPriority
-	Lane         WorkLane
+	ID            string
+	ProjectPath   string
+	ProjectName   string
+	Title         string
+	State         TaskStatus
+	Priority      WorkPriority
+	Lane          WorkLane
 	QueuePosition int
-	Executor     string
-	Machine      string
-	Provider     string
-	Progress     WorkProgress
-	Dependency   string
-	Commit       string
-	CreatedAt    time.Time
-	StartedAt    *time.Time
-	UpdatedAt    time.Time
-	NeedsHuman   bool
+	Executor      string
+	Machine       string
+	Provider      string
+	Progress      WorkProgress
+	Dependency    string
+	Commit        string
+	CreatedAt     time.Time
+	StartedAt     *time.Time
+	UpdatedAt     time.Time
+	NeedsHuman    bool
 }
 
-func DefaultTaskPriority(task Task) WorkPriority {
-	if task.Priority >= PriorityCritical && task.Priority <= PriorityLow {
-		return task.Priority
-	}
-	return PriorityNormal
-}
+// Until task priority is persisted by the scheduler tranche, existing tasks are
+// truthfully Normal rather than being assigned a cosmetic priority in the UI.
+func DefaultTaskPriority(task Task) WorkPriority { return PriorityNormal }
 
 func TaskLane(task Task) WorkLane {
 	if task.Status == TaskNeedsAttention {
@@ -105,17 +99,22 @@ func TaskLane(task Task) WorkLane {
 }
 
 func TaskProgress(task Task) WorkProgress {
-	progress := task.Progress
-	if progress.Kind == ProgressMeasured && progress.Total <= 0 {
-		progress.Kind = ProgressIndeterminate
+	phase := ""
+	switch task.Status {
+	case TaskQueued:
+		phase = "Queued"
+	case TaskRouting:
+		phase = "Selecting executor"
+	case TaskRunning:
+		phase = "Running"
+	case TaskWaitingDependency:
+		phase = "Waiting on dependency"
+	case TaskWaitingRetry:
+		phase = "Waiting to retry"
+	case TaskNeedsAttention:
+		phase = "Needs human decision"
 	}
-	if progress.Kind == ProgressStages && progress.StageTotal <= 0 {
-		progress.Kind = ProgressIndeterminate
-	}
-	if progress.Kind == "" {
-		progress.Kind = ProgressIndeterminate
-	}
-	return progress
+	return WorkProgress{Kind: ProgressIndeterminate, Phase: phase}
 }
 
 func QueuePositions(tasks []Task) map[string]int {
@@ -126,10 +125,6 @@ func QueuePositions(tasks []Task) map[string]int {
 		}
 	}
 	sort.SliceStable(queued, func(i, j int) bool {
-		pi, pj := DefaultTaskPriority(queued[i]), DefaultTaskPriority(queued[j])
-		if pi != pj {
-			return pi < pj
-		}
 		if !queued[i].CreatedAt.Equal(queued[j].CreatedAt) {
 			return queued[i].CreatedAt.Before(queued[j].CreatedAt)
 		}
