@@ -28,14 +28,16 @@ func ensureRunnerChatActivityMonitor(eng *core.Engine) {
 				response, err := core.RunRunnerToolSSH(ctx, host, core.RunnerToolRequest{Action: "chat_activity", Limit: 100})
 				cancel()
 				if err == nil {
-					activity := filterRunnerChatActivityToInventory(response.Projects, response.ChatActivity)
-					runnerChatActivityCache.Store(activity)
-					// ChatGPT is the normal entry point. If it has genuinely used a
-					// current runner project, register that project in the desktop
-					// automatically rather than making the user import the same repo by
-					// hand. Activity for review worktrees or vanished runner projects is
-					// filtered before it can become user-facing state.
-					_, _ = registerActiveChatProjects(eng, response.Projects, activity, time.Now().UTC())
+					// Keep the complete privacy-safe relay inventory for the operations
+					// board. Server and Windows controls intentionally do not carry a
+					// project ref, so filtering the cache to project inventory made real
+					// work disappear from the dashboard.
+					runnerChatActivityCache.Store(append([]core.RunnerChatActivityInfo(nil), response.ChatActivity...))
+					// Project auto-registration remains stricter: only activity tied to
+					// a currently advertised runner project may create desktop project
+					// entries.
+					projectActivity := filterRunnerChatActivityToInventory(response.Projects, response.ChatActivity)
+					_, _ = registerActiveChatProjects(eng, response.Projects, projectActivity, time.Now().UTC())
 					pruneUnavailableRunnerProjects(eng, response.Projects)
 				}
 			}
