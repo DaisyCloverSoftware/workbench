@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	WindowsReleaseAsset         = "Workbench.exe"
-	WindowsReleaseChecksumAsset = "Workbench.exe.sha256"
-	maxWindowsAppBytes          = 128 << 20
+	WindowsReleaseAsset                  = "Workbench.exe"
+	WindowsReleaseChecksumAsset          = "Workbench.exe.sha256"
+	WindowsUpdaterReleaseAsset           = "Workbench-Updater.exe"
+	WindowsUpdaterReleaseChecksumAsset   = "Workbench-Updater.exe.sha256"
+	maxWindowsAppBytes                   = 128 << 20
 )
 
 type WindowsAppInstallTransaction struct {
@@ -103,28 +105,40 @@ func WindowsAppMatchesVerifiedAsset(target string, asset VerifiedUpdateAsset) (b
 // into place but retains the old file until Commit. If relaunching the new app
 // fails, the updater can Rollback and restore the previous executable.
 func BeginWindowsAppInstall(asset VerifiedUpdateAsset, target string) (*WindowsAppInstallTransaction, error) {
-	if asset.Name != WindowsReleaseAsset {
+	return beginWindowsExecutableInstall(asset, target, WindowsReleaseAsset)
+}
+
+// BeginWindowsUpdaterInstall applies the same verified transactional replacement
+// boundary to Workbench-Updater.exe. Workbench uses this only while the updater
+// is not needed for the current operation, allowing installed copies to receive
+// updater reliability fixes without trusting an unverified replacement binary.
+func BeginWindowsUpdaterInstall(asset VerifiedUpdateAsset, target string) (*WindowsAppInstallTransaction, error) {
+	return beginWindowsExecutableInstall(asset, target, WindowsUpdaterReleaseAsset)
+}
+
+func beginWindowsExecutableInstall(asset VerifiedUpdateAsset, target, expectedAsset string) (*WindowsAppInstallTransaction, error) {
+	if asset.Name != expectedAsset {
 		return nil, fmt.Errorf("unexpected Windows update asset %q", asset.Name)
 	}
 	if len(asset.SHA256) != sha256.Size*2 {
 		return nil, errors.New("verified Windows update asset has no valid SHA-256")
 	}
-	if filepath.Base(target) != WindowsReleaseAsset {
-		return nil, fmt.Errorf("Workbench Windows updater may only install %s", WindowsReleaseAsset)
+	if filepath.Base(target) != expectedAsset {
+		return nil, fmt.Errorf("Workbench Windows updater may only install %s", expectedAsset)
 	}
 	absTarget, err := filepath.Abs(target)
 	if err != nil {
 		return nil, err
 	}
 	if err := VerifyWindowsAMD64PE(asset.Path); err != nil {
-		return nil, fmt.Errorf("verify staged Workbench.exe: %w", err)
+		return nil, fmt.Errorf("verify staged %s: %w", expectedAsset, err)
 	}
 	stagedHash, stagedSize, err := FileSHA256(asset.Path, maxWindowsAppBytes)
 	if err != nil {
 		return nil, err
 	}
 	if !strings.EqualFold(stagedHash, asset.SHA256) || (asset.Size > 0 && stagedSize != asset.Size) {
-		return nil, errors.New("staged Workbench.exe no longer matches its verified release asset")
+		return nil, fmt.Errorf("staged %s no longer matches its verified release asset", expectedAsset)
 	}
 
 	targetDir := filepath.Dir(absTarget)
@@ -133,7 +147,7 @@ func BeginWindowsAppInstall(asset VerifiedUpdateAsset, target string) (*WindowsA
 	}
 	if info, err := os.Lstat(absTarget); err == nil {
 		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("refusing to replace non-regular Workbench.exe: %s", absTarget)
+			return nil, fmt.Errorf("refusing to replace non-regular %s: %s", expectedAsset, absTarget)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
@@ -152,12 +166,12 @@ func BeginWindowsAppInstall(asset VerifiedUpdateAsset, target string) (*WindowsA
 
 	tx := &WindowsAppInstallTransaction{target: absTarget}
 	if _, err := os.Lstat(absTarget); err == nil {
-		backup, err := reserveSiblingPath(targetDir, ".Workbench.exe.workbench-old-*")
+		backup, err := reserveSiblingPath(targetDir, "."+expectedAsset+".workbench-old-*")
 		if err != nil {
 			return nil, err
 		}
 		if err := os.Rename(absTarget, backup); err != nil {
-			return nil, fmt.Errorf("replace Workbench.exe: close Workbench and retry the updater (%w)", err)
+			return nil, fmt.Errorf("replace %s: close the running executable and retry (%w)", expectedAsset, err)
 		}
 		tx.backup = backup
 		tx.hadTarget = true
@@ -170,7 +184,7 @@ func BeginWindowsAppInstall(asset VerifiedUpdateAsset, target string) (*WindowsA
 			_ = os.Rename(tx.backup, absTarget)
 			tx.backup = ""
 		}
-		return nil, fmt.Errorf("install Workbench.exe: %w", err)
+		return nil, fmt.Errorf("install %s: %w", expectedAsset, err)
 	}
 	cleanupStage = false
 	if err := syncDirectory(targetDir); err != nil {
@@ -187,7 +201,7 @@ func BeginWindowsAppInstall(asset VerifiedUpdateAsset, target string) (*WindowsA
 		if err != nil {
 			return nil, err
 		}
-		return nil, errors.New("installed Workbench.exe failed post-swap checksum verification")
+		return nil, fmt.Errorf("installed %s failed post-swap checksum verification", expectedAsset)
 	}
 	return tx, nil
 }
