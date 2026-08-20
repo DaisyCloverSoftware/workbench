@@ -68,9 +68,29 @@ case "$result_mode" in status|report) ;; *) echo "WORKBENCH_RELAY_RESULT_MODE mu
 
 # The daemon needs read + write Git transport: Chat writes inbox/answers and the
 # runner writes outbox status/results. It never creates or stores a GitHub token.
+# The live relay may fetch the same repository while this installer runs. Probe
+# through PID-scoped refs so the installer never races the daemon for the normal
+# refs/remotes/<remote>/<branch> tracking ref or FETCH_HEAD.
+transport_ref="refs/workbench/relay-transport-check/$$"
+transport_probe="refs/heads/workbench-relay-write-probe-$$"
+check_relay_transport() {
+  local remote="$1"
+  if ! git -C "$relay_repo" fetch --quiet --no-write-fetch-head "$remote" \
+      "refs/heads/$relay_branch:$transport_ref"; then
+    git -C "$relay_repo" update-ref -d "$transport_ref" >/dev/null 2>&1 || true
+    return 1
+  fi
+  if ! git -C "$relay_repo" push --dry-run "$remote" \
+      "$transport_ref:$transport_probe" >/dev/null 2>&1; then
+    git -C "$relay_repo" update-ref -d "$transport_ref" >/dev/null 2>&1 || true
+    return 1
+  fi
+  git -C "$relay_repo" update-ref -d "$transport_ref" >/dev/null 2>&1 || true
+  return 0
+}
+
 echo "Checking relay git transport..."
-git -C "$relay_repo" fetch --quiet "$relay_remote" "$relay_branch"
-if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
+if ! check_relay_transport "$relay_remote"; then
   relay_url="$(git -C "$relay_repo" remote get-url "$relay_remote")"
   case "$relay_url" in
     https://github.com/*)
@@ -84,13 +104,12 @@ if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_re
         else
           git -C "$relay_repo" remote add "$relay_remote" "$ssh_url"
         fi
-        git -C "$relay_repo" fetch --quiet "$relay_remote" "$relay_branch"
       fi
       ;;
   esac
 fi
 
-if ! git -C "$relay_repo" push --dry-run "$relay_remote" "refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch" >/dev/null 2>&1; then
+if ! check_relay_transport "$relay_remote"; then
   echo "Relay repository is readable but no non-interactive Git push credential was found." >&2
   echo "Configure an authenticated Git remote (SSH is recommended) or set WORKBENCH_RELAY_REMOTE to one." >&2
   exit 1
