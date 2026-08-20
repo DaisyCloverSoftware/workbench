@@ -22,11 +22,28 @@ const (
 	mbIconInformation = 0x00000040
 	mbIconWarning     = 0x00000030
 	idYes             = 6
+	wmClose           = 0x0010
+	processSynchronize = 0x00100000
+	waitObject0        = 0x00000000
+	waitTimeout        = 0x00000102
+	waitFailed         = 0xffffffff
 )
 
+var workbenchWindowClasses = []string{
+	"DaisyCloverWorkbenchProductionDashboard",
+	"DaisyCloverWorkbenchProductionWindow",
+}
+
 var (
-	updaterUser32      = syscall.NewLazyDLL("user32.dll")
-	updaterMessageBoxW = updaterUser32.NewProc("MessageBoxW")
+	updaterUser32                   = syscall.NewLazyDLL("user32.dll")
+	updaterKernel32                 = syscall.NewLazyDLL("kernel32.dll")
+	updaterMessageBoxW              = updaterUser32.NewProc("MessageBoxW")
+	updaterFindWindowW              = updaterUser32.NewProc("FindWindowW")
+	updaterGetWindowThreadProcessID = updaterUser32.NewProc("GetWindowThreadProcessId")
+	updaterPostMessageW             = updaterUser32.NewProc("PostMessageW")
+	updaterOpenProcess              = updaterKernel32.NewProc("OpenProcess")
+	updaterWaitForSingleObject      = updaterKernel32.NewProc("WaitForSingleObject")
+	updaterCloseHandle              = updaterKernel32.NewProc("CloseHandle")
 )
 
 func main() {
@@ -94,6 +111,15 @@ func runUpdater() error {
 		return nil
 	}
 
+	// Workbench owns a per-user single-instance mutex. Launching the replacement
+	// before the old desktop exits makes the new process immediately terminate as
+	// "already running". Close the exact Workbench top-level window only after the
+	// user accepted the verified update, then wait for its process (and embedded
+	// MCP listener/mutex) to finish before swapping and relaunching the executable.
+	if err := closeRunningWorkbenchForUpdate(); err != nil {
+		return err
+	}
+
 	tx, err := core.BeginWindowsAppInstall(asset, target)
 	if err != nil {
 		return err
@@ -110,6 +136,52 @@ func runUpdater() error {
 	}
 	updaterMessage("Workbench updated", "Workbench v"+release.Version+" was installed from the verified official release and launched successfully.", mbIconInformation)
 	return nil
+}
+
+func closeRunningWorkbenchForUpdate() error {
+	hwnd, pid := runningWorkbenchWindow()
+	if hwnd == 0 || pid == 0 {
+		return nil
+	}
+
+	process, _, openErr := updaterOpenProcess.Call(processSynchronize, 0, uintptr(pid))
+	if process == 0 {
+		return fmt.Errorf("could not open the running Workbench process for update handoff: %v", openErr)
+	}
+	defer updaterCloseHandle.Call(process)
+
+	if posted, _, postErr := updaterPostMessageW.Call(hwnd, wmClose, 0, 0); posted == 0 {
+		return fmt.Errorf("could not ask the running Workbench window to close for update: %v", postErr)
+	}
+
+	waitResult, _, waitErr := updaterWaitForSingleObject.Call(process, 20_000)
+	switch waitResult {
+	case waitObject0:
+		// Process exit closes the single-instance mutex and embedded MCP listener.
+		return nil
+	case waitTimeout:
+		return fmt.Errorf("Workbench did not close within 20 seconds; close it manually and retry the update")
+	case waitFailed:
+		return fmt.Errorf("could not wait for Workbench to close for update: %v", waitErr)
+	default:
+		return fmt.Errorf("unexpected Workbench update handoff wait result %#x", waitResult)
+	}
+}
+
+func runningWorkbenchWindow() (uintptr, uint32) {
+	for _, className := range workbenchWindowClasses {
+		classPtr, _ := syscall.UTF16PtrFromString(className)
+		hwnd, _, _ := updaterFindWindowW.Call(uintptr(unsafe.Pointer(classPtr)), 0)
+		if hwnd == 0 {
+			continue
+		}
+		var pid uint32
+		updaterGetWindowThreadProcessID.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
+		if pid != 0 {
+			return hwnd, pid
+		}
+	}
+	return 0, 0
 }
 
 func updaterMessage(title, text string, flags uintptr) int {
