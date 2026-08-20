@@ -43,15 +43,8 @@ const (
 type TaskMode string
 
 const (
-	// TaskModeDevelopment is the historic/default Workbench lane. ChatGPT owns
-	// the reasoning and source changes; autonomous coding workers are only an
-	// escalation path when safe hands are insufficient.
 	TaskModeDevelopment TaskMode = "development"
-	// TaskModeOperations is deliberately separate. It is for the host/cluster /
-	// runtime actions the user otherwise has to copy into OpenClaw manually.
-	// OpenClaw acts as an operator in this lane and is not allowed to become the
-	// application coder.
-	TaskModeOperations TaskMode = "operations"
+	TaskModeOperations  TaskMode = "operations"
 )
 
 func IsOperationsTask(task Task) bool {
@@ -62,10 +55,6 @@ type DependencyKind string
 
 const DependencyGitHubActions DependencyKind = "github_actions"
 
-// TaskDependency is a Workbench-owned external wait. It deliberately stores
-// only the minimum durable locator/state required to resume work without
-// keeping an AI worker alive. Secrets and raw provider/API responses do not
-// belong here.
 type TaskDependency struct {
 	Kind          DependencyKind `json:"kind"`
 	Reason        string         `json:"reason,omitempty"`
@@ -89,6 +78,8 @@ type Task struct {
 	ProjectPath        string            `json:"project_path"`
 	Mode               TaskMode          `json:"mode,omitempty"`
 	Status             TaskStatus        `json:"status"`
+	Priority           WorkPriority      `json:"priority,omitempty"`
+	Progress           WorkProgress      `json:"progress,omitempty"`
 	Archived           bool              `json:"archived,omitempty"`
 	ProviderID         string            `json:"provider_id,omitempty"`
 	CloudModelOverride string            `json:"cloud_model_override,omitempty"`
@@ -106,17 +97,9 @@ type Task struct {
 	DependencyResult   string            `json:"dependency_result,omitempty"`
 	StartedAt          *time.Time        `json:"started_at,omitempty"`
 	FinishedAt         *time.Time        `json:"finished_at,omitempty"`
-
-	// memoryProjectPath is transient execution metadata. Isolated worker copies
-	// keep ProjectPath pointed at the task worktree while memory lookup/capture
-	// remains scoped to the real source project. It is intentionally unexported
-	// so it is never persisted, relayed, or exposed to model-facing JSON.
 	memoryProjectPath string
 }
 
-// Project is a local Workbench workspace entry. ProjectPath/Notes remain on
-// State as a compatibility mirror for the currently selected project while the
-// product migrates from its original single-project state shape.
 type Project struct {
 	ID         string    `json:"id"`
 	Path       string    `json:"path"`
