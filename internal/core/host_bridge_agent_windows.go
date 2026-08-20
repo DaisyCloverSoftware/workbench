@@ -137,23 +137,13 @@ func runBlenderVersion(ctx context.Context, executable string) (string, error) {
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	runErr := cmd.Run()
-	if stdout.Truncated() || stderr.Truncated() {
-		return "", errors.New("Blender version output exceeded Workbench limits")
-	}
-	combined := strings.TrimSpace(stdout.String())
-	if se := strings.TrimSpace(stderr.String()); se != "" {
-		if combined != "" {
-			combined += "\n"
-		}
-		combined += se
-	}
 	if runErr != nil {
 		if ctx.Err() != nil {
 			return "", errors.New("Blender version probe timed out")
 		}
 		return "", errors.New("Blender version probe failed")
 	}
-	return parseBlenderVersionOutput(combined)
+	return blenderVersionFromCapturedOutput(stdout, stderr)
 }
 
 func findBlenderExecutable() string {
