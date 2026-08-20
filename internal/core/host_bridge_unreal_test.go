@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,25 +22,11 @@ func unrealTestInstall(t *testing.T, major, minor, patch int) string {
 	if err := os.MkdirAll(buildDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	payload := []byte(`{"MajorVersion":` + itoaForUnrealTest(major) + `,"MinorVersion":` + itoaForUnrealTest(minor) + `,"PatchVersion":` + itoaForUnrealTest(patch) + `,"Changelist":12345,"CompatibleChangelist":12345,"BranchName":"++UE5+Release"}`)
+	payload := []byte(fmt.Sprintf(`{"MajorVersion":%d,"MinorVersion":%d,"PatchVersion":%d,"Changelist":12345,"CompatibleChangelist":12345,"BranchName":"++UE5+Release"}`, major, minor, patch))
 	if err := os.WriteFile(filepath.Join(buildDir, "Build.version"), payload, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return executable
-}
-
-func itoaForUnrealTest(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return string(buf[i:])
 }
 
 func TestUnrealBuildVersionIsReadFromValidatedEngineLayout(t *testing.T) {
