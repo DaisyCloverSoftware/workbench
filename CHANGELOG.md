@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.46 — 2026-08-20
+
+- Use a normal bounded UnrealEditor-Cmd startup for the disposable Unreal smoke after the live 0.9.45 proof classified the failure as a TNotNull assertion with a Windows stack-overflow process status.
+- Remove initialization-altering performance and cache flags from the smoke so Unreal Engine 5.8 can perform its normal first-start setup before the fixed Quit command.
+- Preserve the typed security boundary: the project remains Workbench-owned and disposable, Python stays disabled, and callers still cannot supply projects, executables, scripts, commandlets, arbitrary arguments, environment variables or URLs.
+
 ## 0.9.45 — 2026-08-20
 
 - Add privacy-preserving diagnostics for the bounded Unreal Engine smoke after the live 0.9.44 Windows proof reached Unreal 5.8.1 but still exited nonzero.
