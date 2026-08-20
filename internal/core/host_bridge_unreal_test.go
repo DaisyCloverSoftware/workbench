@@ -48,8 +48,8 @@ func TestUnrealBuildVersionIsReadFromValidatedEngineLayout(t *testing.T) {
 	}
 }
 
-func TestUnrealSmokeInvocationUsesFixedProjectQuitAndDisablesActiveScripting(t *testing.T) {
-	executable := unrealTestInstall(t, 5, 7, 0)
+func TestUnrealSmokeInvocationUsesConventionalFixedProjectQuitAndDisablesActiveScripting(t *testing.T) {
+	executable := unrealTestInstall(t, 5, 8, 1)
 	project := filepath.Join(t.TempDir(), "WorkbenchSmoke.uproject")
 	if err := os.WriteFile(project, []byte(unrealSmokeProjectDocument), 0o600); err != nil {
 		t.Fatal(err)
@@ -68,19 +68,22 @@ func TestUnrealSmokeInvocationUsesFixedProjectQuitAndDisablesActiveScripting(t *
 		"-stdout",
 		"-nop4",
 		"-nullrhi",
+		"-nosound",
 		"-nosplash",
-		"-nowrite",
-		"-NOAUTOINIUPDATE",
-		"-norecentproject",
-		"-NoAssetRegistryCache",
-		"-NoAssetRegistryCacheWrite",
 		"-NoShaderCompile",
-		"-NoZenAutoLaunch",
 		"-DisablePython",
 		"-NoEpicPortal",
+		"-nocrashreports",
 	}
 	if !reflect.DeepEqual(args, want) {
 		t.Fatalf("unexpected Unreal smoke argv: %#v", args)
+	}
+	for _, removed := range []string{"-nowrite", "-NOAUTOINIUPDATE", "-NoAssetRegistryCache", "-NoAssetRegistryCacheWrite", "-NoZenAutoLaunch"} {
+		for _, arg := range args {
+			if strings.EqualFold(arg, removed) {
+				t.Fatalf("Unreal smoke retained first-start-interfering flag %q", removed)
+			}
+		}
 	}
 	if _, _, err := unrealSmokeInvocation(executable, filepath.Join(t.TempDir(), "caller-project.uproject")); err == nil {
 		t.Fatal("Unreal smoke accepted a caller-selected project name")
