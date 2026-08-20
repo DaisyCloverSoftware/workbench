@@ -48,13 +48,13 @@ const (
 )
 
 type WorkProgress struct {
-	Kind       ProgressKind
-	Current    int64
-	Total      int64
-	Unit       string
-	Phase      string
-	Stage      int
-	StageTotal int
+	Kind       ProgressKind `json:"kind,omitempty"`
+	Current    int64        `json:"current,omitempty"`
+	Total      int64        `json:"total,omitempty"`
+	Unit       string       `json:"unit,omitempty"`
+	Phase      string       `json:"phase,omitempty"`
+	Stage      int          `json:"stage,omitempty"`
+	StageTotal int          `json:"stage_total,omitempty"`
 }
 
 type WorkItem struct {
@@ -78,9 +78,18 @@ type WorkItem struct {
 	NeedsHuman    bool
 }
 
-// Until task priority is persisted by the scheduler tranche, existing tasks are
-// truthfully Normal rather than being assigned a cosmetic priority in the UI.
-func DefaultTaskPriority(task Task) WorkPriority { return PriorityNormal }
+func DefaultTaskPriority(task Task) WorkPriority {
+	if task.Priority < PriorityCritical || task.Priority > PriorityLow {
+		return PriorityNormal
+	}
+	// Zero was historically absent from persisted tasks and is now also the
+	// Critical enum value. Treat a zero priority on pre-scheduler tasks as Normal;
+	// newly scheduled Critical tasks are stamped explicitly by the scheduler.
+	if task.Priority == PriorityCritical && task.Progress.Kind == "" && task.Status != TaskQueued {
+		return PriorityNormal
+	}
+	return task.Priority
+}
 
 func TaskLane(task Task) WorkLane {
 	if task.Status == TaskNeedsAttention {
@@ -99,22 +108,33 @@ func TaskLane(task Task) WorkLane {
 }
 
 func TaskProgress(task Task) WorkProgress {
-	phase := ""
-	switch task.Status {
-	case TaskQueued:
-		phase = "Queued"
-	case TaskRouting:
-		phase = "Selecting executor"
-	case TaskRunning:
-		phase = "Running"
-	case TaskWaitingDependency:
-		phase = "Waiting on dependency"
-	case TaskWaitingRetry:
-		phase = "Waiting to retry"
-	case TaskNeedsAttention:
-		phase = "Needs human decision"
+	progress := task.Progress
+	if progress.Kind == ProgressMeasured && progress.Total <= 0 {
+		progress.Kind = ProgressIndeterminate
 	}
-	return WorkProgress{Kind: ProgressIndeterminate, Phase: phase}
+	if progress.Kind == ProgressStages && progress.StageTotal <= 0 {
+		progress.Kind = ProgressIndeterminate
+	}
+	if progress.Kind == "" {
+		progress.Kind = ProgressIndeterminate
+	}
+	if strings.TrimSpace(progress.Phase) == "" {
+		switch task.Status {
+		case TaskQueued:
+			progress.Phase = "Queued"
+		case TaskRouting:
+			progress.Phase = "Selecting executor"
+		case TaskRunning:
+			progress.Phase = "Running"
+		case TaskWaitingDependency:
+			progress.Phase = "Waiting on dependency"
+		case TaskWaitingRetry:
+			progress.Phase = "Waiting to retry"
+		case TaskNeedsAttention:
+			progress.Phase = "Needs human decision"
+		}
+	}
+	return progress
 }
 
 func QueuePositions(tasks []Task) map[string]int {
@@ -125,6 +145,10 @@ func QueuePositions(tasks []Task) map[string]int {
 		}
 	}
 	sort.SliceStable(queued, func(i, j int) bool {
+		pi, pj := DefaultTaskPriority(queued[i]), DefaultTaskPriority(queued[j])
+		if pi != pj {
+			return pi < pj
+		}
 		if !queued[i].CreatedAt.Equal(queued[j].CreatedAt) {
 			return queued[i].CreatedAt.Before(queued[j].CreatedAt)
 		}
