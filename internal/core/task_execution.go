@@ -44,8 +44,10 @@ type TaskReviewResult struct {
 // ChatGPT-originated work has a stronger contract: ChatGPT owns source changes,
 // Git/GitHub operations, PRs, CI and GitHub Actions. It may use Workbench to
 // reach OpenClaw only for genuine host/server/cluster/runtime operations that
-// ChatGPT cannot execute itself. This guard makes that ownership executable
-// rather than relying on prompt discipline.
+// ChatGPT cannot execute itself. A private relay continuation is the explicit
+// exception: ChatGPT has deliberately handed the remainder of the development
+// loop to Workbench, and the task must carry a valid HMAC seal produced by the
+// local private relay before any autonomous coding worker may run.
 //
 // Operations tasks use the same durable task/workspace machinery but have a
 // stricter role boundary: the cluster runner is only transport and OpenClaw is
@@ -54,7 +56,13 @@ type TaskReviewResult struct {
 // becoming a review branch, because ChatGPT remains the coder.
 func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
 	if strings.EqualFold(strings.TrimSpace(task.Origin), "chatgpt-mcp") && !IsOperationsTask(task) {
-		return RunResult{}, errors.New("ChatGPT owns coding, Git/GitHub, pull requests, CI and GitHub Actions; Workbench will not delegate that development loop to an autonomous worker")
+		continuation, ok := ValidatePrivateRelayContinuationIntent(task.Intent, task.ProjectPath, prefs.MCPToken)
+		if !ok {
+			return RunResult{}, errors.New("ChatGPT owns coding, Git/GitHub, pull requests, CI and GitHub Actions; Workbench will not delegate that development loop to an autonomous worker")
+		}
+		// Keep proof material only in durable control-plane state. Workers receive
+		// the exact continuation objective and never see relay authentication data.
+		task.Intent = continuation
 	}
 	if IsOperationsTask(task) && p.ID != "openclaw" && p.ID != "workbench-runner" {
 		return RunResult{}, fmt.Errorf("provider %s is not applicable to a Workbench operations task; operations are reserved for the cluster runner/OpenClaw operator lane", p.Name)
