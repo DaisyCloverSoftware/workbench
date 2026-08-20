@@ -43,7 +43,7 @@ func TestRelayInstallerSmokeDoesNotConsumeLiveQueue(t *testing.T) {
 
 func TestDelayedRelayRestartOperationIsDetachedAndFixedTarget(t *testing.T) {
 	text := installerScript(t, filepath.Join("ops", "restart-workbench-relay-delayed.sh"))
-	for _, want := range []string{"systemd-run", "--on-active=15s", "workbench-github-relay.service"} {
+	for _, want := range []string{"systemd-run", "--on-active=60s", "delay_seconds=60", "workbench-github-relay.service"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("delayed relay restart operation missing %q", want)
 		}
