@@ -48,6 +48,49 @@ func TestParseRunnerChatActivityCombinesSafeHandsAndAutonomousWork(t *testing.T)
 	}
 }
 
+func TestParseRunnerChatActivityIncludesPendingAndNonProjectWork(t *testing.T) {
+	raw := relayActivityArchive(t, map[string]string{
+		"relay/control/windows_12345678.json": `{"version":1,"id":"windows_12345678","action":"run_windows_unreal_smoke","args":{"host_id":"windows_12345678"}}`,
+		"relay/inbox/task_abcdefgh.json": `{"version":1,"id":"task_abcdefgh","project":"runner://rum","intent":"continue"}`,
+	})
+	items, err := parseRunnerChatActivity(raw, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("pending activity=%#v", items)
+	}
+	byID := map[string]RunnerChatActivityInfo{}
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	windows := byID["windows_12345678"]
+	if windows.ProjectRef != "" || windows.Action != "run_windows_unreal_smoke" || windows.State != "running" {
+		t.Fatalf("windows pending activity=%#v", windows)
+	}
+	autonomous := byID["task_abcdefgh"]
+	if autonomous.ProjectRef != "runner://rum" || autonomous.Action != "delegate_task" || autonomous.State != "running" {
+		t.Fatalf("autonomous pending activity=%#v", autonomous)
+	}
+	if !runnerChatActivityIsActive(windows, time.Now().UTC()) || !runnerChatActivityIsActive(autonomous, time.Now().UTC()) {
+		t.Fatalf("pending activity must remain active: %#v", items)
+	}
+}
+
+func TestParseRunnerChatActivityIncludesCompletedNonProjectControlWithoutLeakingPath(t *testing.T) {
+	raw := relayActivityArchive(t, map[string]string{
+		"relay/control/windows_87654321.json": `{"version":1,"id":"windows_87654321","action":"run_windows_blender_version","args":{}}`,
+		"relay/control-outbox/windows_87654321.json": `{"version":1,"id":"windows_87654321","action":"run_windows_blender_version","status":"completed","updated_at":"2026-08-18T10:00:00Z"}`,
+	})
+	items, err := parseRunnerChatActivity(raw, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].ProjectRef != "" || items[0].Action != "run_windows_blender_version" {
+		t.Fatalf("non-project control=%#v", items)
+	}
+}
+
 func TestParseRunnerChatActivityNeverExposesHostProjectPaths(t *testing.T) {
 	raw := relayActivityArchive(t, map[string]string{
 		"relay/control/bad_12345678.json": `{"version":1,"id":"bad_12345678","action":"read_file","project":"C:\\example\\private","args":{}}`,
