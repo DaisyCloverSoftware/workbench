@@ -16,13 +16,13 @@ import (
 )
 
 const (
-	mbOK              = 0x00000000
-	mbYesNo           = 0x00000004
-	mbIconError       = 0x00000010
-	mbIconInformation = 0x00000040
-	mbIconWarning     = 0x00000030
-	idYes             = 6
-	wmClose           = 0x0010
+	mbOK               = 0x00000000
+	mbYesNo            = 0x00000004
+	mbIconError        = 0x00000010
+	mbIconInformation  = 0x00000040
+	mbIconWarning      = 0x00000030
+	idYes              = 6
+	wmClose            = 0x0010
 	processSynchronize = 0x00100000
 	waitObject0        = 0x00000000
 	waitTimeout        = 0x00000102
@@ -130,11 +130,18 @@ func runUpdater() error {
 		rollbackErr := tx.Rollback()
 		return errorsJoin(fmt.Errorf("could not launch updated Workbench.exe: %w", err), rollbackErr)
 	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Release()
+	}
 	if err := tx.Commit(); err != nil {
 		updaterMessage("Workbench updated", "Workbench v"+release.Version+" was installed and launched successfully.\n\nThe old executable backup could not be removed automatically; the new verified app remains installed.", mbIconWarning)
 		return nil
 	}
-	updaterMessage("Workbench updated", "Workbench v"+release.Version+" was installed from the verified official release and launched successfully.", mbIconInformation)
+
+	// A successful relaunch is its own visible confirmation. Exit immediately so
+	// the new Workbench can refresh this separately shipped updater executable if
+	// the release also contains an updater fix; do not keep the updater locked
+	// behind a modal success dialog.
 	return nil
 }
 
