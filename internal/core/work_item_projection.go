@@ -16,6 +16,7 @@ func WorkItemFromTask(task Task, project Project) WorkItem {
 		Title:           strings.TrimSpace(task.Title),
 		State:           workItemStateFromTask(task.Status),
 		Priority:        EffectiveTaskPriority(task, project),
+		QueueRank:       task.QueueRank,
 		Location:        taskWorkLocation(task),
 		Progress:        taskWorkProgress(task),
 		Blocker:         taskWorkBlocker(task),
@@ -24,7 +25,7 @@ func WorkItemFromTask(task Task, project Project) WorkItem {
 		UpdatedAt:       task.UpdatedAt,
 		CanReprioritize: taskCanReprioritize(task.Status),
 		CanCancel:       taskBlocksProjectRemoval(task.Status),
-		CanMove:         false,
+		CanMove:         task.Status == TaskQueued,
 	}
 	if item.Title == "" {
 		item.Title = "Workbench task"
