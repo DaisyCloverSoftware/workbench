@@ -102,7 +102,7 @@ func TestBlenderSmokeRenderOperationsScriptStaysNarrow(t *testing.T) {
 	source := string(b)
 	for _, want := range []string{
 		"set -euo pipefail",
-		"windows_[a-z0-9_-]*",
+		"^windows_[a-z0-9_-]{8,95}$",
 		"run ./cmd/workbench-blender-smoke-submit",
 	} {
 		if !strings.Contains(source, want) {
