@@ -14,12 +14,13 @@ import (
 var BuildDefaultOpenClawSSHHost string
 
 type Engine struct {
-	mu        sync.RWMutex
-	store     *Store
-	state     State
-	providers []Provider
-	cancel    map[string]context.CancelFunc
-	onChange  []func()
+	mu            sync.RWMutex
+	store         *Store
+	state         State
+	providers     []Provider
+	cancel        map[string]context.CancelFunc
+	onChange      []func()
+	schedulerWake chan struct{}
 }
 
 func NewEngine(store *Store) (*Engine, error) {
@@ -36,9 +37,11 @@ func NewEngine(store *Store) (*Engine, error) {
 	if strings.TrimSpace(st.Preferences.OpenClawSSHHost) == "" && strings.TrimSpace(BuildDefaultOpenClawSSHHost) != "" {
 		st.Preferences.OpenClawSSHHost = strings.TrimSpace(BuildDefaultOpenClawSSHHost)
 	}
-	e := &Engine{store: store, state: st, cancel: map[string]context.CancelFunc{}}
+	e := &Engine{store: store, state: st, cancel: map[string]context.CancelFunc{}, schedulerWake: make(chan struct{}, 1)}
 	e.providers = ScanProviders()
 	_ = e.store.Save(st)
+	go e.schedulerLoop()
+	e.wakeScheduler()
 	return e, nil
 }
 
@@ -165,7 +168,12 @@ func (e *Engine) Delegate(origin, intent, project string) (Task, error) {
 		return Task{}, errors.New("choose a valid project folder first")
 	}
 	now := time.Now()
-	t := Task{ID: newID("task"), CreatedAt: now, UpdatedAt: now, Origin: origin, Title: TaskTitle(intent), Intent: intent, ProjectPath: project, Status: TaskQueued}
+	t := Task{
+		ID: newID("task"), CreatedAt: now, UpdatedAt: now, Origin: origin,
+		Title: TaskTitle(intent), Intent: intent, ProjectPath: project,
+		Status: TaskQueued, Priority: PriorityNormal,
+		Progress: WorkProgress{Kind: ProgressIndeterminate, Phase: "Queued"},
+	}
 	e.mu.Lock()
 	touchProjectState(&e.state, project)
 	e.state.Tasks = append([]Task{t}, e.state.Tasks...)
@@ -175,7 +183,7 @@ func (e *Engine) Delegate(origin, intent, project string) (Task, error) {
 		return Task{}, err
 	}
 	e.notify()
-	go e.execute(t.ID)
+	e.wakeScheduler()
 	return t, nil
 }
 
@@ -196,6 +204,7 @@ func (e *Engine) ResolveAttention(taskID, answer string) error {
 	e.state.Tasks[i].HumanAnswer = answer
 	e.state.Tasks[i].AttentionQuestion = ""
 	e.state.Tasks[i].Status = TaskQueued
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Queued"}
 	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	st := cloneState(e.state)
@@ -204,7 +213,7 @@ func (e *Engine) ResolveAttention(taskID, answer string) error {
 		return err
 	}
 	e.notify()
-	go e.execute(taskID)
+	e.wakeScheduler()
 	return nil
 }
 
@@ -220,6 +229,7 @@ func (e *Engine) Cancel(taskID string) error {
 	}
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskCancelled
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Cancelled"}
 	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].Dependency = nil
 	e.state.Tasks[i].DependencyResult = ""
@@ -229,6 +239,7 @@ func (e *Engine) Cancel(taskID string) error {
 	e.mu.Unlock()
 	_ = e.store.Save(st)
 	e.notify()
+	e.wakeScheduler()
 	return nil
 }
 
@@ -261,6 +272,7 @@ func (e *Engine) execute(taskID string) {
 	}
 	t := e.state.Tasks[i]
 	e.state.Tasks[i].Status = TaskRouting
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Selecting executor"}
 	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	providers := append([]Provider(nil), e.providers...)
@@ -269,7 +281,13 @@ func (e *Engine) execute(taskID string) {
 	e.mu.Unlock()
 	_ = e.store.Save(st)
 	e.notify()
-	defer func() { e.mu.Lock(); delete(e.cancel, taskID); e.mu.Unlock(); cancel() }()
+	defer func() {
+		e.mu.Lock()
+		delete(e.cancel, taskID)
+		e.mu.Unlock()
+		cancel()
+		e.wakeScheduler()
+	}()
 
 	eligible := routeCandidates(providers, prefs, t)
 	filterTime := time.Now().UTC()
@@ -345,9 +363,6 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 		errorsSeen = append(errorsSeen, attempt)
-		if p.Cost == CostScarce && prefs.AvoidWorkUsage {
-			// We reached Work only because no lower-cost candidate succeeded; trying once is intentional.
-		}
 	}
 	if !costlyCapacityAttempted && !retryAt.IsZero() {
 		scheduled, scheduleErr := e.deferAutomaticRetry(taskID, retryAt)
@@ -444,6 +459,7 @@ func (e *Engine) updateRunning(id string, p Provider) {
 	}
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskRunning
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Running"}
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].ConsumesWork = p.Cost == CostScarce
 	e.state.Tasks[i].RouteReason = routeReason(p)
@@ -458,6 +474,7 @@ func (e *Engine) updateRunning(id string, p Provider) {
 	_ = e.store.Save(st)
 	e.notify()
 }
+
 func routeReason(p Provider) string {
 	switch p.Cost {
 	case CostZero:
@@ -470,6 +487,7 @@ func routeReason(p Provider) string {
 		return "explicit metered route"
 	}
 }
+
 func (e *Engine) appendAttempt(id, s string) {
 	e.mu.Lock()
 	i := e.taskIndexLocked(id)
@@ -482,6 +500,7 @@ func (e *Engine) appendAttempt(id, s string) {
 	_ = e.store.Save(st)
 	e.notify()
 }
+
 func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	e.mu.Lock()
 	i := e.taskIndexLocked(id)
@@ -491,6 +510,7 @@ func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	}
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskCompleted
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressStages, Phase: "Completed", Stage: 1, StageTotal: 1}
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].Output = strings.TrimSpace(res.Output)
 	e.state.Tasks[i].Review = cloneTaskReviewResult(res.Review)
@@ -504,6 +524,7 @@ func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	_ = e.store.Save(st)
 	e.notify()
 }
+
 func (e *Engine) finishAttention(id string, p Provider, res RunResult) {
 	e.mu.Lock()
 	i := e.taskIndexLocked(id)
@@ -512,6 +533,7 @@ func (e *Engine) finishAttention(id string, p Provider, res RunResult) {
 		return
 	}
 	e.state.Tasks[i].Status = TaskNeedsAttention
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Needs human decision"}
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].Output = res.Output
 	e.state.Tasks[i].AttentionQuestion = res.Attention
@@ -523,6 +545,7 @@ func (e *Engine) finishAttention(id string, p Provider, res RunResult) {
 	_ = e.store.Save(st)
 	e.notify()
 }
+
 func (e *Engine) finishFailed(id, msg string) {
 	e.mu.Lock()
 	i := e.taskIndexLocked(id)
@@ -532,6 +555,7 @@ func (e *Engine) finishFailed(id, msg string) {
 	}
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskFailed
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Failed"}
 	e.state.Tasks[i].Error = msg
 	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].Dependency = nil
@@ -542,6 +566,7 @@ func (e *Engine) finishFailed(id, msg string) {
 	_ = e.store.Save(st)
 	e.notify()
 }
+
 func (e *Engine) taskIndexLocked(id string) int {
 	for i := range e.state.Tasks {
 		if e.state.Tasks[i].ID == id {
