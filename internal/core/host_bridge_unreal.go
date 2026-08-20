@@ -129,16 +129,12 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 		"-stdout",
 		"-nop4",
 		"-nullrhi",
+		"-nosound",
 		"-nosplash",
-		"-nowrite",
-		"-NOAUTOINIUPDATE",
-		"-norecentproject",
-		"-NoAssetRegistryCache",
-		"-NoAssetRegistryCacheWrite",
 		"-NoShaderCompile",
-		"-NoZenAutoLaunch",
 		"-DisablePython",
 		"-NoEpicPortal",
+		"-nocrashreports",
 	}, nil
 }
 
