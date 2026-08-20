@@ -132,8 +132,44 @@ func runUnrealVersion(executable string) (string, error) {
 	return formatUnrealVersion(version), nil
 }
 
-func runUnrealSmoke(ctx context.Context, executable string) (string, error) {
-	name, args, err := unrealSmokeInvocation(executable)
+func prepareUnrealSmokeProject(jobID string) (string, func(), error) {
+	jobID, err := validateHostBridgeID(jobID)
+	if err != nil || !strings.HasPrefix(strings.ToLower(jobID), "hostjob_") {
+		return "", nil, errors.New("Unreal smoke job id is invalid")
+	}
+	cacheDir, err := os.UserCacheDir()
+	if err != nil || strings.TrimSpace(cacheDir) == "" {
+		return "", nil, errors.New("Workbench could not resolve its user cache directory")
+	}
+	base := filepath.Join(cacheDir, "Workbench", "unreal-smoke")
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		return "", nil, errors.New("Workbench could not prepare its Unreal smoke cache")
+	}
+	root := filepath.Join(base, jobID)
+	if err := os.Mkdir(root, 0o700); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return "", nil, errors.New("Unreal smoke workspace already exists")
+		}
+		return "", nil, errors.New("Workbench could not create the Unreal smoke workspace")
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(root)
+	}
+	project := filepath.Join(root, "WorkbenchSmoke.uproject")
+	if err := os.WriteFile(project, []byte(unrealSmokeProjectDocument), 0o600); err != nil {
+		cleanup()
+		return "", nil, errors.New("Workbench could not create the Unreal smoke project")
+	}
+	return project, cleanup, nil
+}
+
+func runUnrealSmoke(ctx context.Context, executable, jobID string) (string, error) {
+	project, cleanup, err := prepareUnrealSmokeProject(jobID)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	name, args, err := unrealSmokeInvocation(executable, project)
 	if err != nil {
 		return "", err
 	}
@@ -144,6 +180,7 @@ func runUnrealSmoke(ctx context.Context, executable string) (string, error) {
 	probeCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(probeCtx, name, args...)
+	cmd.Dir = filepath.Dir(project)
 	configureChildProcess(cmd, false)
 	stdout := newBoundedWorkerCapture(8 << 10)
 	stderr := newBoundedWorkerCapture(8 << 10)
