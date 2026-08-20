@@ -113,6 +113,9 @@ func taskWorkLocation(task Task) WorkLocation {
 }
 
 func taskWorkProgress(task Task) WorkProgress {
+	if persisted, err := ValidateWorkProgress(task.Progress); err == nil && persisted.Kind != WorkProgressNone {
+		return persisted
+	}
 	switch task.Status {
 	case TaskRouting:
 		return WorkProgress{Kind: WorkProgressIndeterminate, StageName: "Routing"}
