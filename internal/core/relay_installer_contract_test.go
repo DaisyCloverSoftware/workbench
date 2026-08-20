@@ -41,6 +41,28 @@ func TestRelayInstallerSmokeDoesNotConsumeLiveQueue(t *testing.T) {
 	}
 }
 
+func TestRelayInstallerTransportProbeAvoidsDaemonTrackingRefs(t *testing.T) {
+	text := installerScript(t, "install-github-relay.sh")
+	for _, want := range []string{
+		"--no-write-fetch-head",
+		`transport_ref="refs/workbench/relay-transport-check/$$"`,
+		`transport_probe="refs/heads/workbench-relay-write-probe-$$"`,
+		`"refs/heads/$relay_branch:$transport_ref"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("relay installer concurrent-safe transport probe missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{
+		`fetch --quiet "$relay_remote" "$relay_branch"`,
+		`refs/remotes/$relay_remote/$relay_branch:refs/heads/$relay_branch`,
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("relay installer still probes through shared daemon ref %q", forbidden)
+		}
+	}
+}
+
 func TestDelayedRelayRestartOperationIsDetachedAndFixedTarget(t *testing.T) {
 	text := installerScript(t, filepath.Join("ops", "restart-workbench-relay-delayed.sh"))
 	for _, want := range []string{"systemd-run", "--on-active=60s", "delay_seconds=60", "workbench-github-relay.service"} {
