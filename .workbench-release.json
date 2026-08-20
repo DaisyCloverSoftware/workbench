@@ -1,9 +1,0 @@
-{
-  "version": "0.9.45",
-  "date": "2026-08-20",
-  "notes": [
-    "Add privacy-preserving diagnostics for the bounded Unreal Engine smoke after the live 0.9.44 Windows proof reached Unreal 5.8.1 but still exited nonzero.",
-    "Enable fixed Unreal -stdout capture locally and classify failures into a small safe vocabulary plus the integer process exit code; raw Unreal stdout, stderr, Windows paths and project details never cross the host bridge.",
-    "Preserve the Workbench-owned disposable project and existing typed boundary: callers still cannot supply project paths, executables, scripts, commandlets, Python or arbitrary arguments, and generic Unreal host jobs remain version-only."
-  ]
-}
