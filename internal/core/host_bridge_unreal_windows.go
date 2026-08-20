@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 )
 
 type unrealInstallCandidate struct {
@@ -178,7 +177,7 @@ func runUnrealSmoke(ctx context.Context, executable, jobID string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, unrealSmokeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(probeCtx, name, args...)
 	cmd.Dir = filepath.Dir(project)
@@ -189,7 +188,8 @@ func runUnrealSmoke(ctx context.Context, executable, jobID string) (string, erro
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		if probeCtx.Err() != nil {
-			return "", errors.New("Unreal headless smoke timed out")
+			class := classifyUnrealSmokeTimeout(stdout.String(), stderr.String())
+			return "", fmt.Errorf("Unreal headless smoke timed out: class=%s", class)
 		}
 		exitCode := -1
 		var exitErr *exec.ExitError

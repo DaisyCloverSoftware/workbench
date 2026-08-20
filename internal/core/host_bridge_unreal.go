@@ -12,6 +12,8 @@ import (
 
 const HostBridgeOperationUnrealSmoke = "smoke"
 
+const unrealSmokeTimeout = 5 * time.Minute
+
 const unrealSmokeProjectDocument = `{
   "FileVersion": 3,
   "EngineAssociation": "",
@@ -158,6 +160,27 @@ func classifyUnrealSmokeFailure(stdout, stderr string) string {
 		return "quit-observed"
 	default:
 		return "nonzero-exit"
+	}
+}
+
+// classifyUnrealSmokeTimeout uses the same bounded local process captures as the
+// failure classifier but returns only fixed labels. A timeout can therefore tell
+// the caller which broad startup phase Unreal had reached without exposing raw
+// logs, user profile paths, project paths or machine details.
+func classifyUnrealSmokeTimeout(stdout, stderr string) string {
+	if class := classifyUnrealSmokeFailure(stdout, stderr); class != "nonzero-exit" {
+		return class
+	}
+	text := strings.ToLower(stdout + "\n" + stderr)
+	switch {
+	case strings.Contains(text, "shader") && (strings.Contains(text, "compile") || strings.Contains(text, "compiling")):
+		return "shader-work"
+	case strings.Contains(text, "derived data") || strings.Contains(text, "deriveddata") || strings.Contains(text, "ddc"):
+		return "derived-data"
+	case strings.Contains(text, "asset registry") || strings.Contains(text, "assetregistry"):
+		return "asset-discovery"
+	default:
+		return "initializing"
 	}
 }
 
