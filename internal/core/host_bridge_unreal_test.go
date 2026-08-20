@@ -97,10 +97,10 @@ func TestUnrealSmokeFailureClassifierReturnsOnlyFixedSafeLabels(t *testing.T) {
 		stderr string
 		want   string
 	}{
-		{name: "tnotnull", stderr: `Fatal error: TNotNull<Thing> failed at C:\Users\someone\Secret\file.cpp`, want: "tnotnull-assertion"},
+		{name: "tnotnull", stderr: `Fatal error: TNotNull<Thing> failed at D:\workbench-test\private\file.cpp`, want: "tnotnull-assertion"},
 		{name: "assertion", stderr: "Assertion failed: Ptr != nullptr", want: "assertion"},
 		{name: "fatal", stderr: "Fatal error: startup failed", want: "fatal"},
-		{name: "project", stderr: "Failed to open descriptor file C:\\private\\WorkbenchSmoke.uproject", want: "project-descriptor"},
+		{name: "project", stderr: `Failed to open descriptor file D:\workbench-test\private\WorkbenchSmoke.uproject`, want: "project-descriptor"},
 		{name: "shader", stderr: "Missing global shader FScreenVS", want: "shader-initialization"},
 		{name: "zen", stderr: "Zen server connection failed", want: "zen"},
 		{name: "quit", stdout: "LogCore: Engine exit requested", want: "quit-observed"},
@@ -112,7 +112,7 @@ func TestUnrealSmokeFailureClassifierReturnsOnlyFixedSafeLabels(t *testing.T) {
 			if got != tt.want {
 				t.Fatalf("classification=%q want=%q", got, tt.want)
 			}
-			if strings.Contains(got, `C:\`) || strings.Contains(strings.ToLower(got), "secret") {
+			if strings.Contains(got, `D:\`) || strings.Contains(strings.ToLower(got), "private") {
 				t.Fatalf("classification leaked local detail: %q", got)
 			}
 		})
