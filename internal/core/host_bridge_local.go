@@ -20,6 +20,27 @@ func blenderVersionInvocation(executable string) (string, []string, error) {
 	return executable, []string{"--version"}, nil
 }
 
+func blenderVersionFromCapturedOutput(stdout, stderr *boundedWorkerCapture) (string, error) {
+	// Blender's authoritative version line is expected on stdout. Accept that
+	// bounded, validated line even when unrelated diagnostics overflow stderr (or
+	// later stdout), while still failing closed when no valid version was captured.
+	if version, err := parseBlenderVersionOutput(stdout.String()); err == nil {
+		return version, nil
+	}
+	if stdout.Truncated() || stderr.Truncated() {
+		return "", errors.New("Blender version output exceeded Workbench limits before a valid version was captured")
+	}
+
+	combined := strings.TrimSpace(stdout.String())
+	if se := strings.TrimSpace(stderr.String()); se != "" {
+		if combined != "" {
+			combined += "\n"
+		}
+		combined += se
+	}
+	return parseBlenderVersionOutput(combined)
+}
+
 func parseBlenderVersionOutput(output string) (string, error) {
 	for _, line := range strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n") {
 		line = strings.TrimSpace(line)
