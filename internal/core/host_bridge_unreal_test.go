@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func unrealTestInstall(t *testing.T, major, minor, patch int) string {
@@ -114,6 +115,39 @@ func TestUnrealSmokeFailureClassifierReturnsOnlyFixedSafeLabels(t *testing.T) {
 			}
 			if strings.Contains(got, `D:\`) || strings.Contains(strings.ToLower(got), "private") {
 				t.Fatalf("classification leaked local detail: %q", got)
+			}
+		})
+	}
+}
+
+func TestUnrealSmokeTimeoutRemainsBoundedAtFiveMinutes(t *testing.T) {
+	if unrealSmokeTimeout != 5*time.Minute {
+		t.Fatalf("Unreal smoke timeout=%s want=%s", unrealSmokeTimeout, 5*time.Minute)
+	}
+}
+
+func TestUnrealSmokeTimeoutClassifierReturnsOnlyFixedSafeLabels(t *testing.T) {
+	tests := []struct {
+		name   string
+		stdout string
+		stderr string
+		want   string
+	}{
+		{name: "quit", stdout: "LogCore: Engine exit requested", want: "quit-observed"},
+		{name: "fatal", stderr: `Fatal error while reading D:\workbench-test\private\cache`, want: "fatal"},
+		{name: "shader work", stdout: "LogShaderCompilers: Display: Compiling shaders", want: "shader-work"},
+		{name: "derived data", stdout: "LogDerivedDataCache: Display: building derived data", want: "derived-data"},
+		{name: "asset discovery", stdout: "LogAssetRegistry: Display: asset registry scan", want: "asset-discovery"},
+		{name: "initializing", stdout: "LogInit: Display: engine startup continues", want: "initializing"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyUnrealSmokeTimeout(tt.stdout, tt.stderr)
+			if got != tt.want {
+				t.Fatalf("timeout classification=%q want=%q", got, tt.want)
+			}
+			if strings.Contains(got, `D:\`) || strings.Contains(strings.ToLower(got), "private") {
+				t.Fatalf("timeout classification leaked local detail: %q", got)
 			}
 		})
 	}
