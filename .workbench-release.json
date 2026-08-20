@@ -1,0 +1,9 @@
+{
+  "version": "0.9.43",
+  "date": "2026-08-20",
+  "notes": [
+    "Correct the bounded Windows Unreal smoke for Unreal Engine 5.8.1 by launching a fresh Workbench-owned disposable content-only .uproject instead of the invalid no-project editor startup path.",
+    "Keep Unreal smoke callers unable to supply project paths, scripts, commandlets, executables or arguments; the Windows agent creates and validates the fixed WorkbenchSmoke.uproject itself.",
+    "Remove the per-job Unreal smoke workspace after execution while retaining unattended, null-RHI, no-Python, no-shader-compile and cache-write suppression flags."
+  ]
+}
