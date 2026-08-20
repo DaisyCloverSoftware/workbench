@@ -90,6 +90,7 @@ type Task struct {
 	Mode               TaskMode          `json:"mode,omitempty"`
 	Status             TaskStatus        `json:"status"`
 	Priority           WorkPriority      `json:"priority,omitempty"`
+	QueueRank          int64             `json:"queue_rank,omitempty"`
 	Archived           bool              `json:"archived,omitempty"`
 	ProviderID         string            `json:"provider_id,omitempty"`
 	CloudModelOverride string            `json:"cloud_model_override,omitempty"`
