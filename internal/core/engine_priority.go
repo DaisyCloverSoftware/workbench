@@ -42,9 +42,11 @@ func (e *Engine) SetProjectPriority(projectID string, priority WorkPriority) err
 
 	e.mu.Lock()
 	found := false
+	projectPath := ""
 	for i := range e.state.Projects {
 		if e.state.Projects[i].ID == projectID {
 			e.state.Projects[i].DefaultPriority = priority
+			projectPath = e.state.Projects[i].Path
 			found = true
 			break
 		}
@@ -52,6 +54,14 @@ func (e *Engine) SetProjectPriority(projectID string, priority WorkPriority) err
 	if !found {
 		e.mu.Unlock()
 		return errors.New("project not found")
+	}
+	// A project-default change can move inheriting queued work into another
+	// priority group. Clear any prior manual rank so stale ordering from the old
+	// group cannot unexpectedly jump ahead in the new group.
+	for i := range e.state.Tasks {
+		if e.state.Tasks[i].Status == TaskQueued && sameProjectPath(e.state.Tasks[i].ProjectPath, projectPath) && !IsWorkPriority(e.state.Tasks[i].Priority) {
+			e.state.Tasks[i].QueueRank = 0
+		}
 	}
 	st := cloneState(e.state)
 	e.mu.Unlock()
@@ -85,6 +95,9 @@ func (e *Engine) SetTaskPriority(taskID string, priority WorkPriority) error {
 		return errors.New("task not found")
 	}
 	e.state.Tasks[i].Priority = priority
+	// Queue rank only has meaning inside one priority group. Changing the
+	// effective group returns the task to FIFO until the queue is reordered.
+	e.state.Tasks[i].QueueRank = 0
 	st := cloneState(e.state)
 	e.mu.Unlock()
 	if err := e.store.Save(st); err != nil {
