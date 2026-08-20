@@ -7,10 +7,10 @@ if [ "$#" -ne 1 ]; then
 fi
 
 host_id="$1"
-case "$host_id" in
-  windows_[a-z0-9_-]*) ;;
-  *) echo "invalid Windows host id" >&2; exit 2 ;;
-esac
+if [[ ! "$host_id" =~ ^windows_[a-z0-9_-]{8,95}$ ]]; then
+  echo "invalid Windows host id" >&2
+  exit 2
+fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
