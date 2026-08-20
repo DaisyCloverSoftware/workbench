@@ -13,7 +13,7 @@ import (
 )
 
 const runnerVersion = "0.9.35"
-const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|tool-json|provider-login <provider-id>|cloud-models|cloud-model-set <model>|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
+const runnerUsage = "usage: workbench-runner <run|job <submit|status|cancel>|tool-json|host-json|provider-login <provider-id>|cloud-models|cloud-model-set <model>|inspect <project-directory>|snapshot <project-directory>|prepare <project-directory> <task-id>|policy <get|prepare|publish|delete> <project-directory> [remote-url]|harness <get|set|delete> [adapter-executable]|update <check|apply>|doctor|selftest|live-selftest|version>"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -31,6 +31,8 @@ func main() {
 		reviewJSON()
 	case "tool-json":
 		toolJSON()
+	case "host-json":
+		hostJSON()
 	case "provider-login":
 		providerLogin()
 	case "cloud-models":
@@ -261,6 +263,7 @@ func doctor() {
 	fmt.Println("Provider cooldowns: retryable provider/setup failures are skipped briefly; Rescan in the native app clears local cooldowns after fixing setup")
 	fmt.Println("Durable remote work: workbench-runner job <submit|status|cancel>; jobs survive the submitting SSH session")
 	fmt.Println("Bounded desktop/Chat tools: workbench-runner tool-json")
+	fmt.Println("Outbound Windows host bridge: workbench-runner host-json")
 	fmt.Println("Human provider authentication: workbench-runner provider-login <provider-id>")
 	fmt.Println("Cloud model inventory (read-only): workbench-runner cloud-models")
 	fmt.Println("Cloud default (operator-only): workbench-runner cloud-model-set <model>")

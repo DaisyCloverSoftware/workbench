@@ -26,6 +26,7 @@ type privateChatCapabilities struct {
 	FreshChatBootstrap          string                    `json:"fresh_chat_bootstrap"`
 	MachineReadBatchPolicy      string                    `json:"machine_read_batch_policy"`
 	OperationsScriptPolicy      string                    `json:"operations_script_policy"`
+	WindowsHostBridgePolicy     string                    `json:"windows_host_bridge_policy"`
 	BuiltinOperationsCommitRule string                    `json:"builtin_operations_commit_rule"`
 	BuiltinReadonlyOperations   []privateBuiltinOperation `json:"builtin_readonly_operations"`
 	ChatGPTOwns                 []string                  `json:"chatgpt_owns"`
@@ -53,6 +54,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md. For common read-only health questions, prefer the built-in operations advertised in this manifest before issuing many individual machine reads.",
 		MachineReadBatchPolicy:  "The private relay action inspect_machine_batch accepts no project and args.commands containing 1-8 objects with program, optional literal args, and optional timeout_seconds. Items execute sequentially through the exact inspect_machine read-only policy; one failed or rejected item does not stop later reads. There is deliberately no run_machine_command_batch; mutations remain one-at-a-time.",
 		OperationsScriptPolicy:  "run_operations_script requires a project and a Git-tracked regular .sh beneath scripts/ops/. Without commit, Workbench executes exact local HEAD. With an optional full 40-character commit currently advertised by a credential-free github.com origin branch head, Workbench fetches into a disposable repository, creates a detached worktree at that exact commit, and executes without moving or modifying the registered checkout. Bash receives literal argv, never bash -c. Results include the commit and script SHA-256.",
+		WindowsHostBridgePolicy: "Windows local-tool access is outbound-only through the existing Workbench Runner SSH target; no inbound Windows listener is opened. Use list_windows_hosts with empty args, run_windows_blender_version with args.host_id, then get_windows_host_job with args.job_id. This tranche can execute only exact local argv blender.exe --version after a second Windows-side allowlist check. There is no generic Windows command action and rendering is not enabled yet.",
 		BuiltinOperationsCommitRule: "Resolve the current full 40-character head SHA of DaisyCloverSoftware/workbench main through connected GitHub and pass it as run_operations_script.args.commit. The registered runner://workbench checkout does not need to be updated.",
 		BuiltinReadonlyOperations: []privateBuiltinOperation{
 			{
@@ -87,6 +89,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"bounded_machine_inspection",
 			"bounded_machine_mutation",
 			"committed_operations_script_execution",
+			"bounded_windows_local_tool_execution",
 		},
 		OpenClawOwns: []string{
 			"optional_autonomous_machine_investigation",
@@ -109,6 +112,9 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"inspect_machine_batch",
 			"run_machine_command",
 			"run_operations_script",
+			"list_windows_hosts",
+			"run_windows_blender_version",
+			"get_windows_host_job",
 			"save_note",
 			"search_memory",
 			"save_memory",

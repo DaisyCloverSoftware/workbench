@@ -19,7 +19,7 @@ import (
 // relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "get_windows_host_job":
 		return true
 	default:
 		return false
@@ -101,6 +101,54 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			return nil, err
 		}
 		return map[string]any{"projects": response.Projects, "count": len(response.Projects)}, nil
+	}
+
+	if env.Action == "list_windows_hosts" {
+		if env.Project != "" {
+			return nil, errors.New("list_windows_hosts does not accept a project")
+		}
+		if err := decodePrivateControlArgs(env.Args, &struct{}{}); err != nil {
+			return nil, err
+		}
+		hosts, err := core.ListHostBridgeHosts()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"hosts": hosts, "count": len(hosts)}, nil
+	}
+
+	if env.Action == "run_windows_blender_version" {
+		if env.Project != "" {
+			return nil, errors.New("run_windows_blender_version does not accept a project")
+		}
+		var a struct {
+			HostID string `json:"host_id"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		job, err := core.SubmitHostBridgeJob(strings.TrimSpace(a.HostID), core.HostJobSpec{Tool: core.HostBridgeToolBlender, Operation: core.HostBridgeOperationVersion})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"host_job": job}, nil
+	}
+
+	if env.Action == "get_windows_host_job" {
+		if env.Project != "" {
+			return nil, errors.New("get_windows_host_job does not accept a project")
+		}
+		var a struct {
+			JobID string `json:"job_id"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		job, err := core.GetHostBridgeJob(strings.TrimSpace(a.JobID))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"host_job": job}, nil
 	}
 
 	if env.Action == "ensure_github_project" {
