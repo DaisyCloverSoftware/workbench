@@ -92,21 +92,35 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 	if job.HostID != hostID || job.ClaimedBy != hostID || job.Status != "claimed" {
 		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected a job that was not claimed by this host"
 	}
-	if job.Spec.Tool != HostBridgeToolBlender || job.Spec.Operation != HostBridgeOperationVersion {
-		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported local operation"
+	if job.Spec.Tool != HostBridgeToolBlender {
+		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported local tool"
 	}
 
 	executable := findBlenderExecutable()
 	if executable == "" {
 		return HostJobResult{ExitCode: 1}, "Blender is not installed in an allowlisted Windows location"
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-	defer cancel()
-	version, err := runBlenderVersion(probeCtx, executable)
-	if err != nil {
-		return HostJobResult{ExitCode: 1}, err.Error()
+
+	switch job.Spec.Operation {
+	case HostBridgeOperationVersion:
+		probeCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
+		version, err := runBlenderVersion(probeCtx, executable)
+		if err != nil {
+			return HostJobResult{ExitCode: 1}, err.Error()
+		}
+		return HostJobResult{Output: version, ExitCode: 0}, ""
+
+	case HostBridgeOperationBlenderSmokeRender:
+		output, err := runBlenderSmokeRender(ctx, executable, job.ID)
+		if err != nil {
+			return HostJobResult{ExitCode: 1}, err.Error()
+		}
+		return HostJobResult{Output: output, ExitCode: 0}, ""
+
+	default:
+		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported local operation"
 	}
-	return HostJobResult{Output: version, ExitCode: 0}, ""
 }
 
 func discoverWindowsHostCapabilities(ctx context.Context) map[string]HostCapability {
