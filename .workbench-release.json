@@ -1,9 +1,0 @@
-{
-  "version": "0.9.48",
-  "date": "2026-08-20",
-  "notes": [
-    "Restore durable private Git relay operations so long-running Workbench machine-side tasks can survive the originating ChatGPT conversation and continue unattended.",
-    "Keep direct ChatGPT implicit OpenClaw delegation blocked while routing authenticated private relay operations through the existing hidden compatibility lane.",
-    "Add regression coverage proving the relay preserves the operations marker and uses the compatibility route without reopening ordinary ChatGPT development delegation."
-  ]
-}
