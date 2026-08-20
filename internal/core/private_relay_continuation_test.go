@@ -3,6 +3,7 @@ package core
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPrivateRelayContinuationSealRoundTrips(t *testing.T) {
@@ -45,7 +46,7 @@ func TestPrivateRelayDeferredContinuationSurvivesWaitEnvelopeRemoval(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, parsedContinuation, matched, err := parseDeferredGitHubActionsIntent(sealed, testTime())
+	_, parsedContinuation, matched, err := parseDeferredGitHubActionsIntent(sealed, time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC))
 	if err != nil || !matched {
 		t.Fatalf("deferred continuation did not parse: matched=%t err=%v", matched, err)
 	}
@@ -56,8 +57,4 @@ func TestPrivateRelayDeferredContinuationSurvivesWaitEnvelopeRemoval(t *testing.
 	if clean != continuation {
 		t.Fatalf("clean continuation=%q", clean)
 	}
-}
-
-func testTime() time.Time {
-	return time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
 }
