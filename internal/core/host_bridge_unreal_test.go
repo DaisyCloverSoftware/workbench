@@ -1,10 +1,12 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -46,9 +48,13 @@ func TestUnrealBuildVersionIsReadFromValidatedEngineLayout(t *testing.T) {
 	}
 }
 
-func TestUnrealSmokeInvocationIsFixedAndDisablesActiveScripting(t *testing.T) {
+func TestUnrealSmokeInvocationUsesFixedProjectAndDisablesActiveScripting(t *testing.T) {
 	executable := unrealTestInstall(t, 5, 7, 0)
-	name, args, err := unrealSmokeInvocation(executable)
+	project := filepath.Join(t.TempDir(), "WorkbenchSmoke.uproject")
+	if err := os.WriteFile(project, []byte(unrealSmokeProjectDocument), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	name, args, err := unrealSmokeInvocation(executable, project)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,6 +62,7 @@ func TestUnrealSmokeInvocationIsFixedAndDisablesActiveScripting(t *testing.T) {
 		t.Fatalf("name=%q", name)
 	}
 	want := []string{
+		project,
 		"-help",
 		"-unattended",
 		"-nop4",
@@ -73,6 +80,23 @@ func TestUnrealSmokeInvocationIsFixedAndDisablesActiveScripting(t *testing.T) {
 	}
 	if !reflect.DeepEqual(args, want) {
 		t.Fatalf("unexpected Unreal smoke argv: %#v", args)
+	}
+	if _, _, err := unrealSmokeInvocation(executable, filepath.Join(t.TempDir(), "caller-project.uproject")); err == nil {
+		t.Fatal("Unreal smoke accepted a caller-selected project name")
+	}
+	if _, _, err := unrealSmokeInvocation(executable, "WorkbenchSmoke.uproject"); err == nil {
+		t.Fatal("Unreal smoke accepted a relative project path")
+	}
+}
+
+func TestUnrealSmokeProjectDocumentIsMinimalContentOnlyProject(t *testing.T) {
+	if !json.Valid([]byte(unrealSmokeProjectDocument)) {
+		t.Fatal("Unreal smoke project document must be valid JSON")
+	}
+	for _, forbidden := range []string{`"Modules"`, `"Plugins"`} {
+		if strings.Contains(unrealSmokeProjectDocument, forbidden) {
+			t.Fatalf("Unreal smoke project must not contain %s", forbidden)
+		}
 	}
 }
 
