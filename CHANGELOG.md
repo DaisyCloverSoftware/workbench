@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.48 — 2026-08-20
+
+- Restore durable private Git relay operations so long-running Workbench machine tasks survive the originating chat and resume through the private relay until a genuine human-attention gate is reached.
+- Route authenticated private relay operations through the existing hidden delegate_task compatibility path while preserving the workbench:operations marker, keeping ordinary direct ChatGPT implicit OpenClaw delegation blocked.
+- Carry forward the Workbench 0.9.47 Unreal Engine 5.8 five-minute startup proof and privacy-safe initialization-phase classifications without deploying the older 0.9.47 relay that lacks this persistence repair.
+
 ## 0.9.47 — 2026-08-20
 
 - Extend the bounded Unreal Engine 5.8 smoke initialization window from 90 seconds to five minutes after live 0.9.46 proofs showed normal startup no longer crashes but exceeds the old bound.
