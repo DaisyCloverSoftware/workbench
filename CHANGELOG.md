@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.52 — 2026-08-20
+
+- Feed the Operations dashboard from the privacy-safe cluster relay activity inventory as well as the Windows-local task store so real Workbench work no longer renders as an empty board.
+- Keep pending private-relay requests visible before an outbox result exists and preserve non-project server and Windows controls instead of discarding them from dashboard inventory.
+- Keep project auto-registration strictly filtered to current runner inventory while allowing the operations board itself to show valid projectless machine work.
+- Render dashboard priorities in the same Critical, High, Normal, Low order used by the scheduler.
+
 ## 0.9.51 — 2026-08-20
 
 - Replace the old activity-first Dashboard with a six-lane operations board covering server operations, CI/builds, Windows workstation jobs, AI workers, waiting dependencies and genuine human-attention gates.
