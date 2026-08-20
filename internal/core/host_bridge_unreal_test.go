@@ -48,7 +48,7 @@ func TestUnrealBuildVersionIsReadFromValidatedEngineLayout(t *testing.T) {
 	}
 }
 
-func TestUnrealSmokeInvocationUsesFixedProjectAndDisablesActiveScripting(t *testing.T) {
+func TestUnrealSmokeInvocationUsesFixedProjectQuitAndDisablesActiveScripting(t *testing.T) {
 	executable := unrealTestInstall(t, 5, 7, 0)
 	project := filepath.Join(t.TempDir(), "WorkbenchSmoke.uproject")
 	if err := os.WriteFile(project, []byte(unrealSmokeProjectDocument), 0o600); err != nil {
@@ -63,7 +63,7 @@ func TestUnrealSmokeInvocationUsesFixedProjectAndDisablesActiveScripting(t *test
 	}
 	want := []string{
 		project,
-		"-help",
+		"-ExecCmds=Quit",
 		"-unattended",
 		"-nop4",
 		"-nullrhi",
