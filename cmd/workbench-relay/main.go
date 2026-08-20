@@ -68,6 +68,7 @@ func main() {
 	resultMode := flag.String("result-mode", "status", "outbox detail: status or report")
 	publicTransport := flag.Bool("public-transport", true, "publish only status-safe output suitable for a public relay repository")
 	once := flag.Bool("once", false, "poll once then exit")
+	smokeOnly := flag.Bool("smoke-only", false, "validate relay configuration without consuming relay work")
 	flag.Parse()
 
 	if *resultMode != "status" && *resultMode != "report" {
@@ -94,6 +95,10 @@ func main() {
 	fmt.Printf("source ref: %s/%s\n", *remote, *branch)
 	fmt.Printf("local MCP: %s\n", *mcpURL)
 	fmt.Printf("outbox mode: %s (public transport: %t)\n", *resultMode, *publicTransport)
+	if *smokeOnly {
+		fmt.Println("smoke-only: configuration validated; relay queue was not polled")
+		return
+	}
 
 	for {
 		if err := poll(context.Background(), absRepo, *remote, *branch, *mcpURL, *authFile, *resultMode, *publicTransport); err != nil {
@@ -258,151 +263,41 @@ func processAnswerPath(ctx context.Context, repo, ref, path, mcpURL, authFile st
 	if !validRelayID(id) {
 		return errors.New("invalid relay answer filename")
 	}
-	rec, ok, err := core.LoadRelayRecord(id)
-	if err != nil {
-		return err
-	}
-	if !ok || strings.TrimSpace(rec.WorkbenchTaskID) == "" {
+	if rec, ok, err := core.LoadRelayRecord(id); err == nil && ok && rec.AnswerApplied {
 		return nil
 	}
-	out, err := readRefFile(repo, ref, path, 32<<10)
+	out, err := readRefFile(repo, ref, path, 64<<10)
 	if err != nil {
 		return err
 	}
-	var env answerEnvelope
+	var ans answerEnvelope
 	dec := json.NewDecoder(bytes.NewReader(out))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&env); err != nil {
-		return fmt.Errorf("invalid relay answer JSON: %w", err)
-	}
-	answer := strings.TrimSpace(env.Answer)
-	if env.Version != 1 || env.ID != id || answer == "" || len(answer) > 16000 {
-		return errors.New("relay answer id/version/content is invalid")
-	}
-	digest := textDigest(answer)
-	if digest == rec.LastAnswerDigest {
-		return nil
-	}
-	task, err := getTaskMCP(ctx, mcpURL, authFile, rec.WorkbenchTaskID)
-	if err != nil {
+	if err := dec.Decode(&ans); err != nil {
 		return err
 	}
-	if task.Status != core.TaskNeedsAttention {
-		return nil
+	if ans.Version != 1 || ans.ID != id || strings.TrimSpace(ans.Answer) == "" || len(ans.Answer) > 16000 {
+		return errors.New("relay answer id/version/answer invalid")
 	}
-	if err := resolveAttentionMCP(ctx, mcpURL, authFile, rec.WorkbenchTaskID, answer); err != nil {
+	rec, ok, err := core.LoadRelayRecord(id)
+	if err != nil || !ok || rec.WorkbenchTaskID == "" {
+		return errors.New("relay answer has no matching Workbench task")
+	}
+	if _, err := resolveAttentionMCP(ctx, mcpURL, authFile, rec.WorkbenchTaskID, ans.Answer); err != nil {
 		return err
 	}
-	rec.LastAnswerDigest = digest
+	rec.AnswerApplied = true
 	if err := core.SaveRelayRecord(rec); err != nil {
 		return err
 	}
-	fmt.Printf("resumed relay %s after human answer\n", id)
+	fmt.Printf("applied relay answer %s -> task %s\n", id, rec.WorkbenchTaskID)
 	return nil
 }
 
-func validRelayID(id string) bool {
-	if len(id) < 8 || len(id) > 80 {
-		return false
-	}
-	for _, r := range id {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func resolveProject(name string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return "", errors.New("project is required")
-	}
-	if strings.HasPrefix(strings.ToLower(name), core.RunnerProjectPrefix) {
-		if !core.IsRunnerProjectReference(name) {
-			return "", errors.New("project contains an invalid runner reference")
-		}
-		return core.ResolveRunnerProject(name)
-	}
-	if filepath.Base(name) != name || strings.ContainsAny(name, `/\\:`) || name == "." || name == ".." {
-		return "", errors.New("project must be one repository directory name or a scoped runner project reference")
-	}
-	return core.ResolveRunnerProject(name)
-}
-
-func delegateOperationMCP(ctx context.Context, url, authFile, intent, project string) (string, error) {
-	result, err := callMCP(ctx, url, authFile, "delegate_operation", map[string]any{"intent": intent, "project_path": project})
-	if err != nil {
-		return "", err
-	}
-	v, _ := result["task_id"].(string)
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return "", errors.New("local MCP returned no task_id")
-	}
-	return v, nil
-}
-
-func getTaskMCP(ctx context.Context, url, authFile, taskID string) (core.Task, error) {
-	result, err := callMCP(ctx, url, authFile, "get_task", map[string]any{"task_id": taskID})
-	if err != nil {
-		return core.Task{}, err
-	}
-	b, _ := json.Marshal(result)
-	var task core.Task
-	if err := json.Unmarshal(b, &task); err != nil {
-		return core.Task{}, err
-	}
-	if strings.TrimSpace(task.ID) == "" {
-		return core.Task{}, errors.New("local MCP returned an invalid task")
-	}
-	return task, nil
-}
-
-func resolveAttentionMCP(ctx context.Context, url, authFile, taskID, answer string) error {
-	_, err := callMCP(ctx, url, authFile, "resolve_attention", map[string]any{"task_id": taskID, "answer": answer})
-	return err
-}
-
-func callMCP(ctx context.Context, url, authFile, tool string, args map[string]any) (map[string]any, error) {
-	auth, err := os.ReadFile(authFile)
-	if err != nil {
-		return nil, fmt.Errorf("read local MCP auth: %w", err)
-	}
-	payload, _ := json.Marshal(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      tool,
-			"arguments": args,
-		},
-	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", strings.TrimSpace(string(auth)))
-	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("local MCP returned HTTP %d", resp.StatusCode)
-	}
-	var rr rpcResponse
-	if err := json.Unmarshal(body, &rr); err != nil {
-		return nil, err
-	}
-	if rr.Error != nil || rr.Result.IsError {
-		return nil, fmt.Errorf("local MCP rejected %s", tool)
-	}
-	return rr.Result.StructuredContent, nil
+func recordError(id, sourcePath, msg string) error {
+	rec := core.RelayRecord{RelayID: id, Source: "github-git-relay", SourcePath: sourcePath, Error: msg}
+	_ = core.SaveRelayRecord(rec)
+	return errors.New(msg)
 }
 
 func syncOutbox(ctx context.Context, repo, remote, branch, mcpURL, authFile, resultMode string, publicTransport bool) error {
@@ -410,149 +305,190 @@ func syncOutbox(ctx context.Context, repo, remote, branch, mcpURL, authFile, res
 	if err != nil {
 		return err
 	}
-	files := map[string][]byte{}
 	for _, rec := range records {
-		if !validRelayID(rec.RelayID) {
-			continue
-		}
-		out := outboxEnvelope{Version: 1, ID: rec.RelayID, UpdatedAt: rec.UpdatedAt.UTC().Format(time.RFC3339Nano)}
-		if !publicTransport {
-			out.WorkbenchTask = rec.WorkbenchTaskID
-		}
-		if rec.Error != "" {
+		out := outboxEnvelope{Version: 1, ID: rec.RelayID, WorkbenchTask: rec.WorkbenchTaskID, UpdatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+		if rec.WorkbenchTaskID == "" {
 			out.Status = core.TaskFailed
-			if !publicTransport && resultMode == "report" {
-				if core.LooksSecret(rec.Error) {
-					out.DetailWithheld = true
-				} else {
-					out.Error = rec.Error
+			out.Error = publicSafe(rec.Error, publicTransport)
+		} else {
+			task, err := getTaskMCP(ctx, mcpURL, authFile, rec.WorkbenchTaskID)
+			if err != nil {
+				out.Status = core.TaskFailed
+				out.Error = publicSafe(err.Error(), publicTransport)
+			} else {
+				out.Status = task.Status
+				out.ConsumesWork = task.ConsumesWork
+				out.UpdatedAt = task.UpdatedAt.Format(time.RFC3339Nano)
+				if resultMode == "report" && !publicTransport {
+					out.Report = sanitizeReport(task.Output)
+					out.Error = sanitizeReport(task.Error)
+					out.Attention = sanitizeReport(task.AttentionQuestion)
 				}
 			}
-		} else if rec.WorkbenchTaskID != "" {
-			task, taskErr := getTaskMCP(ctx, mcpURL, authFile, rec.WorkbenchTaskID)
-			if taskErr != nil {
-				continue
+		}
+		if publicTransport || resultMode != "report" {
+			out.Report = ""
+			out.Attention = ""
+			if out.Error != "" {
+				out.Error = publicSafe(out.Error, true)
 			}
-			out = buildOutbox(rec.RelayID, task, resultMode, publicTransport)
 		}
-		if out.Status == "" {
-			continue
-		}
-		b, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			return err
-		}
-		b = append(b, '\n')
-		files["relay/outbox/"+rec.RelayID+".json"] = b
-	}
-	return publishOutbox(ctx, repo, remote, branch, files)
-}
-
-func buildOutbox(id string, task core.Task, resultMode string, publicTransport bool) outboxEnvelope {
-	out := outboxEnvelope{
-		Version:   1,
-		ID:        id,
-		Status:    task.Status,
-		UpdatedAt: task.UpdatedAt.UTC().Format(time.RFC3339Nano),
-	}
-	if !publicTransport {
-		out.WorkbenchTask = task.ID
-		out.ConsumesWork = task.ConsumesWork
-	}
-	if !publicTransport && resultMode == "report" {
-		detail := strings.Join([]string{task.Output, task.Error, task.AttentionQuestion}, "\n")
-		if core.LooksSecret(detail) {
+		if core.LooksSecret(out.Report) || core.LooksSecret(out.Attention) || core.LooksSecret(out.Error) {
+			out.Report = ""
+			out.Attention = ""
+			out.Error = ""
 			out.DetailWithheld = true
-		} else {
-			out.Report = task.Output
-			out.Error = task.Error
-			out.Attention = task.AttentionQuestion
 		}
-	}
-	return out
-}
-
-func publishOutbox(ctx context.Context, repo, remote, branch string, files map[string][]byte) error {
-	if len(files) == 0 {
-		return nil
-	}
-	for attempt := 0; attempt < 3; attempt++ {
-		if err := fetchRemote(ctx, repo, remote, branch); err != nil {
+		if err := publishOutbox(ctx, repo, remote, branch, out); err != nil {
 			return err
 		}
-		ref := remote + "/" + branch
-		tmp, err := os.MkdirTemp("", "workbench-relay-publish-")
-		if err != nil {
-			return err
-		}
-		added := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", tmp, ref)
-		if out, err := added.CombinedOutput(); err != nil {
-			_ = os.RemoveAll(tmp)
-			return fmt.Errorf("create relay publish worktree: %s", strings.TrimSpace(string(out)))
-		}
-
-		for path, content := range files {
-			dest := filepath.Join(tmp, filepath.FromSlash(path))
-			if old, readErr := os.ReadFile(dest); readErr == nil && bytes.Equal(old, content) {
-				continue
-			}
-			if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-				cleanupWorktree(repo, tmp)
-				return err
-			}
-			if err := os.WriteFile(dest, content, 0o644); err != nil {
-				cleanupWorktree(repo, tmp)
-				return err
-			}
-		}
-		if out, err := exec.Command("git", "-C", tmp, "add", "relay/outbox").CombinedOutput(); err != nil {
-			cleanupWorktree(repo, tmp)
-			return fmt.Errorf("stage relay outbox: %s", strings.TrimSpace(string(out)))
-		}
-		diffCmd := exec.Command("git", "-C", tmp, "diff", "--cached", "--quiet", "--", "relay/outbox")
-		diffOut, diffErr := diffCmd.CombinedOutput()
-		if diffErr == nil {
-			cleanupWorktree(repo, tmp)
-			return nil
-		}
-		if exitErr, ok := diffErr.(*exec.ExitError); !ok || exitErr.ExitCode() != 1 {
-			cleanupWorktree(repo, tmp)
-			return fmt.Errorf("check staged relay outbox: %s", strings.TrimSpace(string(diffOut)))
-		}
-		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update task status")
-		if out, err := commit.CombinedOutput(); err != nil {
-			cleanupWorktree(repo, tmp)
-			return fmt.Errorf("commit relay outbox: %s", strings.TrimSpace(string(out)))
-		}
-		pushCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-		push := exec.CommandContext(pushCtx, "git", "-C", tmp, "push", "--quiet", remote, "HEAD:refs/heads/"+branch)
-		out, pushErr := push.CombinedOutput()
-		cancel()
-		cleanupWorktree(repo, tmp)
-		if pushErr == nil {
-			return nil
-		}
-		if attempt == 2 {
-			return fmt.Errorf("push relay outbox failed: %s", strings.TrimSpace(string(out)))
-		}
-		time.Sleep(time.Duration(attempt+1) * 250 * time.Millisecond)
 	}
 	return nil
 }
 
-func cleanupWorktree(repo, dir string) {
-	_ = exec.Command("git", "-C", repo, "worktree", "remove", "--force", dir).Run()
-	_ = os.RemoveAll(dir)
+func publishOutbox(ctx context.Context, repo, remote, branch string, out outboxEnvelope) error {
+	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	path := "relay/outbox/" + out.ID + ".json"
+	current, _ := os.ReadFile(filepath.Join(repo, path))
+	if bytes.Equal(current, b) {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Join(repo, "relay", "outbox"), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(repo, path), b, 0o644); err != nil {
+		return err
+	}
+	return commitAndPush(ctx, repo, remote, branch, "relay: update task status", path)
 }
 
-func textDigest(s string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(s)))
-	return hex.EncodeToString(sum[:])
+func commitAndPush(ctx context.Context, repo, remote, branch, message string, paths ...string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	for _, p := range paths {
+		cmd := exec.CommandContext(ctx, "git", "-C", repo, "add", "--", p)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("git add failed: %s", strings.TrimSpace(string(out)))
+		}
+	}
+	cmd := exec.CommandContext(ctx, "git", "-C", repo, "diff", "--cached", "--quiet", "--")
+	if err := cmd.Run(); err == nil {
+		return nil
+	}
+	cmd = exec.CommandContext(ctx, "git", "-C", repo, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "-m", message, "--quiet")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git commit failed: %s", strings.TrimSpace(string(out)))
+	}
+	pushCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	cmd = exec.CommandContext(pushCtx, "git", "-C", repo, "push", "--quiet", remote, "HEAD:"+branch)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git push failed: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
-func recordError(id, path, message string) error {
-	_ = core.SaveRelayRecord(core.RelayRecord{RelayID: id, Source: "github-git-relay", SourcePath: path, Error: message})
-	return errors.New(message)
+func sanitizeReport(s string) string {
+	s = strings.TrimSpace(s)
+	const max = 12000
+	if len(s) > max {
+		s = s[:max] + "\n… truncated by Workbench relay …"
+	}
+	return s
+}
+
+func publicSafe(s string, public bool) string {
+	if !public || s == "" {
+		return sanitizeReport(s)
+	}
+	return "Workbench task failed; inspect the private runner state for details."
+}
+
+func callMCP(ctx context.Context, mcpURL, authFile, tool string, args map[string]any) (map[string]any, error) {
+	if strings.TrimSpace(mcpURL) == "" {
+		return nil, errors.New("local MCP URL is empty")
+	}
+	if strings.TrimSpace(authFile) == "" {
+		return nil, errors.New("MCP auth file is empty")
+	}
+	authBytes, err := os.ReadFile(authFile)
+	if err != nil {
+		return nil, fmt.Errorf("read MCP auth file: %w", err)
+	}
+	auth := strings.TrimSpace(string(authBytes))
+	if auth == "" || strings.ContainsAny(auth, "\r\n") {
+		return nil, errors.New("MCP auth file contains an invalid Authorization value")
+	}
+	body := map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name":      tool,
+			"arguments": args,
+		},
+	}
+	payload, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", auth)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("MCP returned HTTP %d", resp.StatusCode)
+	}
+	limited := io.LimitReader(resp.Body, 2<<20)
+	var rpc rpcResponse
+	if err := json.NewDecoder(limited).Decode(&rpc); err != nil {
+		return nil, err
+	}
+	if rpc.Error != nil || rpc.Result.IsError {
+		return nil, errors.New("Workbench MCP tool call failed")
+	}
+	return rpc.Result.StructuredContent, nil
+}
+
+func delegateOperationMCP(ctx context.Context, mcpURL, authFile, intent, project string) (string, error) {
+	result, err := callMCP(ctx, mcpURL, authFile, "delegate_operation", map[string]any{"intent": intent, "project_path": project})
+	if err != nil {
+		return "", err
+	}
+	id, _ := result["task_id"].(string)
+	if id == "" {
+		return "", errors.New("Workbench did not return a task id")
+	}
+	return id, nil
+}
+
+func resolveAttentionMCP(ctx context.Context, mcpURL, authFile, taskID, answer string) (map[string]any, error) {
+	return callMCP(ctx, mcpURL, authFile, "resolve_attention", map[string]any{"task_id": taskID, "answer": answer})
+}
+
+func getTaskMCP(ctx context.Context, mcpURL, authFile, taskID string) (core.Task, error) {
+	result, err := callMCP(ctx, mcpURL, authFile, "get_task", map[string]any{"task_id": taskID})
+	if err != nil {
+		return core.Task{}, err
+	}
+	raw, err := json.Marshal(result["task"])
+	if err != nil {
+		return core.Task{}, err
+	}
+	var task core.Task
+	if err := json.Unmarshal(raw, &task); err != nil {
+		return core.Task{}, err
+	}
+	return task, nil
 }
 
 func fatal(err error) {
