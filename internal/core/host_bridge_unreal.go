@@ -126,6 +126,7 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 		project,
 		"-ExecCmds=Quit",
 		"-unattended",
+		"-stdout",
 		"-nop4",
 		"-nullrhi",
 		"-nosplash",
@@ -139,6 +140,32 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 		"-DisablePython",
 		"-NoEpicPortal",
 	}, nil
+}
+
+// classifyUnrealSmokeFailure deliberately maps bounded local process output to a
+// tiny fixed vocabulary. Raw Unreal stdout/stderr can contain local paths and
+// machine details, so it must never cross the Windows host bridge merely to
+// diagnose a startup failure.
+func classifyUnrealSmokeFailure(stdout, stderr string) string {
+	text := strings.ToLower(stdout + "\n" + stderr)
+	switch {
+	case strings.Contains(text, "tnotnull"):
+		return "tnotnull-assertion"
+	case strings.Contains(text, "assertion failed") || strings.Contains(text, "assert failed"):
+		return "assertion"
+	case strings.Contains(text, "fatal error") || strings.Contains(text, "app error called"):
+		return "fatal"
+	case strings.Contains(text, "failed to open descriptor file") || strings.Contains(text, "project file not found"):
+		return "project-descriptor"
+	case strings.Contains(text, "missing global shader") || strings.Contains(text, "failed to compile global shader"):
+		return "shader-initialization"
+	case strings.Contains(text, "zen") && (strings.Contains(text, "failed") || strings.Contains(text, "unable") || strings.Contains(text, "error")):
+		return "zen"
+	case strings.Contains(text, "engine exit requested") || strings.Contains(text, "requestengineexit"):
+		return "quit-observed"
+	default:
+		return "nonzero-exit"
+	}
 }
 
 // SubmitUnrealSmokeJob is deliberately separate from the generic host-job

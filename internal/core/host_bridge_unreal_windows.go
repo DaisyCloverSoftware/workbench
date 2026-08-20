@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -190,7 +191,13 @@ func runUnrealSmoke(ctx context.Context, executable, jobID string) (string, erro
 		if probeCtx.Err() != nil {
 			return "", errors.New("Unreal headless smoke timed out")
 		}
-		return "", errors.New("Unreal headless smoke failed")
+		exitCode := -1
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		}
+		class := classifyUnrealSmokeFailure(stdout.String(), stderr.String())
+		return "", fmt.Errorf("Unreal headless smoke failed: class=%s process_exit=%d", class, exitCode)
 	}
 	return "Unreal headless smoke complete: " + version, nil
 }

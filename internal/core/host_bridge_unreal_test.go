@@ -65,6 +65,7 @@ func TestUnrealSmokeInvocationUsesFixedProjectQuitAndDisablesActiveScripting(t *
 		project,
 		"-ExecCmds=Quit",
 		"-unattended",
+		"-stdout",
 		"-nop4",
 		"-nullrhi",
 		"-nosplash",
@@ -86,6 +87,35 @@ func TestUnrealSmokeInvocationUsesFixedProjectQuitAndDisablesActiveScripting(t *
 	}
 	if _, _, err := unrealSmokeInvocation(executable, "WorkbenchSmoke.uproject"); err == nil {
 		t.Fatal("Unreal smoke accepted a relative project path")
+	}
+}
+
+func TestUnrealSmokeFailureClassifierReturnsOnlyFixedSafeLabels(t *testing.T) {
+	tests := []struct {
+		name   string
+		stdout string
+		stderr string
+		want   string
+	}{
+		{name: "tnotnull", stderr: `Fatal error: TNotNull<Thing> failed at D:\workbench-test\private\file.cpp`, want: "tnotnull-assertion"},
+		{name: "assertion", stderr: "Assertion failed: Ptr != nullptr", want: "assertion"},
+		{name: "fatal", stderr: "Fatal error: startup failed", want: "fatal"},
+		{name: "project", stderr: `Failed to open descriptor file D:\workbench-test\private\WorkbenchSmoke.uproject`, want: "project-descriptor"},
+		{name: "shader", stderr: "Missing global shader FScreenVS", want: "shader-initialization"},
+		{name: "zen", stderr: "Zen server connection failed", want: "zen"},
+		{name: "quit", stdout: "LogCore: Engine exit requested", want: "quit-observed"},
+		{name: "unknown", stderr: "process returned one", want: "nonzero-exit"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := classifyUnrealSmokeFailure(tt.stdout, tt.stderr)
+			if got != tt.want {
+				t.Fatalf("classification=%q want=%q", got, tt.want)
+			}
+			if strings.Contains(got, `D:\`) || strings.Contains(strings.ToLower(got), "private") {
+				t.Fatalf("classification leaked local detail: %q", got)
+			}
+		})
 	}
 }
 
