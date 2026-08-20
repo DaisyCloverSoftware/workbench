@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.40 — 2026-08-20
+
+- Fix the Windows verified-updater handoff so, after explicit user approval, the updater gracefully closes the running Workbench process, waits for its single-instance mutex and MCP listener to exit, installs the verified replacement, and relaunches the new Workbench instance without requiring a manual close/reopen.
+- Keep Workbench-Updater.exe itself current by refreshing the separately shipped updater from the same official checksummed release channel after Workbench starts; arbitrary executable names and unverified replacements remain refused.
+- Successful future updates exit the updater immediately after relaunch so the new Workbench can refresh the updater binary without another modal confirmation; upgrading from 0.9.39 may require the old manual close/reopen behavior one final time because 0.9.39 still contains the previous updater.
+
 ## 0.9.39 — 2026-08-20
 
 - Stop ChatGPT-originated machine operations from implicitly creating OpenClaw operator tasks; bounded ChatGPT machine work must use direct Workbench controls.
