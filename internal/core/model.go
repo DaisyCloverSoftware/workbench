@@ -89,6 +89,7 @@ type Task struct {
 	ProjectPath        string            `json:"project_path"`
 	Mode               TaskMode          `json:"mode,omitempty"`
 	Status             TaskStatus        `json:"status"`
+	Priority           WorkPriority      `json:"priority,omitempty"`
 	Archived           bool              `json:"archived,omitempty"`
 	ProviderID         string            `json:"provider_id,omitempty"`
 	CloudModelOverride string            `json:"cloud_model_override,omitempty"`
@@ -118,13 +119,14 @@ type Task struct {
 // State as a compatibility mirror for the currently selected project while the
 // product migrates from its original single-project state shape.
 type Project struct {
-	ID         string    `json:"id"`
-	Path       string    `json:"path"`
-	Name       string    `json:"name"`
-	Notes      string    `json:"notes,omitempty"`
-	Pinned     bool      `json:"pinned,omitempty"`
-	AddedAt    time.Time `json:"added_at"`
-	LastUsedAt time.Time `json:"last_used_at"`
+	ID              string       `json:"id"`
+	Path            string       `json:"path"`
+	Name            string       `json:"name"`
+	Notes           string       `json:"notes,omitempty"`
+	Pinned          bool         `json:"pinned,omitempty"`
+	DefaultPriority WorkPriority `json:"default_priority,omitempty"`
+	AddedAt         time.Time    `json:"added_at"`
+	LastUsedAt      time.Time    `json:"last_used_at"`
 }
 
 type Preferences struct {
