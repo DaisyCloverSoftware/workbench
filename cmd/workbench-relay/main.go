@@ -519,7 +519,7 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("check staged relay outbox: %s", strings.TrimSpace(string(diffOut)))
 		}
-		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Test", "-c", "user.email=workbench-test@example.invalid", "commit", "--quiet", "-m", "relay: update task status")
+		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update task status")
 		if out, err := commit.CombinedOutput(); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("commit relay outbox: %s", strings.TrimSpace(string(out)))
