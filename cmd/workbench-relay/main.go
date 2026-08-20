@@ -237,8 +237,8 @@ func processPath(ctx context.Context, repo, ref, path, mcpURL, authFile string) 
 		return recordError(idFromPath, path, "operations relay intent is empty")
 	}
 
-	taggedIntent := "[relay:" + env.ID + "] " + operationIntent
-	taskID, err := delegateOperationMCP(ctx, mcpURL, authFile, taggedIntent, project)
+	taggedIntent := "[relay:" + env.ID + "] " + core.RelayOperationsIntentPrefix + " " + operationIntent
+	taskID, err := delegateRelayTaskMCP(ctx, mcpURL, authFile, taggedIntent, project)
 	rec := core.RelayRecord{RelayID: env.ID, Source: "github-git-relay", SourcePath: path, Project: project}
 	if err != nil {
 		rec.Error = err.Error()
@@ -331,8 +331,8 @@ func resolveProject(name string) (string, error) {
 	return core.ResolveRunnerProject(name)
 }
 
-func delegateOperationMCP(ctx context.Context, url, authFile, intent, project string) (string, error) {
-	result, err := callMCP(ctx, url, authFile, "delegate_operation", map[string]any{"intent": intent, "project_path": project})
+func delegateRelayTaskMCP(ctx context.Context, url, authFile, intent, project string) (string, error) {
+	result, err := callMCP(ctx, url, authFile, "delegate_task", map[string]any{"intent": intent, "project_path": project})
 	if err != nil {
 		return "", err
 	}
