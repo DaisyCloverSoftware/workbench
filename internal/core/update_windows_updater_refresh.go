@@ -45,6 +45,18 @@ func RefreshVerifiedWindowsUpdater(ctx context.Context, installDir string) (bool
 	if err != nil {
 		return false, err
 	}
+	// A development/release-candidate Workbench can temporarily be newer than
+	// the latest published stable release. Never let its background maintenance
+	// downgrade the updater to that older release. Normal installed builds reach
+	// this path only after their own release has been published.
+	cmp, err := compareStableVersions(release.Version, Version)
+	if err != nil {
+		return false, err
+	}
+	if cmp < 0 {
+		return false, nil
+	}
+
 	asset, err := DownloadVerifiedReleaseAsset(ctx, release, WindowsUpdaterReleaseAsset, WindowsUpdaterReleaseChecksumAsset, maxWindowsAppBytes)
 	if err != nil {
 		return false, err
