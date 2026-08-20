@@ -124,7 +124,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		result = map[string]any{
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.37"},
+			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.38"},
 			"instructions":    "Workbench is ChatGPT's execution bridge, not a replacement developer. ChatGPT owns reasoning, source code, Git/GitHub changes, pull requests, CI and GitHub Actions. Start with get_workspace, get_context and search_memory. Use list_files, search_text and read_file for repository visibility; use apply_patch for ChatGPT-authored source changes and run_safe_command for bounded local build/test/lint/status/diff work. For routine host and cluster work, prefer inspect_machine for read-only diagnostics and run_machine_command for explicit allowlisted mutations; these execute structured argv directly through Workbench without a shell or another AI model. Use delegate_operation only as an optional autonomous fallback when the required machine operation cannot be expressed through the direct command allowlist and an external operator is intentionally available. After delegating, use await_operation. OpenClaw is optional operator capacity, never the coder and never required for routine Workbench machine access. Only surface needs_attention to the human. Before a conversation becomes too long, save a compact context capsule with save_context.",
 		}
 	case "ping":

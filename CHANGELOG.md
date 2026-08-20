@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.38 — 2026-08-20
+
+- Add the first bounded Windows Blender headless-render operation after the live 0.9.37 version bridge proved Blender 5.1.2 on the connected host.
+- Keep the render tranche fixed to Blender's factory startup scene with auto-exec disabled, PNG frame 1 output under Workbench-owned cache state, and no caller-supplied executable, argv, scene, path, script or Python.
+- Verify the produced file as a bounded regular PNG and return only filename, byte count and SHA-256 metadata; arbitrary .blend rendering and generic Windows commands remain disabled.
+
 ## 0.9.37 — 2026-08-20
 
 - Fix the Windows Blender version probe so a validated bounded Blender version line is accepted even when unrelated diagnostics exceed their capture buffer.
