@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.47 — 2026-08-20
+
+- Extend the bounded Unreal Engine 5.8 smoke initialization window from 90 seconds to five minutes after live 0.9.46 proofs showed normal startup no longer crashes but exceeds the old bound.
+- Classify timeout progress into a small privacy-safe vocabulary from bounded local Unreal output so raw logs, Windows paths and project details never cross the host bridge.
+- Preserve the Workbench-owned disposable project and typed authority boundary: callers still cannot supply projects, executables, scripts, commandlets, Python, arbitrary arguments, environment variables or URLs.
+
 ## 0.9.46 — 2026-08-20
 
 - Use a normal bounded UnrealEditor-Cmd startup for the disposable Unreal smoke after the live 0.9.45 proof classified the failure as a TNotNull assertion with a Windows stack-overflow process status.
