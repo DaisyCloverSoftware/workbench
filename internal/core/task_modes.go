@@ -2,7 +2,10 @@ package core
 
 import "strings"
 
-const RelayOperationsIntentPrefix = "[workbench:operations]"
+const (
+	RelayOperationsIntentPrefix   = "[workbench:operations]"
+	RelayContinuationIntentPrefix = "[workbench:continuation]"
+)
 
 func hasRelayOperationsMarker(intent string) bool {
 	intent = strings.ToLower(strings.TrimSpace(intent))
