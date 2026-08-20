@@ -19,17 +19,7 @@ func AssignLaneQueuePositions(items []WorkItem) []WorkItem {
 
 	for _, indexes := range byLane {
 		sort.SliceStable(indexes, func(i, j int) bool {
-			left := out[indexes[i]]
-			right := out[indexes[j]]
-			leftRank := WorkPriorityRank(left.Priority)
-			rightRank := WorkPriorityRank(right.Priority)
-			if leftRank != rightRank {
-				return leftRank < rightRank
-			}
-			if !left.CreatedAt.Equal(right.CreatedAt) {
-				return left.CreatedAt.Before(right.CreatedAt)
-			}
-			return left.ID < right.ID
+			return workItemQueueLess(out[indexes[i]], out[indexes[j]])
 		})
 		for position, index := range indexes {
 			out[index].Priority = NormalizeWorkPriority(out[index].Priority)
