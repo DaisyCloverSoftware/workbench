@@ -112,23 +112,24 @@ type WorkLocation struct {
 // operations controls, CI dependencies and host-bridge jobs. It is deliberately
 // descriptive: subsystem-specific durable records remain authoritative.
 type WorkItem struct {
-	ID             string       `json:"id"`
-	ProjectID      string       `json:"project_id,omitempty"`
-	ProjectName    string       `json:"project_name,omitempty"`
-	Title          string       `json:"title"`
-	State          WorkItemState `json:"state"`
-	Priority       WorkPriority `json:"priority"`
-	QueuePosition  int          `json:"queue_position,omitempty"`
-	Location       WorkLocation `json:"location"`
-	Progress       WorkProgress `json:"progress"`
-	Blocker        string       `json:"blocker,omitempty"`
-	Commit         string       `json:"commit,omitempty"`
-	CreatedAt      time.Time    `json:"created_at"`
-	StartedAt      *time.Time   `json:"started_at,omitempty"`
-	UpdatedAt      time.Time    `json:"updated_at"`
-	CanReprioritize bool        `json:"can_reprioritize,omitempty"`
-	CanCancel       bool        `json:"can_cancel,omitempty"`
-	CanMove         bool        `json:"can_move,omitempty"`
+	ID              string        `json:"id"`
+	ProjectID       string        `json:"project_id,omitempty"`
+	ProjectName     string        `json:"project_name,omitempty"`
+	Title           string        `json:"title"`
+	State           WorkItemState `json:"state"`
+	Priority        WorkPriority  `json:"priority"`
+	QueueRank       int64         `json:"queue_rank,omitempty"`
+	QueuePosition   int           `json:"queue_position,omitempty"`
+	Location        WorkLocation  `json:"location"`
+	Progress        WorkProgress  `json:"progress"`
+	Blocker         string        `json:"blocker,omitempty"`
+	Commit          string        `json:"commit,omitempty"`
+	CreatedAt       time.Time     `json:"created_at"`
+	StartedAt       *time.Time    `json:"started_at,omitempty"`
+	UpdatedAt       time.Time     `json:"updated_at"`
+	CanReprioritize bool          `json:"can_reprioritize,omitempty"`
+	CanCancel       bool          `json:"can_cancel,omitempty"`
+	CanMove         bool          `json:"can_move,omitempty"`
 }
 
 func NormalizeWorkPriority(priority WorkPriority) WorkPriority {
@@ -159,9 +160,32 @@ func WorkPriorityRank(priority WorkPriority) int {
 	}
 }
 
+// workItemQueueLess applies scheduler ordering inside one execution lane.
+// Priority wins first. A positive manual QueueRank then preserves an explicit
+// drag/reorder result; unranked work follows FIFO creation order.
+func workItemQueueLess(left, right WorkItem) bool {
+	leftPriority := WorkPriorityRank(left.Priority)
+	rightPriority := WorkPriorityRank(right.Priority)
+	if leftPriority != rightPriority {
+		return leftPriority < rightPriority
+	}
+	leftRanked := left.QueueRank > 0
+	rightRanked := right.QueueRank > 0
+	if leftRanked != rightRanked {
+		return leftRanked
+	}
+	if leftRanked && left.QueueRank != right.QueueRank {
+		return left.QueueRank < right.QueueRank
+	}
+	if !left.CreatedAt.Equal(right.CreatedAt) {
+		return left.CreatedAt.Before(right.CreatedAt)
+	}
+	return strings.ToLower(left.ID) < strings.ToLower(right.ID)
+}
+
 // OrderQueuedWorkItems returns queued items in scheduler order and assigns
-// one-based queue positions. Priority wins first; creation time preserves FIFO;
-// the stable item ID gives deterministic ordering for identical timestamps.
+// one-based queue positions. Priority wins first; manual rank (when present)
+// wins next; otherwise creation time preserves FIFO.
 func OrderQueuedWorkItems(items []WorkItem) []WorkItem {
 	queued := make([]WorkItem, 0, len(items))
 	for _, item := range items {
@@ -173,17 +197,7 @@ func OrderQueuedWorkItems(items []WorkItem) []WorkItem {
 		copy.QueuePosition = 0
 		queued = append(queued, copy)
 	}
-	sort.SliceStable(queued, func(i, j int) bool {
-		leftRank := WorkPriorityRank(queued[i].Priority)
-		rightRank := WorkPriorityRank(queued[j].Priority)
-		if leftRank != rightRank {
-			return leftRank < rightRank
-		}
-		if !queued[i].CreatedAt.Equal(queued[j].CreatedAt) {
-			return queued[i].CreatedAt.Before(queued[j].CreatedAt)
-		}
-		return strings.ToLower(queued[i].ID) < strings.ToLower(queued[j].ID)
-	})
+	sort.SliceStable(queued, func(i, j int) bool { return workItemQueueLess(queued[i], queued[j]) })
 	for i := range queued {
 		queued[i].QueuePosition = i + 1
 	}
