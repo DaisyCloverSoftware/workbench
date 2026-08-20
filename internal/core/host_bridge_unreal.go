@@ -124,7 +124,7 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 	}
 	return filepath.Clean(executable), []string{
 		project,
-		"-help",
+		"-ExecCmds=Quit",
 		"-unattended",
 		"-nop4",
 		"-nullrhi",
@@ -143,8 +143,8 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 
 // SubmitUnrealSmokeJob is deliberately separate from the generic host-job
 // submitter. The generic path remains version-only. This function creates one
-// fixed UnrealEditor-Cmd startup smoke. The Windows agent itself creates the
-// disposable project; callers cannot supply a project, script, commandlet,
+// fixed UnrealEditor-Cmd startup-and-quit smoke. The Windows agent itself creates
+// the disposable project; callers cannot supply a project, script, commandlet,
 // executable, path or arguments.
 func SubmitUnrealSmokeJob(hostID string) (HostJob, error) {
 	hostID, err := validateHostBridgeID(hostID)
