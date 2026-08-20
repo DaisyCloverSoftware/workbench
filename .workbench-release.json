@@ -1,0 +1,9 @@
+{
+  "version": "0.9.46",
+  "date": "2026-08-20",
+  "notes": [
+    "Use a normal bounded UnrealEditor-Cmd startup for the disposable Unreal smoke after the live 0.9.45 proof classified the failure as a TNotNull assertion with a Windows stack-overflow process status.",
+    "Remove initialization-altering performance and cache flags from the smoke so Unreal Engine 5.8 can perform its normal first-start setup before the fixed Quit command.",
+    "Preserve the typed security boundary: the project remains Workbench-owned and disposable, Python stays disabled, and callers still cannot supply projects, executables, scripts, commandlets, arbitrary arguments, environment variables or URLs."
+  ]
+}
