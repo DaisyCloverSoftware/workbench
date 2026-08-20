@@ -25,11 +25,12 @@ type taskDependencySchedule struct {
 func (e *Engine) ResumeInterruptedTasks() error {
 	e.mu.Lock()
 	now := time.Now().UTC()
+	retiredLegacyChatGPT := retireLegacyChatGPTOperationTasks(&e.state, now)
 	ids := recoverInterruptedTasks(&e.state)
 	retryNow, retryLater := recoverWaitingRetryTasks(&e.state, now)
 	ids = append(ids, retryNow...)
 	dependencyLater, dependencyChanged := recoverWaitingDependencyTasks(&e.state, now)
-	stateChanged := len(ids) > 0 || dependencyChanged
+	stateChanged := retiredLegacyChatGPT || len(ids) > 0 || dependencyChanged
 	st := cloneState(e.state)
 	e.mu.Unlock()
 
@@ -49,6 +50,42 @@ func (e *Engine) ResumeInterruptedTasks() error {
 		go e.scheduleTaskDependencyCheck(dependency.TaskID, dependency.CheckAt)
 	}
 	return nil
+}
+
+// retireLegacyChatGPTOperationTasks is the migration boundary from the earlier
+// ChatGPT→OpenClaw operations design to direct Workbench machine controls.
+// Existing non-terminal tasks created by the old chatgpt-mcp operator path must
+// not be resurrected after an upgrade/restart. Their history remains visible,
+// but Workbench cancels them and clears execution state instead of opening a new
+// OpenClaw session. Manual/local operations from other origins are unaffected.
+func retireLegacyChatGPTOperationTasks(st *State, now time.Time) bool {
+	if st == nil {
+		return false
+	}
+	now = now.UTC()
+	changed := false
+	for i := range st.Tasks {
+		t := &st.Tasks[i]
+		if !strings.EqualFold(strings.TrimSpace(t.Origin), "chatgpt-mcp") || !IsOperationsTask(*t) {
+			continue
+		}
+		switch t.Status {
+		case TaskCompleted, TaskFailed, TaskCancelled:
+			continue
+		}
+		t.Status = TaskCancelled
+		t.ProviderID = ""
+		t.RouteReason = ""
+		t.ConsumesWork = false
+		t.RetryAt = nil
+		t.Dependency = nil
+		t.AttentionQuestion = ""
+		t.FinishedAt = timePointer(now)
+		t.UpdatedAt = now
+		t.Attempts = append(t.Attempts, "Workbench retired this legacy ChatGPT→OpenClaw operation during the direct-control migration; it will not be resumed")
+		changed = true
+	}
+	return changed
 }
 
 func recoverInterruptedTasks(st *State) []string {
