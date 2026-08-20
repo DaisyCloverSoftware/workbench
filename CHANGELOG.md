@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.42 — 2026-08-20
+
+- Keep the bounded Unreal Engine Windows bridge introduced in 0.9.41, including validated local version discovery and the fixed engine-only headless smoke operation.
+- Fix private relay maintenance updates so the installer probes Git transport through PID-scoped temporary refs instead of racing the live relay daemon for the shared remote-tracking branch.
+- Use --no-write-fetch-head and a dry-run probe branch while preserving the existing private-transport, credential and outbound-only safety boundaries.
+
 ## 0.9.41 — 2026-08-20
 
 - Add bounded Windows Unreal Engine detection by validating UnrealEditor-Cmd.exe in the canonical Engine/Binaries/Win64 layout and reading the adjacent Build.version metadata.
