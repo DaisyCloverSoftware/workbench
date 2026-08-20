@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.44 — 2026-08-20
+
+- Correct the bounded Unreal Engine 5.8.1 smoke again by replacing the abnormal global -help startup path with a fixed -ExecCmds=Quit launch against the Workbench-owned disposable project.
+- Keep Unreal callers unable to supply project paths, executables, scripts, commandlets or arguments; the generic Windows host-job path remains version-only.
+- Retain unattended, null-RHI, no-Python, no-shader-compile and cache-write suppression while preserving disposable workspace cleanup.
+
 ## 0.9.43 — 2026-08-20
 
 - Correct the bounded Windows Unreal smoke for Unreal Engine 5.8.1 by launching a fresh Workbench-owned disposable content-only .uproject instead of the invalid no-project editor startup path.
