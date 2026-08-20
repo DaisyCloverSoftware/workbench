@@ -153,9 +153,11 @@ relay_args=(
   --public-transport="$public_transport"
 )
 
-# Smoke the full daemon path once before installing supervision. An empty inbox
-# is healthy; existing relay state may publish an idempotent outbox.
-"$bin_dir/workbench-relay" "${relay_args[@]}" --once
+# Smoke the newly built binary and the complete flag surface without polling the
+# live relay queue. Git transport, auth-file presence and privacy were already
+# validated above; using --once here could execute an unrelated long control and
+# delay the supervisor restart while the old daemon kept running the old binary.
+"$bin_dir/workbench-relay" "${relay_args[@]}" --help >/dev/null 2>&1
 
 start_fallback() {
   local pid_file="$state_dir/workbench-github-relay.pid"
@@ -194,9 +196,19 @@ EOF
   systemctl --user daemon-reload
   # `enable --now` does not restart an already-active unit after its ExecStart
   # changes. Explicitly restart so rerunning the installer actually switches an
-  # existing relay process to the newly configured repository/mode.
+  # existing relay process to the newly installed binary.
   systemctl --user enable workbench-github-relay.service >/dev/null
   systemctl --user restart workbench-github-relay.service
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if systemctl --user is-active --quiet workbench-github-relay.service; then
+      break
+    fi
+    sleep 1
+  done
+  systemctl --user is-active --quiet workbench-github-relay.service || {
+    echo "Workbench relay service did not become active after restart." >&2
+    exit 1
+  }
   service_mode="systemd --user"
 else
   start_fallback
