@@ -35,7 +35,10 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 	}
 	label := windowsHostBridgeLabel()
 
-	capabilities := map[string]HostCapability{HostBridgeToolBlender: {Installed: false}}
+	capabilities := map[string]HostCapability{
+		HostBridgeToolBlender: {Installed: false},
+		HostBridgeToolUnreal:  {Installed: false},
+	}
 	var nextCapabilityProbe time.Time
 	for {
 		if err := ctx.Err(); err != nil {
@@ -73,8 +76,13 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 				Error:  jobErr,
 			})
 			completeCancel()
-			if jobErr == "" && response.Job.Spec.Tool == HostBridgeToolBlender && response.Job.Spec.Operation == HostBridgeOperationVersion {
-				capabilities[HostBridgeToolBlender] = HostCapability{Installed: true, Version: result.Output}
+			if jobErr == "" && response.Job.Spec.Operation == HostBridgeOperationVersion {
+				switch response.Job.Spec.Tool {
+				case HostBridgeToolBlender:
+					capabilities[HostBridgeToolBlender] = HostCapability{Installed: true, Version: result.Output}
+				case HostBridgeToolUnreal:
+					capabilities[HostBridgeToolUnreal] = HostCapability{Installed: true, Version: result.Output}
+				}
 			}
 		}
 
@@ -92,50 +100,74 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 	if job.HostID != hostID || job.ClaimedBy != hostID || job.Status != "claimed" {
 		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected a job that was not claimed by this host"
 	}
-	if job.Spec.Tool != HostBridgeToolBlender {
-		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported local tool"
-	}
 
-	executable := findBlenderExecutable()
-	if executable == "" {
-		return HostJobResult{ExitCode: 1}, "Blender is not installed in an allowlisted Windows location"
-	}
-
-	switch job.Spec.Operation {
-	case HostBridgeOperationVersion:
-		probeCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-		defer cancel()
-		version, err := runBlenderVersion(probeCtx, executable)
-		if err != nil {
-			return HostJobResult{ExitCode: 1}, err.Error()
+	switch job.Spec.Tool {
+	case HostBridgeToolBlender:
+		executable := findBlenderExecutable()
+		if executable == "" {
+			return HostJobResult{ExitCode: 1}, "Blender is not installed in an allowlisted Windows location"
 		}
-		return HostJobResult{Output: version, ExitCode: 0}, ""
-
-	case HostBridgeOperationBlenderSmokeRender:
-		output, err := runBlenderSmokeRender(ctx, executable, job.ID)
-		if err != nil {
-			return HostJobResult{ExitCode: 1}, err.Error()
+		switch job.Spec.Operation {
+		case HostBridgeOperationVersion:
+			probeCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+			defer cancel()
+			version, err := runBlenderVersion(probeCtx, executable)
+			if err != nil {
+				return HostJobResult{ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: version, ExitCode: 0}, ""
+		case HostBridgeOperationBlenderSmokeRender:
+			output, err := runBlenderSmokeRender(ctx, executable, job.ID)
+			if err != nil {
+				return HostJobResult{ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: output, ExitCode: 0}, ""
+		default:
+			return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported Blender operation"
 		}
-		return HostJobResult{Output: output, ExitCode: 0}, ""
+
+	case HostBridgeToolUnreal:
+		executable := findUnrealEditorCmdExecutable()
+		if executable == "" {
+			return HostJobResult{ExitCode: 1}, "Unreal Editor is not installed in an allowlisted Windows location"
+		}
+		switch job.Spec.Operation {
+		case HostBridgeOperationVersion:
+			version, err := runUnrealVersion(executable)
+			if err != nil {
+				return HostJobResult{ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: version, ExitCode: 0}, ""
+		case HostBridgeOperationUnrealSmoke:
+			output, err := runUnrealSmoke(ctx, executable)
+			if err != nil {
+				return HostJobResult{ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: output, ExitCode: 0}, ""
+		default:
+			return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported Unreal operation"
+		}
 
 	default:
-		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported local operation"
+		return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported local tool"
 	}
 }
 
 func discoverWindowsHostCapabilities(ctx context.Context) map[string]HostCapability {
 	capabilities := map[string]HostCapability{
 		HostBridgeToolBlender: {Installed: false},
+		HostBridgeToolUnreal:  {Installed: false},
 	}
-	executable := findBlenderExecutable()
-	if executable == "" {
-		return capabilities
+	if executable := findBlenderExecutable(); executable != "" {
+		if version, err := runBlenderVersion(ctx, executable); err == nil {
+			capabilities[HostBridgeToolBlender] = HostCapability{Installed: true, Version: version}
+		}
 	}
-	version, err := runBlenderVersion(ctx, executable)
-	if err != nil {
-		return capabilities
+	if executable := findUnrealEditorCmdExecutable(); executable != "" {
+		if version, err := runUnrealVersion(executable); err == nil {
+			capabilities[HostBridgeToolUnreal] = HostCapability{Installed: true, Version: version}
+		}
 	}
-	capabilities[HostBridgeToolBlender] = HostCapability{Installed: true, Version: version}
 	return capabilities
 }
 

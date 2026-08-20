@@ -1,0 +1,115 @@
+package core
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+func unrealTestInstall(t *testing.T, major, minor, patch int) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "UE_Test")
+	executable := filepath.Join(root, "Engine", "Binaries", "Win64", "UnrealEditor-Cmd.exe")
+	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executable, []byte("test-only"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	buildDir := filepath.Join(root, "Engine", "Build")
+	if err := os.MkdirAll(buildDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	payload := []byte(fmt.Sprintf("{\"MajorVersion\":%d,\"MinorVersion\":%d,\"PatchVersion\":%d,\"Changelist\":12345}", major, minor, patch))
+	if err := os.WriteFile(filepath.Join(buildDir, "Build.version"), payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return executable
+}
+
+func TestUnrealBuildVersionIsReadFromValidatedEngineLayout(t *testing.T) {
+	executable := unrealTestInstall(t, 5, 6, 1)
+	version, err := readUnrealBuildVersion(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := formatUnrealVersion(version); got != "Unreal Engine 5.6.1" {
+		t.Fatalf("version=%q", got)
+	}
+	if _, err := unrealVersionFileForExecutable(filepath.Join(filepath.Dir(executable), "cmd.exe")); err == nil {
+		t.Fatal("non-Unreal executable was accepted")
+	}
+	if _, err := unrealVersionFileForExecutable(filepath.Join(t.TempDir(), "UnrealEditor-Cmd.exe")); err == nil {
+		t.Fatal("Unreal executable outside Engine/Binaries/Win64 was accepted")
+	}
+}
+
+func TestUnrealSmokeInvocationIsFixedAndDisablesActiveScripting(t *testing.T) {
+	executable := unrealTestInstall(t, 5, 7, 0)
+	name, args, err := unrealSmokeInvocation(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != executable {
+		t.Fatalf("name=%q", name)
+	}
+	want := []string{
+		"-help",
+		"-unattended",
+		"-nop4",
+		"-nullrhi",
+		"-nosplash",
+		"-nowrite",
+		"-NOAUTOINIUPDATE",
+		"-norecentproject",
+		"-NoAssetRegistryCache",
+		"-NoAssetRegistryCacheWrite",
+		"-NoShaderCompile",
+		"-NoZenAutoLaunch",
+		"-DisablePython",
+		"-NoEpicPortal",
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("unexpected Unreal smoke argv: %#v", args)
+	}
+}
+
+func TestUnrealGenericHostJobsRemainVersionOnly(t *testing.T) {
+	if _, err := validateHostJobSpec(HostJobSpec{Tool: HostBridgeToolUnreal, Operation: HostBridgeOperationVersion}); err != nil {
+		t.Fatalf("Unreal version job rejected: %v", err)
+	}
+	if _, err := validateHostJobSpec(HostJobSpec{Tool: HostBridgeToolUnreal, Operation: HostBridgeOperationUnrealSmoke}); err == nil {
+		t.Fatal("generic host submitter accepted Unreal smoke operation")
+	}
+}
+
+func TestSubmitUnrealSmokeJobUsesDedicatedTypedOperation(t *testing.T) {
+	t.Setenv("WORKBENCH_HOST_BRIDGE_STATE_DIR", t.TempDir())
+	hostID := "windows_unrealhost"
+	if _, err := RecordHostBridgeHeartbeat(HostBridgeHeartbeat{
+		HostID:   hostID,
+		Label:    "Unreal test host",
+		Platform: HostBridgePlatformWindows,
+		Arch:     "amd64",
+		Capabilities: map[string]HostCapability{
+			HostBridgeToolUnreal: {Installed: true, Version: "Unreal Engine 5.6.1"},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	job, err := SubmitUnrealSmokeJob(hostID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if job.Spec.Tool != HostBridgeToolUnreal || job.Spec.Operation != HostBridgeOperationUnrealSmoke || job.Status != "queued" {
+		t.Fatalf("unexpected Unreal smoke job: %#v", job)
+	}
+}
+
+func TestCompareUnrealBuildVersionsUsesNumericComponents(t *testing.T) {
+	if compareUnrealBuildVersions(unrealBuildVersion{MajorVersion: 5, MinorVersion: 10}, unrealBuildVersion{MajorVersion: 5, MinorVersion: 9}) <= 0 {
+		t.Fatal("5.10 must sort after 5.9")
+	}
+}
