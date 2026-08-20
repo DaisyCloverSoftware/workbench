@@ -13,24 +13,27 @@ SOURCE_NS="$4"
 ARC_VERSION="0.14.2"
 RUNNER_VERSION="2.336.0"
 DOCKER_CLI_VERSION="28.3.3"
+K=(sudo -n k3s kubectl)
+H=(sudo -n env KUBECONFIG=/etc/rancher/k3s/k3s.yaml helm)
 
-for x in kubectl helm jq mktemp; do command -v "$x" >/dev/null || { echo "missing $x" >&2; exit 1; }; done
+for x in sudo k3s helm jq mktemp; do command -v "$x" >/dev/null || { echo "missing $x" >&2; exit 1; }; done
+sudo -n true
 
-ready="$(kubectl get node "$NODE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
+ready="$("${K[@]}" get node "$NODE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')"
 [[ "$ready" == "True" ]] || { echo "$NODE is not Ready" >&2; exit 1; }
 
-kubectl label node "$NODE" daisyclover.io/ci=true daisyclover.io/workload=ci --overwrite >/dev/null
-kubectl taint node "$NODE" daisyclover.io/ci-only=true:NoSchedule --overwrite >/dev/null
+"${K[@]}" label node "$NODE" daisyclover.io/ci=true daisyclover.io/workload=ci --overwrite >/dev/null
+"${K[@]}" taint node "$NODE" daisyclover.io/ci-only=true:NoSchedule --overwrite >/dev/null
 
-if kubectl -n longhorn-system get nodes.longhorn.io "$NODE" >/dev/null 2>&1; then
-  kubectl -n longhorn-system patch nodes.longhorn.io "$NODE" --type=merge -p '{"spec":{"allowScheduling":false}}' >/dev/null
+if "${K[@]}" -n longhorn-system get nodes.longhorn.io "$NODE" >/dev/null 2>&1; then
+  "${K[@]}" -n longhorn-system patch nodes.longhorn.io "$NODE" --type=merge -p '{"spec":{"allowScheduling":false}}' >/dev/null
 fi
 
-kubectl create namespace "$NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-if ! kubectl -n "$NS" get secret arc-github-config >/dev/null 2>&1; then
-  kubectl -n "$SOURCE_NS" get secret arc-github-config -o json \
+"${K[@]}" create namespace "$NS" --dry-run=client -o yaml | "${K[@]}" apply -f - >/dev/null
+if ! "${K[@]}" -n "$NS" get secret arc-github-config >/dev/null 2>&1; then
+  "${K[@]}" -n "$SOURCE_NS" get secret arc-github-config -o json \
     | jq --arg ns "$NS" '.metadata.namespace=$ns | del(.metadata.resourceVersion,.metadata.uid,.metadata.creationTimestamp,.metadata.managedFields)' \
-    | kubectl apply -f - >/dev/null
+    | "${K[@]}" apply -f - >/dev/null
 fi
 
 VALUES="$(mktemp)"
@@ -121,9 +124,9 @@ template:
       - {name: docker-cli-plugins, emptyDir: {}}
 EOF
 
-helm upgrade --install "$SET" --namespace "$NS" --version "$ARC_VERSION" -f "$VALUES" oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set --wait --timeout 5m
+"${H[@]}" upgrade --install "$SET" --namespace "$NS" --version "$ARC_VERSION" -f "$VALUES" oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set --wait --timeout 5m
 
-kubectl get node "$NODE" -o wide
-kubectl get node "$NODE" --show-labels
-kubectl get autoscalingrunnersets.actions.github.com -n "$NS" -o wide
-kubectl get pods -n "$NS" -o wide
+"${K[@]}" get node "$NODE" -o wide
+"${K[@]}" get node "$NODE" --show-labels
+"${K[@]}" get autoscalingrunnersets.actions.github.com -n "$NS" -o wide
+"${K[@]}" get pods -n "$NS" -o wide
