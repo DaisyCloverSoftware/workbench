@@ -12,6 +12,14 @@ import (
 
 const HostBridgeOperationUnrealSmoke = "smoke"
 
+const unrealSmokeProjectDocument = `{
+  "FileVersion": 3,
+  "EngineAssociation": "",
+  "Category": "",
+  "Description": "Workbench bounded Unreal smoke project"
+}
+`
+
 type unrealBuildVersion struct {
 	MajorVersion int `json:"MajorVersion"`
 	MinorVersion int `json:"MinorVersion"`
@@ -70,29 +78,52 @@ func formatUnrealVersion(version unrealBuildVersion) string {
 
 func compareUnrealBuildVersions(a, b unrealBuildVersion) int {
 	if a.MajorVersion != b.MajorVersion {
-		if a.MajorVersion < b.MajorVersion { return -1 }
+		if a.MajorVersion < b.MajorVersion {
+			return -1
+		}
 		return 1
 	}
 	if a.MinorVersion != b.MinorVersion {
-		if a.MinorVersion < b.MinorVersion { return -1 }
+		if a.MinorVersion < b.MinorVersion {
+			return -1
+		}
 		return 1
 	}
 	if a.PatchVersion != b.PatchVersion {
-		if a.PatchVersion < b.PatchVersion { return -1 }
+		if a.PatchVersion < b.PatchVersion {
+			return -1
+		}
 		return 1
 	}
 	if a.Changelist != b.Changelist {
-		if a.Changelist < b.Changelist { return -1 }
+		if a.Changelist < b.Changelist {
+			return -1
+		}
 		return 1
 	}
 	return 0
 }
 
-func unrealSmokeInvocation(executable string) (string, []string, error) {
+func unrealSmokeInvocation(executable, project string) (string, []string, error) {
 	if _, err := unrealVersionFileForExecutable(executable); err != nil {
 		return "", nil, err
 	}
+	project = filepath.Clean(strings.TrimSpace(project))
+	if project == "" || project == "." || strings.ContainsAny(project, "\r\n\x00") {
+		return "", nil, errors.New("Unreal smoke project path is invalid")
+	}
+	if !filepath.IsAbs(project) {
+		return "", nil, errors.New("Unreal smoke project path must be absolute")
+	}
+	if !strings.EqualFold(filepath.Base(project), "WorkbenchSmoke.uproject") {
+		return "", nil, errors.New("Unreal smoke project must use the fixed WorkbenchSmoke.uproject name")
+	}
+	info, err := os.Lstat(project)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() <= 0 || info.Size() > 64<<10 {
+		return "", nil, errors.New("Unreal smoke project is missing or invalid")
+	}
 	return filepath.Clean(executable), []string{
+		project,
 		"-help",
 		"-unattended",
 		"-nop4",
@@ -112,8 +143,9 @@ func unrealSmokeInvocation(executable string) (string, []string, error) {
 
 // SubmitUnrealSmokeJob is deliberately separate from the generic host-job
 // submitter. The generic path remains version-only. This function creates one
-// fixed UnrealEditor-Cmd help/startup smoke with no caller-supplied project,
-// script, commandlet, path or arguments.
+// fixed UnrealEditor-Cmd startup smoke. The Windows agent itself creates the
+// disposable project; callers cannot supply a project, script, commandlet,
+// executable, path or arguments.
 func SubmitUnrealSmokeJob(hostID string) (HostJob, error) {
 	hostID, err := validateHostBridgeID(hostID)
 	if err != nil {
@@ -125,9 +157,9 @@ func SubmitUnrealSmokeJob(hostID string) (HostJob, error) {
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	job := HostJob{
-		ID:     jobID,
-		HostID: hostID,
-		Spec: HostJobSpec{Tool: HostBridgeToolUnreal, Operation: HostBridgeOperationUnrealSmoke},
+		ID:        jobID,
+		HostID:    hostID,
+		Spec:      HostJobSpec{Tool: HostBridgeToolUnreal, Operation: HostBridgeOperationUnrealSmoke},
 		Status:    "queued",
 		CreatedAt: now,
 		UpdatedAt: now,
