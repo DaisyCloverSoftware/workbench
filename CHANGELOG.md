@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.37 — 2026-08-20
+
+- Fix the Windows Blender version probe so a validated bounded Blender version line is accepted even when unrelated diagnostics exceed their capture buffer.
+- Keep the existing 8 KiB per-stream output limits and continue to fail closed when no valid Blender version is captured.
+- Preserve the outbound-only typed Windows host bridge boundary; rendering and generic Windows commands remain disabled until the corrected version probe is live-proven.
+
 ## 0.9.36 — 2026-08-20
 
 - Add an outbound-only Windows host bridge that reuses the configured Workbench Runner SSH channel, opens no inbound Windows listener, and requires no external AI/model credit.
