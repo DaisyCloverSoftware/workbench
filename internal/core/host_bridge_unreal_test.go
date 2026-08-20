@@ -22,10 +22,7 @@ func unrealTestInstall(t *testing.T, major, minor, patch int) string {
 	if err := os.MkdirAll(buildDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	payload := []byte(fmt.Sprintf(`{"MajorVersion":%d,"MinorVersion":%d,"PatchVersion":%d,"Changelist":12345}`, major, minor, patch))
-	// The format string above is deliberately normalized below rather than
-	// accepting backslash-escaped pseudo JSON in the fixture.
-	payload = []byte(fmt.Sprintf("{\"MajorVersion\":%d,\"MinorVersion\":%d,\"PatchVersion\":%d,\"Changelist\":12345}", major, minor, patch))
+	payload := []byte(fmt.Sprintf("{\"MajorVersion\":%d,\"MinorVersion\":%d,\"PatchVersion\":%d,\"Changelist\":12345}", major, minor, patch))
 	if err := os.WriteFile(filepath.Join(buildDir, "Build.version"), payload, 0o600); err != nil {
 		t.Fatal(err)
 	}
