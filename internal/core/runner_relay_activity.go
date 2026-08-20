@@ -85,13 +85,15 @@ func ReadRunnerChatActivity(limit int) ([]RunnerChatActivityInfo, error) {
 }
 
 func runnerChatActivityIsActive(event RunnerChatActivityInfo, now time.Time) bool {
+	state := strings.ToLower(strings.TrimSpace(event.State))
+	if state == "running" || state == "waiting" || state == "needs_attention" {
+		return true
+	}
 	if strings.EqualFold(strings.TrimSpace(event.Action), "delegate_task") {
-		switch strings.ToLower(strings.TrimSpace(event.State)) {
-		case "running", "waiting", "needs_attention":
-			return true
-		default:
-			return false
-		}
+		return false
+	}
+	if event.UpdatedAt.IsZero() {
+		return false
 	}
 	return !event.UpdatedAt.Before(now.Add(-runnerChatSessionWindow))
 }
@@ -169,10 +171,14 @@ func parseRunnerChatActivity(raw []byte, limit int) ([]RunnerChatActivityInfo, e
 		}
 	}
 
-	items := make([]RunnerChatActivityInfo, 0, len(controlResults)+len(autonomousResults))
+	items := make([]RunnerChatActivityInfo, 0, len(controls)+len(autonomous))
 	for id, result := range controlResults {
 		request, ok := controls[id]
-		if !ok || !IsRunnerProjectReference(strings.TrimSpace(request.Project)) {
+		if !ok {
+			continue
+		}
+		project := strings.TrimSpace(request.Project)
+		if project != "" && !IsRunnerProjectReference(project) {
 			continue
 		}
 		updated, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(result.UpdatedAt))
@@ -183,7 +189,17 @@ func parseRunnerChatActivity(raw []byte, limit int) ([]RunnerChatActivityInfo, e
 		if action == "" {
 			action = strings.TrimSpace(request.Action)
 		}
-		items = append(items, RunnerChatActivityInfo{ID: id, ProjectRef: strings.TrimSpace(request.Project), Action: action, State: normalizeChatActivityState(result.Status), UpdatedAt: updated.UTC()})
+		items = append(items, RunnerChatActivityInfo{ID: id, ProjectRef: project, Action: action, State: normalizeChatActivityState(result.Status), UpdatedAt: updated.UTC()})
+	}
+	for id, request := range controls {
+		if _, done := controlResults[id]; done {
+			continue
+		}
+		project := strings.TrimSpace(request.Project)
+		if project != "" && !IsRunnerProjectReference(project) {
+			continue
+		}
+		items = append(items, RunnerChatActivityInfo{ID: id, ProjectRef: project, Action: strings.TrimSpace(request.Action), State: "running"})
 	}
 	for id, result := range autonomousResults {
 		request, ok := autonomous[id]
@@ -195,6 +211,12 @@ func parseRunnerChatActivity(raw []byte, limit int) ([]RunnerChatActivityInfo, e
 			continue
 		}
 		items = append(items, RunnerChatActivityInfo{ID: id, ProjectRef: strings.TrimSpace(request.Project), Action: "delegate_task", State: normalizeChatActivityState(result.Status), UpdatedAt: updated.UTC()})
+	}
+	for id, request := range autonomous {
+		if _, done := autonomousResults[id]; done || !IsRunnerProjectReference(strings.TrimSpace(request.Project)) {
+			continue
+		}
+		items = append(items, RunnerChatActivityInfo{ID: id, ProjectRef: strings.TrimSpace(request.Project), Action: "delegate_task", State: "running"})
 	}
 
 	sort.SliceStable(items, func(i, j int) bool { return items[i].UpdatedAt.After(items[j].UpdatedAt) })
