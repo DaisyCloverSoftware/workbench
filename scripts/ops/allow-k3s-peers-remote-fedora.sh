@@ -22,12 +22,15 @@ for candidate in "$HOME"/.ssh/id_*; do
   fi
 done
 [[ -n "$KEY" ]] || { echo "no usable SSH identity for $USER_NAME@$HOST_IP" >&2; exit 1; }
+SSH=(ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$USER_NAME@$HOST_IP")
 
 for peer in "$@"; do
-  ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$USER_NAME@$HOST_IP" \
-    sudo -n firewall-cmd --permanent --add-rich-rule="rule family=ipv4 source address=${peer}/32 port port=8472 protocol=udp accept" >/dev/null
-  ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$USER_NAME@$HOST_IP" \
-    sudo -n firewall-cmd --permanent --add-rich-rule="rule family=ipv4 source address=${peer}/32 port port=10250 protocol=tcp accept" >/dev/null
+  for spec in '8472 udp' '10250 tcp'; do
+    read -r port proto <<<"$spec"
+    rule="rule family=ipv4 source address=${peer}/32 port port=${port} protocol=${proto} accept"
+    printf -v qrule '%q' "$rule"
+    "${SSH[@]}" "sudo -n firewall-cmd --permanent --add-rich-rule=$qrule" >/dev/null
+  done
 done
-ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$USER_NAME@$HOST_IP" sudo -n firewall-cmd --reload >/dev/null
-ssh -i "$KEY" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=yes "$USER_NAME@$HOST_IP" sudo -n firewall-cmd --list-rich-rules
+"${SSH[@]}" 'sudo -n firewall-cmd --reload' >/dev/null
+"${SSH[@]}" 'sudo -n firewall-cmd --list-rich-rules'
