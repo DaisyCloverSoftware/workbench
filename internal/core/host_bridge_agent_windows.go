@@ -139,7 +139,7 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 			}
 			return HostJobResult{Output: version, ExitCode: 0}, ""
 		case HostBridgeOperationUnrealSmoke:
-			output, err := runUnrealSmoke(ctx, executable)
+			output, err := runUnrealSmoke(ctx, executable, job.ID)
 			if err != nil {
 				return HostJobResult{ExitCode: 1}, err.Error()
 			}
