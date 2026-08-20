@@ -9,6 +9,7 @@ import (
 )
 
 const privateRelayContinuationProofPrefix = "[workbench:relay-continuation-proof:"
+const privateRelayDependencyUpdatePrefix = "Workbench dependency update:\n"
 
 // SealPrivateRelayContinuationIntent binds a private-relay development handoff
 // to the relay id, project and exact continuation body using the loopback MCP
@@ -36,8 +37,14 @@ func SealPrivateRelayContinuationIntent(authValue, relayID, project, intent stri
 
 // ValidatePrivateRelayContinuationIntent proves that a non-operations
 // chatgpt-mcp task was explicitly handed to the authenticated private relay.
-// It returns only the original development intent, with transport correlation
+// It returns the authenticated development intent with transport correlation
 // and proof material removed before a worker receives the task.
+//
+// A durable dependency appends one Workbench-owned dependency update after the
+// relay proof when it becomes terminal. That suffix is deliberately outside the
+// HMAC because it does not exist when the relay seals the handoff. Accept only
+// that exact Workbench suffix shape after the single proof line; arbitrary text
+// after the proof remains fail-closed.
 func ValidatePrivateRelayContinuationIntent(intent, project, mcpToken string) (string, bool) {
 	intent = strings.TrimSpace(intent)
 	project = strings.TrimSpace(project)
@@ -50,10 +57,21 @@ func ValidatePrivateRelayContinuationIntent(intent, project, mcpToken string) (s
 	if len(lines) < 2 {
 		return "", false
 	}
-	proofLine := strings.TrimSpace(lines[len(lines)-1])
-	if !strings.HasPrefix(proofLine, privateRelayContinuationProofPrefix) || !strings.HasSuffix(proofLine, "]") {
+	proofIndex := -1
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, privateRelayContinuationProofPrefix) {
+			continue
+		}
+		if !strings.HasSuffix(trimmed, "]") || proofIndex >= 0 {
+			return "", false
+		}
+		proofIndex = i
+	}
+	if proofIndex <= 0 {
 		return "", false
 	}
+	proofLine := strings.TrimSpace(lines[proofIndex])
 	proofPayload := strings.TrimSuffix(strings.TrimPrefix(proofLine, privateRelayContinuationProofPrefix), "]")
 	parts := strings.SplitN(proofPayload, ":", 2)
 	if len(parts) != 2 || !validPrivateRelayID(parts[0]) {
@@ -65,7 +83,7 @@ func ValidatePrivateRelayContinuationIntent(intent, project, mcpToken string) (s
 		return "", false
 	}
 
-	body := strings.TrimSpace(strings.Join(lines[:len(lines)-1], "\n"))
+	body := strings.TrimSpace(strings.Join(lines[:proofIndex], "\n"))
 	if strings.HasPrefix(body, "[relay:") {
 		end := strings.Index(body, "] ")
 		if end <= len("[relay:") || end > 96 || body[len("[relay:"):end] != relayID {
@@ -81,7 +99,15 @@ func ValidatePrivateRelayContinuationIntent(intent, project, mcpToken string) (s
 	if !hmac.Equal(provided, expected) {
 		return "", false
 	}
-	return body, true
+
+	suffix := strings.TrimSpace(strings.Join(lines[proofIndex+1:], "\n"))
+	if suffix == "" {
+		return body, true
+	}
+	if !strings.HasPrefix(suffix, privateRelayDependencyUpdatePrefix) {
+		return "", false
+	}
+	return body + "\n\n" + suffix, true
 }
 
 func privateRelayContinuationSignedBody(intent string) string {
