@@ -9,9 +9,9 @@ import (
 type WorkPriority int
 
 const (
-	PriorityCritical WorkPriority = iota
+	PriorityNormal WorkPriority = iota
+	PriorityCritical
 	PriorityHigh
-	PriorityNormal
 	PriorityLow
 )
 
@@ -25,6 +25,21 @@ func (p WorkPriority) String() string {
 		return "Low"
 	default:
 		return "Normal"
+	}
+}
+
+func priorityRank(p WorkPriority) int {
+	switch p {
+	case PriorityCritical:
+		return 0
+	case PriorityHigh:
+		return 1
+	case PriorityNormal:
+		return 2
+	case PriorityLow:
+		return 3
+	default:
+		return 2
 	}
 }
 
@@ -79,16 +94,12 @@ type WorkItem struct {
 }
 
 func DefaultTaskPriority(task Task) WorkPriority {
-	if task.Priority < PriorityCritical || task.Priority > PriorityLow {
+	switch task.Priority {
+	case PriorityCritical, PriorityHigh, PriorityNormal, PriorityLow:
+		return task.Priority
+	default:
 		return PriorityNormal
 	}
-	// Zero was historically absent from persisted tasks and is now also the
-	// Critical enum value. Treat a zero priority on pre-scheduler tasks as Normal;
-	// newly scheduled Critical tasks are stamped explicitly by the scheduler.
-	if task.Priority == PriorityCritical && task.Progress.Kind == "" && task.Status != TaskQueued {
-		return PriorityNormal
-	}
-	return task.Priority
 }
 
 func TaskLane(task Task) WorkLane {
@@ -145,7 +156,7 @@ func QueuePositions(tasks []Task) map[string]int {
 		}
 	}
 	sort.SliceStable(queued, func(i, j int) bool {
-		pi, pj := DefaultTaskPriority(queued[i]), DefaultTaskPriority(queued[j])
+		pi, pj := priorityRank(DefaultTaskPriority(queued[i])), priorityRank(DefaultTaskPriority(queued[j]))
 		if pi != pj {
 			return pi < pj
 		}
