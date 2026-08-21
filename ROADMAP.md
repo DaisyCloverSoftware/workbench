@@ -1,125 +1,76 @@
 # Roadmap
 
-The roadmap is subordinate to current requirements/decisions in `docs/GOVERNANCE.md` and `docs/DECISIONS.md`. Items listed as candidates are not implementation authority.
+The roadmap is subordinate to current requirements/decisions in `docs/GOVERNANCE.md` and `docs/DECISIONS.md`. Items listed as candidates are not implementation authority. Current implementation/verification status lives in `docs/CURRENT_STATE.md`.
 
-## v0.5 — autonomous control-plane foundation
+## Delivered foundations through v0.9
 
-- Native standalone Windows application
-- Headless runner and loopback-authenticated MCP service
-- provider discovery and subscription-first / cheapest-eligible routing
-- safe repository eyes plus exact patch and allowlisted command hands
-- durable autonomous tasks, retries, attention boundaries and reports
-- bidirectional Git relay with status-only public mode and report-capable private mode
-- compact continuation context plus project/global durable memory
-- automatic worker memory distillation and bounded memory injection into later workers
-- versioned reusable routine/code assets with provenance and verification metadata
-- cross-process knowledge-store locking and durable state snapshot hardening
-- encrypted Windows vault whose raw values are not exposed through model-facing tools
-- generic bootstrap/install paths and automated Windows/Linux CI
+Workbench has delivered the following broad foundations across v0.5–v0.9:
 
-## v0.6 — isolated review execution and controlled publication
+- native Windows application plus Linux/cluster runner, loopback-authenticated MCP and private relay;
+- provider-neutral capability/trust/cost routing with local/included routes preferred and scarce/metered routes protected;
+- safe repository eyes/hands, durable task state, retries, attention boundaries, worktree isolation and controlled publication;
+- persistent project/global knowledge, continuation capsules, reusable routines/assets and encrypted local secret storage;
+- verified Windows updater and rollback-capable cluster maintenance;
+- multi-project production workspace and privacy-minimal runner/project references;
+- structured harness protocol and explicit adapter boundaries;
+- scheduler-owned durable queueing, priority/FIFO ordering, truthful measured/stage/indeterminate progress and six Operations lanes;
+- durable retry/dependency waits and authenticated private continuation;
+- production Dashboard/Work/Settings Win32 surfaces with Windows responsiveness/screenshot evidence;
+- bounded relay live projection so historical transport volume does not define current Operations state.
 
-- durable Git worktree isolation per autonomous coding task
-- restart recovery for queued/routing/running durable tasks
-- bounded changeset inspection and stable fingerprints
-- deterministic Workbench-owned review commits and local review branches
-- safe publication of prepared review branches without worker push authority
-- private local publication policy plus operator-only runner policy controls
-- typed out-of-band runner policy synchronisation over SSH
-- portable desktop-to-runner repository mapping with symlink-safe runner-root containment
-- native Windows controls for prepare-only versus explicit review-branch publication
-- isolated-worker memory correctly scoped to the real source repository
-- first-class durable parked ideas
-- Windows single-instance protection and additional model-safe command hardening
-- release packaging for the Windows app and matching Linux runner/server/relay binaries
+Detailed release history remains in `CHANGELOG.md`.
 
-## v0.6.1 — trustworthy health checks and provider readiness
+## v0.9.55 — Operations semantic correction
 
-- deterministic runner self-test separated from external AI-worker availability probing
-- valid committed live-worker test fixture with isolated review-commit verification
-- filesystem-identity-safe task worktree validation on Windows and path aliases
-- persistent host-local provider health telemetry for desktop and one-shot runner processes
-- short-lived exponential cooldowns for retryable authentication, quota, permission, adapter and timeout failures
-- safe categorical cooldown status in provider UI/runner doctor without persisting raw provider output
+Source correction delivered in PR #232 and released through PR #233:
 
-## v0.7 — locally initiated verified maintenance
+- terminal `completed`/`failed` relay history no longer becomes Running merely because the surrounding project/session presence lease is active;
+- genuine remote running/queued/routing/waiting/attention state is projected from the event state itself;
+- session presence remains separately labelled context;
+- regression coverage includes completed+active, failed+active and the observed 100-terminal-history failure shape.
 
-- cache-backed private scratch worktrees instead of relying on system `/tmp` capacity
-- official stable-release trust client with exact repository/tag/asset binding and dual SHA-256 verification
-- operator-only cluster update check/apply commands kept outside MCP and model-safe hands
-- exact cluster archive/ELF validation plus same-filesystem atomic binary staging
-- rollback-capable cluster upgrades verified by the new runner selftest and existing Workbench systemd services
-- standalone double-clickable Windows updater/installer for a sibling `Workbench.exe`
-- Windows PE32+ AMD64 and post-swap checksum verification with rollback on launch failure
-- release packaging contract for the Windows app, updater and Linux cluster binaries
+This is **implemented/tested/merged/released**, but the actual installed Windows 0.9.55 Dashboard still requires user-visible semantic inspection/sign-off before the corrections round is accepted.
 
-## v0.8 — multi-project production workspace and unattended safety
+## Initial Correction Sprint — must complete before feature development
 
-- one production task-first Windows desktop; obsolete dogfood executable and command removed
-- durable multi-project registry with pinned/recent ordering, per-project notes/tasks, legacy migration and Windows filesystem-identity path canonicalisation
-- background delegation and cross-project notes preserve the human's active project selection
-- privacy-minimal multi-project MCP workspace projection for explicit `project_path` targeting without project-selection authority
-- cross-project note isolation and unfinished-project removal guard
-- fail-closed Windows desktop ownership before durable state opens or interrupted work recovers
-- bounded local/remote worker output and durable reports while preserving final attention/unavailable control markers
-- durable runner transport stays attached to the same idempotent task across malformed or oversized submit/status responses
-- global human-attention navigation and native minimum desktop geometry
+1. **P0 — Windows Operations 0.9.55 acceptance closure.** Establish the actual Windows live 0.9.55 surface; inspect real Operations state; prove terminal history/session presence does not inflate live job counts; record and execute any observation-driven corrections; obtain user sign-off.
+2. **P1 — Release publication reliability.** Remove the need for identical-tree/no-op `main` pushes as publication retriggers.
+3. **P1 — Unattended continuation live acceptance.** Produce a clean end-to-end post-validator proof of `waiting_dependency → automatic resume → useful work → completed`.
+4. **P1 — Private relay retention governance.** Define safe retention/compaction/cleanup separately from the bounded live Dashboard projection.
+5. **P2 — Blender live acceptance.** Verify a current end-to-end headless GPU render through the typed Windows bridge and record privacy-safe backend/device evidence.
+6. **P2 — Unreal startup investigation.** Re-verify the five-minute smoke and investigate the inherited `zen` classification without restoring the superseded 90-second test.
 
-## v0.9 — structured harnesses, production UI and resilient unattended routing
+These are corrections/verification gaps, not new feature scope.
 
-- versioned structured harness job/result protocol with bounded JSON stdin/stdout and strict task/version/result validation
-- external harness adapters launch as one explicit executable with no coding command shell or `{project}`/`{prompt}` template expansion
-- structured completed, human-attention, unavailable and failed states replace prose-marker control flow for compliant adapters
-- legacy shell-template coding configuration is retained only as a disabled migration warning and cannot become an eligible worker
-- native Windows settings configure a validated structured-adapter executable separately from local OpenClaw and Workbench Runner
-- runner hosts keep their own adapter path in private atomic operator config; adapter paths never enter `RunnerRequest`, task state or MCP/model-facing data
-- operator-only runner harness get/set/delete controls and safe doctor status without exposing the full host path
-- production dark Dashboard, Work and Settings surfaces expose project/task/provider/review state with permanent navigation and top actions
-- durable `waiting_retry` tasks automatically resume transient low-cost provider outages after cooldown without human supervision
-- durable `waiting_dependency` watches own GitHub Actions waits with progressive backoff, no coding worker held, restart recovery and automatic continuation of the original task
-- automatic retries/watches remain cancellable and active unfinished work rather than appearing failed or frozen
-- connected Chat/skill guidance distinguishes active-worker checks from Workbench-owned waits so AIs do useful independent work instead of hammering dependency status
-- provider-native Claude Code session continuation survives Workbench task retries without exposing private provider session identifiers in task transport
-- production Win32 HWND creation/message pumping is pinned to one OS thread; Windows watchdog coverage proves Dashboard/Settings/Work remain responsive and page HWND visibility is correct
-- Settings policy reads remain Git/filesystem-free after validated save, including Windows path aliases
-- Windows CI captures real Dashboard, Work and Settings windows and packages only the production app plus verified updater; releases include matching Linux runner/server/relay binaries and checksums
-- reversible terminal task-history archiving hides filed-away work from default Work/Dashboard views without deleting durable task records or rewriting execution chronology
+## Approved architecture roadmap after correction sign-off
 
-## Governance freeze — v0.9.54 baseline
+### Authoritative cross-plane job model
 
-Ordinary feature development is frozen until the governance reset completion gate in `docs/GOVERNANCE_RESET_2026-08-21.md` passes.
+Define how scheduler-native tasks, CI, direct server controls, typed Windows work and AI-worker jobs become one truthful Operations inventory without inferring execution from transport recency. Preserve the distinction between execution state, session/project presence and terminal history.
 
-The current release is not a claim that every v0.9 Operations semantic is accepted. In particular, 0.9.54's projection of session-active completed operations as running jobs is rejected by the canonical Operations contract.
+This is approved roadmap direction, but implementation must not begin until the current Correction Sprint has an inspectable result and user sign-off.
 
-## Post-reset priority backlog
+## Ideas / product decisions requiring fresh design or approval
 
-This is an implementation backlog, not permission to start work while the freeze is active.
-
-1. **P0 — Operations semantic correction.** Make actual job execution, project/session presence and terminal activity history distinct; remove the 0.9.54 false-running projection; add semantic acceptance coverage.
-2. **P1 — Authoritative cross-plane job model.** Define how scheduler-native tasks, CI, direct server controls, typed Windows work and AI-worker jobs become one truthful inventory without inferring execution from transport recency.
-3. **P1 — Unattended continuation live acceptance.** Record a clean end-to-end post-validator proof of `waiting_dependency → automatic resume → useful work → completed`.
-4. **P1 — Release publication reliability.** Remove the need for identical-tree no-op `main` pushes as publication retriggers.
-5. **P1 — Private relay retention governance.** Define safe retention/compaction/cleanup separately from the bounded live Dashboard projection.
-6. **P2 — Blender live acceptance.** Verify a current end-to-end headless GPU render through the typed Windows bridge and record device/backend evidence without leaking private host detail.
-7. **P2 — Unreal startup investigation.** Re-verify the bounded smoke and investigate the inherited five-minute `zen` classification without restoring the superseded 90-second test.
-8. **P3 — Searchable decisions/knowledge graph.** Re-evaluate the capability against current 0.9.54+ architecture. PR #110 is based on 0.9.10 and MUST NOT be merged as-is merely because the roadmap historically listed the idea.
-
-## Candidate future work
-
-These are planning candidates and require normal decision/specification before implementation:
-
+- searchable decisions / knowledge graph capability: re-evaluate against current architecture; old PR #110 is based on 0.9.10 and must not be revived as-is;
+- interactive drag/reorder beyond current persisted priority/FIFO;
+- richer selected-job drawer controls/details beyond current explicit contracts;
+- exact four-hour session-presence lease value;
+- whether cross-process relay-state locking is required under the supported topology;
 - automatic cross-model review policies for higher-risk changes;
-- complete per-monitor DPI-aware desktop layout/font scaling;
-- desktop/tablet/phone preview and test targets;
+- complete per-monitor DPI-aware desktop scaling;
+- desktop/tablet/phone preview/test targets;
 - richer screenshot/browser result surfaces where appropriate;
-- WhatsApp/Signal/Telegram/Slack human-interrupt adapters;
+- human-interrupt adapters such as WhatsApp/Signal/Telegram/Slack;
 - OS keychain support on macOS/Linux;
 - signed installers and optional locally scheduled update checks.
 
-## Later
+Ideas are not requirements until canonically approved.
+
+## Later possibilities
 
 - Workbench Runner capable enough to replace a general-purpose external harness for many local/cluster workflows;
 - distributed runner registry and capability advertisement;
 - policy packs for production, regulated environments and team use;
 - community adapter registry;
-- mobile companion for approvals and read-only task status.
+- mobile companion for approvals/read-only task status.
