@@ -30,7 +30,7 @@ func TestGovernanceRealignPreservesAuditRefAndMovesMain(t *testing.T) {
 	govRealignGitRun(t, seed, "commit", "-m", "base")
 	baseHead := govRealignGitOutput(t, seed, "rev-parse", "HEAD")
 	govRealignGitRun(t, seed, "push", "-u", "origin", "main")
-	govRealignGitRun(t, base, "clone", remote, target)
+	govRealignGitRun(t, base, "clone", "-b", "main", remote, target)
 	govRealignGitRun(t, target, "config", "user.email", "test@example.invalid")
 	govRealignGitRun(t, target, "config", "user.name", "Workbench Test")
 
