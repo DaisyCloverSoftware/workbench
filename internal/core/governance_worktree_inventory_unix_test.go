@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestGovernanceWorktreeInventoryOmitsPaths(t *testing.T) {
+func TestGovernanceWorktreeInventoryOmitsPathsAndReportsDirtiness(t *testing.T) {
 	repo := t.TempDir()
 	govGitRun(t, repo, "init", "-b", "main")
 	govGitRun(t, repo, "config", "user.email", "test@example.invalid")
@@ -24,6 +24,9 @@ func TestGovernanceWorktreeInventoryOmitsPaths(t *testing.T) {
 
 	other := filepath.Join(t.TempDir(), "secondary")
 	govGitRun(t, repo, "worktree", "add", "-b", "audit-secondary", other)
+	if err := os.WriteFile(filepath.Join(other, "untracked.txt"), []byte("dirty\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	script := filepath.Join("..", "..", "scripts", "ops", "governance-worktree-inventory.sh")
 	cmd := exec.Command("bash", script, repo)
@@ -35,8 +38,14 @@ func TestGovernanceWorktreeInventoryOmitsPaths(t *testing.T) {
 	if !strings.Contains(text, "worktree_count=2") {
 		t.Fatalf("unexpected inventory: %s", text)
 	}
-	if !strings.Contains(text, "worktree_1_branch=main") || !strings.Contains(text, "worktree_2_branch=audit-secondary") {
-		t.Fatalf("inventory missing branches: %s", text)
+	if !strings.Contains(text, "worktree_1_branch=main") || !strings.Contains(text, "worktree_1_dirty=0") {
+		t.Fatalf("inventory missing clean main status: %s", text)
+	}
+	if !strings.Contains(text, "worktree_2_branch=audit-secondary") || !strings.Contains(text, "worktree_2_dirty=1") {
+		t.Fatalf("inventory missing dirty secondary status: %s", text)
+	}
+	if !strings.Contains(text, "worktree_2_dirty_entry_1=?? untracked.txt") {
+		t.Fatalf("inventory missing repository-relative dirty entry: %s", text)
 	}
 	if strings.Contains(text, repo) || strings.Contains(text, other) {
 		t.Fatalf("inventory leaked filesystem path: %s", text)

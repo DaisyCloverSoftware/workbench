@@ -25,24 +25,42 @@ if [ "$root" != "$target" ]; then
 fi
 
 origin="$(git -C "$root" remote get-url origin 2>/dev/null || true)"
+origin_ok=0
 case "$origin" in
-  https://github.com/DaisyCloverSoftware/workbench|https://github.com/DaisyCloverSoftware/workbench.git|git@github.com:DaisyCloverSoftware/workbench|git@github.com:DaisyCloverSoftware/workbench.git|ssh://git@github.com/DaisyCloverSoftware/workbench|ssh://git@github.com/DaisyCloverSoftware/workbench.git)
-    ;;
-  *)
-    printf 'error=unexpected-origin\n' >&2
-    exit 68
+  https://github.com/DaisyCloverSoftware/workbench|https://github.com/DaisyCloverSoftware/workbench.git|git@github.com:DaisyCloverSoftware/workbench|git@github.com:DaisyCloverSoftware/workbench.git|ssh://git@github.com/DaisyCloverSoftware/workbench|ssh://git@github.com:DaisyCloverSoftware/workbench.git)
+    origin_ok=1
     ;;
 esac
+if [ "$origin_ok" -ne 1 ] && [ "${WORKBENCH_GOVERNANCE_TEST_ALLOW_LOCAL_ORIGIN:-0}" = "1" ] && [ "${WORKBENCH_OPERATION_SCRIPT:-0}" != "1" ]; then
+  origin_ok=1
+fi
+if [ "$origin_ok" -ne 1 ]; then
+  printf 'error=unexpected-origin\n' >&2
+  exit 68
+fi
 
 count=0
 head=''
 branch=''
-detached=0
 prunable=0
+worktree_path=''
 
 emit_record() {
   if [ "$count" -eq 0 ]; then
     return
+  fi
+  local status_text=''
+  local status_error=0
+  if [ ! -d "$worktree_path" ]; then
+    status_error=1
+  else
+    if ! status_text="$(git -C "$worktree_path" status --porcelain=v1 --untracked-files=all 2>/dev/null)"; then
+      status_error=1
+    fi
+  fi
+  local dirty=0
+  if [ "$status_error" -ne 0 ] || [ -n "$status_text" ]; then
+    dirty=1
   fi
   printf 'worktree_%d_head=%s\n' "$count" "$head"
   if [ -n "$branch" ]; then
@@ -51,6 +69,17 @@ emit_record() {
     printf 'worktree_%d_branch=detached\n' "$count"
   fi
   printf 'worktree_%d_prunable=%d\n' "$count" "$prunable"
+  printf 'worktree_%d_dirty=%d\n' "$count" "$dirty"
+  if [ "$status_error" -ne 0 ]; then
+    printf 'worktree_%d_dirty_entry_1=status-unavailable\n' "$count"
+  elif [ -n "$status_text" ]; then
+    local entry=0
+    while IFS= read -r status_line || [ -n "$status_line" ]; do
+      entry=$((entry + 1))
+      # Git porcelain paths are repository-relative. Do not emit worktree paths.
+      printf 'worktree_%d_dirty_entry_%d=%s\n' "$count" "$entry" "$status_line"
+    done <<< "$status_text"
+  fi
 }
 
 while IFS= read -r line || [ -n "$line" ]; do
@@ -60,9 +89,9 @@ while IFS= read -r line || [ -n "$line" ]; do
         emit_record
       fi
       count=$((count + 1))
+      worktree_path="${line#worktree }"
       head=''
       branch=''
-      detached=0
       prunable=0
       ;;
     HEAD\ *)
@@ -70,9 +99,6 @@ while IFS= read -r line || [ -n "$line" ]; do
       ;;
     branch\ refs/heads/*)
       branch="${line#branch refs/heads/}"
-      ;;
-    detached)
-      detached=1
       ;;
     prunable*)
       prunable=1
