@@ -1,0 +1,32 @@
+# Workbench Baseline Correction Register
+
+Status: **ACTIVE — SPRINT 0**
+
+This is the durable correction register for **Sprint 0 — Existing Corrections & Baseline Stabilisation**. It records existing corrections only. Genuinely new features or requirements are deferred unless the owner explicitly reclassifies them as baseline scope.
+
+## Status vocabulary
+
+Implementation: `NOT STARTED` / `IN DEVELOPMENT` / `IMPLEMENTED`
+
+Verification: `UNVERIFIED` / `ENGINEERING VERIFIED` / `TARGET VERIFIED`
+
+Owner observation: `NOT OBSERVED` / `OBSERVED — CORRECTIONS REQUIRED` / `READY FOR RE-OBSERVATION` / `SIGNED OFF`
+
+## Register
+
+| ID | Description | Affected area | Expected behaviour | Current incorrect behaviour / evidence | Source requirement / decision | Severity | Regression? | Restores previously signed-off behaviour? | Implementation | Verification | Owner observation |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| S0-001 | Close installed-Windows Operations 0.9.55 acceptance gap | Windows desktop / Operations dashboard | Terminal `completed`/`failed` history remains terminal and does not inflate live Running/Queued/Waiting/Needs You counts merely because project/session presence is active; genuine live work remains visible; presence remains separate from job execution | 0.9.54 was directly observed with the false-running projection; 0.9.55 source/build/release corrected it, but installed Windows 0.9.55 semantics were not yet directly inspected or owner-signed-off at cutover | `docs/operations-dashboard-contract.md`; `docs/CURRENT_STATE.md`; 0.9.55 correction evidence | P0 | YES — historical 0.9.54 regression | Not yet proven as prior owner-signed-off baseline; restores current canonical intended behaviour | NOT STARTED — source correction already exists; Sprint 0 acceptance/deployment closure not started | UNVERIFIED on installed Windows target | NOT OBSERVED in Sprint 0 |
+| S0-002 | Remove release publication dependence on identical-tree/no-op `main` retriggers | Release workflow / publication | A valid release should publish reliably from its intended release workflow without relying on artificial identical-tree or no-op retriggers of `main` | Canonical state records a release-publication reliability defect where prompt publication may require a no-op/identical-tree retrigger | `docs/CURRENT_STATE.md`; release workflow/history | P1 | Existing defect | No evidence that this is restoration of a previously owner-signed-off behaviour | NOT STARTED | UNVERIFIED | NOT OBSERVED |
+| S0-003 | Produce clean unattended continuation end-to-end acceptance | Durable continuation / dependency wake / useful resumed work | A waiting dependency can resolve, automatically wake/resume, perform useful work, and reach completed without manual intervention, with evidence from a clean post-validator run | Authenticated durable continuation and automatic wake have implementation/tests and prior live evidence, but a full clean post-validator `waiting_dependency → automatic resume → useful work → completed` proof remains unverified | `docs/CURRENT_STATE.md`; continuation/harness contracts and tests | P1 | Acceptance gap / possible latent regression | No prior owner sign-off recorded for the complete acceptance chain | NOT STARTED | UNVERIFIED | NOT OBSERVED |
+| S0-004 | Define safe private relay retention/compaction governance | Private relay history / operations projection | Retention/compaction rules are explicitly defined so bounded live projection stays truthful while required historical/audit information is safely retained | Underlying private relay history is intentionally retained; retention/compaction policy remains unresolved | `docs/CURRENT_STATE.md`; `docs/PERSONAL_PRO_RELAY.md`; governance reset evidence | P1 | NO — unresolved governance/operational correction | NO | NOT STARTED | UNVERIFIED | NOT OBSERVED |
+| S0-005 | Complete fresh Blender headless GPU render acceptance | Windows bridge / Blender | Factory-startup headless render uses the intended GPU/Cycles/OptiX path and completes successfully through the typed/allowlisted bridge with current evidence | Source explicitly configures the intended GPU path, but fresh end-to-end GPU render acceptance remains unverified | `docs/CURRENT_STATE.md`; Windows/Blender operational contracts | P2 | Acceptance gap | No prior owner sign-off recorded for the fresh acceptance | NOT STARTED | UNVERIFIED | NOT OBSERVED |
+| S0-006 | Re-run and investigate Unreal startup acceptance / inherited `zen` result | Windows bridge / Unreal | The bounded five-minute Unreal startup smoke has a current, understood result; any failure classification is investigated enough to determine whether canonical acceptance is met | Old 5.8.1 `TNotNull`/stack-overflow crash is historical/removed, but latest inherited bounded startup evidence timed out classified `zen`; current acceptance/root cause remains unresolved | `docs/CURRENT_STATE.md`; Windows/Unreal operational evidence | P2 | Existing unresolved acceptance/investigation item | Not known | NOT STARTED | UNVERIFIED | NOT OBSERVED |
+
+## Owner baseline observation additions
+
+None yet. Add every owner-identified **EXISTING CORRECTION** here with the same fields. Record genuinely new ideas in the future backlog instead of implementing them in Sprint 0.
+
+## Sign-off rule
+
+Sprint 0 cannot become **SIGNED OFF** until all owner-agreed Sprint 0 entries are resolved or the owner explicitly reclassifies/defers them, applicable verification is complete, the corrected observable target is presented, and the owner explicitly approves the baseline.
