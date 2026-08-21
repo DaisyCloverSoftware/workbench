@@ -15,15 +15,7 @@ The Dashboard MUST keep these concepts distinct:
 
 ### 1. Job execution state
 
-An individual job/task/operation may be:
-
-- queued;
-- routing;
-- running;
-- waiting on a dependency;
-- waiting to retry;
-- needs human attention;
-- terminal (completed/failed/cancelled).
+An individual job/task/operation may be queued, routing, running, waiting on a dependency, waiting to retry, needs human attention, or terminal (completed/failed/cancelled).
 
 Only real non-terminal job state may contribute to live execution counts/lanes.
 
@@ -37,13 +29,24 @@ Presence may be shown in a dedicated presence/session surface or as secondary me
 
 Completed/failed/cancelled safe-hands operations may remain useful as recent history. Terminal history MUST NOT be projected back into live execution merely because its surrounding project/session remains active.
 
-## Known 0.9.54 discrepancy
+## Historical 0.9.54 discrepancy and 0.9.55 correction
 
-Workbench 0.9.54 currently violates the contract above: desktop projection maps some remote relay events whose individual state is `completed` or `failed` to `TaskRunning` when the runner's bounded `ActiveKnown && Active` session flag is true.
+Workbench 0.9.54 violated the contract above by mapping some remote relay events whose individual state was `completed` or `failed` to `TaskRunning` when the runner's bounded session-presence flag was active. The observed `Running 100` result is permanent regression evidence, not desired behaviour.
 
-That behaviour is **REJECTED** and is an inherited implementation defect. The observed `Running 100` result is not accepted product semantics.
+Workbench 0.9.55 corrects the source projection:
 
-A future code correction must be made only after this canonical contract is in place and must include semantic regression tests that prove terminal operation history/session presence cannot become running jobs.
+- terminal `completed`/`failed` event state remains terminal even when project/session presence is active;
+- real remote running/queued/routing/waiting/attention state is projected from the event state itself;
+- session presence is retained as separately labelled context;
+- regression coverage includes completed+active, failed+active, genuine remote state and the observed 100-terminal-history failure shape.
+
+Status at the 2026-08-21 project cutover:
+
+- source correction: **implemented/tested/merged/released in 0.9.55**;
+- cluster Workbench runtime: **updated to 0.9.55**;
+- actual installed Windows 0.9.55 Dashboard semantic inspection/user sign-off: **still required**.
+
+The new Project's initial Correction Sprint must close that installed-Windows acceptance gap before new feature work begins. It must not redesign the contract merely because acceptance is still pending.
 
 ## Truthfulness rules
 
@@ -69,15 +72,11 @@ The canonical execution/state lanes are:
 - `waiting`
 - `needs_you`
 
-These names are CURRENT requirements as of the 2026-08-21 governance reset.
-
 ## Priority and ordering
 
-Priority is:
+Priority is Critical → High → Normal → Low.
 
-Critical → High → Normal → Low.
-
-Priority is persisted on scheduler-native work. Historical zero-value priority means Normal. Within one schedulable lane and equal priority, enqueue order is FIFO (with stable ID ordering only as a deterministic tie-breaker).
+Priority is persisted on scheduler-native work. Historical zero-value priority means Normal. Within one schedulable lane and equal priority, enqueue order is FIFO, with stable ID ordering only as a deterministic tie-breaker.
 
 Do not imply a global cross-system queue position for work sources whose scheduler Workbench does not own.
 
@@ -107,25 +106,7 @@ The intended direction is a responsive control plane plus durable asynchronous e
 
 ## Work-item information
 
-Where authoritative/available, a job may expose:
-
-- project;
-- job/title and type;
-- state;
-- priority;
-- queue position (scheduler-owned only);
-- lane;
-- executor;
-- machine;
-- provider/tool;
-- truthful progress and phase;
-- dependency/retry reason;
-- creation/start/update/elapsed timestamps;
-- commit/revision;
-- attempts;
-- privacy-safe log/status summary;
-- artifacts/results;
-- safe controls such as prioritise/cancel/retry/requeue when the underlying execution source supports them.
+Where authoritative/available, a job may expose project, title/type, state, priority, scheduler-owned queue position, lane, executor, machine, provider/tool, truthful progress/phase, dependency/retry reason, timestamps, commit/revision, attempts, privacy-safe status/log summary, artifacts/results and safe controls supported by its execution source.
 
 Fields that are not authoritative MUST be omitted/unknown rather than synthesized.
 
@@ -145,4 +126,4 @@ At minimum, tests/verification for state-projection changes must cover:
 - real remote work remains visible even when relay history is large;
 - no fake percentage/queue position when authority is absent.
 
-A green build/UI responsiveness screenshot is supporting evidence only. It is not proof that these semantics are correct.
+A green build/UI responsiveness screenshot is supporting evidence only. Installed-target semantic inspection remains a separate acceptance gate where the change depends on live Windows/cluster data.
