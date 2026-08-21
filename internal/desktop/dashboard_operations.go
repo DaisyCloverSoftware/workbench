@@ -81,12 +81,16 @@ func buildDashboardOperationsSnapshot(eng *core.Engine, remote []core.RunnerChat
 	// The desktop engine owns only Windows-local durable tasks. Work initiated by
 	// ChatGPT normally lives on the cluster relay/runner, so merge the runner's
 	// privacy-safe authoritative activity cache into the same operations board.
-	// Completed/failed history remains outside the live board.
+	// The runner's Active decision is authoritative: ordinary ChatGPT safe-hands
+	// actions are individually short-lived and therefore often have a completed
+	// result while the surrounding ChatGPT work session is still active. Treat
+	// those active leases as running board work rather than dropping them solely
+	// because the latest individual action has completed.
 	for _, event := range remote {
 		if !event.ActiveKnown || !event.Active || seen[event.ID] {
 			continue
 		}
-		status, ok := remoteActivityTaskStatus(event.State)
+		status, ok := remoteActivityTaskStatus(event)
 		if !ok {
 			continue
 		}
@@ -148,17 +152,24 @@ func appendDashboardWorkItem(out *DashboardOperationsSnapshot, item core.WorkIte
 	}
 }
 
-func remoteActivityTaskStatus(state string) (core.TaskStatus, bool) {
-	switch strings.ToLower(strings.TrimSpace(state)) {
+func remoteActivityTaskStatus(event core.RunnerChatActivityInfo) (core.TaskStatus, bool) {
+	switch strings.ToLower(strings.TrimSpace(event.State)) {
 	case "running":
 		return core.TaskRunning, true
 	case "waiting":
 		return core.TaskWaitingDependency, true
 	case "needs_attention":
 		return core.TaskNeedsAttention, true
-	default:
-		return "", false
+	case "completed", "failed":
+		// ActiveKnown+Active is the runner's bounded session decision. A completed
+		// or failed safe-hands operation can therefore still represent a live
+		// ChatGPT work session. Completed autonomous delegate_task events are never
+		// marked active by the runner, so this does not resurrect finished workers.
+		if event.ActiveKnown && event.Active {
+			return core.TaskRunning, true
+		}
 	}
+	return "", false
 }
 
 func remoteActivityLane(action string, status core.TaskStatus) core.WorkLane {

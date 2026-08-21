@@ -43,6 +43,49 @@ func TestOperationsDashboardIncludesRemoteRelayWork(t *testing.T) {
 	}
 }
 
+func TestOperationsDashboardIncludesRunnerAuthoritativeActiveCompletedSession(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := []core.RunnerChatActivityInfo{{
+		ID: "live_safe_hands_12345678", ProjectRef: "runner://family-vault",
+		Action: "run_safe_command", State: "completed", UpdatedAt: time.Now().UTC(),
+		Active: true, ActiveKnown: true,
+	}}
+	got := buildDashboardOperationsSnapshot(eng, remote)
+	if got.Running != 1 || len(got.Items) != 1 {
+		t.Fatalf("active completed session disappeared from Operations: %#v", got)
+	}
+	if got.Items[0].Lane != core.WorkLaneCIBuilds || got.Items[0].State != core.TaskRunning {
+		t.Fatalf("active completed session mapped incorrectly: %#v", got.Items[0])
+	}
+}
+
+func TestOperationsDashboardDoesNotResurrectInactiveCompletedSession(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := []core.RunnerChatActivityInfo{{
+		ID: "done_safe_hands_12345678", ProjectRef: "runner://family-vault",
+		Action: "run_safe_command", State: "completed", UpdatedAt: time.Now().UTC(),
+		Active: false, ActiveKnown: true,
+	}}
+	got := buildDashboardOperationsSnapshot(eng, remote)
+	if got.Running != 0 || len(got.Items) != 0 {
+		t.Fatalf("inactive completed session was resurrected: %#v", got)
+	}
+}
+
 func TestOperationsDashboardPriorityOrderMatchesScheduler(t *testing.T) {
 	items := []core.WorkItem{
 		{ID: "normal", Priority: core.PriorityNormal, Lane: core.WorkLaneAIWorkers},
