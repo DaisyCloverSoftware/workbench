@@ -88,9 +88,75 @@ Use these terms:
 - **Windows live** — installed desktop application version;
 - **live** alone — avoid when cluster versus Windows matters; state the surface explicitly.
 
+Generic memories/rules that say “DEV checkpoint” must be interpreted through these Workbench-specific surfaces; they do not create a conventional DEV deployment by implication.
+
 ### WB-DEC-010 — Non-human waits do not end development — CURRENT
 
 The execution stopping rule in `docs/GOVERNANCE.md` is normative: CI/build/runner/release/deployment waits are not completion. Continue in-scope work until evidence-backed completion, an inspectable result, or a genuine human-only blocker.
+
+### WB-DEC-011 — Configured execution target and worker readiness must be truthful — CURRENT
+
+When a project/task is explicitly configured for a runner, machine or execution target, Workbench MUST honour that target contract.
+
+- If the configured runner/target is unavailable, show the work as blocked/unavailable or otherwise truthfully not runnable there.
+- Do not silently execute locally merely to avoid reporting that the configured target is unavailable.
+- Do not report a worker as ready when it is not actually available.
+- Worker location, capability, readiness and fallback state must be reported truthfully.
+- A fallback route may be used only when the current routing/policy contract explicitly permits it; fallback is not permission to lie about where work ran.
+
+### WB-DEC-012 — External model-credit consumption requires explicit user authorisation — CURRENT
+
+Testing, experiments, probes and development must not consume external/metered/scarce model credit merely to see whether a provider works.
+
+- Local, zero-marginal and already-authorised included routes may be used according to policy.
+- Any action that will spend external model credit or scarce paid quota for a test/experiment requires explicit user authorisation for that spend.
+- Provider availability may be inspected through non-consuming/categorical mechanisms when available.
+- Never turn a governance, health or routing check into a paid model invocation by convenience.
+
+### WB-DEC-013 — “Finished” means a coherent production product, not an engineering preview — CURRENT
+
+Workbench MUST distinguish product completion from scaffolding or component progress.
+
+A backend-only milestone, skeleton UI, prototype, partial control surface, test harness, engineering preview or isolated feature does not become a “finished”, “production-ready” or equivalent Workbench product merely because it runs or demonstrates architecture.
+
+Completion claims must describe the actual whole-product experience and applicable acceptance evidence. Intermediate technical progress may be described precisely as such.
+
+### WB-DEC-014 — Release, artifact and deployment verification are separate gates — CURRENT
+
+A release is not complete merely because version code was merged or CI passed.
+
+Where a release is expected, verify the actual release/tag and the expected downloadable artifact(s). Where deployment/installation is also required, verify that target separately.
+
+Use precise evidence states:
+
+- merged source is not yet released;
+- a release/tag without the required artifact is not accepted as complete;
+- released is not automatically deployed/installed;
+- deployed/installed is not automatically semantically verified.
+
+### WB-DEC-015 — Canonical GitHub source outranks operational checkouts — CURRENT
+
+The canonical public GitHub `main` repository is the Workbench development/project source of truth. Cluster/local source checkouts are operational copies.
+
+Operational checkouts SHOULD be clean and aligned to the intended canonical source when used for current Workbench operations, but their local commits, untracked files, stale remote-tracking refs or worktrees do not redefine the product.
+
+Any local-only work discovered during governance/cleanup must be preserved/classified before deletion or realignment; it is not silently promoted into canonical source.
+
+### WB-DEC-016 — Pre-reset historical source is archived for preservation, never authority — CURRENT
+
+The governance reset consolidated removed public branch histories behind archival tag `archive/pre-governance-reset-20260821` after proving every removed branch tip remained reachable and the archive checkpoint tree exactly matched canonical `main` at the archive checkpoint.
+
+- The archive exists only for historical/audit recovery.
+- It is not a development branch, product baseline or requirements source.
+- New work MUST start from canonical `main`.
+- Do not copy/revive code, tests or decisions from the archive merely because they exist there; reintroducing any historical behaviour requires a fresh decision against current canonical docs.
+- A separate local audit ref may preserve previously local-only operational history without becoming public/canonical authority.
+
+### WB-DEC-017 — Private relay historical transport is intentionally retained pending a retention policy — CURRENT
+
+The bounded live projection prevents historical relay volume from defining current Operations state. The underlying private relay history is intentionally retained at this reset checkpoint.
+
+Mass deletion/compaction is not required to complete public-source repository cleanup. A future retention/compaction policy must explicitly protect pending requests, audit/rollback needs, privacy and transport correctness before destructive cleanup is authorised.
 
 ## Superseded / rejected decisions and behaviours
 
@@ -138,6 +204,18 @@ Replacement: direct bounded Workbench operations by default; autonomous delegati
 
 Replacement: WB-DEC-001. OpenClaw is optional operator/autonomous capacity.
 
+### Silent local execution when a configured runner is unavailable — REJECTED
+
+Replacement: WB-DEC-011. Unavailable configured execution must remain visible as unavailable/blocked unless a policy-authorised fallback is explicitly selected and truthfully reported.
+
+### Spending external model credit for unapproved tests/probes — REJECTED
+
+Replacement: WB-DEC-012.
+
+### Engineering preview/skeleton presented as finished Workbench — REJECTED
+
+Replacement: WB-DEC-013.
+
 ### 90-second Unreal startup smoke — SUPERSEDED
 
 Replacement: bounded five-minute diagnostic startup with privacy-safe classification.
@@ -163,7 +241,8 @@ These items are intentionally not promoted into requirements by assumption:
 - interactive drag/reorder controls beyond persisted priority and FIFO;
 - selected-job drawer details/controls (safe logs, artifacts, cancel/retry/requeue/prioritise) beyond what existing contracts explicitly guarantee;
 - exact private relay retention/compaction policy for old transport history;
-- whether the searchable decision/knowledge-graph capability remains desired in its old PR #110 shape. The capability may remain a future idea, but PR #110 is based on Workbench 0.9.10 and is not current implementation authority.
+- whether the searchable decision/knowledge-graph capability remains desired in its old PR #110 shape. The capability may remain a future idea, but PR #110 is based on Workbench 0.9.10, was closed unmerged during this reset, and is not current implementation authority;
+- whether cross-process locking is required for relay-state persistence under the supported process topology. A discovered local experiment was archived as evidence and explicitly not accepted as the design.
 
 Resolve these by updating this register and the relevant contract before implementation.
 
@@ -172,13 +251,19 @@ Resolve these by updating this register and the relevant contract before impleme
 Future changes MUST NOT:
 
 - use deleted/pruned conversations as the project specification;
+- treat the archival tag or an operational checkout as requirements/product authority;
 - equate active session/presence with each operation still executing;
 - fabricate queue positions or progress percentages;
 - hide real remote work as zero because the historical relay is large;
+- silently execute locally when a configured runner/target is unavailable;
+- report worker location, capability or readiness falsely;
+- spend external model credit/scarce paid quota on tests or experiments without explicit user authorisation;
+- present a skeleton, prototype, partial UI/backend demo or engineering preview as a finished coherent Workbench product;
 - restore generic inbound/generic-shell Windows control;
 - silently route direct ChatGPT development into OpenClaw;
 - treat OpenClaw as required for routine bounded operations;
-- call a release complete before the required target runtime/release is actually verified;
+- call a release complete before the expected actual release/tag and downloadable artifact are verified;
+- conflate released, deployed/installed and semantically verified state;
 - use a green responsiveness screenshot as proof of correct semantic state;
 - restore the superseded 90-second Unreal smoke or describe the removed `TNotNull` crash as the current failure;
 - assume Blender GUI preferences control factory-startup headless rendering;
