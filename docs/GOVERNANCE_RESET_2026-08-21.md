@@ -117,9 +117,15 @@ Reviewed cleanup candidates include:
 
 No broad destructive branch deletion is performed by this audit record alone. With 288 branches and incomplete historical-conversation/memory coverage, blanket deletion would fail the reset's preservation rule. `docs/REPOSITORY_CLEANUP_MANIFEST.md` records disposition rather than pretending cleanup is complete.
 
-## Validation plan for governance branch
+## Validation evidence
 
-The governance branch must pass normal repository checks before merge. Because this tranche is documentation/governance only, passing CI proves repository/build consistency; it does **not** prove the known 0.9.54 Dashboard semantics correct.
+The governance branch is documentation/governance only. PR #223 head `534990eaa9279babbb8f95482093e59bdf70f1d3` passed all three required pull-request workflows:
+
+- `build` — success;
+- `runner` — success;
+- `ui-responsiveness` — success.
+
+That proves repository/build/UI-responsiveness consistency for the validated governance tree. It does **not** prove the known 0.9.54 Dashboard semantics correct. The evidence-recording commit that follows this validated head must itself pass the same exact-head gates before merge; no further product or governance-content changes are permitted after that final validation.
 
 After merge, canonical docs remain authoritative even while product discrepancies await post-reset implementation.
 
@@ -140,7 +146,7 @@ After merge, canonical docs remain authoritative even while product discrepancie
 - [x] Repository compared against the highest-risk current requirements.
 - [x] Stale/obsolete repository material reviewed at manifest level.
 - [ ] Repository cleanup completed — **blocked pending full preservation/branch safety audit; manifest exists**.
-- [ ] Governance branch tests/builds/checks passed — **pending branch CI at document creation time**.
+- [x] Governance branch tests/builds/checks passed on validated PR #223 head `534990eaa9279babbb8f95482093e59bdf70f1d3`; final evidence-only head still requires exact-head confirmation before merge.
 - [x] Remaining inherited failures/discrepancies recorded.
 - [x] Permanent governance rules added on governance branch.
 - [ ] Conversation pruning safety fully checked — **blocked by incomplete conversation inventory**.
