@@ -1,9 +1,0 @@
-{
-  "version": "0.9.55",
-  "date": "2026-08-21",
-  "notes": [
-    "Correct Operations execution semantics so completed or failed relay history cannot inflate live Running counts merely because the surrounding ChatGPT project session remains active.",
-    "Keep ChatGPT project/session presence visible as separately labelled Session active context while recent relay operation history preserves its actual Completed, Failed, Waiting, Queued or Working state.",
-    "Add semantic regressions for active-session terminal events, genuine remote execution states, and the observed 100-terminal-events false-running failure shape."
-  ]
-}
