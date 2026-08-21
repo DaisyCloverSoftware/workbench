@@ -1,6 +1,8 @@
 # Workbench pre-cutover migration manifest — 2026-08-21
 
-**Cutover assessment: READY, subject only to recording the final `main` SHA after this manifest/handoff reconciliation.**
+**Cutover assessment: PASS.**
+
+The exact continuation commit is intentionally supplied by the final legacy-Project cutover report rather than embedded here: a commit cannot contain its own final Git object ID. The continuation branch is `main`, and a fresh Project must verify that `main` is at or descends from the reported cutover commit before making changes.
 
 This manifest records the final engineering state used to retire the legacy ChatGPT Project as an active development environment. The new ChatGPT Development Project is expected to use **Project-only memory** and bootstrap from this repository rather than historical conversation context.
 
@@ -328,7 +330,7 @@ Future development MUST preserve:
 - open PRs: **zero**
 - open issues: **zero**
 - continuation branch: **`main`**
-- exact continuation SHA: **record in the final cutover report after the last cutover-document commit**
+- exact continuation SHA: **supplied by the final legacy-Project cutover report**
 
 ## 16. New Project bootstrap
 
