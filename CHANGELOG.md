@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.53 — 2026-08-21
+
+- Fix the Operations dashboard live inventory by reading a bounded current relay view instead of archiving the private relay's complete historical transport on every refresh.
+- Keep every genuinely pending relay request visible while including recent request/result pairs and excluding old completed history, so dashboard cost no longer grows with repository age.
+- Add regression coverage proving pending Windows work and recent relay activity survive the bounded inventory selection.
+
 ## 0.9.52 — 2026-08-20
 
 - Feed the Operations dashboard from the privacy-safe cluster relay activity inventory as well as the Windows-local task store so real Workbench work no longer renders as an empty board.
