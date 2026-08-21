@@ -1,161 +1,162 @@
 # Workbench governance reset — 2026-08-21
 
-Status: **INCOMPLETE**
+Status: **INCOMPLETE — REPOSITORY CLEAN, CONVERSATION-PRUNING PROOF BLOCKED**
 
-Ordinary feature development is frozen while this reset is active. The reset remains incomplete because full historical conversation coverage and some local/private operational state cannot be verified with the access available in this audit. This is deliberate: missing evidence is not converted into success by assumption.
+Ordinary feature development remains frozen. The repository, operational checkout, worktrees, branch refs and accessible Workbench memory/context have now been audited and cleaned/canonicalised to the evidence level available. The remaining reset blocker is narrower: the available interfaces still cannot enumerate/read every historical Workbench project conversation in full, so conversation pruning cannot yet be proven safe globally.
+
+Missing evidence is not converted into success by assumption.
 
 ## Purpose
 
-Reconstruct and canonicalise current Workbench intent/state so a future maintainer or AI can work from the repository without depending on old conversations. Preserve rejected/superseded decisions so they cannot silently return.
+Reconstruct and canonicalise current Workbench intent/state so future work can proceed from the repository rather than old conversations. Preserve superseded/rejected decisions and historical implementation evidence without leaving stale branches/worktrees as active-looking development surfaces.
 
 ## Freeze-point baseline
 
-- Freeze time: approximately 2026-08-21 03:09 BST.
-- Repository: `DaisyCloverSoftware/workbench`.
-- `main`: `235305bccbef9a35d38445946c4bdab63364f859`.
-- The HEAD is a release-publication retrigger with an identical tree to preceding substantive merge `0afabdb075818beb0e97d1941ef02e16c14fe795` (PR #222).
-- Release PR #222 validated head: `b97566b5a773fcb5d0a88066df4633d0c03ba2e3`.
-- `build`, `runner` and `ui-responsiveness` workflows passed on that validated head.
-- `v0.9.54` source resolves to canonical version `0.9.54`.
-- Only open PR found: #110, based on Workbench 0.9.10; not approved/merged by this reset.
-- No open GitHub issues found.
-- 288 remote branches were enumerated.
-- Cluster/private Workbench capability manifest advertises 0.9.54; privacy-safe health checks found the Workbench control plane healthy at the audit time.
-- Fresh outbound Windows bridge inventory found a host online with Blender 5.1.2 and Unreal Engine 5.8.1.
-- User-visible freeze evidence identified Windows desktop Workbench 0.9.54.
-- No separately established conventional Workbench DEV deployment was found.
-
-See `docs/CURRENT_STATE.md` for detailed evidence classification.
+- freeze time: approximately 2026-08-21 03:09 BST;
+- repository: `DaisyCloverSoftware/workbench`;
+- freeze `main`: `235305bccbef9a35d38445946c4bdab63364f859`;
+- preceding substantive 0.9.54 merge: `0afabdb075818beb0e97d1941ef02e16c14fe795` (PR #222);
+- PR #222 validated head: `b97566b5a773fcb5d0a88066df4633d0c03ba2e3`;
+- `v0.9.54` source resolves to canonical version 0.9.54;
+- PR #222 required build/runner/UI-responsiveness gates passed;
+- initial open PR: #110 only;
+- initial open issues: none;
+- initial remote branch inventory: 288;
+- privacy-safe cluster/Workbench health: good at audit time;
+- fresh Windows bridge inventory: host online; Blender 5.1.2 and Unreal Engine 5.8.1 detected;
+- freeze evidence: Windows desktop Workbench 0.9.54;
+- no conventional website-style Workbench DEV deployment established.
 
 ## Development freeze rule
 
-During this reset:
+During this reset no ordinary feature/product work is authorised, including:
 
-- no dashboard bug fix;
-- no scheduler redesign;
-- no Unreal/Blender debugging;
-- no release-process fix;
-- no knowledge-graph implementation;
-- no ordinary feature/refactor work.
+- Dashboard semantic correction;
+- scheduler redesign;
+- Blender/Unreal debugging;
+- release-process correction;
+- knowledge-graph implementation;
+- unrelated refactors/features.
 
-Permitted changes are governance, documentation, audit evidence, safe cleanup and reset-validation tooling.
+Permitted work: governance, documentation, evidence collection, reset-validation tooling and preservation-first repository cleanup.
+
+## Governance / cleanup PR chain
+
+All of the following passed exact-final-head `build`, `runner` and `ui-responsiveness` gates before merge:
+
+- #223 canonical governance baseline → `1c5099a7bc11755377f9c575041500dc25f06caa`;
+- #224 local relay-experiment preservation/cleanup → `68e7459ce3b2b68eb0875851ecd11dd75ed64f95`;
+- #225 worktree/branch audit + stale checkout realignment → `72d19d14d0af628256b1042a86082dde9e331bcf`;
+- #226 exact stale-worktree cleanup → `c0c2cae23676b5e6b3d853aae66cce202d508f7b`;
+- #227 fully merged remote-ref cleanup → `83c9218b15aa7c69e29b56455f87bb4dc6fc223c`;
+- #228 patch-equivalence/PR-head audit → `476499cc3a405f093fe7a93f899421bddcafd9ce`;
+- #229 historical branch archive consolidation → `ce4ecd5f0e47d764d6ad4221619390db1ea70af4`.
+
+Passing these gates proves the governance/cleanup mechanisms did not break normal repository builds; it does not prove inherited product-semantic defects correct.
 
 ## Audit coverage record
 
-| Source/category | Coverage | Result / blind spot |
+| Source/category | Coverage | Final reset result / remaining blind spot |
 | --- | --- | --- |
-| Repository root/current `main` | INSPECTED | Exact HEAD/default branch/version surfaces/root inventory verified. |
-| Root product docs | INSPECTED | `README.md`, `VISION.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `SECURITY.md`, `PUBLIC_SOURCE_POLICY.md`, `CONTRIBUTING.md`, `CHANGELOG.md` inventory; current-sensitive docs compared/reconciled. |
-| `docs/` inventory | INVENTORIED | Current docs list captured. High-impact governance/architecture/knowledge/privacy/UI/Operations/bootstrap materials inspected. Not every historical prose line was treated as current authority merely because it exists. |
-| Current Core scheduler/work-item source | INSPECTED | `model.go`, `work_item.go`, `scheduler.go`, scheduler regression tests; priority/progress/lane/storage semantics verified. |
-| Current Dashboard Operations projection | INSPECTED | 0.9.54 completed/failed + session-active → Running mapping confirmed as implementation discrepancy. |
-| Durable state store | INSPECTED | JSON state, State.Version 3, private temp + atomic rename, project normalisation verified. |
-| Private continuation source/history | INSPECTED | Current HMAC validator plus PR #211 change/test rationale verified. Full post-fix live productive completion remains unverified. |
-| Recent release/feature PRs | INSPECTED | #203–#222 audited at decision/change level; superseded proof/release PRs distinguished from current behaviour. |
-| Older relevant control-boundary PRs | SAMPLED/INSPECTED | Direct ChatGPT/OpenClaw boundary, Windows typed operations and earlier release architecture checked where relevant. |
-| PR #110 | INSPECTED | Old 0.9.10-based implementation; kept open but classified as stale implementation basis requiring fresh decision. |
-| Open issues | INSPECTED | None at baseline. |
-| Workflow configuration | INSPECTED | Current build/release-request/release/runner/UI workflow inventory; release publication trigger/workaround mechanism verified. |
-| Remote branches | INVENTORIED | 288 branches. Diagnostic and active-session branch disposition specifically checked; full per-branch semantic audit not completed. |
-| Diagnostic dashboard branch | INSPECTED | One 12-line live `chat_activity` probe; useful evidence preserved in current-state record; branch is cleanup candidate. |
-| Private relay guide/capability contract | INSPECTED + RECONCILED | 0.9.54 manifest/guide checked against current source. Stale Windows capability wording was corrected during the reset without widening runtime authority. |
-| Private relay historical transport | STRUCTURE/BEHAVIOUR INSPECTED | Bounded live-selection implementation reviewed. Payload-by-payload historical audit intentionally not performed in public reset; long-term retention policy unresolved. |
-| Live cluster health | VERIFIED (bounded/privacy-safe) | Workbench services/MCP health good; registered nodes Ready; no private topology copied publicly. |
-| Live Windows bridge | VERIFIED (bounded/privacy-safe) | Online host; Blender/Unreal detection verified. Fresh application smokes did not run because audit wrapper calls lacked required explicit host argument. |
-| File Library Workbench artifacts | INVENTORIED/SAMPLED | Older 0.6.x/0.7.x release/setup artifacts found; classified historical because they predate current 0.9.54 architecture. |
-| Workbench durable memory/context mechanism | INSPECTED IN SOURCE/DOCS | Four-layer knowledge/context mechanism known. Actual stored user/project capsule contents were not available through the audit interface, so unique-memory decision coverage is unverified. |
-| Historical project conversations | PARTIAL / BLOCKED | Current handoff/current-project context accessible, but complete conversation enumeration/retrieval failed/unavailable. This blocks blanket conversation-deletion approval. |
-| Local developer/cluster checkout `git status` and worktrees | BLOCKED | Current private control interface does not expose generic repo-status/branch commands; the reset did not widen authority. Existing health proved relay checkout health, not every developer worktree. |
+| Repository root/current `main` | INSPECTED | Exact freeze/current checkpoints and canonical source verified. |
+| Root/docs contracts | INSPECTED + RECONCILED | Governance, decisions, architecture, security, roadmap, UI/Operations, harness, relay and knowledge docs reconciled. |
+| Current Core scheduler/work-item source | INSPECTED | Lane, priority, progress, queue ownership/storage semantics verified. |
+| Dashboard Operations projection | INSPECTED | 0.9.54 terminal-operation + active-session → Running defect confirmed and recorded, not fixed. |
+| Durable Core state store | INSPECTED | JSON State.Version 3, normalisation and atomic-write model verified. |
+| Authenticated private continuation | INSPECTED | HMAC validator/tests/current contract verified; full productive live resume still unverified. |
+| Relevant PR/release history | INSPECTED | Recent release/feature PR chain audited; PR #110 closed unmerged as stale implementation basis. |
+| Workflow configuration | INSPECTED | Release-request/release/build/runner/UI workflows audited; release retrigger defect recorded. |
+| Remote branch history | FULL REACHABILITY/PRESERVATION AUDIT | First removed 157 fully merged refs; remaining histories classified; final 137 source refs archived before deletion. Active branch surface reduced to `main` only at cleanup checkpoint. |
+| Public historical branch archive | VERIFIED | Tag `archive/pre-governance-reset-20260821`; archive head `bcb7a1a...`; archive checkpoint tree exactly equals PR #229 `main` checkpoint tree `73b84fd...`; all removed source tips proven reachable before deletion. |
+| Registered operational checkout | VERIFIED + CLEANED | Old dirty/uncommitted work preserved/classified, stale lineage realigned, final status clean. |
+| Local worktrees | FULLY INVENTORIED + CLEANED | Eight discovered; duplicate/dirty work proven already published before restoration; seven stale secondary worktrees removed; one clean main worktree remains. |
+| Local-only source history | PRESERVED | One old SEC-008 local-only commit preserved behind local audit ref before realignment; not public/canonical authority. |
+| Private capability guide/manifest | INSPECTED + RECONCILED | Windows typed-operation wording aligned without widening authority. |
+| Private relay historical transport | INTENTIONALLY RETAINED | Live projection bounded; underlying history retained pending future retention policy. Not a public repo-cleanup blocker. |
+| Live cluster health | VERIFIED (bounded/privacy-safe) | Workbench services/MCP healthy; registered nodes Ready at audit time. |
+| Windows bridge | VERIFIED (bounded/privacy-safe) | Host/tool detection verified; fresh Blender/Unreal application acceptance not established. |
+| Workbench durable context/memory contents | AUDITED (accessible store) | Current context plus accessible project/global memories inspected; material recovered rules canonicalised. |
+| File Library Workbench artifacts | INVENTORIED/SAMPLED | Older 0.6.x/0.7.x material classified historical. |
+| Historical project conversations | PARTIAL / BLOCKED | Recent summaries/current handoff and some recoverable prior context audited, but full enumeration/content access is unavailable. This is the remaining reset blocker. |
 
-## Reconciled current decisions
+## Canonical decisions recovered during final audit
 
-Canonical current/superseded/rejected decisions are in `docs/DECISIONS.md`.
+In addition to the earlier reset decisions, accessible durable memory/prior context recovered rules now made explicit in `docs/DECISIONS.md`:
 
-The most important reset outcomes are:
+- configured runner/target unavailability must be truthfully blocked/unavailable, not silently hidden by local fallback;
+- worker location/capability/readiness must be truthful;
+- external/scarce paid model-credit tests/experiments require explicit user authorisation;
+- skeletons/prototypes/partial engineering previews must not be presented as a finished coherent product;
+- actual release/tag and expected artifact verification are distinct from merge, deployment and semantic verification;
+- canonical GitHub `main` outranks operational source checkouts;
+- archived pre-reset history is preservation only and cannot re-authorise old behaviour;
+- private relay history is intentionally retained until a real retention policy exists;
+- generic “DEV checkpoint” memory does not invent a conventional Workbench DEV deployment.
 
-- repository documentation, not conversations, is project authority;
-- ChatGPT is primary brain/coder, Workbench is durable/safe execution infrastructure, autonomous harnesses are optional capacity;
-- Operations job execution is distinct from session presence and terminal history;
-- six Operations lanes remain current;
-- priority is Critical → High → Normal → Low then FIFO, with zero-value persisted priority = Normal;
-- progress is measured/staged/indeterminate only;
-- direct machine controls and scheduler-native tasks are separate execution planes until a true authoritative unified job model exists;
-- direct ChatGPT implicit OpenClaw delegation remains blocked;
-- authenticated private continuation is a separate trusted path;
-- outbound typed Windows operations remain the required security boundary;
-- release no-op retrigger pushes are a temporary workaround/defect, not a desired release contract;
-- conventional website-style DEV terminology is not applicable unless explicitly created later.
+## Current inherited product discrepancies — recorded, not fixed
 
-## Current inherited implementation discrepancies
+1. **P0 — Operations false-running projection** (`completed`/`failed` + active session can become `TaskRunning`).
+2. Cross-plane authoritative job model gap.
+3. Release-publication reliability/no-op retrigger defect.
+4. Exact long-term private-relay retention/compaction policy unresolved.
+5. Full post-validator unattended-continuation productive-completion proof missing.
+6. Fresh Blender end-to-end GPU-render acceptance missing.
+7. Unreal five-minute `zen` startup/root cause unresolved.
+8. Cross-process relay-state locking requirement remains an open technical question; discovered local experiment was not accepted.
+9. Knowledge-graph/searchable-decisions future shape remains undecided after closing old PR #110 unmerged.
 
-These are recorded, not fixed during the governance freeze:
+## Repository cleanup result
 
-1. **P0 — Operations false-running projection.** 0.9.54 maps session-active completed/failed relay actions to `TaskRunning` and can report misleading counts such as `Running 100`.
-2. **Cross-plane job model gap.** Scheduler-native tasks and relay/direct-control activity do not yet share one authoritative job-state source.
-3. **Release publication reliability.** Version-bump merges have sometimes needed an identical-tree push to retrigger release publication.
-4. **Private relay retention.** Live reads are bounded, but historical transport retention/cleanup is not canonically governed.
-5. **Unattended continuation acceptance.** Automatic dependency wake-up was observed, but full post-validator productive completion is not cleanly evidenced.
-6. **Blender live acceptance.** Explicit GPU/OptiX implementation exists; reset did not establish a fresh end-to-end GPU render proof.
-7. **Unreal live acceptance.** Old `TNotNull` crash is historical; inherited current evidence is five-minute `class=zen`, root cause unresolved.
+Public source / registered checkout cleanup is **complete** to the reset's preservation rules:
 
-## Resolved governance/documentation discrepancies
+- PR #110 closed unmerged;
+- no open PRs at the post-#229 cleanup checkpoint;
+- stale local experiment preserved as documentation then removed;
+- stale local lineage preserved behind audit ref then operational checkout realigned;
+- all local Workbench worktrees audited and reduced to one clean `main` worktree;
+- 157 fully merged remote branch refs deleted after reachability proof;
+- remaining branch histories preserved before deletion under one historical archive tag;
+- archive tree verified equal to canonical checkpoint tree;
+- active public branch surface reduced to `main` only at the cleanup checkpoint;
+- private relay historical transport intentionally retained rather than destructively purged without a policy.
 
-- The private machine-readable Windows capability description lagged later 0.9.54 typed operations. It was reconciled during the reset to match current source while preserving the outbound-only/allowlisted/no-generic-shell security boundary.
-- The first governance edit of `docs/PERSONAL_PRO_RELAY.md` over-compressed valid envelope/install/runbook detail. The diff audit caught this before merge and the operational detail was restored under the new governance/source-of-truth rules rather than silently discarded.
-
-## Repository cleanup review
-
-Reviewed cleanup candidates include:
-
-- stale release-request branches;
-- proof/test branches;
-- `diag/dashboard-activity-live-20260821`;
-- merged `fix/operations-active-session-state-20260821` branch (contains no unique commits relative to main at audit time);
-- old PR #110 branch;
-- no-op/proof branches;
-- private relay historical transport growth.
-
-No broad destructive branch deletion is performed by this audit record alone. With 288 branches and incomplete historical-conversation/memory coverage, blanket deletion would fail the reset's preservation rule. `docs/REPOSITORY_CLEANUP_MANIFEST.md` records disposition rather than pretending cleanup is complete.
-
-## Validation evidence
-
-The governance branch is documentation/governance only. PR #223 head `534990eaa9279babbb8f95482093e59bdf70f1d3` passed all three required pull-request workflows:
-
-- `build` — success;
-- `runner` — success;
-- `ui-responsiveness` — success.
-
-That proves repository/build/UI-responsiveness consistency for the validated governance tree. It does **not** prove the known 0.9.54 Dashboard semantics correct. The evidence-recording commit that follows this validated head must itself pass the same exact-head gates before merge; no further product or governance-content changes are permitted after that final validation.
-
-After merge, canonical docs remain authoritative even while product discrepancies await post-reset implementation.
+See `docs/REPOSITORY_CLEANUP_MANIFEST.md` and `docs/LOCAL_CHECKOUT_AUDIT_2026-08-21.md`.
 
 ## Completion gate status
 
 - [x] Feature development frozen before reset changes.
-- [x] Starting repository/release/runtime baseline recorded to available evidence level.
-- [ ] All relevant historical project conversations inventoried — **BLOCKED by conversation retrieval/access**.
-- [x] Relevant repository documentation inventoried.
-- [ ] Workbench durable project-memory contents fully audited — **mechanism inspected; stored content unavailable through current audit interface**.
-- [x] Important accessible decisions extracted and classified.
-- [x] Accessible conflicting decisions reconciled.
+- [x] Starting repository/release/runtime baseline recorded.
+- [ ] All relevant historical project conversations inventoried in full — **BLOCKED by conversation access**.
+- [x] Relevant repository documentation inventoried/reconciled.
+- [x] Accessible Workbench durable project/global memory and current context audited.
+- [x] Important accessible decisions extracted/classified.
+- [x] Accessible conflicts reconciled.
 - [x] Current requirements/authority hierarchy documented.
 - [x] Significant superseded/rejected behaviours documented.
 - [x] Do-not-reintroduce rules documented.
-- [x] Architecture documentation reconciled.
+- [x] Architecture/security/operations/harness/knowledge documentation reconciled.
 - [x] Current implementation/release/runtime state documented with evidence levels.
-- [x] Repository compared against the highest-risk current requirements.
-- [x] Stale/obsolete repository material reviewed at manifest level.
-- [ ] Repository cleanup completed — **blocked pending full preservation/branch safety audit; manifest exists**.
-- [x] Governance branch tests/builds/checks passed on validated PR #223 head `534990eaa9279babbb8f95482093e59bdf70f1d3`; final evidence-only head still requires exact-head confirmation before merge.
-- [x] Remaining inherited failures/discrepancies recorded.
-- [x] Permanent governance rules added on governance branch.
-- [ ] Conversation pruning safety fully checked — **blocked by incomplete conversation inventory**.
-- [x] Conversation pruning manifest created.
-- [ ] Proven that no important information exists solely in a conversation scheduled for deletion — **cannot yet prove**.
-- [x] Fresh post-reset development handoff created, explicitly conditional on the reset gate.
-- [ ] Repository is fully proven to be the sole durable project truth — **target state documented, historical blind spots remain**.
-- [ ] Future ordinary development authorised — **NO while this reset status remains INCOMPLETE**.
+- [x] Repository compared against highest-risk current requirements.
+- [x] Stale/obsolete repository material preservation-audited and cleaned.
+- [x] Registered checkout/worktree cleanup completed and verified clean.
+- [x] Remote branch cleanup completed with preservation-first archive evidence.
+- [x] Governance/cleanup PR gates passed before each merge.
+- [x] Remaining inherited product failures/discrepancies recorded rather than silently fixed.
+- [x] Permanent governance rules added.
+- [ ] Conversation pruning safety fully checked — **blocked by incomplete full conversation inventory**.
+- [x] Conversation pruning manifest exists and has been updated with recovered rules.
+- [ ] Proven that no important information exists solely in an unseen conversation scheduled for deletion — **cannot prove with current access**.
+- [x] Fresh repository-based post-reset handoff exists and is updated.
+- [ ] Repository proven to contain every recoverable historical decision from every Workbench conversation — **cannot prove for unseen conversations**.
+- [ ] Future ordinary development authorised — **NO while status remains INCOMPLETE**.
 
-## Rule for closing this reset
+## Exact remaining blocker
 
-Do not flip this document to COMPLETE until the unchecked gates are resolved with evidence. If an inaccessible historical source can never be recovered, resolve that explicitly as a conscious governance decision/risk acceptance rather than silently treating it as audited.
+The repository itself is no longer the blocker. The remaining human/access boundary is historical conversation coverage/pruning.
+
+To close the reset, one of these must occur:
+
+1. provide/enable a way to enumerate/read the remaining historical Workbench project conversations so each can pass the pruning test; or
+2. explicitly accept the residual risk that inaccessible historical conversations may contain uncaptured information and authorise closing the reset without proving them individually.
+
+Until then, do not change this status to COMPLETE and do not resume ordinary feature development.
