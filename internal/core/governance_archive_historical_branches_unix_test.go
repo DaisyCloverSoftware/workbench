@@ -65,11 +65,14 @@ func TestGovernanceArchiveHistoricalBranchesPreservesEveryTipAndCanonicalTree(t 
 		t.Fatalf("archive cleanup failed: %v\n%s", err, out)
 	}
 	text := string(out)
-	if !strings.Contains(text, "cleanup=ok") || !strings.Contains(text, "archived_source_refs=3") || !strings.Contains(text, "remote_branch_count=2") {
+	if !strings.Contains(text, "cleanup=ok") || !strings.Contains(text, "archived_source_refs=3") || !strings.Contains(text, "remote_branch_count=1") {
 		t.Fatalf("unexpected archive output: %s", text)
 	}
+	if !strings.Contains(text, "archive_tag=archive/pre-governance-reset-20260821") {
+		t.Fatalf("archive tag missing from output: %s", text)
+	}
 
-	archiveRef := "refs/heads/archive/pre-governance-reset-20260821"
+	archiveRef := "refs/tags/archive/pre-governance-reset-20260821"
 	archiveHead := archiveGitOutput(t, remote, "rev-parse", archiveRef)
 	archiveTree := archiveGitOutput(t, remote, "rev-parse", archiveHead+"^{tree}")
 	if archiveTree != mainTree {
@@ -85,11 +88,11 @@ func TestGovernanceArchiveHistoricalBranchesPreservesEveryTipAndCanonicalTree(t 
 		}
 	}
 	if !archiveRemoteRefExists(t, remote, "refs/heads/main") || !archiveRemoteRefExists(t, remote, archiveRef) {
-		t.Fatal("main or archive ref missing after cleanup")
+		t.Fatal("main branch or archive tag missing after cleanup")
 	}
-	refs := archiveGitOutput(t, remote, "for-each-ref", "--format=%(refname)", "refs/heads/")
-	if len(strings.Fields(refs)) != 2 {
-		t.Fatalf("unexpected remote refs after cleanup: %s", refs)
+	headRefs := archiveGitOutput(t, remote, "for-each-ref", "--format=%(refname)", "refs/heads/")
+	if strings.Fields(headRefs)[0] != "refs/heads/main" || len(strings.Fields(headRefs)) != 1 {
+		t.Fatalf("unexpected remote branches after cleanup: %s", headRefs)
 	}
 	if status := archiveGitOutput(t, target, "status", "--porcelain=v1", "--untracked-files=all"); status != "" {
 		t.Fatalf("archive cleanup dirtied checkout: %q", status)
