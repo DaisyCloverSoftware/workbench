@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -61,13 +60,12 @@ func ReadRunnerChatActivity(limit int) ([]RunnerChatActivityInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command("git", "-C", repo, "archive", "--format=tar", "origin/main", "--", "relay/control", "relay/control-outbox", "relay/inbox", "relay/outbox")
-	out, err := cmd.Output()
+	out, err := readRunnerRelayActivityArchive(repo)
 	if err != nil {
-		return nil, errors.New("private Workbench relay activity is unavailable")
+		return nil, err
 	}
-	if len(out) > maxRelayActivityArchive {
-		return nil, errors.New("private Workbench relay activity exceeded bounds")
+	if len(out) == 0 {
+		return []RunnerChatActivityInfo{}, nil
 	}
 	items, err := parseRunnerChatActivity(out, limit)
 	if err != nil {
