@@ -4,180 +4,203 @@ Last governance verification: **2026-08-21 (BST)**.
 
 This document records what currently exists and how strongly it has been verified. It is not a roadmap. Product intent belongs in the canonical contracts and `docs/DECISIONS.md`.
 
-## Repository baseline
+## Repository and reset baseline
 
-- Repository: `DaisyCloverSoftware/workbench`
-- Default branch: `main`
-- Freeze-point `main` HEAD: `235305bccbef9a35d38445946c4bdab63364f859`
-- HEAD subject: `release: retrigger Workbench 0.9.54 publication`
-- Preceding substantive merge: `0afabdb075818beb0e97d1941ef02e16c14fe795` (PR #222, Workbench 0.9.54 release preparation)
-- Validated release-PR head: `b97566b5a773fcb5d0a88066df4633d0c03ba2e3`
-- The no-op HEAD is one commit ahead of the substantive merge with **no changed files**, so the source tree is identical.
-- `v0.9.54` resolves to source whose canonical version is `0.9.54`.
-- PR #222's required `build`, `runner` and `ui-responsiveness` workflows passed on its exact validated head.
-- Open pull requests at the audit baseline: PR #110 only (`Add searchable decisions and a project knowledge graph`). It is based on Workbench 0.9.10 and is not approved for merge by this baseline.
-- Open GitHub issues at the audit baseline: none.
-- Remote branches observed: 288. This includes old release-request, proof/test, fix/feature and diagnostic branches. Branch age alone is not deletion authority.
+Freeze-point repository baseline:
+
+- repository: `DaisyCloverSoftware/workbench`;
+- freeze `main`: `235305bccbef9a35d38445946c4bdab63364f859`;
+- preceding substantive 0.9.54 release merge: `0afabdb075818beb0e97d1941ef02e16c14fe795` (PR #222);
+- validated PR #222 release head: `b97566b5a773fcb5d0a88066df4633d0c03ba2e3`;
+- version/tag source: `v0.9.54`;
+- PR #222 required `build`, `runner` and `ui-responsiveness` workflows passed.
+
+Governance/cleanup merge checkpoints completed after the freeze:
+
+- PR #223 — canonical governance baseline → `1c5099a7bc11755377f9c575041500dc25f06caa`;
+- PR #224 — preserve/clean inherited relay-lock experiment → `68e7459ce3b2b68eb0875851ecd11dd75ed64f95`;
+- PR #225 — audit worktrees/branches and realign stale source checkout → `72d19d14d0af628256b1042a86082dde9e331bcf`;
+- PR #226 — remove exact stale local worktrees → `c0c2cae23676b5e6b3d853aae66cce202d508f7b`;
+- PR #227 — delete fully merged remote branches only → `83c9218b15aa7c69e29b56455f87bb4dc6fc223c`;
+- PR #228 — patch-equivalence / PR-head branch audit → `476499cc3a405f093fe7a93f899421bddcafd9ce`;
+- PR #229 — consolidate remaining public historical branch graphs behind an archival tag → `ce4ecd5f0e47d764d6ad4221619390db1ea70af4`.
+
+Every governance/cleanup PR above passed the repository's required `build`, `runner` and `ui-responsiveness` gates on its exact final head before merge. Those gates prove repository/build consistency for the cleanup mechanisms; they do not convert known product-semantic defects into accepted behaviour.
+
+PR #110 (`Add searchable decisions and a project knowledge graph`) was closed **unmerged** during the reset because its implementation basis was Workbench 0.9.10. The capability itself remains an undecided future idea, not rejected product scope.
+
+## Repository hygiene state
+
+At the post-PR #229 cleanup checkpoint:
+
+- canonical public `main`: `ce4ecd5f0e47d764d6ad4221619390db1ea70af4`;
+- active public branches: **`main` only**;
+- open Workbench pull requests: **zero**;
+- registered Workbench source checkout: clean `main` at the canonical checkpoint;
+- local Workbench worktrees: **one**;
+- a private/local audit ref preserves the one previously local-only pre-reset SEC-008 commit; that local history is not public/canonical authority.
+
+Public branch cleanup was preservation-first:
+
+1. 157 branch refs whose complete tip history was already reachable from `main` were deleted.
+2. Remaining refs were audited with `git cherry` and GitHub PR-head provenance; some had patch-equivalent history and others carried genuinely novel commit graphs.
+3. Before deleting the remaining public source branch refs, **137 source branch tips** were preserved behind lightweight archival tag `archive/pre-governance-reset-20260821`.
+4. The archive points to synthetic history-anchor commits whose checkpoint file tree is exactly the canonical `main` tree at the archive checkpoint.
+
+Verified archive evidence:
+
+- archive tag: `archive/pre-governance-reset-20260821`;
+- archive head: `bcb7a1a6056b6f2d4a132bf51dbbf224b57f8832`;
+- archive checkpoint tree: `73b84fd417a567ab2a51baf06cc7f6019dde0ac7`;
+- PR #229 checkpoint `main` tree: `73b84fd417a567ab2a51baf06cc7f6019dde0ac7`;
+- archive operation exit code: 0;
+- post-cleanup active remote branch count: 1 (`main`).
+
+The archive is historical/audit preservation only. It MUST NOT be used as a development baseline or requirements source.
+
+## Local checkout findings resolved during reset
+
+The registered operational checkout was initially much older than canonical GitHub source and contained local-only/uncommitted work.
+
+### Relay-state lock experiment — preserved as knowledge, implementation discarded
+
+The reset found one modified relay-state file plus three untracked files implementing a cross-process lock-file experiment. It was unaccepted and could not be tested through the live safe-command policy. Its rationale and risks are preserved in `docs/LOCAL_CHECKOUT_AUDIT_2026-08-21.md`; the working-tree experiment was removed and canonical source restored.
+
+### Stale local lineage — preserved then realigned
+
+The registered checkout's old `main` contained one local-only commit, `2defa97101447c04e8350bfae88414cbacafe237` (`sec: pin GitHub Actions to full commit SHAs (SEC-008)`). Its only code effect—workflow action SHA pinning—already existed in current public source.
+
+The old local commit was preserved behind a local audit ref before operational `main` was realigned to canonical GitHub `main`.
+
+### Stale local worktrees — audited before deletion
+
+Eight local worktrees were found. Six old detached worktrees were clean. One old named file-mode worktree was dirty in exactly two tracked files; bounded diff/blob inspection proved those exact working blobs were already published by public commit `0b601caab1859e42767c5019ba61c01cf3af8c55`.
+
+Only after that proof were the duplicate edits restored and all seven secondary worktrees removed. Post-cleanup verification proved one clean worktree remained.
 
 ## Stable/live surfaces
 
-Workbench does not currently have a canonical website-style DEV deployment. See `docs/DECISIONS.md` for terminology.
+Workbench has no canonical website-style DEV deployment. See WB-DEC-009.
 
 ### Stable release
 
-- Current verified version tag: `v0.9.54`.
-- The release workflow builds `Workbench.exe`, `Workbench-Updater.exe` and Linux runner/server/relay assets on pushes to `main` when that version's GitHub release does not already exist.
-- The freeze-point handoff records the official `v0.9.54` release as published. The connected repository interface used for this reset can resolve the tag/source but does not expose an independent release-object listing in the audit path used here; the publication claim therefore retains its release-history/freeze-evidence classification rather than being upgraded by assumption.
+- current stable version at the reset baseline: `v0.9.54`;
+- release build surfaces include `Workbench.exe`, `Workbench-Updater.exe` and Linux runner/server/relay assets;
+- the freeze-point handoff records the official 0.9.54 release as published.
+
+Release process remains imperfect: version-bump merges have sometimes required an identical-tree no-op `main` push to retrigger publication. This is a known defect/workaround, not the intended permanent release protocol.
 
 ### Cluster live
 
-Privacy-safe live checks during this reset verified:
+Privacy-safe live checks during the reset verified:
 
-- the private Workbench capability manifest advertises Workbench `0.9.54`;
-- Workbench MCP and relay services are active;
-- loopback MCP health is good;
-- the bounded Workbench health script reports `overall=ok`;
-- registered cluster nodes were Ready and storage health reported no attached unhealthy volumes at the check time.
-
-Private hostnames, addresses, paths and topology are intentionally omitted from this public record.
+- private Workbench capability manifest advertises 0.9.54;
+- Workbench MCP and relay services active;
+- loopback MCP healthy;
+- bounded Workbench health script `overall=ok`;
+- registered cluster nodes Ready at the check time;
+- no attached unhealthy storage volumes reported at the check time.
 
 ### Windows live
 
-Freeze-point user-visible evidence showed the Windows desktop running **Workbench 0.9.54**.
+Freeze evidence showed Workbench desktop 0.9.54. A fresh outbound bridge check verified a Windows host online with Blender 5.1.2 and Unreal Engine 5.8.1 detected.
 
-A fresh bridge check during the reset verified an online outbound Windows host and detected:
-
-- Blender 5.1.2;
-- Unreal Engine 5.8.1.
-
-That bridge check does not itself report the Workbench desktop application's installed version, so the desktop-version statement remains tied to the freeze-point observation rather than being silently reclassified as freshly machine-probed.
+That detection proves bridge/tool presence only; it does not upgrade application-specific acceptance claims below.
 
 ## Current Operations/scheduler implementation
 
-### Scheduler-native durable tasks — implemented, tested, merged and released
+### Scheduler-native durable tasks — implemented/tested/merged/released
 
 Current source includes:
 
-- durable `queued` task state;
+- durable queued state;
 - scheduler-owned queued → routing dispatch;
-- lane capacity for server operations, CI/builds, Windows workstation and AI workers;
-- waiting and needs-you lanes with no execution capacity;
-- persisted priority;
-- Critical → High → Normal → Low ordering, then FIFO;
-- historical persisted zero-value priority interpreted as Normal;
-- queued-task reprioritisation;
-- measured, stage-based and indeterminate progress metadata;
-- fallback to indeterminate when measured/stage totals are invalid;
-- `WorkItem` projection with lane, priority, queue position, executor/machine/provider, progress, dependency and timestamps.
+- server/CI/Windows/AI execution capacity plus waiting/needs-you state lanes;
+- persisted Critical → High → Normal → Low priority then FIFO;
+- historical zero-value priority interpreted as Normal;
+- truthful measured, stage-based and indeterminate progress;
+- `WorkItem` projection with lane/priority/progress/dependency/executor metadata.
 
-The scheduler and dashboard do **not** yet have one authoritative native job model spanning every remote direct-control operation. Local durable tasks are scheduler-native; remote relay work is partly projected from bounded transport/activity metadata.
+### Operations semantic acceptance — FAILED / inherited P0 defect
 
-### Operations semantic acceptance — FAILED / inherited defect
+Workbench 0.9.54 can convert a remote event whose individual state is `completed` or `failed` into `TaskRunning` when the surrounding project/session `Active` lease is true. This produced misleading live counts such as `Running 100`.
 
-Workbench 0.9.54 sees real remote activity but maps the runner's session/activity lease incorrectly.
+Canonical requirement: individual job execution, project/session presence and recent terminal operation history are separate concepts. Status of 0.9.54 Operations semantics: **released/live but not accepted/verified correct**.
 
-Current desktop source can convert a relay event whose individual state is `completed` or `failed` into `TaskRunning` when `ActiveKnown && Active` is true. The corresponding regression test explicitly expects that mapping.
-
-This made the live Dashboard report misleading counts such as `Running 100` when many entries were recent completed safe-hands operations associated with an active project/ChatGPT session.
-
-Canonical requirement: execution state, session/presence and recent completed history are separate concepts. See `docs/operations-dashboard-contract.md` and WB-DEC-003.
-
-Status of the 0.9.54 Operations semantics: **released and live, but not accepted/verified correct**.
+No product correction was made during the governance freeze.
 
 ## Private relay and unattended continuation
 
-### Bounded activity inventory — implemented, tested, merged and released
+### Bounded live activity projection — current
 
-The runner no longer archives the entire append-oriented relay history on each Dashboard refresh. The bounded live view keeps every pending request, recent activity and matching request/result counterparts while excluding old completed history from the live projection.
+The live Dashboard-facing relay projection keeps pending and recent matching request/result activity without reading all historical completed transport content on every refresh. It is a scaling/projection rule, not a deletion/retention policy.
 
-This solves the historical scaling failure in which the live inventory could become unusable as relay history grew. It does **not** define a long-term retention/cleanup policy for the underlying private transport repository.
+### Historical relay transport — intentionally retained
 
-### Authenticated durable continuation — implemented, tested, merged and partially live-verified
+Underlying private relay history was **not mass-deleted** during this reset. The history is intentionally retained pending a separate retention/compaction policy. This is not a public-source repository-cleanup failure.
 
-Current source HMAC-seals private-relay continuation authority and validates the relay correlation/project/continuation body. A Workbench-owned dependency-result suffix may follow the proof after a durable dependency becomes terminal; arbitrary appended content remains fail-closed.
+### Authenticated durable continuation — partially live-verified
 
-Evidence status:
+Current source HMAC-seals private-relay continuation authority and validates correlation/project/original continuation. Workbench may append its owned dependency-result suffix; arbitrary appended content remains fail-closed.
 
-- implementation: yes;
-- regression tests: yes;
-- merged/released: yes;
-- live dependency watcher automatically waking a waiting task without a new chat message: previously observed;
-- clean post-validator-fix proof of the full sequence `waiting_dependency → automatic resume → useful work → completed`: **not established by the accessible evidence in this reset**.
+Evidence:
 
-Treat full unattended productive completion as **UNVERIFIED** until a clean proof is recorded.
-
-### Private capability manifest — reconciled during reset
-
-At the freeze point, the private 0.9.54 machine-readable manifest understated later typed Windows capabilities. During this governance reset its transport metadata was reconciled with current Workbench source: outbound host discovery, Blender version, bounded Unreal startup smoke and host-job status are advertised, while the reviewed committed Blender render wrapper remains an exact typed operations-script path rather than a generic Windows command route.
-
-No runtime authority was widened. The manifest still explicitly preserves the outbound-only/allowlisted/no-generic-Windows-shell boundary.
+- implementation/tests/merge/release: yes;
+- automatic dependency wake without a new chat message: previously observed live;
+- clean post-validator proof of full `waiting_dependency → automatic resume → useful work → completed`: **UNVERIFIED**.
 
 ## Windows bridge, Blender and Unreal
 
 ### Security/control model — current
 
-The Windows bridge is outbound and typed/allowlisted. Generic remote Windows shell authority is not part of the intended interface.
+Outbound typed/allowlisted bridge only. Generic remote Windows shell authority is not part of the intended interface.
 
 ### Blender
 
-Current release history/source establishes explicit Cycles GPU setup including OptiX/non-CPU-device enablement for headless rendering. The reset verified the Windows bridge detects Blender 5.1.2.
-
-A fresh smoke was not completed during this reset: the committed audit wrapper correctly requires an explicit host argument and the no-argument governance probe failed at usage validation before Blender ran. Therefore end-to-end current GPU-render acceptance remains **UNVERIFIED** by this reset.
+Current source configures Cycles GPU/OptiX explicitly for the headless render path. The reset freshly verified Blender 5.1.2 detection but did not establish a fresh current end-to-end GPU render proof. Current live render acceptance: **UNVERIFIED by this reset**.
 
 ### Unreal
 
-The old Unreal 5.8.1 `TNotNull`/stack-overflow startup crash is historical, not the current known failure. The current typed smoke uses a bounded five-minute startup window with privacy-safe classifications.
+The old 5.8.1 `TNotNull`/stack-overflow startup crash is historical and removed. The current bounded smoke uses a five-minute diagnostic window. Latest inherited evidence before reset: process survived the old 90-second boundary and reached five-minute timeout classified `zen`.
 
-Latest inherited live evidence before the reset: Unreal stayed alive beyond the old ~90-second boundary and reached the five-minute limit classified `zen`.
+Fresh reset verification confirmed Unreal 5.8.1 detection, not a new startup result. Current startup root cause/acceptance: **UNRESOLVED / UNVERIFIED beyond inherited `class=zen` evidence**.
 
-The reset verified the Windows bridge detects Unreal Engine 5.8.1. A fresh smoke was not completed because the committed wrapper requires an explicit host argument and the no-argument governance probe stopped at usage validation before Unreal ran.
+## Durable memory/context audit
 
-Current Unreal startup acceptance therefore remains **UNRESOLVED / UNVERIFIED** beyond the inherited `class=zen` evidence.
+The accessible Workbench durable project context and project/global memory store were audited during the reset, not merely the memory implementation.
+
+The accessible store contained a small set of durable memories plus the current context capsule. Important rules recovered from that store and accessible prior-work context are now canonicalised in `docs/DECISIONS.md`, including:
+
+- canonical repository state outranks memory/context;
+- no conventional Workbench DEV environment is invented by generic “DEV checkpoint” wording;
+- configured runner/target availability, location and readiness must be truthful;
+- no external model-credit/scarce paid test invocation without explicit user authorisation;
+- do not present a skeleton/prototype/engineering preview as finished Workbench;
+- release/tag/artifact verification is distinct from deployment/semantic verification;
+- operational checkouts are copies, not product authority.
+
+Old bootstrap/private-relay memories remain advisory/history only.
 
 ## Durable state/storage
 
-Workbench's desktop/core durable state is JSON stored in the local Workbench configuration area. Current `State.Version` default is **3**.
+Workbench Core durable state is private local JSON (`State.Version` 3 at this baseline), using decode/normalisation and private temporary-file + atomic rename writes. It persists project registry, tasks, encrypted secret references, preferences, scheduler priority/progress and related durable task state.
 
-The store:
+This is a file-format/state-version model, not a relational database migration system.
 
-- decodes on-disk state before applying runtime/default repairs;
-- normalises the project registry during load/save;
-- writes via a private temporary file and atomic rename;
-- persists tasks, project registry, preferences and encrypted secret references;
-- persists scheduler priority/progress as part of task state.
+## Remaining unverified / unresolved items
 
-This is a file-format/state-version model rather than a relational database/schema migration system.
+Do not infer these as solved:
 
-## Release process
+- full-content inventory of every historical Workbench project conversation;
+- conversation-pruning safety for unseen/unrecoverable chats;
+- P0 Operations false-running correction;
+- authoritative cross-plane job model;
+- exact private-relay long-term retention/compaction policy;
+- full post-validator unattended continuation productive-completion proof;
+- fresh Blender end-to-end GPU render acceptance;
+- fresh Unreal five-minute startup/root-cause result;
+- release-publication reliability without no-op retriggers;
+- cross-process relay-state locking requirement under the actual supported process topology;
+- future knowledge-graph/searchable-decisions product shape.
 
-The release-request workflow prepares coordinated version bumps from `.workbench-release.json`, runs `git diff --check` and `go test ./...`, commits the prepared release branch, and relies on the normal PR gates before merge.
-
-The release workflow is push-to-`main` and idempotently skips work if the release already exists. A recurring failure mode has required an identical-tree no-op main commit to retrigger publication. The current `main` HEAD is such a retrigger.
-
-Status: **known release-process defect with a temporary workaround**. Do not treat the no-op step as the desired permanent release protocol.
-
-## Known governance/documentation discrepancies at freeze
-
-The reset found and is correcting these repository-authority problems:
-
-- `ARCHITECTURE.md` described an older command-template/delegation-centric model and omitted the current scheduler/continuation/Windows-control boundaries;
-- the Operations contract did not explicitly separate job execution from session presence/history;
-- `ROADMAP.md` presented searchable decisions/knowledge graph as simply next despite stale PR #110;
-- `SECURITY.md` did not yet explicitly capture the typed outbound Windows bridge and authenticated-private-continuation distinction;
-- the private capability manifest lagged later typed Blender/Unreal operations; that transport-document drift was reconciled during the reset;
-- green UI responsiveness did not prevent a semantically false `Running 100` dashboard, so semantic acceptance needs explicit governance.
-
-## Audit blind spots / not verified
-
-Do not infer these as true or false:
-
-- complete inventory/content audit of every historical Workbench project conversation (conversation retrieval failed/unavailable in this reset);
-- local developer/cluster source checkout working-tree and worktree state beyond what existing privacy-safe health checks expose;
-- deletion/cleanup safety of all 288 remote branches;
-- formal long-term private-relay retention policy;
-- full post-validator unattended continuation completion proof;
-- fresh end-to-end Blender GPU render acceptance;
-- fresh Unreal five-minute startup outcome/root cause;
-- any feature proposition in old PR #110 without a new decision.
-
-These blind spots keep the governance reset status **INCOMPLETE** until the applicable completion gates can be satisfied or explicitly resolved by a future audit with the required access.
+Repository/worktree/branch hygiene and accessible Workbench memory/context audit are no longer blind spots. The governance reset remains **INCOMPLETE solely because the historical-conversation/pruning proof cannot be completed with the available conversation access without explicit residual-risk acceptance or additional source access**.
