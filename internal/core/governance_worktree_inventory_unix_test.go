@@ -44,6 +44,9 @@ func TestGovernanceWorktreeInventoryOmitsPathsAndReportsDirtiness(t *testing.T) 
 	if !strings.Contains(text, "worktree_2_branch=audit-secondary") || !strings.Contains(text, "worktree_2_dirty=1") {
 		t.Fatalf("inventory missing dirty secondary status: %s", text)
 	}
+	if !strings.Contains(text, "worktree_2_dirty_entry_1=?? untracked.txt") {
+		t.Fatalf("inventory missing repository-relative dirty entry: %s", text)
+	}
 	if strings.Contains(text, repo) || strings.Contains(text, other) {
 		t.Fatalf("inventory leaked filesystem path: %s", text)
 	}
