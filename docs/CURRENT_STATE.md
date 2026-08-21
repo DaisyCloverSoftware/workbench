@@ -106,6 +106,12 @@ Evidence status:
 
 Treat full unattended productive completion as **UNVERIFIED** until a clean proof is recorded.
 
+### Private capability manifest — reconciled during reset
+
+At the freeze point, the private 0.9.54 machine-readable manifest understated later typed Windows capabilities. During this governance reset its transport metadata was reconciled with current Workbench source: outbound host discovery, Blender version, bounded Unreal startup smoke and host-job status are advertised, while the reviewed committed Blender render wrapper remains an exact typed operations-script path rather than a generic Windows command route.
+
+No runtime authority was widened. The manifest still explicitly preserves the outbound-only/allowlisted/no-generic-Windows-shell boundary.
+
 ## Windows bridge, Blender and Unreal
 
 ### Security/control model — current
@@ -158,7 +164,7 @@ The reset found and is correcting these repository-authority problems:
 - the Operations contract did not explicitly separate job execution from session presence/history;
 - `ROADMAP.md` presented searchable decisions/knowledge graph as simply next despite stale PR #110;
 - `SECURITY.md` did not yet explicitly capture the typed outbound Windows bridge and authenticated-private-continuation distinction;
-- the private capability manifest advertises Workbench 0.9.54 but its Windows capability description lags later typed Blender/Unreal operations;
+- the private capability manifest lagged later typed Blender/Unreal operations; that transport-document drift was reconciled during the reset;
 - green UI responsiveness did not prevent a semantically false `Running 100` dashboard, so semantic acceptance needs explicit governance.
 
 ## Audit blind spots / not verified
