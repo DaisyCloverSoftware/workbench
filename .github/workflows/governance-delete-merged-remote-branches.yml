@@ -11,15 +11,20 @@ on:
 permissions:
   contents: write
   pull-requests: read
+  issues: write
 
 concurrency:
-  group: governance-delete-merged-remote-remote-branches
+  group: governance-delete-merged-remote-branches
   cancel-in-progress: false
 
 jobs:
   cleanup:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'governance: execute merged-ref cleanup'))
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'governance: execute observable merged-ref cleanup'))
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
     steps:
       - name: Check out exact main history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -29,9 +34,6 @@ jobs:
 
       - name: Verify there are no open pull requests
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           count="$(gh api --paginate "repos/$GH_REPO/pulls?state=open&per_page=100" --jq 'length' | awk '{ total += $1 } END { print total + 0 }')"
@@ -61,3 +63,17 @@ jobs:
             printf 'error=unexpected-remote-branch-namespace\n' >&2
             exit 1
           fi
+
+      - name: Publish successful cleanup evidence
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh issue create --title 'Governance cleanup result: success' --body "governance_cleanup=success\noperation_commit=${{ github.sha }}\nremote_branches=main"
+
+      - name: Publish failed cleanup evidence
+        if: ${{ failure() }}
+        shell: bash
+        run: |
+          set -u
+          gh issue create --title 'Governance cleanup result: failed' --body "governance_cleanup=failed\noperation_commit=${{ github.sha }}\nNo further destructive attempt is permitted until this failure is inspected." || true
