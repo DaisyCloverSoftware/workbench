@@ -1,9 +1,0 @@
-{
-  "version": "0.9.54",
-  "date": "2026-08-21",
-  "notes": [
-    "Fix the Operations board so runner-authoritative active ChatGPT sessions populate execution lanes even when their latest individual relay operation has already completed.",
-    "Keep completed autonomous delegate_task work inactive so the dashboard does not resurrect genuinely finished workers.",
-    "Add regressions covering active safe-hands sessions and completed autonomous tasks."
-  ]
-}
