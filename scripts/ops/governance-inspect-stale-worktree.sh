@@ -92,6 +92,8 @@ fi
 printf 'inspection=ok\n'
 printf 'branch=%s\n' "$expected_branch"
 printf 'head=%s\n' "$expected_head"
+printf 'changeset_prepare_blob=%s\n' "$(git -C "$found_path" hash-object internal/core/changeset_prepare.go)"
+printf 'changeset_prepare_test_blob=%s\n' "$(git -C "$found_path" hash-object internal/core/changeset_prepare_test.go)"
 printf '%s\n' '--- diff begin ---'
 git -C "$found_path" diff --no-ext-diff --unified=3 -- \
   internal/core/changeset_prepare.go \
