@@ -27,19 +27,20 @@ Workbench separates **intelligence** from **agency**:
 
 - One production task-first Windows application with a first-class multi-project sidebar, project-scoped notes/tasks, global attention navigation and advanced controls under Settings.
 - Headless Linux/cluster runner with cost-aware routing, durable detached jobs and operator-only verified updates.
-- Cluster project discovery across multiple authorised runner roots: legacy `WORKBENCH_RUNNER_ROOT` remains supported, `WORKBENCH_RUNNER_ROOTS` can configure a path-list, and conventional `~/src` plus `~/projects` roots are recognised by default when present. Duplicate repository names fail closed and receive opaque scoped `runner://rN/name` references rather than exposing host paths.
+- Cluster project discovery across multiple authorised runner roots with privacy-minimal opaque project references where host paths are unnecessary.
 - Adapter discovery for local models, coding CLIs and external harnesses.
 - Model-safe repository `list_files`, `search_text`, and `read_file` tools.
 - Persistent project/global knowledge for facts, decisions, constraints, patterns, routines and reusable code.
 - Compact continuation capsules so a fresh conversation can resume without replaying a long transcript.
 - Safe hands for exact patch application and allowlisted build/test/status commands.
-- Durable autonomous task delegation, retries, reports and genuine attention boundaries.
+- Durable autonomous task delegation, retries, reports, scheduler-owned queueing and genuine attention boundaries.
 - Workbench-owned isolated task worktrees, deterministic review commits, controlled review-branch publication and retryable GitHub PR delivery without recoding.
 - Project-aware MCP workspace discovery that exposes safe routing facts without exposing project notes, secrets or publication targets.
 - Bounded worker and runner output so noisy CLIs cannot grow Workbench memory/state without limit while final attention/unavailable signals remain detectable.
 - Secret-like content protection for model-readable memory plus a local encrypted vault whose plaintext is not exposed through MCP.
-- Harness-agnostic architecture: OpenClaw is an adapter, not the foundation.
-- Bidirectional Git relay transport for Personal Pro-style workflows. Private mode can discover repository roots and carries the same bounded `list_files`/`search_text`/`read_file`/`apply_patch`/`run_safe_command` safe-hands path as direct MCP, while autonomous `delegate_task` remains a separate escalation channel; public mode stays status-only.
+- Harness-agnostic architecture: OpenClaw is an adapter/operator capacity, not the foundation or default coder.
+- Bidirectional Git relay transport for Personal Pro-style workflows. Private mode carries bounded repository/machine controls and explicit durable continuation; autonomous delegation remains a separate escalation channel.
+- Outbound typed/allowlisted Windows host bridge for supported operations rather than a generic inbound remote shell.
 - Verified `Workbench-Updater.exe` plus transactional Linux cluster maintenance with checksum/architecture validation and rollback.
 
 ## Desired user experience
@@ -55,28 +56,45 @@ Workbench returns either:
 - **Done** — with a concise verified report; or
 - **Needs you** — one concise decision or permission request that genuinely could not be resolved autonomously.
 
-A new conversation can pick up the same project from its compact context and durable memory. Similar tasks can retrieve an existing routine or code pattern instead of starting from scratch.
+A new conversation can pick up the same project from canonical repository state plus compact continuity data. Similar tasks can retrieve an existing routine or code pattern instead of starting from scratch.
 
 No progress babysitting. No human acting as a message bus between AIs.
+
+## Project governance and source of truth
+
+Workbench's repository is the durable project authority. Conversations, handoffs, memory capsules, PR descriptions and old implementation are evidence, not a shadow specification.
+
+Start with:
+
+- [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — source-of-truth hierarchy, change control and completion rules;
+- [docs/DECISIONS.md](docs/DECISIONS.md) — current decisions, superseded/rejected behaviour and do-not-reintroduce rules;
+- [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — verified implementation/release/deployment state and known discrepancies;
+- [ARCHITECTURE.md](ARCHITECTURE.md) — current intended system boundaries;
+- [SECURITY.md](SECURITY.md) — trust/security boundaries;
+- [docs/operations-dashboard-contract.md](docs/operations-dashboard-contract.md) — normative Operations semantics.
+
+A code change does not silently become a new requirement. Material user corrections must update the canonical project record as well as the implementation.
 
 ## Architecture
 
 ```text
 Human intent
     |
-lead chat / Workbench desktop
+ChatGPT / Workbench desktop
     |
-project registry + context capsule + project/global memory + reusable routines
+canonical project record + durable context/memory
     |
-MCP / relay / structured task transport
+MCP / private relay / typed task & machine control
     |
-Workbench router
-    |-- local / zero-marginal
+Workbench scheduler / bounded control plane
+    |-- direct safe repository & machine hands
+    |-- local / zero-marginal workers
     |-- included-subscription workers
+    |-- optional autonomous harnesses
     |-- scarce agentic fallback
     `-- metered fallback (opt-in)
     |
-runner / harness adapters
+runner / outbound Windows bridge / provider adapters
 ```
 
 Workbench is intentionally provider- and harness-agnostic. Private infrastructure, machine names, account inventories, credentials and dogfood topology are configuration, **not public source material**.
@@ -97,13 +115,13 @@ go build -o workbench-relay ./cmd/workbench-relay
 
 ## Private deployment
 
-The repository contains generic installers for the runner, MCP service, tunnel sidecar and Git-backed relay. They intentionally store runtime credentials only in local protected files and do not include any maintainer-specific hostnames, usernames, addresses, account inventories or secrets.
+The repository contains generic installers for the runner, MCP service, tunnel sidecar and Git-backed relay. They intentionally store runtime credentials only in local protected files and do not include maintainer-specific hostnames, usernames, addresses, account inventories or secrets.
 
 For real workloads, use private authenticated transport. Never place private task intent into a public relay repository.
 
 ## Security posture
 
-Workbench assumes developers may paste secrets by accident. AI-facing tools are deliberately narrow, secret-like content is refused in exposed paths, private MCP services bind loopback, credentials remain local, and metered/scarce routes are protected by policy.
+Workbench assumes developers may paste secrets by accident. AI-facing tools are deliberately narrow, secret-like content is refused in exposed paths, private MCP services bind loopback, credentials remain local, Windows host operations remain typed/outbound, and metered/scarce routes are protected by policy.
 
 See [SECURITY.md](SECURITY.md).
 
