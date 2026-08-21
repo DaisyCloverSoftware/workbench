@@ -25,24 +25,33 @@ if [ "$root" != "$target" ]; then
 fi
 
 origin="$(git -C "$root" remote get-url origin 2>/dev/null || true)"
+origin_ok=0
 case "$origin" in
-  https://github.com/DaisyCloverSoftware/workbench|https://github.com/DaisyCloverSoftware/workbench.git|git@github.com:DaisyCloverSoftware/workbench|git@github.com:DaisyCloverSoftware/workbench.git|ssh://git@github.com/DaisyCloverSoftware/workbench|ssh://git@github.com/DaisyCloverSoftware/workbench.git)
-    ;;
-  *)
-    printf 'error=unexpected-origin\n' >&2
-    exit 68
+  https://github.com/DaisyCloverSoftware/workbench|https://github.com/DaisyCloverSoftware/workbench.git|git@github.com:DaisyCloverSoftware/workbench|git@github.com:DaisyCloverSoftware/workbench.git|ssh://git@github.com/DaisyCloverSoftware/workbench|ssh://git@github.com:DaisyCloverSoftware/workbench.git)
+    origin_ok=1
     ;;
 esac
+if [ "$origin_ok" -ne 1 ] && [ "${WORKBENCH_GOVERNANCE_TEST_ALLOW_LOCAL_ORIGIN:-0}" = "1" ] && [ "${WORKBENCH_OPERATION_SCRIPT:-0}" != "1" ]; then
+  origin_ok=1
+fi
+if [ "$origin_ok" -ne 1 ]; then
+  printf 'error=unexpected-origin\n' >&2
+  exit 68
+fi
 
 count=0
 head=''
 branch=''
-detached=0
 prunable=0
+worktree_path=''
 
 emit_record() {
   if [ "$count" -eq 0 ]; then
     return
+  fi
+  dirty=0
+  if [ ! -d "$worktree_path" ] || [ -n "$(git -C "$worktree_path" status --porcelain=v1 --untracked-files=all 2>/dev/null || printf '__status_error__')" ]; then
+    dirty=1
   fi
   printf 'worktree_%d_head=%s\n' "$count" "$head"
   if [ -n "$branch" ]; then
@@ -51,6 +60,7 @@ emit_record() {
     printf 'worktree_%d_branch=detached\n' "$count"
   fi
   printf 'worktree_%d_prunable=%d\n' "$count" "$prunable"
+  printf 'worktree_%d_dirty=%d\n' "$count" "$dirty"
 }
 
 while IFS= read -r line || [ -n "$line" ]; do
@@ -60,9 +70,9 @@ while IFS= read -r line || [ -n "$line" ]; do
         emit_record
       fi
       count=$((count + 1))
+      worktree_path="${line#worktree }"
       head=''
       branch=''
-      detached=0
       prunable=0
       ;;
     HEAD\ *)
@@ -70,9 +80,6 @@ while IFS= read -r line || [ -n "$line" ]; do
       ;;
     branch\ refs/heads/*)
       branch="${line#branch refs/heads/}"
-      ;;
-    detached)
-      detached=1
       ;;
     prunable*)
       prunable=1
