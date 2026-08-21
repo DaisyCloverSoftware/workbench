@@ -1,5 +1,7 @@
 # Roadmap
 
+The roadmap is subordinate to current requirements/decisions in `docs/GOVERNANCE.md` and `docs/DECISIONS.md`. Items listed as candidates are not implementation authority.
+
 ## v0.5 — autonomous control-plane foundation
 
 - Native standalone Windows application
@@ -72,32 +74,52 @@
 - native Windows settings configure a validated structured-adapter executable separately from local OpenClaw and Workbench Runner
 - runner hosts keep their own adapter path in private atomic operator config; adapter paths never enter `RunnerRequest`, task state or MCP/model-facing data
 - operator-only runner harness get/set/delete controls and safe doctor status without exposing the full host path
-- production dark Dashboard, Work and Settings surfaces expose truthful project/task/provider/review state with permanent navigation and top actions
+- production dark Dashboard, Work and Settings surfaces expose project/task/provider/review state with permanent navigation and top actions
 - durable `waiting_retry` tasks automatically resume transient low-cost provider outages after cooldown without human supervision
 - durable `waiting_dependency` watches own GitHub Actions waits with progressive backoff, no coding worker held, restart recovery and automatic continuation of the original task
 - automatic retries/watches remain cancellable and active unfinished work rather than appearing failed or frozen
 - connected Chat/skill guidance distinguishes active-worker checks from Workbench-owned waits so AIs do useful independent work instead of hammering dependency status
 - provider-native Claude Code session continuation survives Workbench task retries without exposing private provider session identifiers in task transport
-- production Win32 HWND creation/message pumping is pinned to one OS thread; a 32-cycle Windows watchdog proves Dashboard/Settings/Work remain responsive and page HWND visibility is correct
-- Settings policy reads remain Git/filesystem-free after validated save, including Windows 8.3/long-path aliases
+- production Win32 HWND creation/message pumping is pinned to one OS thread; Windows watchdog coverage proves Dashboard/Settings/Work remain responsive and page HWND visibility is correct
+- Settings policy reads remain Git/filesystem-free after validated save, including Windows path aliases
 - Windows CI captures real Dashboard, Work and Settings windows and packages only the production app plus verified updater; releases include matching Linux runner/server/relay binaries and checksums
 - reversible terminal task-history archiving hides filed-away work from default Work/Dashboard views without deleting durable task records or rewriting execution chronology
 
-## Next
+## Governance freeze — v0.9.54 baseline
 
-- searchable decisions and a project knowledge graph
-- automatic cross-model review policies for higher-risk changes
-- complete per-monitor DPI-aware desktop layout/font scaling
-- desktop/tablet/phone preview and test targets
-- screenshot and Playwright result surfaces
-- WhatsApp/Signal/Telegram/Slack adapters as human-interrupt channels
-- OS keychain support on macOS/Linux
-- signed installers and optional locally scheduled update checks
+Ordinary feature development is frozen until the governance reset completion gate in `docs/GOVERNANCE_RESET_2026-08-21.md` passes.
+
+The current release is not a claim that every v0.9 Operations semantic is accepted. In particular, 0.9.54's projection of session-active completed operations as running jobs is rejected by the canonical Operations contract.
+
+## Post-reset priority backlog
+
+This is an implementation backlog, not permission to start work while the freeze is active.
+
+1. **P0 — Operations semantic correction.** Make actual job execution, project/session presence and terminal activity history distinct; remove the 0.9.54 false-running projection; add semantic acceptance coverage.
+2. **P1 — Authoritative cross-plane job model.** Define how scheduler-native tasks, CI, direct server controls, typed Windows work and AI-worker jobs become one truthful inventory without inferring execution from transport recency.
+3. **P1 — Unattended continuation live acceptance.** Record a clean end-to-end post-validator proof of `waiting_dependency → automatic resume → useful work → completed`.
+4. **P1 — Release publication reliability.** Remove the need for identical-tree no-op `main` pushes as publication retriggers.
+5. **P1 — Private relay retention governance.** Define safe retention/compaction/cleanup separately from the bounded live Dashboard projection.
+6. **P2 — Blender live acceptance.** Verify a current end-to-end headless GPU render through the typed Windows bridge and record device/backend evidence without leaking private host detail.
+7. **P2 — Unreal startup investigation.** Re-verify the bounded smoke and investigate the inherited five-minute `zen` classification without restoring the superseded 90-second test.
+8. **P3 — Searchable decisions/knowledge graph.** Re-evaluate the capability against current 0.9.54+ architecture. PR #110 is based on 0.9.10 and MUST NOT be merged as-is merely because the roadmap historically listed the idea.
+
+## Candidate future work
+
+These are planning candidates and require normal decision/specification before implementation:
+
+- automatic cross-model review policies for higher-risk changes;
+- complete per-monitor DPI-aware desktop layout/font scaling;
+- desktop/tablet/phone preview and test targets;
+- richer screenshot/browser result surfaces where appropriate;
+- WhatsApp/Signal/Telegram/Slack human-interrupt adapters;
+- OS keychain support on macOS/Linux;
+- signed installers and optional locally scheduled update checks.
 
 ## Later
 
-- Workbench Runner capable enough to replace a general-purpose external harness for many local/cluster workflows
-- distributed runner registry and capability advertisement
-- policy packs for production, regulated environments and team use
-- community adapter registry
-- mobile companion for approvals and read-only task status
+- Workbench Runner capable enough to replace a general-purpose external harness for many local/cluster workflows;
+- distributed runner registry and capability advertisement;
+- policy packs for production, regulated environments and team use;
+- community adapter registry;
+- mobile companion for approvals and read-only task status.
