@@ -58,7 +58,7 @@ Permitted changes are governance, documentation, audit evidence, safe cleanup an
 | Workflow configuration | INSPECTED | Current build/release-request/release/runner/UI workflow inventory; release publication trigger/workaround mechanism verified. |
 | Remote branches | INVENTORIED | 288 branches. Diagnostic and active-session branch disposition specifically checked; full per-branch semantic audit not completed. |
 | Diagnostic dashboard branch | INSPECTED | One 12-line live `chat_activity` probe; useful evidence preserved in current-state record; branch is cleanup candidate. |
-| Private relay guide/capability contract | INSPECTED | Current 0.9.54 manifest/guide checked. Manifest Windows capability text lags later typed operation source. |
+| Private relay guide/capability contract | INSPECTED + RECONCILED | 0.9.54 manifest/guide checked against current source. Stale Windows capability wording was corrected during the reset without widening runtime authority. |
 | Private relay historical transport | STRUCTURE/BEHAVIOUR INSPECTED | Bounded live-selection implementation reviewed. Payload-by-payload historical audit intentionally not performed in public reset; long-term retention policy unresolved. |
 | Live cluster health | VERIFIED (bounded/privacy-safe) | Workbench services/MCP health good; registered nodes Ready; no private topology copied publicly. |
 | Live Windows bridge | VERIFIED (bounded/privacy-safe) | Online host; Blender/Unreal detection verified. Fresh application smokes did not run because audit wrapper calls lacked required explicit host argument. |
@@ -97,7 +97,11 @@ These are recorded, not fixed during the governance freeze:
 5. **Unattended continuation acceptance.** Automatic dependency wake-up was observed, but full post-validator productive completion is not cleanly evidenced.
 6. **Blender live acceptance.** Explicit GPU/OptiX implementation exists; reset did not establish a fresh end-to-end GPU render proof.
 7. **Unreal live acceptance.** Old `TNotNull` crash is historical; inherited current evidence is five-minute `class=zen`, root cause unresolved.
-8. **Private capability manifest drift.** Machine-readable Windows capability description lags later typed Blender/Unreal operations.
+
+## Resolved governance/documentation discrepancies
+
+- The private machine-readable Windows capability description lagged later 0.9.54 typed operations. It was reconciled during the reset to match current source while preserving the outbound-only/allowlisted/no-generic-shell security boundary.
+- The first governance edit of `docs/PERSONAL_PRO_RELAY.md` over-compressed valid envelope/install/runbook detail. The diff audit caught this before merge and the operational detail was restored under the new governance/source-of-truth rules rather than silently discarded.
 
 ## Repository cleanup review
 
