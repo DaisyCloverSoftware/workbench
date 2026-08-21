@@ -13,7 +13,7 @@ import (
 func TestGovernanceStaleWorktreeInspectionReturnsOnlyExpectedRepositoryDiff(t *testing.T) {
 	base := t.TempDir()
 	repo := filepath.Join(base, "repo")
-	if err := os.MkdirAll(repo, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, "internal", "core"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	staleGitRun(t, repo, "init", "-b", "main")
