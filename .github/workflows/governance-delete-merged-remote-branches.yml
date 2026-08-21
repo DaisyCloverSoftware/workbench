@@ -1,0 +1,63 @@
+name: governance-delete-merged-remote-branches
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/governance-delete-merged-remote-branches.yml
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: governance-delete-merged-remote-remote-branches
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'governance: execute merged-ref cleanup'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact main history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify there are no open pull requests
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          count="$(gh api --paginate "repos/$GH_REPO/pulls?state=open&per_page=100" --jq 'length' | awk '{ total += $1 } END { print total + 0 }')"
+          if [ "$count" -ne 0 ]; then
+            printf 'error=open-pull-requests-present count=%s\n' "$count" >&2
+            exit 1
+          fi
+          printf 'open_pull_requests=0\n'
+
+      - name: Delete only fully merged remote branches
+        shell: bash
+        env:
+          WORKBENCH_OPERATION_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git checkout main
+          bash scripts/ops/governance-delete-merged-remote-branches.sh "$GITHUB_WORKSPACE" confirmed-no-open-prs
+
+      - name: Prove only main remains
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          mapfile -t branches < <(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/ | LC_ALL=C sort | grep -v '^HEAD$' || true)
+          printf 'remote_branches=%s\n' "${branches[*]:-}"
+          if [ "${#branches[@]}" -ne 1 ] || [ "${branches[0]}" != 'main' ]; then
+            printf 'error=unexpected-remote-branch-namespace\n' >&2
+            exit 1
+          fi
