@@ -38,8 +38,8 @@ func TestGovernancePatchEquivalentInventoryDistinguishesReviewedAndNovelRefs(t *
 	patchGitRun(t, remote, "update-ref", "refs/pull/7/head", reviewedTip)
 
 	patchGitRun(t, seed, "checkout", "main")
-	# Create the same patch independently on main so git cherry marks the branch
-	# commit as patch-equivalent rather than ancestor-equivalent.
+	// Create the same patch independently on main so git cherry marks the branch
+	// commit as patch-equivalent rather than ancestor-equivalent.
 	patchWrite(t, filepath.Join(seed, "same.txt"), "same change\n")
 	patchGitRun(t, seed, "add", "same.txt")
 	patchGitRun(t, seed, "commit", "-m", "same change landed independently")
