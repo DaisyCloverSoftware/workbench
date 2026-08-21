@@ -49,8 +49,17 @@ emit_record() {
   if [ "$count" -eq 0 ]; then
     return
   fi
-  dirty=0
-  if [ ! -d "$worktree_path" ] || [ -n "$(git -C "$worktree_path" status --porcelain=v1 --untracked-files=all 2>/dev/null || printf '__status_error__')" ]; then
+  local status_text=''
+  local status_error=0
+  if [ ! -d "$worktree_path" ]; then
+    status_error=1
+  else
+    if ! status_text="$(git -C "$worktree_path" status --porcelain=v1 --untracked-files=all 2>/dev/null)"; then
+      status_error=1
+    fi
+  fi
+  local dirty=0
+  if [ "$status_error" -ne 0 ] || [ -n "$status_text" ]; then
     dirty=1
   fi
   printf 'worktree_%d_head=%s\n' "$count" "$head"
@@ -61,6 +70,16 @@ emit_record() {
   fi
   printf 'worktree_%d_prunable=%d\n' "$count" "$prunable"
   printf 'worktree_%d_dirty=%d\n' "$count" "$dirty"
+  if [ "$status_error" -ne 0 ]; then
+    printf 'worktree_%d_dirty_entry_1=status-unavailable\n' "$count"
+  elif [ -n "$status_text" ]; then
+    local entry=0
+    while IFS= read -r status_line || [ -n "$status_line" ]; do
+      entry=$((entry + 1))
+      # Git porcelain paths are repository-relative. Do not emit worktree paths.
+      printf 'worktree_%d_dirty_entry_%d=%s\n' "$count" "$entry" "$status_line"
+    done <<< "$status_text"
+  fi
 }
 
 while IFS= read -r line || [ -n "$line" ]; do
