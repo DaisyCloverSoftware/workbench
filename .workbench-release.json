@@ -1,0 +1,9 @@
+{
+  "version": "0.9.53",
+  "date": "2026-08-21",
+  "notes": [
+    "Fix the Operations dashboard live inventory by reading a bounded current relay view instead of archiving the private relay's complete historical transport on every refresh.",
+    "Keep every genuinely pending relay request visible while including recent request/result pairs and excluding old completed history, so dashboard cost no longer grows with repository age.",
+    "Add regression coverage proving pending Windows work and recent relay activity survive the bounded inventory selection."
+  ]
+}
