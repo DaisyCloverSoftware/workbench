@@ -2,11 +2,11 @@ name: governance-delete-merged-remote-branches
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
       - main
-    paths:
-      - .github/workflows/governance-delete-merged-remote-branches.yml
+    types:
+      - closed
 
 permissions:
   contents: write
@@ -19,38 +19,52 @@ concurrency:
 
 jobs:
   cleanup:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'governance: execute observable merged-ref cleanup'))
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.user.login == 'mattbrownsett' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'governance/execute-final-cleanup-20260821')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
 
     steps:
-      - name: Check out exact main history
+      - name: Check out current main history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Verify there are no open pull requests
+      - name: Verify exact control merge and zero open pull requests
         shell: bash
         run: |
           set -euo pipefail
+          git fetch --quiet origin '+refs/heads/main:refs/remotes/origin/main'
+          operation_commit="$(git rev-parse refs/remotes/origin/main)"
+          if [ "${{ github.event_name }}" = 'pull_request' ]; then
+            expected_merge="${{ github.event.pull_request.merge_commit_sha }}"
+            if [ -z "$expected_merge" ] || [ "$operation_commit" != "$expected_merge" ]; then
+              printf 'error=control-merge-is-not-current-main expected=%s actual=%s\n' "$expected_merge" "$operation_commit" >&2
+              exit 1
+            fi
+          fi
           count="$(gh api --paginate "repos/$GH_REPO/pulls?state=open&per_page=100" --jq 'length' | awk '{ total += $1 } END { print total + 0 }')"
           if [ "$count" -ne 0 ]; then
             printf 'error=open-pull-requests-present count=%s\n' "$count" >&2
             exit 1
           fi
           printf 'open_pull_requests=0\n'
+          printf 'operation_commit=%s\n' "$operation_commit" >> "$GITHUB_ENV"
 
       - name: Delete only fully merged remote branches
         shell: bash
-        env:
-          WORKBENCH_OPERATION_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           git checkout main
-          bash scripts/ops/governance-delete-merged-remote-branches.sh "$GITHUB_WORKSPACE" confirmed-no-open-prs
+          WORKBENCH_OPERATION_COMMIT="$operation_commit" bash scripts/ops/governance-delete-merged-remote-branches.sh "$GITHUB_WORKSPACE" confirmed-no-open-prs
 
       - name: Prove only main remains
         shell: bash
@@ -69,11 +83,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh issue create --title 'Governance cleanup result: success' --body "governance_cleanup=success\noperation_commit=${{ github.sha }}\nremote_branches=main"
+          gh issue create --title 'Governance cleanup result: success' --body "governance_cleanup=success\noperation_commit=$operation_commit\nremote_branches=main"
 
       - name: Publish failed cleanup evidence
         if: ${{ failure() }}
         shell: bash
         run: |
           set -u
-          gh issue create --title 'Governance cleanup result: failed' --body "governance_cleanup=failed\noperation_commit=${{ github.sha }}\nNo further destructive attempt is permitted until this failure is inspected." || true
+          gh issue create --title 'Governance cleanup result: failed' --body "governance_cleanup=failed\nworkflow_event=${{ github.event_name }}\nNo further destructive attempt is permitted until this failure is inspected." || true
