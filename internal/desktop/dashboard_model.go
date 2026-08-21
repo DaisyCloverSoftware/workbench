@@ -211,6 +211,9 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 		}
 	}
 
+	// Session/project presence remains useful secondary context, but it is not an
+	// individual operation state. Keep one clearly labelled presence row per
+	// active project rather than relabelling each completed/failed event Working.
 	chatActive := make([]DashboardTaskItem, 0, len(latestByProject))
 	for ref, event := range latestByProject {
 		if !runnerChatEventIsActive(event, now) {
@@ -221,12 +224,12 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 			snapshot.Projects[idx].Summary.Active++
 		}
 		chatActive = append(chatActive, DashboardTaskItem{
-			TaskID:      "chat:" + event.ID,
+			TaskID:      "session:" + event.ID,
 			Title:       chatActivityProjectName(ref),
 			Provider:    "ChatGPT via Workbench",
 			Status:      core.TaskRunning,
-			StatusLabel: "Working",
-			NextAction:  "Latest Workbench action: " + friendlyChatAction(event.Action) + ".",
+			StatusLabel: "Session active",
+			NextAction:  "Session presence · latest Workbench action: " + friendlyChatAction(event.Action) + ".",
 			UpdatedAt:   event.UpdatedAt,
 		})
 	}
@@ -242,21 +245,7 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 		if event.UpdatedAt.Before(now.Add(-24 * time.Hour)) {
 			continue
 		}
-		status := core.TaskCompleted
-		label := "ChatGPT"
-		if runnerChatEventIsActive(event, now) {
-			status = core.TaskRunning
-			label = "Working"
-		} else if event.State == "failed" {
-			status = core.TaskFailed
-			label = "Failed"
-		} else if event.State == "needs_attention" {
-			status = core.TaskNeedsAttention
-			label = "Needs you"
-		} else if event.State == "waiting" || event.State == "running" {
-			status = core.TaskRunning
-			label = "Working"
-		}
+		status, label := runnerChatEventHistoryStatus(event)
 		recent = append(recent, DashboardActivityItem{
 			TaskID:      "chat:" + event.ID,
 			Title:       chatActivityProjectName(event.ProjectRef),
@@ -276,6 +265,31 @@ func applyRunnerChatActivity(snapshot DashboardSnapshot, activity []core.RunnerC
 	}
 	snapshot.RecentActivity = recent
 	return snapshot
+}
+
+func runnerChatEventHistoryStatus(event core.RunnerChatActivityInfo) (core.TaskStatus, string) {
+	switch strings.ToLower(strings.TrimSpace(event.State)) {
+	case "queued":
+		return core.TaskQueued, "Queued"
+	case "routing":
+		return core.TaskRouting, "Routing"
+	case "running":
+		return core.TaskRunning, "Working"
+	case "waiting", "waiting_dependency":
+		return core.TaskWaitingDependency, "Waiting"
+	case "waiting_retry":
+		return core.TaskWaitingRetry, "Waiting"
+	case "needs_attention":
+		return core.TaskNeedsAttention, "Needs you"
+	case "failed", "error":
+		return core.TaskFailed, "Failed"
+	case "cancelled", "canceled":
+		return core.TaskCancelled, "Cancelled"
+	case "completed", "success", "succeeded":
+		return core.TaskCompleted, "Completed"
+	default:
+		return core.TaskCompleted, "Activity"
+	}
 }
 
 func sortDashboardActiveTasks(tasks []DashboardTaskItem) {
