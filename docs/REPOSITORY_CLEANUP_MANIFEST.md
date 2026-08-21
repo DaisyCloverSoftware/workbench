@@ -1,119 +1,154 @@
 # Workbench repository cleanup manifest — 2026-08-21
 
-Status: **REVIEWED, NOT FULLY EXECUTED**
+Status: **PUBLIC SOURCE / REGISTERED CHECKOUT CLEANUP COMPLETE**
 
-This manifest separates cleanup decisions from destructive actions. A branch/file is not deleted merely because it is old.
+Private relay historical transport is intentionally retained pending a separate retention policy; that does not make the public-source repository cleanup incomplete.
 
-## Baseline
+## Baseline and final shape
 
-The audit enumerated **288 remote branches**. They include long-lived feature/fix branches, release-request branches, proof/test branches, diagnostics and the open PR #110 branch.
+The reset began with **288 remote branches**, later rising as temporary governance branches were created. Cleanup was preservation-first rather than name/age based.
 
-Full local worktree/checkout status was not available through the current bounded private control interface. Therefore repository cleanup cannot be declared globally complete.
+Final verified cleanup checkpoint after PR #229:
 
-## Explicit branch dispositions
+- canonical public branch: `main`;
+- active public branch count: **1**;
+- open pull requests: **0**;
+- registered Workbench source checkout: clean `main`;
+- local Workbench worktree count: **1**;
+- historical removed public branch graphs: preserved under tag `archive/pre-governance-reset-20260821`;
+- separate old local-only SEC-008 history: preserved behind a local audit ref, not republished/canonicalised.
 
-### SAFE TO DELETE AFTER GOVERNANCE RECORD IS MERGED
+## Remote branch cleanup evidence
 
-`fix/operations-active-session-state-20260821`
+### Tier 1 — complete-history reachability
 
-- Source of PR #221.
-- Comparison against current main: ahead 0, behind 5 at audit time.
-- No unique commits remain outside main.
-- Its behaviour is now explicitly classified as rejected in `docs/DECISIONS.md` (the merged code remains an implementation discrepancy until later product correction).
+A tested operation refreshed all remote refs and deleted only branches whose tip was already an ancestor of canonical `main`.
 
-`release-request/v0.9.54`
+Result at execution time:
 
-- Comparison against current main: ahead 0, behind 2 at audit time.
-- Its validated release commit is already in main history through PR #222.
-- No unique branch commit remains.
+- **157** fully merged branch refs deleted;
+- **135** unique-history refs retained.
 
-`diag/dashboard-activity-live-20260821`
+No unique-history branch was deleted by this tier.
 
-- One unique 12-line diagnostic script, seven commits behind main at audit time.
-- The script only invokes the runner `chat_activity` tool and prints bounded live activity.
-- Its durable useful knowledge — the fact that the 0.9.53/0.9.54 runner feed was non-empty and activity/session data existed — is preserved in `docs/CURRENT_STATE.md` and the governance audit record.
-- The script is not required for the current canonical product contract.
-- Retain until the governance branch is merged; then the branch may be deleted while Git history remains available.
+### Tier 2 — patch-equivalence / PR provenance audit
 
-### RETAIN / DO NOT DELETE DURING THIS RESET
+The remaining refs were audited read-only with `git cherry` plus GitHub `refs/pull/*/head` provenance.
 
-`main`
+At that audit point:
 
-- Default branch and canonical source.
+- 12 refs had zero novel patches and exact PR-head provenance;
+- 124 refs contained genuinely novel patch history;
+- zero patch-equivalent refs lacked PR-head provenance.
 
-`governance/reset-20260821`
+This proved that commit-ID uniqueness did not always mean unique code effect, but also confirmed that many old refs still carried historical patch graphs that should not simply disappear.
 
-- Active governance-reset branch until merged/closed.
+### Tier 3 — historical archive consolidation
 
-Open PR #110 branch (`feat/project-knowledge-graph` or the exact current PR head ref)
+Instead of leaving historical branches active-looking forever, PR #229 added a tested archive operation.
 
-- The PR is intentionally not merged, but it remains an open review/audit object.
-- Its implementation basis is stale (0.9.10), yet deleting the branch while the PR is open would destroy the active review object.
-- Resolve/close the PR explicitly before branch deletion.
+Before source-ref deletion it:
 
-### REQUIRES BATCH AUDIT BEFORE DELETE
+1. created synthetic archive-anchor commits whose **tree is exactly canonical `main`'s tree** at the checkpoint;
+2. attached removed public branch tips as parents in bounded tranches;
+3. pushed lightweight tag `archive/pre-governance-reset-20260821`;
+4. proved every source branch tip was reachable from that archive;
+5. proved the archive checkpoint tree matched canonical `main`;
+6. only then deleted the source branch refs.
 
-All other release-request, release-proof, test-proof, old feature/fix and no-op branches.
+Live result:
 
-The branch-count scale means pattern-based deletion without checking unique commits would violate the governance reset rule. For each candidate, establish at least:
+- archived source refs: **137**;
+- archive head: `bcb7a1a6056b6f2d4a132bf51dbbf224b57f8832`;
+- archive tree: `73b84fd417a567ab2a51baf06cc7f6019dde0ac7`;
+- checkpoint `main`: `ce4ecd5f0e47d764d6ad4221619390db1ea70af4`;
+- checkpoint `main` tree: `73b84fd417a567ab2a51baf06cc7f6019dde0ac7`;
+- archive and main checkpoint trees: **identical**;
+- active public branch count after operation: **1 (`main`)**;
+- archive operation exit code: 0.
 
-1. whether it has commits not reachable from `main`;
-2. whether an open PR/issue refers to it;
-3. whether unique operational/requirements evidence has been canonicalised;
-4. whether it is needed for rollback/migration/audit;
-5. whether its removal would lose anything not already retained in Git history/release artifacts.
+One Git warning reported a duplicate parent ignored while constructing an archive anchor. The operation's later reachability/tree verification still passed and exit code was 0.
 
-Only then delete the remote ref.
+The archive tag is historical preservation only. It is not a development branch, migration baseline or requirements source.
 
-## Active-tree material reviewed
+## Pull-request cleanup
 
-### Current root/docs
+Old PR #110 (`Add searchable decisions and a project knowledge graph`) was based on Workbench 0.9.10. During the reset it was explicitly closed **unmerged** with a governance comment explaining:
 
-No duplicate canonical governance files existed before this reset. New documents have distinct roles:
+- the old implementation basis is stale;
+- the capability idea itself is not rejected;
+- any future design must be specified afresh against current architecture/governance.
 
-- `docs/GOVERNANCE.md` — permanent governance rules;
-- `docs/DECISIONS.md` — decision/supersession/do-not-reintroduce register;
-- `docs/CURRENT_STATE.md` — current verified implementation/runtime state;
-- `docs/GOVERNANCE_RESET_2026-08-21.md` — audit coverage/completion gate;
-- `docs/CONVERSATION_PRUNING_MANIFEST.md` — conversation disposition;
-- `docs/REPOSITORY_CLEANUP_MANIFEST.md` — cleanup disposition;
-- `docs/POST_RESET_HANDOFF.md` — fresh development bootstrap.
+No open PR remained at the post-#229 cleanup checkpoint.
 
-Existing architecture/security/roadmap/Operations/UI-acceptance documents are updated rather than duplicated.
+## Registered operational checkout cleanup
 
-### Temporary diagnostics
+The reset discovered that the registered source checkout was not a trustworthy mirror of canonical source.
 
-The diagnostic branch script is not copied into the active tree because its evidence has been preserved and it is not a canonical operational requirement.
+### Uncommitted relay-lock experiment
 
-### Superseded tests
+Found:
 
-Current 0.9.54 source contains a regression test that expects `completed + Active=true` remote session activity to be projected as Running. This test now conflicts with the canonical Operations contract. It is **not modified during the feature freeze**; it is recorded as a P0 post-reset implementation discrepancy.
+- one modified relay-state source file;
+- three untracked relay-lock/concurrency files.
 
-### Release no-op commit
+The experiment was inspected and its rationale/risks preserved in `docs/LOCAL_CHECKOUT_AUDIT_2026-08-21.md`. It was explicitly classified unaccepted/untested, then the exact working-tree changes were removed/restored through a guarded governance cleanup.
 
-The current `main` HEAD is an identical-tree publication retrigger. Do not rewrite public history to remove it. Preserve it as audit evidence and fix the release process later rather than hiding the symptom.
+### Stale local lineage
 
-## Local/private cleanup blind spots
+The checkout was on an old v0.5-era `main` plus one local-only SEC-008 workflow-pin commit. Current public source already contained the security effect.
 
-Not proven by this reset:
+The local-only commit was preserved behind a local audit ref, then the registered `main` checkout was realigned to canonical GitHub `main` rather than merged into current product history.
 
-- every developer checkout `git status`;
-- every local worktree;
-- untracked/build artifacts outside GitHub;
-- private relay repository retention/compaction safety;
-- every remote branch's unique-commit reachability.
+### Stale worktrees
 
-The bounded audit interface was not widened into a generic shell merely to obtain these facts.
+Eight local Workbench worktrees were enumerated:
 
-## Completion rule
+- one primary checkout;
+- six old clean detached worktrees;
+- one old named file-mode worktree.
 
-Repository cleanup is **not complete** until:
+The named worktree's two dirty files were inspected before deletion. Their **full Git blob hashes exactly matched already-published blobs** from public commit `0b601caab1859e42767c5019ba61c01cf3af8c55`.
 
-- all remote branches have an explicit disposition or are intentionally retained;
-- local checkouts/worktrees can be inspected safely;
-- branch deletions approved above are executed after governance merge;
-- open PR #110 is resolved explicitly;
-- private relay retention policy is decided and safely applied if cleanup is desired;
-- final clean-status evidence is recorded.
+Only then were those duplicate edits restored and the seven stale secondary worktrees removed normally. No force-removal of unknown dirty work was used.
 
-Until then, this manifest is the authoritative cleanup queue and development remains subject to the governance reset gate.
+Final local verification:
+
+- worktree count: 1;
+- branch: `main`;
+- status: clean;
+- local audit ref still preserves the old local-only commit.
+
+## Active-tree cleanup / authority
+
+Canonical governance documents have distinct roles and superseded docs were updated rather than duplicated.
+
+Known product-semantic defects remain in current source/tests where feature-fix work was intentionally frozen. In particular, the 0.9.54 test/implementation that can project terminal remote operations as Running is recorded as a P0 post-reset defect rather than silently changed during cleanup.
+
+The old 0.9.54 release-publication no-op commit remains in history as audit evidence. Public history was not rewritten to hide it.
+
+## Private relay retention
+
+The private relay's append-oriented historical transport was **not mass-purged**.
+
+Current decision:
+
+- bounded live projection prevents old history from defining current Operations state;
+- underlying relay history is retained intentionally;
+- exact retention/compaction policy remains future design work;
+- destructive transport cleanup requires its own pending-request/audit/rollback/privacy safety contract.
+
+## Completion result
+
+For the Workbench public source repository and registered operational source checkout, cleanup is complete to the governance reset's preservation rules:
+
+- remote branch history audited/preserved;
+- stale active branch surface reduced to `main` only at cleanup checkpoint;
+- old source graphs retained under a non-authoritative archive tag;
+- open stale PR resolved;
+- local-only history preserved before realignment;
+- local working changes classified before removal;
+- all local worktrees audited and reduced to one clean checkout;
+- final status evidence recorded.
+
+No further repository deletion is required to close the repository-cleanup gate. The remaining overall governance-reset blocker is historical conversation/pruning coverage, not Git/repository hygiene.
