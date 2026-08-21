@@ -14,6 +14,7 @@ type staleWorktreeFixture struct {
 	root          string
 	seed          string
 	target        string
+	namedDir      string
 	oldHead       string
 	desiredHead   string
 	namedBranch   string
@@ -31,6 +32,49 @@ func TestGovernanceStaleWorktreeCleanupRemovesOnlyExpectedCleanTopology(t *testi
 	if !strings.Contains(text, "cleanup=ok") || !strings.Contains(text, "secondary_worktrees_removed=7") {
 		t.Fatalf("unexpected cleanup output: %s", text)
 	}
+	assertStaleWorktreeCleanupResult(t, fx)
+}
+
+func TestGovernanceStaleWorktreeCleanupRestoresExactPublishedDuplicate(t *testing.T) {
+	fx := newStaleWorktreeFixture(t, false)
+	staleWrite(t, filepath.Join(fx.namedDir, "internal/core/changeset_prepare.go"), "published duplicate prepare\n")
+	staleWrite(t, filepath.Join(fx.namedDir, "internal/core/changeset_prepare_test.go"), "published duplicate test\n")
+	prepareBlob := staleGitOutput(t, fx.namedDir, "hash-object", "internal/core/changeset_prepare.go")
+	prepareTestBlob := staleGitOutput(t, fx.namedDir, "hash-object", "internal/core/changeset_prepare_test.go")
+
+	out, err := runStaleWorktreeCleanup(t, fx,
+		"WORKBENCH_GOVERNANCE_TEST_EXPECTED_PREPARE_BLOB="+prepareBlob,
+		"WORKBENCH_GOVERNANCE_TEST_EXPECTED_PREPARE_TEST_BLOB="+prepareTestBlob,
+	)
+	if err != nil {
+		t.Fatalf("published-duplicate cleanup failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "published_duplicate_restored=1") {
+		t.Fatalf("cleanup did not report duplicate restoration: %s", out)
+	}
+	assertStaleWorktreeCleanupResult(t, fx)
+}
+
+func TestGovernanceStaleWorktreeCleanupRefusesDirtyDetached(t *testing.T) {
+	fx := newStaleWorktreeFixture(t, true)
+	out, err := runStaleWorktreeCleanup(t, fx)
+	if err == nil {
+		t.Fatalf("dirty detached worktree unexpectedly cleaned: %s", out)
+	}
+	if !strings.Contains(string(out), "error=detached-worktree-dirty") {
+		t.Fatalf("unexpected refusal: %s", out)
+	}
+	refs := staleGitOutput(t, fx.target, "worktree", "list", "--porcelain")
+	if strings.Count(refs, "worktree ") != 8 {
+		t.Fatalf("refused cleanup changed worktree topology: %s", refs)
+	}
+	if got := staleGitOutput(t, fx.target, "rev-parse", "HEAD"); got != fx.oldHead {
+		t.Fatalf("refused cleanup moved main: %s", got)
+	}
+}
+
+func assertStaleWorktreeCleanupResult(t *testing.T, fx staleWorktreeFixture) {
+	t.Helper()
 	if got := staleGitOutput(t, fx.target, "rev-parse", "HEAD"); got != fx.desiredHead {
 		t.Fatalf("main head=%s want=%s", got, fx.desiredHead)
 	}
@@ -49,25 +93,7 @@ func TestGovernanceStaleWorktreeCleanupRemovesOnlyExpectedCleanTopology(t *testi
 	}
 }
 
-func TestGovernanceStaleWorktreeCleanupRefusesDirtySecondary(t *testing.T) {
-	fx := newStaleWorktreeFixture(t, true)
-	out, err := runStaleWorktreeCleanup(t, fx)
-	if err == nil {
-		t.Fatalf("dirty secondary unexpectedly cleaned: %s", out)
-	}
-	if !strings.Contains(string(out), "error=secondary-worktree-dirty") {
-		t.Fatalf("unexpected refusal: %s", out)
-	}
-	refs := staleGitOutput(t, fx.target, "worktree", "list", "--porcelain")
-	if strings.Count(refs, "worktree ") != 8 {
-		t.Fatalf("refused cleanup changed worktree topology: %s", refs)
-	}
-	if got := staleGitOutput(t, fx.target, "rev-parse", "HEAD"); got != fx.oldHead {
-		t.Fatalf("refused cleanup moved main: %s", got)
-	}
-}
-
-func newStaleWorktreeFixture(t *testing.T, dirtySecondary bool) staleWorktreeFixture {
+func newStaleWorktreeFixture(t *testing.T, dirtyDetached bool) staleWorktreeFixture {
 	t.Helper()
 	base := t.TempDir()
 	remote := filepath.Join(base, "remote.git")
@@ -82,6 +108,11 @@ func newStaleWorktreeFixture(t *testing.T, dirtySecondary bool) staleWorktreeFix
 	staleGitRun(t, seed, "config", "user.name", "Workbench Test")
 	staleGitRun(t, seed, "remote", "add", "origin", remote)
 	staleWrite(t, filepath.Join(seed, "base.txt"), "base\n")
+	if err := os.MkdirAll(filepath.Join(seed, "internal", "core"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	staleWrite(t, filepath.Join(seed, "internal/core/changeset_prepare.go"), "base prepare\n")
+	staleWrite(t, filepath.Join(seed, "internal/core/changeset_prepare_test.go"), "base test\n")
 	staleGitRun(t, seed, "add", ".")
 	staleGitRun(t, seed, "commit", "-m", "base")
 	oldHead := staleGitOutput(t, seed, "rev-parse", "HEAD")
@@ -102,7 +133,7 @@ func newStaleWorktreeFixture(t *testing.T, dirtySecondary bool) staleWorktreeFix
 	namedPath := filepath.Join(base, "named")
 	staleGitRun(t, target, "worktree", "add", "-b", namedBranch, namedPath, oldHead)
 	secondary = append(secondary, namedPath)
-	if dirtySecondary {
+	if dirtyDetached {
 		staleWrite(t, filepath.Join(secondary[0], "dirty.txt"), "dirty\n")
 	}
 
@@ -116,6 +147,7 @@ func newStaleWorktreeFixture(t *testing.T, dirtySecondary bool) staleWorktreeFix
 		root:          base,
 		seed:          seed,
 		target:        target,
+		namedDir:      namedPath,
 		oldHead:       oldHead,
 		desiredHead:   desired,
 		namedBranch:   namedBranch,
@@ -124,7 +156,7 @@ func newStaleWorktreeFixture(t *testing.T, dirtySecondary bool) staleWorktreeFix
 	}
 }
 
-func runStaleWorktreeCleanup(t *testing.T, fx staleWorktreeFixture) ([]byte, error) {
+func runStaleWorktreeCleanup(t *testing.T, fx staleWorktreeFixture, extraEnv ...string) ([]byte, error) {
 	t.Helper()
 	script := filepath.Join("..", "..", "scripts", "ops", "governance-clean-stale-worktrees.sh")
 	cmd := exec.Command("bash", script, fx.target)
@@ -138,6 +170,7 @@ func runStaleWorktreeCleanup(t *testing.T, fx staleWorktreeFixture) ([]byte, err
 		"WORKBENCH_GOVERNANCE_TEST_AUDIT_BRANCH="+fx.auditBranch,
 		"WORKBENCH_OPERATION_COMMIT="+fx.desiredHead,
 	)
+	cmd.Env = append(cmd.Env, extraEnv...)
 	return cmd.CombinedOutput()
 }
 
