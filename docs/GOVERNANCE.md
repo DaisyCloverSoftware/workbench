@@ -20,6 +20,8 @@ Implementation does not silently redefine a requirement. An old formal document 
 
 A decision made in chat is not durably incorporated until the appropriate repository documentation is updated. New chats and agents MUST bootstrap from the repository and verified current state, not from large historical conversation dumps.
 
+Historical conversations are not a required dependency for ordinary decisions after a completed governance reset. A historical statement that resurfaces in context is evidence only; it cannot silently override current canonical state. If historical material is deliberately reintroduced and accepted, the resulting decision must be written into the current canonical record before it becomes binding.
+
 When a user correction changes a material product, UX, architecture, data, security, deployment or behavioural requirement, the correction MUST propagate to canonical documentation. Fixing code alone is insufficient.
 
 Workbench context capsules and project/global memory are useful continuity aids, but they are advisory. They MUST NOT override the canonical repository record.
@@ -61,6 +63,24 @@ Build success, process health, screenshots and UI responsiveness are necessary e
 
 Acceptance criteria MUST test the user-visible meaning of material behaviour where that meaning can differ from rendering or process health.
 
+## Corrections-first, visually auditable sprint workflow
+
+After a governance reset, product development MUST begin with a **corrections round** for known existing defects before new feature work starts.
+
+After that, work is divided into bounded, visually/behaviourally auditable sprints. Each sprint follows this mandatory cycle:
+
+1. **Scope and acceptance** — define the bounded user-visible outcome and observable acceptance criteria from canonical requirements before implementation.
+2. **Implement** — complete the sprint without silently removing, shrinking or reinterpreting previously approved behaviour.
+3. **Automated/technical verification** — pass the relevant tests, build, security, runner and semantic gates on the exact candidate head.
+4. **Inspectable delivery** — deploy/install/publish the result to the appropriate inspectable surface. For Workbench this may be a Windows live build, cluster live surface or another explicitly named target; do not invent a conventional DEV surface where none exists.
+5. **User observation** — give the user something concrete to inspect. Engineering status alone is not the sprint checkpoint.
+6. **Corrections pass** — record issues observed from that inspection and execute the resulting corrections against the same sprint scope.
+7. **Sign-off** — do not advance to the next product sprint until the inspectable result has been signed off by the user or a canonical decision explicitly changes the workflow.
+
+A sprint is not accepted because a PR merged or CI passed. The checkpoint is the inspectable product behaviour.
+
+If a correction reveals a material requirement change, apply the decision-change protocol before or with the code change so the correction cannot exist only in conversation.
+
 ## Workbench development stopping rule
 
 Non-human waits are part of execution, not completion. CI queues, builds, runner availability, dependency watches, release publication and deployments MUST NOT by themselves end an active development workflow.
@@ -79,7 +99,7 @@ This execution rule does not waive change control. If a requirement is ambiguous
 
 A declared governance reset freezes ordinary feature work until its documented completion gate passes. Audit/documentation/cleanup changes are permitted; feature fixes and redesigns are not.
 
-If audit coverage is incomplete, the reset MUST be marked INCOMPLETE rather than completed by assumption.
+If audit coverage is incomplete, the reset MUST be marked INCOMPLETE rather than completed by assumption, unless the documented completion gate explicitly allows a conscious human residual-risk acceptance and that acceptance is durably recorded.
 
 ## Repository hygiene
 
@@ -111,6 +131,7 @@ A fresh development handoff MUST be generated from canonical repository state an
 - verified versus merely implemented state;
 - known defects and unverified claims;
 - next priorities and acceptance criteria;
-- do-not-reintroduce rules.
+- do-not-reintroduce rules;
+- current corrections/sprint checkpoint and what is awaiting user inspection/sign-off.
 
 Historical chats are not required to continue normal development after a completed governance reset.

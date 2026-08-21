@@ -1,19 +1,37 @@
 # Workbench conversation pruning manifest — 2026-08-21
 
-Status: **PRUNING NOT YET SAFE GLOBALLY — FULL CONVERSATION ACCESS BLOCKED**
+Status: **RESET CLOSED — HISTORICAL CONVERSATIONS NON-AUTHORITATIVE; PHYSICAL PRUNING NOT AUTOMATED**
 
-Workbench conversations are historical working material, not project authority. The repository now contains the canonical governance/decision/current-state record and the accessible Workbench durable memory/context has been audited. However, the available interfaces still cannot enumerate and read every historical Workbench project conversation in full. Therefore unseen conversations cannot honestly be declared safe to delete.
+Workbench conversations are historical working material, not project authority. The canonical repository now contains the governance, decision, current-state and supersession record recovered from all accessible evidence.
 
-## What has been canonicalised
+The available interfaces cannot prove that every historical Workbench conversation has been enumerated and read in full. At **2026-08-21 12:33 BST**, the user explicitly accepted that residual access risk and authorised the governance reset to close and development to move forward.
 
-The reset has already extracted/canonicalised the material accessible from the current handoff, recent project summaries, recoverable prior context, repository/PR/release history and Workbench's accessible durable memory/context store, including:
+This is not a claim that unseen chats were audited. It is a governance decision that they are no longer required inputs to ordinary development.
+
+## Permanent rule after closure
+
+Future Workbench decisions MUST begin from current canonical repository state.
+
+Historical conversations:
+
+- are not required to be reread before making a decision;
+- do not silently override current repository requirements or decisions;
+- cannot re-authorise a superseded/rejected feature merely by resurfacing in context;
+- may be used as historical evidence only when deliberately consulted;
+- become binding again only if their relevant content is consciously accepted and written into the current canonical governance/decision/contract record.
+
+Therefore an inaccessible or deleted historical conversation cannot make the project go backwards by itself.
+
+## What was canonicalised before closure
+
+The reset extracted/canonicalised material accessible from the current handoff, recent project summaries, recoverable prior context, repository/PR/release history and Workbench's accessible durable memory/context store, including:
 
 - freeze-point 0.9.54 repository/release/live state;
-- current Operations false-running semantic defect;
+- Operations false-running semantic defect;
 - scheduler lanes/priority/progress rules;
 - separation of job execution, session presence and terminal history;
 - ChatGPT-first / Workbench-safe-hands / optional-autonomy responsibility split;
-- private continuation authentication and current verification limits;
+- private continuation authentication and verification limits;
 - outbound typed Windows boundary;
 - Blender/Unreal current and historical acceptance state;
 - release-publication no-op workaround/defect;
@@ -29,83 +47,32 @@ The reset has already extracted/canonicalised the material accessible from the c
 - superseded/rejected/do-not-reintroduce behaviours;
 - repository/worktree/branch cleanup evidence.
 
-These are now durable repository rules in `docs/GOVERNANCE.md`, `docs/DECISIONS.md`, `docs/CURRENT_STATE.md` and related contracts rather than conversation-only decisions.
+These rules reside in `docs/GOVERNANCE.md`, `docs/DECISIONS.md`, `docs/CURRENT_STATE.md` and related contracts rather than chat history.
 
-## Accessible recent project-conversation index
+## Accessible conversation evidence
 
-The project context exposed recent Workbench-related summaries/titles including:
+The project context exposed Workbench-related summaries/titles including 11, 13, 15, 17, 18, 19 and 20 August 2026 material covering autonomy/organisation, continuation, popup/active-task behaviour, Windows bridge/Blender, headless Blender/Unreal/Unity and release-tag verification. Their accessible material was reconciled where supported.
 
-- 20 Aug 2026 — Release Tag Verification;
-- 20 Aug 2026 — Windows bridge / Blender continuation;
-- 19 Aug 2026 — headless Blender / Unreal / Unity automation discussion;
-- 18 Aug 2026 — Operations/active-tasks screenshot discussion;
-- 17 Aug 2026 — Workbench popup/continuation discussion;
-- 15 Aug 2026 — Continue Workbench;
-- 13 Aug 2026 — continuation from prior context window;
-- 11 Aug 2026 — Workbench coding/organisation/autonomy discussion.
+Titles/summaries are not equivalent to full transcripts. That limitation remains explicitly recorded.
 
-Their accessible high-level Workbench rules have been reconciled into the repository where supported. But titles/summaries are not enough to prove no unique detail exists in the full conversation body.
+## Deletion/pruning state
 
-Classification: **RETAIN TEMPORARILY — FULL CONTENT NOT AUDITED**.
+The available Workbench/GitHub interfaces do not provide a supported way to physically delete ChatGPT project conversations, so no claim is made that the ChatGPT project UI has been emptied.
 
-## Current governance handoff
+What *has* changed is more important for project correctness: old conversations no longer form a dependency graph that must be reread to make ordinary decisions.
 
-The governance-reset handoff itself has been exhaustively converted into the repository record and may eventually be deleted with the other audited conversations after the reset closes.
+If the user later chooses to delete historical chats through the ChatGPT UI, the governance reset does not require an exhaustive transcript-by-transcript proof first because the residual risk has been explicitly accepted and canonical repository authority is now the controlling safety mechanism.
 
-Classification while reset remains INCOMPLETE: **RETAIN TEMPORARILY — RESET EVIDENCE**.
+## Historical pruning test retained for optional forensic cleanup
 
-## Workbench durable memory/context
+If an individual conversation is deliberately reviewed for archival/deletion purposes, the stronger forensic test remains useful:
 
-Unlike the initial reset stage, the accessible Workbench durable memory/context contents were later audited directly.
-
-The accessible store exposed a small set of project/global memories plus the current context capsule. Material binding rules recovered there were promoted into `docs/DECISIONS.md`; old bootstrap/relay routines remain advisory/historical only.
-
-Therefore Workbench's **accessible** memory/context store is no longer a pruning blind spot. Unseen historical conversation bodies remain the blocker.
-
-## File Library historical Workbench artifacts
-
-Older 0.6.x/0.7.x release/setup artifacts were inventoried/sampled and classified historical. They are not current requirements and are outside conversation-deletion scope.
-
-## SAFE TO DELETE
-
-**None declared globally by this reset yet.**
-
-This is not because the repository is unprepared. It is because the user's pruning requirement is stronger: before deleting a conversation, prove that all important current, rejected/superseded, architecture/operations and unresolved knowledge from that conversation has been extracted. Full bodies for every historical conversation are not available through the current audit interfaces.
-
-## RETAIN TEMPORARILY — UNRESOLVED INFORMATION RISK
-
-- every Workbench conversation whose full body has not been audited;
-- the current governance-reset conversation/handoff until the reset is formally closed;
-- any Workbench conversation not yet enumerable through the available interface.
-
-## RETAIN — UNIQUE HISTORICAL/LEGAL/AUDIT VALUE
-
-No conversation has been proven to require permanent legal/audit retention. Technical history should normally reside in canonical docs, Git/PR/release history and the explicit historical source archive rather than old chats.
-
-## Required test before marking one conversation SAFE TO DELETE
-
-For each conversation:
-
-1. read the full available content, not only a title/summary;
-2. extract material CURRENT decisions/requirements into canonical docs;
-3. record important SUPERSEDED/REJECTED behaviour and replacements;
+1. read the full available content;
+2. extract material current decisions/requirements into canonical docs;
+3. record important superseded/rejected behaviour and replacements;
 4. preserve unique architecture/security/data/deployment rationale that still matters;
 5. preserve operational knowledge not already in runbooks/contracts;
 6. preserve unresolved contradictions visibly;
-7. verify no required knowledge remains solely in that conversation;
-8. only then classify SAFE TO DELETE.
+7. verify no required knowledge remains solely in that conversation.
 
-## Actual pruning execution
-
-The available Workbench/GitHub interfaces do not provide a tool to delete ChatGPT project conversations. No conversation-deletion claim is made.
-
-When conversations are eventually marked SAFE TO DELETE, the user/project UI can perform the deletion if no supported automation exists. After deletion, future Workbench development must still be possible from the canonical repository alone.
-
-## Exact remaining completion blocker
-
-The overall governance reset can close only when either:
-
-- full historical Workbench conversation access becomes available and every conversation scheduled for deletion passes the test above; or
-- the user explicitly accepts the residual risk of inaccessible historical conversations and authorises the reset to close without proving each unseen conversation individually.
-
-Until one of those happens, pruning remains unsafe globally and the governance reset remains **INCOMPLETE**.
+This is now an optional archival-quality process, not a prerequisite for ordinary Workbench development.
