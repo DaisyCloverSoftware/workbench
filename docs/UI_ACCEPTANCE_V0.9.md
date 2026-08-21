@@ -39,7 +39,13 @@ Required regression cases include:
 - real remote pending/running work remains visible with a large historical relay;
 - measured/stage progress uses real source data and indeterminate work has no fabricated percentage.
 
-Workbench 0.9.54's observed `Running 100` projection fails these semantic acceptance requirements even though the release's UI responsiveness workflow passed. That discrepancy is deliberate regression evidence: future acceptance MUST test meaning as well as rendering/responsiveness.
+### Historical regression and current status
+
+Workbench 0.9.54's observed `Running 100` projection failed these requirements even though UI responsiveness passed. That remains permanent regression evidence.
+
+Workbench 0.9.55 source corrects the terminal-history/session-presence projection and includes automated semantic regressions. At the 2026-08-21 cutover, the source correction is implemented/tested/merged/released and the cluster runtime is updated, but the actual installed Windows 0.9.55 Dashboard has not yet received user-visible semantic inspection/sign-off.
+
+The initial Correction Sprint in the new Project must close that installed-target acceptance gap before new feature work.
 
 ## Responsiveness acceptance
 
@@ -58,5 +64,6 @@ For a release that changes the production Windows UI/Operations projection:
 - Windows artifact contains only the intended production app/updater payload.
 - Automated real Windows screenshot/window capture is attempted where supported; if hosted desktop capture is unsupported, report that explicitly rather than substituting concept art.
 - State-projection semantic tests relevant to the change are green.
+- The actual expected tag/release and downloadable artifact are verified separately from the merge.
 - Where the change depends on live cluster/Windows data, target-environment verification is recorded separately from CI.
 - Do not call the change complete merely because build, screenshot or responsiveness gates passed.
