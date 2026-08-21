@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.54 — 2026-08-21
+
+- Fix the Operations board so runner-authoritative active ChatGPT sessions populate execution lanes even when their latest individual relay operation has already completed.
+- Keep completed autonomous delegate_task work inactive so the dashboard does not resurrect genuinely finished workers.
+- Add regressions covering active safe-hands sessions and completed autonomous tasks.
+
 ## 0.9.53 — 2026-08-21
 
 - Fix the Operations dashboard live inventory by reading a bounded current relay view instead of archiving the private relay's complete historical transport on every refresh.
