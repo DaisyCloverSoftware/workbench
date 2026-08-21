@@ -64,8 +64,8 @@ if [ "${#desired}" -ne 40 ]; then
   exit 72
 fi
 
-archive_branch='archive/pre-governance-reset-20260821'
-archive_ref="refs/remotes/origin/$archive_branch"
+archive_tag='archive/pre-governance-reset-20260821'
+archive_ref="refs/tags/$archive_tag"
 
 # Refresh all public branch refs, then prove canonical main is exactly the
 # reviewed operation commit before creating or deleting any public ref.
@@ -87,30 +87,36 @@ main_tree="$(git -C "$root" rev-parse "$desired^{tree}")"
 mapfile -t source_branches < <(
   git -C "$root" for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/ \
     | LC_ALL=C sort \
-    | grep -v -E '^(HEAD|main|archive/pre-governance-reset-20260821)$' || true
+    | grep -v -E '^(HEAD|main)$' || true
 )
 
-# If a previous partial execution already created the archive ref, reuse it only
-# if it still has the canonical main tree and already preserves every current
-# source branch tip. This makes retry safe after a later branch-delete failure.
+# If a previous partial execution already created the archive tag, reuse it only
+# if it still has the canonical checkpoint tree and already preserves every
+# current source branch tip. This makes retry safe after later delete failures.
 archive_head=''
-if git -C "$root" rev-parse --verify "$archive_ref" >/dev/null 2>&1; then
+remote_archive="$(git -C "$root" ls-remote origin "$archive_ref" | awk 'NR==1 {print $1}')"
+if [ -n "$remote_archive" ]; then
+  git -C "$root" fetch --quiet origin "+$archive_ref:$archive_ref"
   archive_head="$(git -C "$root" rev-parse "$archive_ref")"
+  if [ "$archive_head" != "$remote_archive" ]; then
+    printf 'error=existing-archive-fetch-mismatch\n' >&2
+    exit 75
+  fi
   if [ "$(git -C "$root" rev-parse "$archive_head^{tree}")" != "$main_tree" ]; then
     printf 'error=existing-archive-tree-mismatch\n' >&2
-    exit 75
+    exit 76
   fi
   for branch in "${source_branches[@]}"; do
     tip="$(git -C "$root" rev-parse "refs/remotes/origin/$branch")"
     if ! git -C "$root" merge-base --is-ancestor "$tip" "$archive_head"; then
       printf 'error=existing-archive-missing-source-tip\n' >&2
-      exit 76
+      exit 77
     fi
   done
 else
   # Build a short chain of synthetic archive anchors. Every anchor has exactly
   # the canonical main tree; additional parents exist only to keep old public
-  # branch commit graphs reachable under one explicit non-authoritative ref.
+  # branch commit graphs reachable from one explicitly archival tag.
   archive_head="$desired"
   batch_size=32
   total="${#source_branches[@]}"
@@ -135,13 +141,13 @@ else
 
   if [ "$(git -C "$root" rev-parse "$archive_head^{tree}")" != "$main_tree" ]; then
     printf 'error=archive-tree-mismatch\n' >&2
-    exit 77
+    exit 78
   fi
-  git -C "$root" push --quiet origin "$archive_head:refs/heads/$archive_branch"
-  git -C "$root" fetch --quiet origin "+refs/heads/$archive_branch:$archive_ref"
+  git -C "$root" push --quiet origin "$archive_head:$archive_ref"
+  git -C "$root" fetch --quiet origin "+$archive_ref:$archive_ref"
   if [ "$(git -C "$root" rev-parse "$archive_ref")" != "$archive_head" ]; then
     printf 'error=archive-push-verification-failed\n' >&2
-    exit 78
+    exit 79
   fi
 fi
 
@@ -149,19 +155,19 @@ fi
 # source ref. The archive tree itself must remain exactly canonical main.
 if [ "$(git -C "$root" rev-parse "$archive_ref^{tree}")" != "$main_tree" ]; then
   printf 'error=archive-tree-verification-failed\n' >&2
-  exit 79
+  exit 80
 fi
 for branch in "${source_branches[@]}"; do
   tip="$(git -C "$root" rev-parse "refs/remotes/origin/$branch")"
   if ! git -C "$root" merge-base --is-ancestor "$tip" "$archive_ref"; then
     printf 'error=archive-missing-source-tip\n' >&2
-    exit 80
+    exit 81
   fi
 done
 
 # Source refs are now redundant pointers to history reachable through the
-# archive. Remove them in bounded batches. If a server-side protection rejects
-# a batch, the already-pushed archive keeps all histories safe for a retry.
+# archive tag. Remove them in bounded batches. If server-side protection rejects
+# a batch, the already-pushed tag keeps all histories safe for a retry.
 batch_size=32
 for ((start=0; start<${#source_branches[@]}; start+=batch_size)); do
   end=$((start + batch_size))
@@ -176,24 +182,29 @@ done
 
 git -C "$root" fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
 mapfile -t remaining < <(git -C "$root" for-each-ref --format='%(refname:strip=3)' refs/remotes/origin/ | LC_ALL=C sort | grep -v '^HEAD$' || true)
-if [ "${#remaining[@]}" -ne 2 ] || [ "${remaining[0]}" != "$archive_branch" ] || [ "${remaining[1]}" != 'main' ]; then
+if [ "${#remaining[@]}" -ne 1 ] || [ "${remaining[0]}" != 'main' ]; then
   printf 'error=unexpected-remote-refs-after-archive-cleanup\n' >&2
-  exit 81
+  exit 82
+fi
+remote_archive="$(git -C "$root" ls-remote origin "$archive_ref" | awk 'NR==1 {print $1}')"
+if [ -z "$remote_archive" ] || [ "$remote_archive" != "$(git -C "$root" rev-parse "$archive_ref")" ]; then
+  printf 'error=archive-tag-missing-after-cleanup\n' >&2
+  exit 83
 fi
 if [ "$(git -C "$root" rev-parse "$archive_ref^{tree}")" != "$(git -C "$root" rev-parse "$main_ref^{tree}")" ]; then
   printf 'error=archive-main-tree-diverged\n' >&2
-  exit 82
+  exit 84
 fi
 if [ -n "$(git -C "$root" status --porcelain=v1 --untracked-files=all)" ]; then
   printf 'error=checkout-dirty-after-archive-cleanup\n' >&2
-  exit 83
+  exit 85
 fi
 
 printf 'cleanup=ok\n'
 printf 'archived_source_refs=%d\n' "${#source_branches[@]}"
-printf 'archive_branch=%s\n' "$archive_branch"
+printf 'archive_tag=%s\n' "$archive_tag"
 printf 'archive_head=%s\n' "$(git -C "$root" rev-parse "$archive_ref")"
 printf 'archive_tree=%s\n' "$(git -C "$root" rev-parse "$archive_ref^{tree}")"
 printf 'main_head=%s\n' "$(git -C "$root" rev-parse "$main_ref")"
 printf 'main_tree=%s\n' "$(git -C "$root" rev-parse "$main_ref^{tree}")"
-printf 'remote_branch_count=2\n'
+printf 'remote_branch_count=1\n'
