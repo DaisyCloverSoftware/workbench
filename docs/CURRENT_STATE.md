@@ -1,130 +1,146 @@
 # Workbench current state
 
-Last governance verification: **2026-08-21 (BST)**.
+Last cutover verification: **2026-08-21 (BST)**.
 
 This document records what currently exists and how strongly it has been verified. Product intent belongs in canonical contracts and `docs/DECISIONS.md`.
 
-## Governance reset state
+## Governance and cutover state
 
-The 2026-08-21 governance reset is **COMPLETE**.
+The 2026-08-21 governance reset is **COMPLETE**. The repository is the durable project authority; historical ChatGPT conversations, memory capsules, PR descriptions and archived source are evidence only.
 
-The final pre-closure reset checkpoint was `25e8c106acefc54adea5df39ea53b5a6f4d1336b` (PR #230). At 2026-08-21 12:33 BST the user explicitly accepted the residual risk that the available interfaces cannot enumerate/read every historical Workbench conversation in full and authorised development to move forward.
+The legacy ChatGPT Project is now in **pre-cutover retirement audit**. Ordinary feature development is paused until the migration manifest and New Project handoff are complete. This pause does not reopen historical conversations as authority.
 
-That acceptance does not pretend unseen conversations were audited. Instead, current governance makes canonical repository state authoritative and makes historical conversations non-authoritative evidence. Ordinary development does not need to reread old chats; resurfaced historical material cannot silently override current decisions/contracts.
+Reset evidence lives in:
 
-See `docs/GOVERNANCE_RESET_2026-08-21.md` and `docs/CONVERSATION_PRUNING_MANIFEST.md`.
+- `docs/GOVERNANCE_RESET_2026-08-21.md`
+- `docs/REPOSITORY_CLEANUP_MANIFEST.md`
+- `docs/CONVERSATION_PRUNING_MANIFEST.md`
+- `docs/LOCAL_CHECKOUT_AUDIT_2026-08-21.md`
 
-## Freeze/release baseline
+## Current source and release baseline
 
-- repository: `DaisyCloverSoftware/workbench`;
-- freeze `main`: `235305bccbef9a35d38445946c4bdab63364f859`;
-- preceding substantive 0.9.54 release merge: `0afabdb075818beb0e97d1941ef02e16c14fe795` (PR #222);
-- validated PR #222 release head: `b97566b5a773fcb5d0a88066df4633d0c03ba2e3`;
-- stable version/tag baseline: `v0.9.54`;
-- PR #222 required `build`, `runner` and `ui-responsiveness` workflows passed.
+- repository: `DaisyCloverSoftware/workbench`
+- continuation branch: `main`
+- 0.9.55 release merge: `5d08829a1924d6445d3578de9821bd3cae4dd823` (PR #233)
+- P0 Operations correction merge: `cf97e8c1dab987782d91743df491e54f99a85103` (PR #232)
+- validated correction head: `3d07e0336c7e79eba552e17c443638e7adb188b8`
+- stable product version in source: `0.9.55`
+- stable tag/release: `v0.9.55`
 
-Governance/cleanup merge checkpoints:
+PR #232 corrected the 0.9.54 false-running projection and added semantic regressions, including the observed shape of 100 terminal history events plus one genuine running event. PR #233 coordinated the 0.9.55 release surfaces.
 
-- #223 canonical governance baseline → `1c5099a7bc11755377f9c575041500dc25f06caa`;
-- #224 relay-experiment preservation/cleanup → `68e7459ce3b2b68eb0875851ecd11dd75ed64f95`;
-- #225 worktree/branch audit + stale checkout realignment → `72d19d14d0af628256b1042a86082dde9e331bcf`;
-- #226 stale-worktree cleanup → `c0c2cae23676b5e6b3d853aae66cce202d508f7b`;
-- #227 fully merged remote-ref cleanup → `83c9218b15aa7c69e29b56455f87bb4dc6fc223c`;
-- #228 patch-equivalence / PR-head branch audit → `476499cc3a405f093fe7a93f899421bddcafd9ce`;
-- #229 historical branch archive consolidation → `ce4ecd5f0e47d764d6ad4221619390db1ea70af4`;
-- #230 final canonical reset record → `25e8c106acefc54adea5df39ea53b5a6f4d1336b`.
+## Repository hygiene
 
-Every reset PR passed exact-final-head `build`, `runner` and `ui-responsiveness` gates before merge. These prove repository/build consistency, not semantic correctness of inherited defects.
+The governance reset performed preservation-first cleanup of old branches/worktrees and closed stale PR #110 unmerged. At the final reset cleanup checkpoint, active public branches were reduced to `main` only and the registered checkout was clean/aligned.
 
-PR #110 (`Add searchable decisions and a project knowledge graph`) was closed unmerged because its implementation basis was Workbench 0.9.10. The capability remains an undecided future idea.
+The 0.9.55 correction/release flow subsequently created three understood remote branches in addition to `main`:
 
-## Repository hygiene baseline
+- `fix/operations-terminal-session-separation`
+- `governance/close-reset-20260821`
+- `release-request/v0.9.55`
 
-At the final reset checkpoint:
+They are release/audit residue, not competing continuation points. Do not delete merely for tidiness; remove only when separately proven safe.
 
-- active public branches: `main` only;
-- open pull requests/issues: zero;
-- registered operational checkout: clean and aligned to canonical `main`;
-- local Workbench worktrees: one;
-- one old local-only SEC-008 commit preserved behind a local audit ref, non-authoritative;
-- remaining old public branch histories preserved behind `archive/pre-governance-reset-20260821`, historical only.
+A fresh cutover read of the registered `runner://workbench` checkout returned an empty `git status --short`, so no current uncommitted Workbench source is known there. Canonical GitHub source remains authoritative even if an operational checkout later becomes stale.
 
-The reset removed stale active-looking development surfaces only after preservation/reachability proof. Operational/local state does not outrank canonical GitHub source.
+There are no open Workbench PRs or open Workbench issues at the cutover audit checkpoint. Closed audit-probe issues created accidentally during connector verification are explicitly non-project noise and must not be treated as backlog.
 
-## Stable/live surfaces
+## Deployment terminology
 
 Workbench has no canonical website-style DEV deployment.
 
-### Stable release
+Use:
 
-- reset baseline stable version: `v0.9.54`;
-- release surfaces include `Workbench.exe`, `Workbench-Updater.exe` and Linux runner/server/relay assets;
-- release publication remains imperfect: version-bump merges have sometimes needed an identical-tree no-op `main` push to retrigger publication. That is a known defect/workaround, not the intended design.
+- **development source** — branches and `main`
+- **PR/preview build** — CI artifact for a commit/PR; not DEV
+- **release candidate/request** — coordinated version-bump branch/commit
+- **stable release** — official version tag/release artifacts
+- **cluster live** — installed runner/server/relay/MCP runtime
+- **Windows live** — installed desktop application
+
+## Current runtime verification
 
 ### Cluster live
 
-Privacy-safe reset checks verified Workbench services/MCP healthy and registered cluster nodes Ready at check time.
+The 0.9.55 maintenance update reached terminal `succeeded`, and the private Workbench capabilities manifest now advertises `workbench_version: 0.9.55`. Cluster deployment of the 0.9.55 Workbench control/runtime surface is therefore **deployed and runtime-version verified**.
 
 ### Windows live
 
-Freeze evidence showed Workbench desktop 0.9.54. A fresh outbound bridge check verified a Windows host online with Blender 5.1.2 and Unreal Engine 5.8.1 detected. Detection does not prove application-specific acceptance.
+The last directly observed installed Windows desktop before the 0.9.55 correction was Workbench 0.9.54. The Windows host remains reachable through the outbound typed bridge, but this legacy Project has **not established a fresh installed-desktop 0.9.55 semantic inspection**.
 
-## Operations/scheduler implementation
+Therefore:
 
-### Scheduler-native durable tasks — implemented/tested/merged/released
+- 0.9.55 Windows source/build/release: **implemented/tested/merged/released**
+- installed Windows 0.9.55: **not yet verified by this cutover audit**
+- corrected Operations semantics on the actual installed Windows UI: **awaiting user-visible inspection/sign-off**
 
-Current source includes:
+This is the first item for the new Project's initial Correction Sprint; it is an acceptance/deployment closure item, not permission to redesign the dashboard.
 
-- durable queued state;
-- scheduler-owned queued → routing dispatch;
-- server/CI/Windows/AI execution capacity plus waiting/needs-you lanes;
-- persisted Critical → High → Normal → Low priority then FIFO;
-- historical zero-value priority interpreted as Normal;
-- truthful measured, stage-based and indeterminate progress;
-- `WorkItem` projection with lane/priority/progress/dependency/executor metadata.
+## Operations/scheduler state
 
-### Operations semantic acceptance — FAILED / P0 corrections-round target
+### Scheduler-native durable tasks
 
-Workbench 0.9.54 can convert a remote event whose individual state is `completed` or `failed` into `TaskRunning` when the surrounding project/session `Active` lease is true. This produced misleading live counts such as `Running 100`.
+Implemented/tested/merged/released:
 
-Canonical requirement: individual job execution, project/session presence and recent terminal operation history are separate concepts. Status of 0.9.54 Operations semantics: **released/live but not accepted/verified correct**.
+- durable queued state
+- scheduler-owned queued → routing dispatch
+- server/CI/Windows/AI execution capacity plus waiting/needs-you lanes
+- persisted Critical → High → Normal → Low priority then FIFO
+- historical zero-value priority = Normal
+- measured, stage-based and indeterminate progress only
+- `WorkItem` projection with lane/priority/progress/dependency/executor metadata
 
-The reset did not fix this. Reset closure now authorises it as the first corrections-round product change. Acceptance must explicitly prove `completed + session active != running job` and `failed + session active != running job`.
+### Operations false-running correction
+
+The 0.9.54 defect is now **historical implementation evidence**, not current source behaviour.
+
+0.9.55 source preserves terminal `completed`/`failed` relay event state even when the surrounding project/session presence lease remains active; session presence is represented separately and terminal history no longer enters live Running lanes merely because the session is active.
+
+Automated semantic coverage exists. Installed-Windows semantic verification/sign-off remains outstanding as described above.
 
 ## Private relay and continuation
 
-- Dashboard-facing relay projection is bounded; historical volume does not define current live Operations state.
-- underlying private relay history remains intentionally retained pending a retention/compaction policy;
-- authenticated durable continuation is implemented/tested and automatic dependency wake has previous live evidence;
-- full clean post-validator proof of `waiting_dependency → automatic resume → useful work → completed` remains **UNVERIFIED**.
+- bounded Dashboard-facing relay projection prevents old history from defining current live Operations state
+- underlying private relay history remains intentionally retained pending a retention/compaction policy
+- authenticated durable continuation is implemented/tested
+- automatic dependency wake has previous live evidence
+- full clean post-validator proof of `waiting_dependency → automatic resume → useful work → completed` remains **UNVERIFIED**
 
 ## Windows bridge, Blender and Unreal
 
-- security/control model: outbound typed/allowlisted bridge only; no generic Windows shell;
-- Blender source explicitly configures Cycles GPU/OptiX for headless rendering, but fresh current end-to-end GPU render acceptance remains **UNVERIFIED**;
-- old Unreal 5.8.1 `TNotNull`/stack-overflow startup crash is historical and removed;
-- current Unreal bounded smoke uses five minutes; latest inherited evidence reached timeout classified `zen`; fresh root cause/acceptance remains **UNRESOLVED / UNVERIFIED**.
+- outbound typed/allowlisted bridge only; no generic Windows shell
+- Blender source explicitly configures Cycles GPU/OptiX for factory-startup headless rendering; fresh end-to-end GPU render acceptance remains **UNVERIFIED**
+- old Unreal 5.8.1 `TNotNull`/stack-overflow startup crash is historical and removed
+- current Unreal bounded smoke uses five minutes; latest inherited evidence reached timeout classified `zen`; root cause/current acceptance remains **UNRESOLVED / UNVERIFIED**
 
-## Durable memory/context state
+## Durable state / data model
 
-Accessible Workbench durable project/global memory and current context were audited during the reset. Material rules recovered there were promoted into canonical documentation. Old bootstrap/private-relay memories remain advisory/history only.
+Workbench Core currently persists private local JSON state (`State.Version` 3), not a relational database. State evolution is decode/normalisation/runtime-repair based and protected by compatibility tests. Secret values remain behind the encrypted local vault / protected configuration boundaries described in `SECURITY.md`.
 
-Historical ChatGPT conversations do not need to be reread for ordinary decisions after reset closure. If old material is deliberately consulted, it is evidence only until accepted into the canonical record.
+## Remaining corrections and unfinished work
 
-## Remaining product discrepancies / unresolved work
+### Known corrections required before new feature development
 
-- **P0 Operations false-running correction** — first active corrections-round item;
-- authoritative cross-plane job model;
-- exact private-relay retention/compaction policy;
-- full unattended continuation productive-completion proof;
-- fresh Blender end-to-end GPU render acceptance;
-- fresh Unreal five-minute startup/root-cause result;
-- release-publication reliability without no-op retriggers;
-- cross-process relay-state locking requirement under actual supported topology;
-- future knowledge-graph/searchable-decisions product shape.
+1. **P0 acceptance closure — Windows Operations 0.9.55.** Install/update or otherwise establish the actual Windows live 0.9.55 surface, inspect the real Operations dashboard, and prove terminal history/session presence does not inflate live job counts. Record observation-driven corrections if any; obtain user sign-off before advancing.
+2. **P1 release publication reliability.** Remove dependence on identical-tree/no-op `main` retriggers where the release workflow fails to publish promptly.
+3. **P1 unattended continuation acceptance.** Produce a clean end-to-end live proof of wait → automatic wake → useful resumed work → completed.
+4. **P1 private relay retention governance.** Define safe retention/compaction rules separately from the bounded live projection.
+5. **P2 Blender acceptance.** Fresh end-to-end typed headless GPU render verification.
+6. **P2 Unreal acceptance/investigation.** Fresh five-minute startup result and investigation of inherited `zen` classification.
 
-Historical-conversation full enumeration remains technically unavailable, but is **no longer a governance/development blocker** because the residual risk was explicitly accepted and repository authority is canonical.
+### Approved architecture/roadmap work not yet a correction
 
-## Active development workflow
+- authoritative cross-plane job model spanning scheduler-native work, CI, direct server controls, typed Windows jobs and AI workers
 
-Post-reset development begins with corrections, not new feature work. Each correction/sprint must produce an inspectable result, then an observation-driven corrections round and user sign-off before the next sprint.
+### Ideas / decisions still requiring fresh approval/design
+
+- searchable decisions / knowledge graph capability (old PR #110 implementation is rejected/stale)
+- exact four-hour session-presence lease value
+- richer selected-job drawer/reorder/control details beyond current contracts
+- whether cross-process relay-state locking is required under the supported topology
+
+## Development workflow after cutover
+
+The new Project must begin with the **initial Correction Sprint**, not a new feature sprint. Each sprint must define observable acceptance, pass technical gates, produce an inspectable target, take observation-driven corrections, and receive user sign-off before the next sprint.
+
+Non-human waits are not stopping points. Historical chats are not required bootstrap material.
