@@ -79,15 +79,15 @@ func buildDashboardOperationsSnapshot(eng *core.Engine, remote []core.RunnerChat
 	}
 
 	// The desktop engine owns only Windows-local durable tasks. Work initiated by
-	// ChatGPT normally lives on the cluster relay/runner, so merge the runner's
-	// privacy-safe authoritative activity cache into the same operations board.
-	// The runner's Active decision is authoritative: ordinary ChatGPT safe-hands
-	// actions are individually short-lived and therefore often have a completed
-	// result while the surrounding ChatGPT work session is still active. Treat
-	// those active leases as running board work rather than dropping them solely
-	// because the latest individual action has completed.
+	// ChatGPT normally lives on the cluster relay/runner, so merge authoritative
+	// non-terminal remote execution state into the same Operations board.
+	//
+	// Runner Active/ActiveKnown describe the surrounding project/session presence
+	// lease. They MUST NOT turn completed/failed operation history into a running
+	// job. Conversely, an event whose own state is genuinely running/waiting/needs
+	// attention remains live work even if the session-presence lease is false.
 	for _, event := range remote {
-		if !event.ActiveKnown || !event.Active || seen[event.ID] {
+		if seen[event.ID] {
 			continue
 		}
 		status, ok := remoteActivityTaskStatus(event)
@@ -112,7 +112,7 @@ func buildDashboardOperationsSnapshot(eng *core.Engine, remote []core.RunnerChat
 				Kind:  core.ProgressIndeterminate,
 				Phase: remoteActivityPhase(event.Action, status),
 			},
-			UpdatedAt:  event.UpdatedAt,
+			UpdatedAt:   event.UpdatedAt,
 			NeedsHuman: status == core.TaskNeedsAttention,
 		}
 		appendDashboardWorkItem(&out, item)
@@ -154,22 +154,23 @@ func appendDashboardWorkItem(out *DashboardOperationsSnapshot, item core.WorkIte
 
 func remoteActivityTaskStatus(event core.RunnerChatActivityInfo) (core.TaskStatus, bool) {
 	switch strings.ToLower(strings.TrimSpace(event.State)) {
+	case "queued":
+		return core.TaskQueued, true
+	case "routing":
+		return core.TaskRouting, true
 	case "running":
 		return core.TaskRunning, true
-	case "waiting":
+	case "waiting", "waiting_dependency":
 		return core.TaskWaitingDependency, true
+	case "waiting_retry":
+		return core.TaskWaitingRetry, true
 	case "needs_attention":
 		return core.TaskNeedsAttention, true
-	case "completed", "failed":
-		// ActiveKnown+Active is the runner's bounded session decision. A completed
-		// or failed safe-hands operation can therefore still represent a live
-		// ChatGPT work session. Completed autonomous delegate_task events are never
-		// marked active by the runner, so this does not resurrect finished workers.
-		if event.ActiveKnown && event.Active {
-			return core.TaskRunning, true
-		}
+	case "completed", "success", "succeeded", "failed", "error", "cancelled", "canceled":
+		return "", false
+	default:
+		return "", false
 	}
-	return "", false
 }
 
 func remoteActivityLane(action string, status core.TaskStatus) core.WorkLane {
@@ -239,6 +240,8 @@ func remoteActivityPhase(action string, status core.TaskStatus) string {
 	switch status {
 	case core.TaskWaitingDependency:
 		return "Waiting on dependency"
+	case core.TaskWaitingRetry:
+		return "Waiting to retry"
 	case core.TaskNeedsAttention:
 		return "Needs human decision"
 	}

@@ -43,7 +43,7 @@ func TestOperationsDashboardIncludesRemoteRelayWork(t *testing.T) {
 	}
 }
 
-func TestOperationsDashboardIncludesRunnerAuthoritativeActiveCompletedSession(t *testing.T) {
+func TestOperationsDashboardDoesNotPromoteActiveCompletedSessionToRunningJob(t *testing.T) {
 	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -58,11 +58,51 @@ func TestOperationsDashboardIncludesRunnerAuthoritativeActiveCompletedSession(t 
 		Active: true, ActiveKnown: true,
 	}}
 	got := buildDashboardOperationsSnapshot(eng, remote)
-	if got.Running != 1 || len(got.Items) != 1 {
-		t.Fatalf("active completed session disappeared from Operations: %#v", got)
+	if got.Running != 0 || got.Queued != 0 || got.Waiting != 0 || got.NeedsHuman != 0 || len(got.Items) != 0 {
+		t.Fatalf("completed operation was promoted by active session lease: %#v", got)
 	}
-	if got.Items[0].Lane != core.WorkLaneCIBuilds || got.Items[0].State != core.TaskRunning {
-		t.Fatalf("active completed session mapped incorrectly: %#v", got.Items[0])
+}
+
+func TestOperationsDashboardDoesNotPromoteActiveFailedSessionToRunningJob(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := []core.RunnerChatActivityInfo{{
+		ID: "failed_safe_hands_12345678", ProjectRef: "runner://workbench",
+		Action: "run_safe_command", State: "failed", UpdatedAt: time.Now().UTC(),
+		Active: true, ActiveKnown: true,
+	}}
+	got := buildDashboardOperationsSnapshot(eng, remote)
+	if got.Running != 0 || got.Queued != 0 || got.Waiting != 0 || got.NeedsHuman != 0 || len(got.Items) != 0 {
+		t.Fatalf("failed operation was promoted by active session lease: %#v", got)
+	}
+}
+
+func TestOperationsDashboardExecutionStateWinsOverInactiveSessionLease(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := []core.RunnerChatActivityInfo{{
+		ID: "real_running_12345678", ProjectRef: "runner://workbench",
+		Action: "run_safe_command", State: "running", UpdatedAt: time.Now().UTC(),
+		Active: false, ActiveKnown: true,
+	}}
+	got := buildDashboardOperationsSnapshot(eng, remote)
+	if got.Running != 1 || len(got.Items) != 1 {
+		t.Fatalf("real running work disappeared because session lease was inactive: %#v", got)
+	}
+	if got.Items[0].State != core.TaskRunning || got.Items[0].Lane != core.WorkLaneCIBuilds {
+		t.Fatalf("real running work mapped incorrectly: %#v", got.Items[0])
 	}
 }
 
@@ -83,6 +123,32 @@ func TestOperationsDashboardDoesNotResurrectInactiveCompletedSession(t *testing.
 	got := buildDashboardOperationsSnapshot(eng, remote)
 	if got.Running != 0 || len(got.Items) != 0 {
 		t.Fatalf("inactive completed session was resurrected: %#v", got)
+	}
+}
+
+func TestOperationsDashboardMapsQueuedAndRetryStateWithoutInventingRunning(t *testing.T) {
+	store, err := core.NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng, err := core.NewEngine(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	remote := []core.RunnerChatActivityInfo{
+		{ID: "queued_12345678", ProjectRef: "runner://workbench", Action: "delegate_task", State: "queued", UpdatedAt: now, Active: true, ActiveKnown: true},
+		{ID: "retry_12345678", ProjectRef: "runner://workbench", Action: "run_safe_command", State: "waiting_retry", UpdatedAt: now, Active: true, ActiveKnown: true},
+	}
+	got := buildDashboardOperationsSnapshot(eng, remote)
+	if got.Running != 0 || got.Queued != 1 || got.Waiting != 1 {
+		t.Fatalf("queued/retry summary=%#v", got)
+	}
+	if len(got.ByLane[core.WorkLaneAIWorkers]) != 1 || got.ByLane[core.WorkLaneAIWorkers][0].State != core.TaskQueued {
+		t.Fatalf("queued lane=%#v", got.ByLane[core.WorkLaneAIWorkers])
+	}
+	if len(got.ByLane[core.WorkLaneWaiting]) != 1 || got.ByLane[core.WorkLaneWaiting][0].State != core.TaskWaitingRetry {
+		t.Fatalf("retry lane=%#v", got.ByLane[core.WorkLaneWaiting])
 	}
 }
 
