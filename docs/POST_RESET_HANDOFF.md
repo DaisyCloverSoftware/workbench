@@ -1,30 +1,23 @@
-# Workbench development handoff — canonical reset baseline
+# Workbench development handoff — canonical post-reset baseline
 
-**Activation status: NOT YET AUTHORISED.**
+**Activation status: AUTHORISED — GOVERNANCE RESET CLOSED 2026-08-21.**
 
-This handoff is intentionally based on the canonical repository record, not historical conversations. Ordinary feature development remains frozen until `docs/GOVERNANCE_RESET_2026-08-21.md` is changed to COMPLETE with evidence or an explicit residual-risk decision.
+This handoff is based on the canonical repository record, not historical conversations. At 2026-08-21 12:33 BST the user explicitly accepted the residual risk that not every historical Workbench conversation can be enumerated/read in full and authorised development to move forward.
+
+Historical conversations are therefore **not required bootstrap material**. They are non-authoritative evidence only and cannot silently override current canonical repository state.
 
 ## Bootstrap rule
 
-Always begin by reading current canonical `main`; do not treat the SHA in an old handoff as the permanent source of truth. Verify the current `main` HEAD at the start of a fresh development session.
+Always begin by reading current canonical `main`; do not treat the SHA in an old handoff as permanent truth. Verify the current `main` HEAD at the start of a fresh development session.
 
-The last pre-final-record cleanup checkpoint is:
+The reset's final pre-closure canonical checkpoint was:
 
-- `main`: `ce4ecd5f0e47d764d6ad4221619390db1ea70af4` (PR #229);
-- active public branch surface at that cleanup checkpoint: `main` only;
-- open PRs at that cleanup checkpoint: zero;
-- archival history tag: `archive/pre-governance-reset-20260821` (historical preservation only, never a development baseline).
+- `main`: `25e8c106acefc54adea5df39ea53b5a6f4d1336b` (PR #230);
+- active public branch surface: `main` only;
+- open PRs/issues at that checkpoint: zero;
+- archival tag: `archive/pre-governance-reset-20260821` — historical preservation only, never a development baseline.
 
-The final governance-record PR is expected to advance `main` beyond that checkpoint; bootstrap from the then-current canonical head rather than this fixed checkpoint.
-
-## What Workbench is
-
-Workbench is a ChatGPT-first developer/operations control plane and durable execution bridge.
-
-- ChatGPT is the primary reasoning/coding brain.
-- Workbench provides durable project/task state, safe repository eyes/hands, scheduling/execution infrastructure, private transport, bounded machine controls and an outbound typed Windows bridge.
-- OpenClaw/other autonomous harnesses are optional operator/worker capacity, not the default coder.
-- The human is interrupted only for a genuine human-only decision/permission/authority boundary.
+The reset-closure PR advances `main` beyond that checkpoint. Always bootstrap from then-current canonical `main`.
 
 ## Authoritative documents
 
@@ -39,14 +32,23 @@ Read in this order:
 7. `docs/UI_ACCEPTANCE_V0.9.md`
 8. `ROADMAP.md`
 
-Supporting reset evidence:
+Reset evidence:
 
 - `docs/GOVERNANCE_RESET_2026-08-21.md`
 - `docs/REPOSITORY_CLEANUP_MANIFEST.md`
 - `docs/CONVERSATION_PRUNING_MANIFEST.md`
 - `docs/LOCAL_CHECKOUT_AUDIT_2026-08-21.md`
 
-Use implementation/PR/chat/history/archive only as evidence. The archival tag and local audit ref are explicitly non-authoritative.
+Implementation, PRs, chats, memory and archives are evidence only. If historical evidence appears to conflict with current canonical documents, the canonical record wins until a new conscious decision updates it.
+
+## What Workbench is
+
+Workbench is a ChatGPT-first developer/operations control plane and durable execution bridge.
+
+- ChatGPT is the primary reasoning/coding brain.
+- Workbench provides durable project/task state, safe repository eyes/hands, scheduling/execution infrastructure, private transport, bounded machine controls and an outbound typed Windows bridge.
+- OpenClaw/other autonomous harnesses are optional operator/worker capacity, not the default coder.
+- The human is interrupted only for a genuine human-only decision, permission or authority boundary.
 
 ## Stable/runtime baseline inherited from reset
 
@@ -62,7 +64,7 @@ Fresh end-to-end Blender render acceptance and fresh Unreal startup acceptance w
 
 ## Repository hygiene baseline
 
-The reset completed preservation-first repository cleanup:
+The reset completed preservation-first cleanup:
 
 - stale PR #110 closed unmerged;
 - registered operational source checkout realigned to canonical GitHub source;
@@ -70,8 +72,8 @@ The reset completed preservation-first repository cleanup:
 - one old local-only SEC-008 commit preserved behind a local audit ref;
 - stale Workbench worktrees reduced from eight to one clean main worktree;
 - fully merged remote refs deleted only after reachability proof;
-- remaining public branch commit graphs preserved behind an archival tag whose checkpoint tree exactly matched canonical main;
-- stale active public branch surface reduced to `main` only at cleanup checkpoint.
+- remaining public branch commit graphs preserved behind an archival tag whose checkpoint tree matched canonical main;
+- active public branch surface reduced to `main` only at the cleanup checkpoint.
 
 If a future local checkout differs from canonical `main`, do not treat local state as authority. Preserve/classify unexpected local-only material before realigning it.
 
@@ -92,11 +94,11 @@ Actual job execution, project/session presence and terminal operation history ar
 
 ### Remote/direct operations
 
-Direct server/CI/Windows controls and private relay activity are not yet one authoritative scheduler-native job plane. Unknown/non-authoritative fields must remain unknown rather than synthesized.
+Direct server/CI/Windows controls and private relay activity are not yet one authoritative scheduler-native job plane. Unknown/non-authoritative fields remain unknown rather than synthesized.
 
 ### Configured execution target fidelity
 
-If a project/task is configured for a runner/target and that target is unavailable, report blocked/unavailable truthfully. Do not silently run locally just to hide target unavailability. Worker location/capability/readiness must be accurate.
+If a configured runner/target is unavailable, report blocked/unavailable truthfully. Do not silently run locally merely to hide unavailability. Worker location/capability/readiness must be accurate.
 
 ### Continuation
 
@@ -110,35 +112,49 @@ Outbound typed/allowlisted operations only. Do not create generic Windows shell/
 
 Do not spend external/scarce paid model credit for tests, probes or experiments without explicit user authorisation for that spend.
 
-### Product completion language
+### Completion language
 
 Do not present a skeleton, prototype, partial UI/backend demo or engineering preview as a finished/production-ready coherent Workbench product.
 
 ### Release verification
 
-Merged source is not released. A release is not accepted complete until the actual expected tag/release and required downloadable artifact exist. Release, deployment/installation and semantic verification are separate evidence states.
+Merged source is not released. Release/tag/artifact, deployment/installation and semantic verification are separate evidence states.
 
-## Highest-priority known product defect after reset
+## Mandatory post-reset workflow
 
-**P0 — Operations semantic false-running projection.**
+Development resumes with a **corrections round before any new feature sprint**.
+
+For every correction/sprint:
+
+1. define observable acceptance from canonical requirements;
+2. implement and test without removing/reinterpreting approved behaviour;
+3. update decision/contract/acceptance documentation whenever a material decision changes;
+4. take the work through applicable CI/release/deployment or installation gates;
+5. provide the user with something genuinely inspectable on the correct surface;
+6. record observation-driven corrections and execute them;
+7. obtain user sign-off on the inspectable result before advancing to the next sprint.
+
+Non-human waits do not terminate active work. Continue useful in-scope work through CI/build/runner/release/deployment waits. Stop only at evidence-backed completion, an inspectable result, or a genuine human-only blocker.
+
+## First corrections round — P0
+
+**Operations semantic false-running projection.**
 
 0.9.54 maps some individual relay operations whose state is `completed`/`failed` to `TaskRunning` while the surrounding project/ChatGPT session lease is active. This produced misleading live counts such as `Running 100`.
 
-Canonical target:
+Canonical acceptance must separate:
 
 1. real executing/queued/waiting jobs;
 2. session/project presence;
-3. recent terminal operation history;
+3. recent terminal operation history.
 
-must remain distinct.
+At minimum, tests must prove `completed + session active != running job` and `failed + session active != running job`. UI responsiveness alone is not semantic acceptance.
 
-Do **not** start the code correction until the governance reset activation gate passes.
+This is the first authorised product correction after reset closure.
 
-Acceptance must prove, among other cases, `completed + session active != running job`. UI responsiveness alone is not semantic acceptance.
+## Other recorded post-reset priorities
 
-## Other post-reset priorities
-
-After the reset is formally complete, follow the current `ROADMAP.md`/decision register. Recorded priorities include:
+After the corrections round is inspected and signed off, follow current `ROADMAP.md`/decision register. Recorded priorities include:
 
 - authoritative cross-plane job model;
 - full unattended-continuation live acceptance proof;
@@ -154,6 +170,7 @@ After the reset is formally complete, follow the current `ROADMAP.md`/decision r
 Do not:
 
 - use historical conversations, archive tags or operational checkouts as requirements;
+- require old chats to be reread before ordinary decisions;
 - map session presence/recency to individual running jobs;
 - invent queue positions or progress percentages;
 - make real remote work disappear because relay history is large;
@@ -170,27 +187,3 @@ Do not:
 - restore the 90-second Unreal smoke or the removed `TNotNull` crash as the current failure;
 - assume Blender GUI preferences determine factory headless GPU rendering;
 - normalise no-op main commits as the desired release protocol.
-
-## Development workflow rule
-
-Non-human waits do not terminate active work. Continue useful in-scope work through CI/build/runner/release/deployment waits. Stop only at evidence-backed completion, an inspectable result, or a genuine human-only blocker.
-
-This does not override governance/change-control requirements.
-
-## Exact remaining blocker / development-resume condition
-
-Repository cleanup and accessible memory/context audit are complete. The remaining governance-reset blocker is historical conversation/pruning coverage.
-
-Ordinary development may resume only after either:
-
-1. the remaining historical Workbench conversations are fully enumerated/audited and pruning safety is proven; or
-2. the user explicitly accepts the residual risk of inaccessible historical conversations and authorises the reset to close without proving each unseen conversation individually.
-
-Then:
-
-- update `docs/GOVERNANCE_RESET_2026-08-21.md` to COMPLETE with the evidence/risk decision;
-- update this handoff to activated/current;
-- verify current canonical `main` and clean operational checkout;
-- start post-reset product work from canonical `main` only.
-
-Until then: **feature development remains frozen**.
