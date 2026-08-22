@@ -36,8 +36,9 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 	label := windowsHostBridgeLabel()
 
 	capabilities := map[string]HostCapability{
-		HostBridgeToolBlender: {Installed: false},
-		HostBridgeToolUnreal:  {Installed: false},
+		HostBridgeToolWorkbench: {Installed: false},
+		HostBridgeToolBlender:   {Installed: false},
+		HostBridgeToolUnreal:    {Installed: false},
 	}
 	var nextCapabilityProbe time.Time
 	for {
@@ -155,8 +156,12 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 
 func discoverWindowsHostCapabilities(ctx context.Context) map[string]HostCapability {
 	capabilities := map[string]HostCapability{
-		HostBridgeToolBlender: {Installed: false},
-		HostBridgeToolUnreal:  {Installed: false},
+		HostBridgeToolWorkbench: {Installed: false},
+		HostBridgeToolBlender:   {Installed: false},
+		HostBridgeToolUnreal:    {Installed: false},
+	}
+	if identity, err := runningWorkbenchExecutableIdentity(); err == nil {
+		capabilities[HostBridgeToolWorkbench] = HostCapability{Installed: true, Version: identity}
 	}
 	if executable := findBlenderExecutable(); executable != "" {
 		if version, err := runBlenderVersion(ctx, executable); err == nil {

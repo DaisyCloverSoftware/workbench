@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	HostBridgePlatformWindows = "windows"
-	HostBridgeToolBlender     = "blender"
-	HostBridgeToolUnreal      = "unreal"
+	HostBridgePlatformWindows  = "windows"
+	HostBridgeToolWorkbench    = "workbench"
+	HostBridgeToolBlender      = "blender"
+	HostBridgeToolUnreal       = "unreal"
 	HostBridgeOperationVersion = "version"
 )
 
@@ -203,7 +204,7 @@ func sanitizeHostHeartbeat(h HostBridgeHeartbeat) (HostBridgeHeartbeat, error) {
 		return HostBridgeHeartbeat{}, errors.New("host architecture is invalid")
 	}
 	clean := map[string]HostCapability{}
-	for _, name := range []string{HostBridgeToolBlender, HostBridgeToolUnreal} {
+	for _, name := range []string{HostBridgeToolWorkbench, HostBridgeToolBlender, HostBridgeToolUnreal} {
 		capability, ok := h.Capabilities[name]
 		if !ok {
 			continue
