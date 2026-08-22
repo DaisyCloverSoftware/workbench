@@ -148,6 +148,42 @@ Repeat as needed, then:
 
 Only **SIGNED OFF** permits normal progression to the next sprint.
 
+## Autonomous sprint continuity and owner-return boundary
+
+Once an authorised sprint enters **IN DEVELOPMENT**, Development owns autonomous progression through the applicable normal engineering stages:
+
+**IN DEVELOPMENT → ENGINEERING VERIFICATION → DEPLOYING TO REVIEW TARGET → READY FOR OWNER OBSERVATION → AWAITING OWNER OBSERVATION**
+
+Ordinary engineering latency is part of execution. It MUST NOT return control to the owner or require keepalive prompts such as `continue`, `carry on`, `check again`, or equivalent. Development MUST inspect and re-check asynchronous engineering operations itself and continue when they become terminal. This includes ordinary waiting/settling for:
+
+- CI and GitHub checks;
+- automated tests;
+- builds;
+- PR/preview artifacts;
+- release, image or package publication when in scope;
+- deployment or installation;
+- rollout, readiness and smoke checks;
+- runner operations and other asynchronous engineering dependencies.
+
+If an in-scope automated check fails, Development MUST investigate the failure, make an in-scope correction where already authorised, rerun the applicable verification, and continue the sprint without requiring a fresh owner prompt. A failure that exposes a genuine owner-only decision or authority boundary remains an exception.
+
+Correction rounds use the same continuity rule. Once the owner has required corrections and the sprint enters **CORRECTIONS IN DEVELOPMENT**, Development owns progression through the applicable verification and deployment/installation stages until the corrected result reaches **READY FOR OWNER RE-OBSERVATION**. No additional owner `continue` prompt is required between those stages.
+
+For Workbench, the normal point to return control to the owner is the actual observation gate: the exact candidate has passed applicable engineering verification, reached the agreed inspectable target, Development has verified that target is serving/running the intended candidate, and the Sprint Review is ready. Development may then enter **AWAITING OWNER OBSERVATION** and return control for genuine product observation.
+
+Development may return control earlier only for a genuine human-only boundary that prevents safe in-scope continuation, such as:
+
+- an unresolved product or architecture decision;
+- a conflict or ambiguity in canonical requirements that cannot safely be resolved;
+- a destructive, irreversible, security-sensitive or explicitly approval-gated action;
+- permissions or credentials unavailable through authorised tooling;
+- an external failure that genuinely prevents further in-scope progress;
+- another material human-only authority decision.
+
+Ordinary CI/build/publication/deployment latency is not such a boundary.
+
+Autonomous continuation is orchestration continuity only. It does not widen sprint scope, bypass an approval or security gate, transfer publication/deployment authority to a coding worker, authorise external/scarce model-credit use, waive semantic acceptance, waive owner observation/sign-off, or permit the next sprint to begin. Only **SIGNED OFF** permits normal progression to the next sprint.
+
 ## No batched owner reviews
 
 Do not implement Sprint 1, Sprint 2, Sprint 3 and Sprint 4 and then ask for one combined review. Each sprint must pass its own implementation → verification → observable-target → owner-observation → corrections → sign-off loop before the next sprint starts.
