@@ -170,7 +170,7 @@ jobs:
 
           function Select-ListLine([System.Diagnostics.Process]$process, [int]$id, [string]$needle) {
             $list = Get-Control $process $id
-            $lines = Get-ListLines $list
+            $lines = @(Get-ListLines $list)
             $index = -1
             for ($i = 0; $i -lt $lines.Count; $i++) {
               if ($lines[$i] -like "*$needle*") { $index = $i; break }
@@ -288,10 +288,13 @@ jobs:
               Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
             }
             Get-Process Sprint1Harness -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+            $evidence | Set-Content -Encoding UTF8 (Join-Path $pwd 'Sprint1-Operations-Acceptance-Evidence.txt')
+            if (Test-Path $statePath) {
+              Copy-Item $statePath (Join-Path $pwd 'Sprint1-Operations-Final-State.json') -Force
+            }
           }
 
-          $evidence | Set-Content -Encoding UTF8 (Join-Path $pwd 'Sprint1-Operations-Acceptance-Evidence.txt')
-          Copy-Item $statePath (Join-Path $pwd 'Sprint1-Operations-Final-State.json')
+          if ($evidence.Count -ne 10) { throw "Acceptance produced $($evidence.Count) evidence lines; expected 10." }
           Get-Content (Join-Path $pwd 'Sprint1-Operations-Acceptance-Evidence.txt')
 
       - name: Upload Sprint 1 acceptance evidence
