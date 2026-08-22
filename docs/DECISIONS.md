@@ -92,7 +92,17 @@ Generic memories/rules that say “DEV checkpoint” must be interpreted through
 
 ### WB-DEC-010 — Non-human waits do not end development — CURRENT
 
-The execution stopping rule in `docs/GOVERNANCE.md` is normative: CI/build/runner/release/deployment waits are not completion. Continue in-scope work until evidence-backed completion, an inspectable result, or a genuine human-only blocker.
+The execution stopping rule in `docs/GOVERNANCE.md` is normative. Within an authorised sprint, ordinary asynchronous engineering latency is execution, not an owner handoff point.
+
+- Once a sprint enters **IN DEVELOPMENT**, Development owns progression through **ENGINEERING VERIFICATION**, **DEPLOYING TO REVIEW TARGET**, **READY FOR OWNER OBSERVATION**, and then **AWAITING OWNER OBSERVATION** when the exact inspectable candidate is genuinely ready.
+- CI/GitHub checks, automated tests, builds, PR/preview artifacts, in-scope release/image/package publication, deployment/installation, rollout/readiness/smoke checks, runner operations and equivalent asynchronous engineering waits do not require owner keepalive prompts such as `continue`, `carry on`, `check again`, or equivalent.
+- Development re-checks those operations itself and continues when they become terminal.
+- If an in-scope automated check fails, Development investigates it, makes an already-authorised in-scope correction, reruns the applicable verification, and follows the sprint forward without requiring a fresh owner prompt.
+- Correction rounds obey the same rule from **CORRECTIONS IN DEVELOPMENT** through applicable verification/deployment to **READY FOR OWNER RE-OBSERVATION**.
+- The normal owner-return point is **AWAITING OWNER OBSERVATION**, after applicable engineering verification has passed, the candidate has reached the agreed inspectable target, the target has been verified to be running/serving that candidate, and the Sprint Review is ready.
+- Earlier owner interruption is reserved for genuine human-only decisions, permissions, approval gates or authority blockers that prevent safe in-scope continuation.
+
+This decision governs orchestration continuity only. It does not widen sprint scope, bypass publication/security/approval boundaries, transfer publication/deployment authority to a coding worker, authorise external/scarce model-credit use, waive semantic acceptance or owner sign-off, or permit the next sprint before **SIGNED OFF**.
 
 ### WB-DEC-011 — Configured execution target and worker readiness must be truthful — CURRENT
 
