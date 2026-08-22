@@ -1,6 +1,6 @@
 # Sprint 00 — Existing Corrections & Baseline Stabilisation
 
-Status: **IN DEVELOPMENT — BASELINE ESTABLISHMENT BLOCKED**
+Status: **IN DEVELOPMENT — S0-007 BASELINE OBSERVABILITY CORRECTION**
 
 ## Sprint objective
 
@@ -41,17 +41,12 @@ Product/source baseline at Sprint 0 start:
 - cluster live: 0.9.55 was previously deployment/version verified;
 - Windows live: last directly observed desktop was 0.9.54; installed Windows 0.9.55 semantic inspection remained unverified at cutover.
 
-Governance installation:
+Governance installation and current continuation baseline:
 
-- mandatory sprint governance and Sprint 0 records were proposed in PR #240;
-- `build`, `runner`, and `ui-responsiveness` checks passed on the docs-only PR head;
-- PR #240 was merged to `main` at `c4873449c76ac525deace8f08023b142814d05ba`;
-- that merge changes governance/documentation only and does not constitute product correction implementation or a new product release.
-
-Current baseline-evidence branch:
-
-- `sprint/0-baseline-evidence`;
-- branched from `c4873449c76ac525deace8f08023b142814d05ba`.
+- mandatory sprint governance and Sprint 0 records became canonical through merged PR #240 at `c4873449c76ac525deace8f08023b142814d05ba`;
+- explicit sprint-continuity governance became canonical through merged PR #247 at `949dc578ba63cade772514054adb6b57836b8797`;
+- during Sprint 0 branch setup, an accidental one-byte temporary marker was committed directly to `main` and immediately removed by repair commit `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`; the repaired tree matches the pre-incident `949dc578ba63cade772514054adb6b57836b8797` tree and no product/runtime behaviour changed;
+- current correction branch: `sprint/0-windows-build-identity`, branched from repaired canonical `main` at `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`.
 
 ## Acceptance criteria
 
@@ -96,13 +91,15 @@ The first baseline observation will focus on the existing Operations semantics c
 
 This initial observation is for finding existing problems, not for proposing new feature design.
 
-### Observation-gate blocker
+### Observation-gate blocker and S0-007 correction
 
 The owner observation gate is **NOT OPEN** yet.
 
-The currently advertised approved direct Windows bridge can verify registered-host/tool state but does not expose the installed Workbench desktop executable/version/hash. A bounded read-only supervised operations fallback was requested solely to identify that build, with explicit instructions not to update, install, restart, close, or modify Workbench/source/Git/configuration/user data. At the time this record was updated, it remained running without returning verifiable build evidence.
+The approved direct Windows bridge can verify registered-host/tool state but existing installed builds do not expose the running Workbench desktop executable identity. The bounded read-only supervised fallback previously requested for this purpose has now reached a terminal failure without producing build evidence. Retrying that unsuitable worker path is not accepted as baseline proof.
 
-Because the exact installed review build has not been independently identified, Sprint 0 MUST NOT ask the owner to inspect Windows live yet. This gap is registered as `S0-007` in the Baseline Correction Register rather than weakening the mandatory review-build-identification rule.
+`S0-007` is therefore in development on `sprint/0-windows-build-identity`. The correction adds a bounded, path-free Workbench capability to the existing outbound Windows heartbeat. It reports the canonical product version plus SHA-256 and byte size of the running Workbench executable. Unknown heartbeat capabilities remain filtered, and the Workbench identity capability is not accepted by the executable host-job allowlist, so this observability correction does not add generic command or publication/deployment authority.
+
+The gate remains closed until the correction passes exact-candidate engineering verification, is released/installed through the normal Workbench path, and the Windows-live heartbeat independently identifies the running candidate with release-equivalent evidence.
 
 ## Known starting correction set
 
@@ -124,9 +121,9 @@ No owner observation round has yet been completed in this Sprint 0 record becaus
 
 ## Implementation reference
 
-No product correction implementation has started in Sprint 0.
+Sprint 0 product correction implementation has started with `S0-007` on branch `sprint/0-windows-build-identity` from canonical `main` repair commit `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`.
 
-Governance/sprint-record work began at `15573b831c7c18b8170c960e6832ba7aaf341c73` and became canonical through merged PR #240 at `c4873449c76ac525deace8f08023b142814d05ba`.
+The implementation is deliberately limited to baseline observability: a bounded Workbench version+SHA-256 identity in the existing outbound Windows heartbeat plus regression tests preserving the typed/allowlisted security boundary. No Sprint 1 or unrelated Sprint 0 correction is included in this changeset.
 
 ## Resulting protected behaviour
 
