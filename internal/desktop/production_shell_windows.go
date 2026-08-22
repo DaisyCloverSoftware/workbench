@@ -101,10 +101,6 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createChatGPTBootstrapControl()
 		s.createTaskHistoryControls()
 		s.createDashboardChrome()
-		// Create the opaque Operations background first so all interactive lane,
-		// detail and summary controls are born above it in the native sibling
-		// z-order. This is more reliable than repairing z-order after ShowWindow.
-		s.createOperationsDashboardBackdrop()
 		s.createOperationsDashboardControls()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
@@ -204,7 +200,6 @@ func (s *Shell) layoutProduction() {
 	showWindow(s.controls[idShowArchivedTasks], s.page == pageWork)
 	showWindow(s.controls[idArchiveTask], s.page == pageWork)
 	s.hideOperationsDashboardControls()
-	s.layoutOperationsDashboardBackdrop(width, height)
 	switch s.page {
 	case pageDashboard:
 		s.layoutOperationsDashboardControls(width, height)
