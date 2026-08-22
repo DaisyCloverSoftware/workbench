@@ -25,7 +25,9 @@ Use precise states: specified, implemented, tested, merged, released, deployed a
 
 A green build, screenshot or responsiveness check does not prove semantic correctness. Add/perform acceptance evidence for the meaning changed by the PR. In particular, Operations changes must satisfy `docs/operations-dashboard-contract.md` and `docs/UI_ACCEPTANCE_V0.9.md`.
 
-Non-human waits such as CI/build/release queues are not completion. Continue safe in-scope work until the contribution has an evidence-backed completion/checkpoint or a genuine human-only decision/permission boundary.
+Non-human waits such as CI/build/release/publication/deployment queues are execution latency, not owner handoff points. During an authorised sprint, re-check asynchronous engineering operations and continue through the applicable verification and inspectable-delivery stages without requiring owner keepalive prompts such as `continue`, `carry on` or `check again`. If an in-scope automated check fails, investigate it, make an already-authorised in-scope correction, rerun the applicable verification, and continue.
+
+For normal sprint work, return control to the owner at the observation gate only after the exact candidate is genuinely ready and the agreed target has been verified to be running/serving it, or earlier for a genuine human-only decision, permission or authority boundary. See `docs/SPRINT_GOVERNANCE.md` and WB-DEC-010. This continuity rule does not widen scope or bypass publication, security, explicit-approval, semantic-acceptance or sign-off gates.
 
 ## Implementation guidance
 

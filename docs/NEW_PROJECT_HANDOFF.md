@@ -127,6 +127,8 @@ For every correction/sprint:
 7. execute observation-driven corrections;
 8. obtain user sign-off before the next sprint.
 
-CI/build/runner/release/deployment waits are not stopping points. Continue useful in-scope work until evidence-backed completion, an inspectable checkpoint, or a genuine human-only blocker.
+Once an authorised sprint enters **IN DEVELOPMENT**, Development continues autonomously through the applicable engineering stages to the owner observation gate. CI/GitHub checks, tests, builds, PR/preview artifacts, in-scope publication, deployment/installation, rollout/readiness/smoke checks, runner operations and equivalent asynchronous waits are execution latency, not owner handoff points. Development re-checks them itself; if an in-scope automated check fails, investigate it, make an already-authorised in-scope correction, rerun verification and continue without requiring `continue`, `carry on`, `check again` or another owner keepalive prompt.
+
+Correction rounds obey the same continuity rule through **READY FOR OWNER RE-OBSERVATION**. The normal owner return occurs only when the exact candidate has passed applicable engineering verification, reached the agreed inspectable target, that target has been verified to be running/serving the intended candidate, and the Sprint Review is ready; then enter **AWAITING OWNER OBSERVATION**. Earlier interruption is reserved for a genuine human-only decision, permission, approval or authority boundary. Continuity does not widen scope, bypass publication/security/explicit-approval gates, waive semantic acceptance/sign-off, or permit the next sprint before **SIGNED OFF**.
 
 Start by verifying the cutover `main` SHA and reading the canonical documents above. Do not reread or ask for the legacy Project conversations.
