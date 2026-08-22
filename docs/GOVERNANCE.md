@@ -83,17 +83,23 @@ If a correction reveals a material requirement change, apply the decision-change
 
 ## Workbench development stopping rule
 
-Non-human waits are part of execution, not completion. CI queues, builds, runner availability, dependency watches, release publication and deployments MUST NOT by themselves end an active development workflow.
+Non-human waits are part of execution, not completion. CI queues, GitHub checks, automated tests, builds, PR/preview artifacts, runner operations, release/image/package publication where in scope, deployments/installations, rollouts, readiness checks and smoke checks MUST NOT by themselves end an active development workflow or return control to the owner.
 
-A development workflow may end only when one of these is true:
+Once an authorised sprint enters **IN DEVELOPMENT**, Development owns autonomous progression through the applicable engineering stages defined in `docs/SPRINT_GOVERNANCE.md`:
 
-1. the in-scope work is genuinely complete and evidence-backed;
-2. a newly pushed/deployed/installed result exists that is genuinely ready for the user to inspect; or
-3. a genuine human-only decision, permission or authority boundary blocks further in-scope progress.
+**IN DEVELOPMENT → ENGINEERING VERIFICATION → DEPLOYING TO REVIEW TARGET → READY FOR OWNER OBSERVATION → AWAITING OWNER OBSERVATION**
+
+Development MUST inspect and re-check asynchronous engineering operations itself and continue when they become terminal. Repeated owner keepalive prompts such as `continue`, `carry on`, `check again`, or equivalent are not required merely because an ordinary engineering operation is still settling.
+
+If an in-scope automated check fails, Development MUST investigate the failure, make an in-scope correction where already authorised, rerun the applicable verification, and continue the sprint without requiring a fresh owner prompt. The same continuity rule applies during correction rounds from **CORRECTIONS IN DEVELOPMENT** through the applicable verification/deployment stages to **READY FOR OWNER RE-OBSERVATION**.
+
+For Workbench, the normal owner-return point is the actual observation gate: the exact candidate has passed applicable engineering verification, reached the agreed inspectable target, Development has verified that target is serving/running the intended candidate, and the Sprint Review is ready. Development may then enter **AWAITING OWNER OBSERVATION** and return control for genuine product observation.
+
+A development workflow may return control earlier only when a genuine human-only decision, permission or authority boundary prevents further safe in-scope progress. Examples include an unresolved product/architecture decision; an irreconcilable ambiguity or conflict in canonical requirements; a destructive, irreversible, security-sensitive or explicitly approval-gated action; permissions/credentials unavailable through authorised tooling; an external failure that genuinely prevents further in-scope progress; or another material human-only authority decision.
 
 While waiting on a non-human dependency, continue other safe in-scope work where useful. Durable Workbench continuation SHOULD resume dependent work automatically when the dependency becomes terminal.
 
-This execution rule does not waive change control. If a requirement is ambiguous or a governance reset/freeze is active, agents MUST respect that boundary rather than treating autonomy as permission to invent product intent.
+This execution rule does not waive change control. Autonomous continuation is orchestration continuity, not permission to widen sprint scope, bypass publication/security/approval gates, transfer publication/deployment authority to a coding worker, consume external/scarce model credit without explicit authorisation, waive semantic acceptance or owner sign-off, or begin a later sprint. Only **SIGNED OFF** permits normal progression to the next sprint.
 
 ## Development freeze and governance resets
 
