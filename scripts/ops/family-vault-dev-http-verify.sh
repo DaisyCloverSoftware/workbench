@@ -44,9 +44,10 @@ require_home_marker 'Relationship Model' 'RELATIONSHIP_MODEL'
 require_home_marker 'Archive Content' 'ARCHIVE_CONTENT'
 require_home_marker 'data-home-support="design-heritage"' 'DESIGN_HERITAGE'
 require_home_marker 'data-faq-wide' 'FAQ_WIDE'
-require_home_marker 'Cloudflare Turnstile' 'CLOUDFLARE_TURNSTILE'
 
-printf 'FAMILY_VAULT_DEV_HEALTH_BODY=%s\n' "$(tr -d '\r\n' < "$health_body" | head -c 240)"
+health_compact="$(tr -d '\r\n' < "$health_body" | head -c 240)"
+printf 'FAMILY_VAULT_DEV_HEALTH_BODY=%s\n' "$health_compact"
 echo "FAMILY_VAULT_DEV_HEALTH_HTTP_PASS=true"
 echo "FAMILY_VAULT_DEV_HOMEPAGE_HTTP_PASS=true"
-echo "FAMILY_VAULT_DEV_SPRINT0_HOMEPAGE_MARKERS_PASS=true"
+echo "FAMILY_VAULT_DEV_SPRINT0_SERVER_RENDERED_MARKERS_PASS=true"
+echo "FAMILY_VAULT_DEV_INTERACTIVE_AUTH_COPY_REQUIRES_BROWSER_REVIEW=true"
