@@ -1,6 +1,6 @@
 # Sprint 00 — Existing Corrections & Baseline Stabilisation
 
-Status: **IN DEVELOPMENT — S0-007 BASELINE OBSERVABILITY CORRECTION**
+Status: **DEPLOYING TO REVIEW TARGET**
 
 ## Sprint objective
 
@@ -41,12 +41,11 @@ Product/source baseline at Sprint 0 start:
 - cluster live: 0.9.55 was previously deployment/version verified;
 - Windows live: last directly observed desktop was 0.9.54; installed Windows 0.9.55 semantic inspection remained unverified at cutover.
 
-Governance installation and current continuation baseline:
+Governance installation and continuation baseline:
 
 - mandatory sprint governance and Sprint 0 records became canonical through merged PR #240 at `c4873449c76ac525deace8f08023b142814d05ba`;
 - explicit sprint-continuity governance became canonical through merged PR #247 at `949dc578ba63cade772514054adb6b57836b8797`;
-- during Sprint 0 branch setup, an accidental one-byte temporary marker was committed directly to `main` and immediately removed by repair commit `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`; the repaired tree matches the pre-incident `949dc578ba63cade772514054adb6b57836b8797` tree and no product/runtime behaviour changed;
-- current correction branch: `sprint/0-windows-build-identity`, branched from repaired canonical `main` at `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`.
+- during Sprint 0 branch setup, an accidental one-byte temporary marker was committed directly to `main` and immediately removed by repair commit `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`; the repaired tree matched the pre-incident `949dc578ba63cade772514054adb6b57836b8797` tree and no product/runtime behaviour changed.
 
 ## Acceptance criteria
 
@@ -63,26 +62,60 @@ Sprint 0 may be signed off only when all of the following are true:
 9. The owner explicitly signs off Sprint 0 or explicitly releases the gate.
 10. The resulting protected baseline and resulting protected behaviours are durably recorded.
 
-## Current runtime verification
+## S0-007 implementation and engineering verification
 
-A bounded canonical read-only Workbench health operation was run against audited source commit `92666ad51f5407d511b89e0e516250a30af04adc` during Sprint 0 baseline establishment. It reported:
+`S0-007` was implemented through PR #248 and merged at `12fa23cf662ac89ae7f57815e9a5472b2fac665e`.
 
-- Workbench runner/server/relay binaries present;
-- MCP service active;
-- relay service active;
-- loopback MCP HTTP healthy;
-- relay checkout clean;
-- overall health OK.
+The correction adds a bounded, path-free `workbench` capability to the existing outbound Windows heartbeat. The running desktop reports:
 
-The registered Windows host was also confirmed online through the approved host inventory. Public project documentation intentionally does not record private host identifiers or local paths.
+- canonical Workbench version;
+- SHA-256 of the running executable;
+- executable byte size.
+
+The correction deliberately does **not** add Workbench executable-job authority. Unknown heartbeat capabilities remain filtered, and the host-job allowlist still rejects Workbench as an executable local tool.
+
+Exact-candidate verification on PR #248 completed successfully:
+
+- `build`: passed;
+- `runner`: passed;
+- `ui-responsiveness`: passed;
+- production Windows build/page-capture stages passed on the exact candidate.
+
+## Stable release 0.9.56
+
+The coordinated release request prepared `v0.9.56`; release PR #249 was merged at `bf83b88851e854b572bec69143bb3b33e97a404f`.
+
+The release candidate's `runner` workflow initially hit a transient relay-test worktree race during a second installer test pass. The first full `go test ./...` pass had succeeded, the failing job was rerun unchanged, and the rerun passed. `build` and `ui-responsiveness` also passed. No source workaround or no-op `main` retrigger was used to obtain those checks.
+
+The stable `v0.9.56` tag subsequently became available. This is positive evidence for `S0-002`, but does not by itself close the known publication-reliability correction.
+
+Current canonical `main` is `3e6c2d702c2f67872bb3c3d547a05fac4bdfbf8c`, which descends from the 0.9.56 release merge. Its subsequent PR #250 adds product-scoped operations scripts for another project and does not alter Workbench 0.9.56 version surfaces or the Sprint 0 desktop candidate.
+
+## Cluster-live deployment evidence
+
+The first private self-update attempt to move the Workbench cluster control plane to 0.9.56 failed closed before installation because the private relay checkout contained an unexpected local change.
+
+Bounded read-only inspection established that the dirty set contained exactly one untracked relay control JSON and zero tracked changes. The same request existed canonically on relay `origin/main`, and its corresponding outbox was already completed. A one-time Sprint 0 operation then quarantined only that exact redundant canonical copy after verifying its blob matched `origin/main`; it failed closed if any other dirty state was present.
+
+This deployment inconsistency is registered as `S0-008`. The operational remediation does not count as a durable source fix for recurrence.
+
+After the guarded quarantine:
+
+- the relay checkout verified clean;
+- the existing `update_workbench` mechanism was retried unchanged;
+- updater status reached `succeeded`;
+- the private capability manifest independently advertised `workbench_version: 0.9.56`;
+- a post-deploy `workbench-health.sh` run at then-current canonical `main` reported runner/server/relay binaries present, MCP active, relay active, loopback MCP HTTP healthy, relay checkout clean, and `overall=ok`.
+
+Cluster live is therefore verified at Workbench 0.9.56 for the control-plane portion required by `S0-007`.
 
 ## Initial observation target
 
 Workbench has no conventional website-style DEV deployment. The intended first observable target remains:
 
-**Windows live — installed Workbench desktop, Operations dashboard, exact installed version/build to be verified before the owner gate opens.**
+**Windows live — installed Workbench desktop, Operations dashboard, exact installed version/build verified before the owner observation gate opens.**
 
-The first baseline observation will focus on the existing Operations semantics corrected in 0.9.55 source/release but not yet inspected on the installed Windows UI:
+The first baseline observation will focus on the existing Operations semantics corrected in 0.9.55 and preserved in 0.9.56:
 
 - terminal completed/failed history must not inflate live Running counts merely because the project/session presence lease is active;
 - genuine running work must remain visible;
@@ -91,39 +124,43 @@ The first baseline observation will focus on the existing Operations semantics c
 
 This initial observation is for finding existing problems, not for proposing new feature design.
 
-### Observation-gate blocker and S0-007 correction
+### Windows-live deployment state and human-only authority boundary
 
 The owner observation gate is **NOT OPEN** yet.
 
-The approved direct Windows bridge can verify registered-host/tool state but existing installed builds do not expose the running Workbench desktop executable identity. The bounded read-only supervised fallback previously requested for this purpose has now reached a terminal failure without producing build evidence. Retrying that unsuitable worker path is not accepted as baseline proof.
+After cluster live reached 0.9.56, the registered Windows host was online but its heartbeat still advertised only the existing Blender/Unreal capabilities. It did **not** advertise the new `workbench` identity capability. That is positive evidence that Windows live has not yet reached/restarted on the corrected 0.9.56 desktop candidate; Workbench therefore MUST NOT ask the owner to perform product observation yet.
 
-`S0-007` is therefore in development on `sprint/0-windows-build-identity`. The correction adds a bounded, path-free Workbench capability to the existing outbound Windows heartbeat. It reports the canonical product version plus SHA-256 and byte size of the running Workbench executable. Unknown heartbeat capabilities remain filtered, and the Workbench identity capability is not accepted by the executable host-job allowlist, so this observability correction does not add generic command or publication/deployment authority.
+The canonical Windows update entry point is the installed desktop's **Settings → Maintenance → `Check / install verified update`** control. It launches the separate verified updater. The updater downloads and checksum-validates the official stable Workbench release and Windows executable before presenting its explicit install/update confirmation. The update path then closes the owned Workbench window, transactionally replaces the executable, relaunches Workbench, and rolls back if the new executable cannot launch.
 
-The gate remains closed until the correction passes exact-candidate engineering verification, is released/installed through the normal Workbench path, and the Windows-live heartbeat independently identifies the running candidate with release-equivalent evidence.
+The current approved direct Windows bridge intentionally has no generic command or remote desktop-update action. Therefore initiating and confirming this desktop updater is a genuine human-only UI/authority boundary, permitted as an early owner interruption by sprint governance. It is not the owner observation gate and does not constitute Sprint 0 sign-off.
 
-## Known starting correction set
+After the owner completes that verified updater interaction, Development must continue autonomously by re-reading the Windows heartbeat, verifying the reported Workbench version/SHA-256 against the released candidate, and only then moving to **READY FOR OWNER OBSERVATION / AWAITING OWNER OBSERVATION**.
 
-The initial register was seeded from `docs/CURRENT_STATE.md` and the governance reset evidence and now contains:
+## Known correction set
 
-- S0-001 — Windows Operations 0.9.55 installed-target acceptance closure;
+The Baseline Correction Register currently contains:
+
+- S0-001 — Windows Operations installed-target acceptance closure;
 - S0-002 — release publication reliability/no-op retrigger dependency;
 - S0-003 — unattended continuation end-to-end acceptance;
 - S0-004 — private relay retention/compaction governance;
 - S0-005 — Blender headless GPU render acceptance;
 - S0-006 — Unreal startup/`zen` investigation and acceptance;
-- S0-007 — installed Windows Workbench review-build observability required to open the baseline owner gate.
+- S0-007 — installed Windows Workbench review-build observability;
+- S0-008 — private self-update deployment inconsistency caused by a redundant local canonical relay-control copy.
 
 The owner’s baseline observations may add further **existing corrections**. Genuine new requirements are deferred.
 
 ## Observation rounds
 
-No owner observation round has yet been completed in this Sprint 0 record because the exact Windows-live build has not yet been independently verified.
+No owner product-observation round has yet been completed in Sprint 0 because Windows live has not yet been independently verified as the corrected 0.9.56 review candidate.
 
-## Implementation reference
+## Implementation references
 
-Sprint 0 product correction implementation has started with `S0-007` on branch `sprint/0-windows-build-identity` from canonical `main` repair commit `a13cb8be601752e281bd5145ddcfb2ab57b9f70a`.
-
-The implementation is deliberately limited to baseline observability: a bounded Workbench version+SHA-256 identity in the existing outbound Windows heartbeat plus regression tests preserving the typed/allowlisted security boundary. No Sprint 1 or unrelated Sprint 0 correction is included in this changeset.
+- S0-007 implementation PR #248 → merge `12fa23cf662ac89ae7f57815e9a5472b2fac665e`.
+- Workbench 0.9.56 release PR #249 → merge `bf83b88851e854b572bec69143bb3b33e97a404f` → stable tag `v0.9.56`.
+- Cluster-live 0.9.56 maintenance retry → terminal updater state `succeeded`, manifest version 0.9.56, post-deploy health `overall=ok`.
+- S0-008 one-time operational remediation used bounded committed operations from a temporary Sprint 0 diagnostic branch and is not a substitute for a durable recurrence fix.
 
 ## Resulting protected behaviour
 
