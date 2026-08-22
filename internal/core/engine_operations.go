@@ -44,6 +44,9 @@ func (e *Engine) DelegateOperation(origin, intent, project string) (Task, error)
 		return Task{}, err
 	}
 	e.notify()
-	go e.execute(t.ID)
+	// Queued is a durable scheduler-owned state. Operations tasks must enter
+	// execution through the same lane-capacity/priority dispatcher as every
+	// other Workbench task instead of bypassing it with a direct execute call.
+	e.wakeScheduler()
 	return t, nil
 }
