@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.56 — 2026-08-22
+
+- Add a bounded, path-free Workbench desktop identity to the existing outbound Windows heartbeat so Sprint review can independently verify the running version and release-equivalent SHA-256 without widening Windows command authority.
+
 ## 0.9.55 — 2026-08-21
 
 - Correct Operations execution semantics so completed or failed relay history cannot inflate live Running counts merely because the surrounding ChatGPT project session remains active.
