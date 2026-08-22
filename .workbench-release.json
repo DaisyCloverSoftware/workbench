@@ -1,7 +1,0 @@
-{
-  "version": "0.9.56",
-  "date": "2026-08-22",
-  "notes": [
-    "Add a bounded, path-free Workbench desktop identity to the existing outbound Windows heartbeat so Sprint review can independently verify the running version and release-equivalent SHA-256 without widening Windows command authority."
-  ]
-}
