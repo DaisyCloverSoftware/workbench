@@ -1,6 +1,9 @@
 *.exe
 *.zip
 state.json
+Sprint1-Live-*.png
+Sprint1-Live-Operations-Evidence.txt
+Sprint1-Live-Final-State.json
 .DS_Store
 .vscode/
 .idea/

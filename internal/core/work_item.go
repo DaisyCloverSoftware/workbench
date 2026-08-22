@@ -129,14 +129,24 @@ func TaskProgress(task Task) WorkProgress {
 	if progress.Kind == "" {
 		progress.Kind = ProgressIndeterminate
 	}
-	if strings.TrimSpace(progress.Phase) == "" {
+	phase := strings.TrimSpace(progress.Phase)
+	if task.Status == TaskRunning && (phase == "" || strings.EqualFold(phase, "running")) {
+		// A generic "Running" label does not tell an operator what phase the
+		// worker is in. Use a truthful mode-aware stage when the provider has not
+		// supplied a deterministic measurement or richer phase yet.
+		if IsOperationsTask(task) {
+			progress.Phase = "Executing operation"
+		} else {
+			progress.Phase = "Implementing"
+		}
+		return progress
+	}
+	if phase == "" {
 		switch task.Status {
 		case TaskQueued:
 			progress.Phase = "Queued"
 		case TaskRouting:
 			progress.Phase = "Selecting executor"
-		case TaskRunning:
-			progress.Phase = "Running"
 		case TaskWaitingDependency:
 			progress.Phase = "Waiting on dependency"
 		case TaskWaitingRetry:

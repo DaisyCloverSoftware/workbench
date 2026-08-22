@@ -38,7 +38,7 @@ func TestProgressFallsBackToIndeterminate(t *testing.T) {
 	if progress.Kind != ProgressIndeterminate {
 		t.Fatalf("progress kind=%q", progress.Kind)
 	}
-	if progress.Phase != "Running" {
+	if progress.Phase != "Implementing" {
 		t.Fatalf("phase=%q", progress.Phase)
 	}
 }
