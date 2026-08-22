@@ -1,0 +1,353 @@
+name: sprint1-operations-acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'internal/core/**'
+      - 'internal/desktop/**'
+      - '.github/workflows/sprint1-operations-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  operations-acceptance:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Run Operations model and scheduler checks
+        shell: pwsh
+        run: |
+          go test ./internal/core ./internal/desktop
+
+      - name: Build production app and deterministic acceptance harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $harnessSource = Join-Path $env:RUNNER_TEMP 'sprint1-harness.go'
+          @'
+          package main
+
+          import (
+              "encoding/json"
+              "fmt"
+              "os"
+              "strings"
+              "time"
+          )
+
+          type job struct {
+              Version int    `json:"version"`
+              TaskID  string `json:"task_id"`
+              Intent  string `json:"intent"`
+          }
+
+          func main() {
+              var j job
+              if err := json.NewDecoder(os.Stdin).Decode(&j); err != nil {
+                  os.Exit(2)
+              }
+              switch {
+              case strings.Contains(j.Intent, "Acceptance running hold"):
+                  time.Sleep(20 * time.Second)
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Acceptance hold completed.\"}\n", j.TaskID)
+              case strings.Contains(j.Intent, "Acceptance queue target"):
+                  time.Sleep(12 * time.Second)
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"failed\",\"report\":\"Intentional Sprint 1 acceptance failure.\",\"category\":\"adapter\",\"retryable\":false}\n", j.TaskID)
+              default:
+                  time.Sleep(60 * time.Second)
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Acceptance queued job completed.\"}\n", j.TaskID)
+              }
+          }
+          '@ | Set-Content -Encoding UTF8 $harnessSource
+          go build -o (Join-Path $env:RUNNER_TEMP 'sprint1-harness.exe') $harnessSource
+          go build -ldflags='-s -w -H=windowsgui' -o (Join-Path $env:RUNNER_TEMP 'Workbench-Sprint1.exe') ./cmd/workbench
+
+      - name: Demonstrate live Operations dashboard
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'sprint1-appdata'
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'sprint1-localappdata'
+          New-Item -ItemType Directory -Force -Path $env:APPDATA,$env:LOCALAPPDATA | Out-Null
+          $stateDir = Join-Path $env:APPDATA 'Workbench'
+          New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+          $statePath = Join-Path $stateDir 'state.json'
+          $adapterPath = Join-Path $env:RUNNER_TEMP 'sprint1-harness.exe'
+          $exePath = Join-Path $env:RUNNER_TEMP 'Workbench-Sprint1.exe'
+          $projectPath = $pwd.Path
+          $now = [DateTime]::UtcNow
+          $future = $now.AddHours(1)
+
+          $state = [ordered]@{
+            version = 3
+            active_project_id = 'acceptance-project'
+            project_path = $projectPath
+            notes = 'Sprint 1 Operations acceptance fixture.'
+            projects = @(
+              [ordered]@{id='acceptance-project'; path=$projectPath; name='Workbench Acceptance'; notes='Operations dashboard acceptance project.'; pinned=$true; added_at=$now.AddDays(-1).ToString('o'); last_used_at=$now.ToString('o')}
+            )
+            tasks = @(
+              [ordered]@{
+                id='acceptance-wait-retry'; created_at=$now.AddMinutes(-18).ToString('o'); updated_at=$now.AddMinutes(-6).ToString('o'); origin='ci-acceptance'; title='Retry transient provider outage'; intent='Retry the acceptance provider after cooldown'; project_path=$projectPath; status='waiting_retry'; route_reason='waiting for a transient provider cooldown'; retry_at=$future.ToString('o'); auto_retry_count=1; consumes_work=$false
+              },
+              [ordered]@{
+                id='acceptance-wait-ci'; created_at=$now.AddMinutes(-25).ToString('o'); updated_at=$now.AddMinutes(-2).ToString('o'); origin='ci-acceptance'; title='Wait for acceptance CI'; intent='Continue after required acceptance CI'; project_path=$projectPath; status='waiting_dependency'; route_reason='waiting on an external dependency in the background'; consumes_work=$false; dependency=[ordered]@{kind='github_actions'; reason='required acceptance CI'; repository='DaisyCloverSoftware/workbench'; run_id=987654; state='in_progress'; check_count=2; started_at=$now.AddMinutes(-15).ToString('o'); last_checked_at=$now.AddMinutes(-2).ToString('o'); next_check_at=$future.ToString('o')}
+              },
+              [ordered]@{
+                id='acceptance-needs'; created_at=$now.AddMinutes(-12).ToString('o'); updated_at=$now.AddMinutes(-3).ToString('o'); origin='ci-acceptance'; title='Approve acceptance deployment target'; intent='Prepare the acceptance deployment'; project_path=$projectPath; status='needs_attention'; attention_question='Approve the Sprint 1 acceptance deployment target?'; consumes_work=$false
+              },
+              [ordered]@{
+                id='acceptance-completed'; created_at=$now.AddHours(-1).ToString('o'); updated_at=$now.AddMinutes(-8).ToString('o'); origin='ci-acceptance'; title='Previous acceptance success'; intent='Exercise recent success history'; project_path=$projectPath; status='completed'; provider_id='structured-harness'; output='Previous acceptance success completed.'; consumes_work=$false
+              },
+              [ordered]@{
+                id='acceptance-failed'; created_at=$now.AddHours(-1).ToString('o'); updated_at=$now.AddMinutes(-7).ToString('o'); origin='ci-acceptance'; title='Previous acceptance failure'; intent='Exercise recent failure history'; project_path=$projectPath; status='failed'; error='Intentional stored acceptance failure.'; consumes_work=$false
+              }
+            )
+            secrets = @()
+            preferences = [ordered]@{avoid_work_usage=$true; allow_metered_api=$false; autonomy_mode='trusted-repo'; harness_adapter_path=$adapterPath; mcp_port=18941; mcp_token='sprint1-acceptance-local-token'}
+          }
+          $state | ConvertTo-Json -Depth 14 | Set-Content -Encoding UTF8 $statePath
+
+          Add-Type -AssemblyName System.Drawing
+          Add-Type @'
+          using System;
+          using System.Text;
+          using System.Runtime.InteropServices;
+          public static class WorkbenchSprint1 {
+              [StructLayout(LayoutKind.Sequential)]
+              public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+              [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+              [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SetWindowText(IntPtr hWnd, string text);
+              [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowTextLength(IntPtr hWnd);
+              [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
+              [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+              [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
+              [DllImport("user32.dll", EntryPoint="SendMessageW")] public static extern IntPtr SendMessagePtr(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+              [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageW")] public static extern IntPtr SendMessageText(IntPtr hWnd, uint msg, IntPtr wParam, StringBuilder lParam);
+              [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+              [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
+              [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+              [DllImport("user32.dll")] public static extern bool RedrawWindow(IntPtr hWnd, IntPtr updateRect, IntPtr updateRegion, uint flags);
+          }
+          '@
+
+          function Get-Control([System.Diagnostics.Process]$process, [int]$id) {
+            $control = [WorkbenchSprint1]::GetDlgItem($process.MainWindowHandle, $id)
+            if ($control -eq [IntPtr]::Zero) { throw "Missing Workbench control $id." }
+            return $control
+          }
+
+          function Click-Control([System.Diagnostics.Process]$process, [int]$id) {
+            $control = Get-Control $process $id
+            [void][WorkbenchSprint1]::SendMessagePtr($control, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero) # BM_CLICK
+            Start-Sleep -Milliseconds 180
+          }
+
+          function Get-ControlText([IntPtr]$control) {
+            $length = [WorkbenchSprint1]::GetWindowTextLength($control)
+            $builder = New-Object System.Text.StringBuilder ($length + 2)
+            [void][WorkbenchSprint1]::GetWindowText($control, $builder, $builder.Capacity)
+            return $builder.ToString()
+          }
+
+          function Get-ListLines([IntPtr]$list) {
+            $count = [int][WorkbenchSprint1]::SendMessagePtr($list, 0x018B, [IntPtr]::Zero, [IntPtr]::Zero) # LB_GETCOUNT
+            $lines = @()
+            for ($i = 0; $i -lt $count; $i++) {
+              $length = [int][WorkbenchSprint1]::SendMessagePtr($list, 0x018A, [IntPtr]$i, [IntPtr]::Zero) # LB_GETTEXTLEN
+              $builder = New-Object System.Text.StringBuilder ($length + 2)
+              [void][WorkbenchSprint1]::SendMessageText($list, 0x0189, [IntPtr]$i, $builder) # LB_GETTEXT
+              $lines += $builder.ToString()
+            }
+            return $lines
+          }
+
+          function Select-ListLine([System.Diagnostics.Process]$process, [int]$id, [string]$needle) {
+            $list = Get-Control $process $id
+            $lines = Get-ListLines $list
+            $index = -1
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -like "*$needle*") { $index = $i; break }
+            }
+            if ($index -lt 0) { throw "Could not find '$needle' in control $id. Lines: $($lines -join ' | ')" }
+            [void][WorkbenchSprint1]::SendMessagePtr($list, 0x0186, [IntPtr]$index, [IntPtr]::Zero) # LB_SETCURSEL
+            $command = [IntPtr]($id -bor (1 -shl 16)) # LBN_SELCHANGE
+            [void][WorkbenchSprint1]::SendMessagePtr($process.MainWindowHandle, 0x0111, $command, $list) # WM_COMMAND
+            Start-Sleep -Milliseconds 220
+            return $index
+          }
+
+          function Read-State {
+            return (Get-Content -Raw $statePath | ConvertFrom-Json)
+          }
+
+          function Wait-Until([scriptblock]$condition, [string]$description, [int]$seconds = 35) {
+            $deadline = [DateTime]::UtcNow.AddSeconds($seconds)
+            do {
+              try {
+                if (& $condition) { return }
+              } catch { }
+              Start-Sleep -Milliseconds 250
+            } while ([DateTime]::UtcNow -lt $deadline)
+            throw "Timed out waiting for $description."
+          }
+
+          function Delegate-Intent([System.Diagnostics.Process]$process, [string]$intent) {
+            $intentControl = Get-Control $process 3111
+            [void][WorkbenchSprint1]::SetWindowText($intentControl, $intent)
+            Click-Control $process 3112
+          }
+
+          function Save-Window([System.Diagnostics.Process]$process, [string]$name) {
+            $process.Refresh()
+            [void][WorkbenchSprint1]::SetForegroundWindow($process.MainWindowHandle)
+            [void][WorkbenchSprint1]::RedrawWindow($process.MainWindowHandle, [IntPtr]::Zero, [IntPtr]::Zero, 0x0185)
+            Start-Sleep -Milliseconds 250
+            $rect = New-Object WorkbenchSprint1+RECT
+            if (-not [WorkbenchSprint1]::GetWindowRect($process.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
+            $width = $rect.Right - $rect.Left
+            $height = $rect.Bottom - $rect.Top
+            $bitmap = New-Object System.Drawing.Bitmap($width, $height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            try {
+              $hdc = $graphics.GetHdc()
+              try {
+                if (-not [WorkbenchSprint1]::PrintWindow($process.MainWindowHandle, $hdc, 0)) { throw 'PrintWindow failed.' }
+              } finally {
+                $graphics.ReleaseHdc($hdc)
+              }
+            } finally {
+              $graphics.Dispose()
+            }
+            $bitmap.Save((Join-Path $pwd $name), [System.Drawing.Imaging.ImageFormat]::Png)
+            $bitmap.Dispose()
+          }
+
+          $evidence = New-Object System.Collections.Generic.List[string]
+          $p = Start-Process -FilePath $exePath -PassThru
+          try {
+            $deadline = [DateTime]::UtcNow.AddSeconds(15)
+            do {
+              Start-Sleep -Milliseconds 200
+              $p.Refresh()
+            } while ($p.MainWindowHandle -eq 0 -and -not $p.HasExited -and [DateTime]::UtcNow -lt $deadline)
+            if ($p.HasExited -or $p.MainWindowHandle -eq 0) { throw 'Workbench did not expose its production window.' }
+
+            Click-Control $p 3001 # Work
+            Delegate-Intent $p 'Acceptance running hold'
+            Wait-Until { ((Read-State).tasks | Where-Object {$_.intent -eq 'Acceptance running hold' -and $_.status -eq 'running'}).Count -eq 1 } 'first acceptance job to enter Running' 25
+            $evidence.Add('1. first delegated job entered Running through the real scheduler')
+
+            1..5 | ForEach-Object { Delegate-Intent $p ("Acceptance older queue {0:D2}" -f $_) }
+            Delegate-Intent $p 'Acceptance queue target'
+            1..4 | ForEach-Object { Delegate-Intent $p ("Acceptance newer queue {0:D2}" -f $_) }
+            Wait-Until { ((Read-State).tasks | Where-Object {$_.status -eq 'queued' -and $_.intent -like 'Acceptance *'}).Count -ge 10 } 'ten queued acceptance jobs' 15
+
+            Click-Control $p 3301 # Dashboard
+            $aiList = Get-Control $p 3607
+            Wait-Until { ([int][WorkbenchSprint1]::SendMessagePtr($aiList, 0x018B, [IntPtr]::Zero, [IntPtr]::Zero)) -ge 11 } 'all running/queued AI jobs to appear automatically' 12
+            $evidence.Add('2. compact AI Workers lane exposed all jobs through a scrolling native list and a total count')
+
+            [void](Select-ListLine $p 3607 'Acceptance queue target')
+            $details = Get-Control $p 3614
+            Wait-Until { (Get-ControlText $details) -match 'Normal priority' -and (Get-ControlText $details) -match 'queue #6' } 'initial target queue position #6' 8
+            Click-Control $p 3615 # Priority up
+            Wait-Until { (Get-ControlText $details) -match 'High priority' -and (Get-ControlText $details) -match 'queue #1' } 'priority change to move target to queue #1' 8
+            $targetState = (Read-State).tasks | Where-Object {$_.intent -eq 'Acceptance queue target'} | Select-Object -First 1
+            if ($targetState.priority -ne 2) { throw "Expected durable High priority (2), got $($targetState.priority)." }
+            $evidence.Add('3. owner Priority ↑ changed durable scheduler priority and moved the target from queue #6 to queue #1')
+
+            $compactCount = [int][WorkbenchSprint1]::SendMessagePtr($aiList, 0x018B, [IntPtr]::Zero, [IntPtr]::Zero)
+            Click-Control $p 3606 # AI Workers header -> full lane
+            $fullList = Get-Control $p 3613
+            if (-not [WorkbenchSprint1]::IsWindowVisible($fullList)) { throw 'Full-lane list did not open.' }
+            $fullCount = [int][WorkbenchSprint1]::SendMessagePtr($fullList, 0x018B, [IntPtr]::Zero, [IntPtr]::Zero)
+            if ($fullCount -ne $compactCount -or $fullCount -lt 11) { throw "Full lane count $fullCount did not match compact lane count $compactCount." }
+            Save-Window $p 'Sprint1-Operations-Queue-Full.png'
+            $evidence.Add("4. Open all displayed the complete AI Workers list ($fullCount jobs) with the selected job drill-down")
+            Click-Control $p 3612 # back to all lanes
+
+            # Do not navigate or request a refresh here. The engine subscription must
+            # update the already-open Dashboard when the running hold completes and
+            # the reprioritised target becomes the next running job.
+            Wait-Until { ((Read-State).tasks | Where-Object {$_.intent -eq 'Acceptance queue target' -and $_.status -eq 'running'}).Count -eq 1 } 'reprioritised target to enter Running without page refresh' 35
+            Wait-Until { ((Get-ListLines (Get-Control $p 3607)) | Where-Object {$_ -like '*Acceptance queue target*' -and $_ -like '*RUNNING*'}).Count -eq 1 } 'open Dashboard list to reflect target Running automatically' 10
+            $detailsText = Get-ControlText $details
+            if ($detailsText -notmatch 'Assigned worker: structured-harness' -or $detailsText -notmatch 'Start / elapsed:' -or $detailsText -notmatch 'deterministic percentage unavailable') {
+              throw "Running drill-down was incomplete: $detailsText"
+            }
+            $olderQueued = ((Read-State).tasks | Where-Object {$_.intent -like 'Acceptance older queue *' -and $_.status -eq 'queued'}).Count
+            if ($olderQueued -lt 1) { throw 'Older normal-priority work did not remain queued behind the promoted target.' }
+            Save-Window $p 'Sprint1-Operations-Running.png'
+            $evidence.Add('5. target transitioned Queued -> Running automatically; stage/timing/worker detail updated without manual refresh and older normal work stayed queued')
+
+            Wait-Until { ((Read-State).tasks | Where-Object {$_.intent -eq 'Acceptance queue target' -and $_.status -eq 'failed'}).Count -eq 1 } 'target to fail and enter recent outcomes' 25
+            Wait-Until { (Get-ControlText $details) -match 'Failure:' } 'selected target drill-down to show failure automatically' 10
+            $recentList = Get-Control $p 3624
+            Wait-Until { ((Get-ListLines $recentList) | Where-Object {$_ -like '*FAILED*Acceptance queue target*'}).Count -eq 1 } 'failed target in recent outcomes' 10
+            Wait-Until { ((Get-ListLines $recentList) | Where-Object {$_ -like '*COMPLETED*Acceptance running hold*'}).Count -eq 1 } 'completed hold in recent outcomes' 10
+            Save-Window $p 'Sprint1-Operations-Failed.png'
+            $evidence.Add('6. one live job completed and one failed; both moved into Recent outcomes and the failed drill-down exposed failure information')
+
+            [void](Select-ListLine $p 3609 'Wait for acceptance CI')
+            $waitingText = Get-ControlText $details
+            if ($waitingText -notmatch 'Waiting for:' -or $waitingText -notmatch 'GitHub Actions' -or $waitingText -notmatch 'Waiting elapsed:' -or $waitingText -notmatch 'Automatic retry / check: Yes') {
+              throw "Waiting drill-down was incomplete: $waitingText"
+            }
+            Save-Window $p 'Sprint1-Operations-Waiting.png'
+            $evidence.Add('7. Waiting exposed its GitHub Actions reason, elapsed wait and automatic re-check status')
+
+            [void](Select-ListLine $p 3611 'Approve acceptance deployment target')
+            $needsText = Get-ControlText $details
+            if ($needsText -notmatch 'Owner action:' -or $needsText -notmatch 'Approve the Sprint 1 acceptance deployment target') {
+              throw "Needs You drill-down was incomplete: $needsText"
+            }
+            $openTask = Get-Control $p 3617
+            if (-not [WorkbenchSprint1]::IsWindowEnabled($openTask)) { throw 'Needs You Open task action was not enabled.' }
+            Click-Control $p 3617
+            if (-not [WorkbenchSprint1]::IsWindowVisible((Get-Control $p 3114))) { throw 'Open task did not route to the Work task list.' }
+            $evidence.Add('8. Needs You stated the owner decision and Open task routed directly to the relevant Work task')
+
+            Click-Control $p 3301 # Dashboard again
+            Click-Control $p 3618 # close retained detail and show canonical summaries
+            $laneIDs = @(3601,3603,3605,3607,3609,3611)
+            $laneTotal = 0
+            foreach ($id in $laneIDs) {
+              $laneTotal += [int][WorkbenchSprint1]::SendMessagePtr((Get-Control $p $id), 0x018B, [IntPtr]::Zero, [IntPtr]::Zero)
+            }
+            $projectLabel = Get-ControlText (Get-Control $p 3621)
+            if ($projectLabel -notmatch 'Project activity · (\d+) live jobs') { throw "Could not parse canonical project total from '$projectLabel'." }
+            if ([int]$Matches[1] -ne $laneTotal) { throw "Project live count $($Matches[1]) did not reconcile with lane total $laneTotal." }
+            $workerLabel = Get-ControlText (Get-Control $p 3619)
+            if ($workerLabel -notmatch 'Worker assignments · (\d+) running') { throw "Could not parse worker assignment total from '$workerLabel'." }
+            Save-Window $p 'Sprint1-Operations-Recent-Consistency.png'
+            $evidence.Add("9. canonical project total reconciled with all six lane contents ($laneTotal live jobs); worker assignment summary was present")
+            $evidence.Add('10. all acceptance observations were made against the running production Workbench.exe')
+          } finally {
+            if ($p -and -not $p.HasExited) {
+              Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+              [void]$p.WaitForExit(5000)
+            }
+          }
+
+          $evidence | Set-Content -Encoding UTF8 (Join-Path $pwd 'Sprint1-Operations-Acceptance-Evidence.txt')
+          Get-Content (Join-Path $pwd 'Sprint1-Operations-Acceptance-Evidence.txt')
+
+      - name: Upload Sprint 1 acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Sprint1-Operations-Acceptance
+          if-no-files-found: warn
+          path: |
+            Sprint1-Operations-Queue-Full.png
+            Sprint1-Operations-Running.png
+            Sprint1-Operations-Failed.png
+            Sprint1-Operations-Waiting.png
+            Sprint1-Operations-Recent-Consistency.png
+            Sprint1-Operations-Acceptance-Evidence.txt
