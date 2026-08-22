@@ -102,6 +102,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createTaskHistoryControls()
 		s.createDashboardChrome()
 		s.createOperationsDashboardControls()
+		s.createOperationsDashboardBackdrop()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
 		brand := "Workbench"
@@ -200,6 +201,7 @@ func (s *Shell) layoutProduction() {
 	showWindow(s.controls[idShowArchivedTasks], s.page == pageWork)
 	showWindow(s.controls[idArchiveTask], s.page == pageWork)
 	s.hideOperationsDashboardControls()
+	s.layoutOperationsDashboardBackdrop(width, height)
 	switch s.page {
 	case pageDashboard:
 		s.layoutOperationsDashboardControls(width, height)
