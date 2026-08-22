@@ -77,12 +77,21 @@ jobs:
           import (
               "fmt"
               "os"
+              "strings"
               "time"
           )
 
           func main() {
               if len(os.Args) >= 3 && os.Args[1] == "sessions" && os.Args[2] == "archive" {
                   return
+              }
+              // Development failures legitimately fall through to another
+              // eligible Workbench worker. Make the test-only OpenClaw fallback
+              // fail the named target too so the durable task reaches Failed,
+              // while preserving the real operations hold below.
+              if strings.Contains(strings.Join(os.Args[1:], " "), "Acceptance priority target") {
+                  fmt.Fprintln(os.Stderr, "Intentional Sprint 1 OpenClaw fallback failure for acceptance target.")
+                  os.Exit(1)
               }
               time.Sleep(28 * time.Second)
               fmt.Println("Acceptance operations hold completed through the real Workbench OpenClaw operations path.")
@@ -139,7 +148,6 @@ jobs:
               [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
               [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
               [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
-              [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
               [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
               [DllImport("user32.dll")] public static extern bool RedrawWindow(IntPtr hWnd, IntPtr updateRect, IntPtr updateRegion, uint flags);
               [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true, EntryPoint="SendMessageTimeoutW")]
@@ -233,7 +241,7 @@ jobs:
             $process.Refresh()
             [void][WorkbenchSprint1Live]::SetForegroundWindow($process.MainWindowHandle)
             [void][WorkbenchSprint1Live]::RedrawWindow($process.MainWindowHandle, [IntPtr]::Zero, [IntPtr]::Zero, 0x0185)
-            Start-Sleep -Milliseconds 250
+            Start-Sleep -Milliseconds 300
             $rect = New-Object WorkbenchSprint1Live+RECT
             if (-not [WorkbenchSprint1Live]::GetWindowRect($process.MainWindowHandle, [ref]$rect)) { throw 'GetWindowRect failed.' }
             $width = $rect.Right - $rect.Left
@@ -241,12 +249,10 @@ jobs:
             $bitmap = New-Object System.Drawing.Bitmap($width, $height)
             $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
             try {
-              $hdc = $graphics.GetHdc()
-              try {
-                if (-not [WorkbenchSprint1Live]::PrintWindow($process.MainWindowHandle, $hdc, 0)) { throw 'PrintWindow failed.' }
-              } finally {
-                $graphics.ReleaseHdc($hdc)
-              }
+              # Capture the composited desktop rather than parent-only
+              # PrintWindow output. This preserves native listboxes/buttons in
+              # the proof PNG exactly as the user sees them.
+              $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size, [System.Drawing.CopyPixelOperation]::SourceCopy)
             } finally {
               $graphics.Dispose()
             }
