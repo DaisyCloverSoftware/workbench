@@ -7,23 +7,41 @@ DEV_NS="family-vault-dev"
 LIVE_NS="family-vault-live"
 APPROVED_KEYS=(SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_FROM)
 
-for command in kubectl base64; do
-  command -v "$command" >/dev/null 2>&1 || {
-    echo "ERROR: required command is unavailable: $command" >&2
-    exit 3
-  }
-done
+command -v base64 >/dev/null 2>&1 || {
+  echo "ERROR: required command is unavailable: base64" >&2
+  exit 3
+}
+
+if sudo -n kubectl version --client >/dev/null 2>&1; then
+  KUBECTL=(sudo -n kubectl)
+elif sudo -n k3s kubectl version --client >/dev/null 2>&1; then
+  KUBECTL=(sudo -n k3s kubectl)
+else
+  echo "ERROR: no sanctioned non-interactive Kubernetes client is available" >&2
+  exit 3
+fi
+
+kube() {
+  "${KUBECTL[@]}" "$@"
+}
 
 for namespace in "$DEV_NS" "$LIVE_NS"; do
-  kubectl get namespace "$namespace" >/dev/null
-  kubectl -n "$namespace" get secret "$SECRET_NAME" >/dev/null
-
+  kube get namespace "$namespace" >/dev/null
+  kube -n "$namespace" get secret "$SECRET_NAME" >/dev/null
 done
 
 read_approved_value() {
   local namespace="$1"
   local key="$2"
   local encoded=""
+
+  case "$namespace" in
+    "$DEV_NS"|"$LIVE_NS") ;;
+    *)
+      echo "ERROR: attempted to read SMTP metadata from a non-approved namespace" >&2
+      return 4
+      ;;
+  esac
 
   case "$key" in
     SMTP_HOST|SMTP_PORT|SMTP_SECURE|SMTP_FROM) ;;
@@ -33,7 +51,7 @@ read_approved_value() {
       ;;
   esac
 
-  encoded="$(kubectl -n "$namespace" get secret "$SECRET_NAME" -o "jsonpath={.data.${key}}")"
+  encoded="$(kube -n "$namespace" get secret "$SECRET_NAME" -o "jsonpath={.data.${key}}")"
   if [ -z "$encoded" ]; then
     printf '%s' '(unset)'
     return 0
