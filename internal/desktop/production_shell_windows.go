@@ -101,6 +101,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createChatGPTBootstrapControl()
 		s.createTaskHistoryControls()
 		s.createDashboardChrome()
+		s.createOperationsDashboardControls()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
 		brand := "Workbench"
@@ -110,6 +111,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		setWindowText(s.controls[idBrand], brand)
 		showWindow(s.controls[idGlobalStatus], false)
 		s.refresh()
+		s.refreshOperationsDashboardControls()
 		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		s.applyPageVisibility()
 		s.layoutProduction()
@@ -136,6 +138,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		}
 	case wmAppRefresh:
 		s.refresh()
+		s.refreshOperationsDashboardControls()
 		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
@@ -143,6 +146,11 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmCommand:
 		id := int(uint16(wParam & 0xffff))
 		notify := uint16((wParam >> 16) & 0xffff)
+		if s.handleOperationsDashboardCommand(id, notify) {
+			s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
+			redrawProductionWindow(hwnd)
+			return 0
+		}
 		if s.handleTaskHistoryCommand(id) {
 			s.layoutProduction()
 			redrawProductionWindow(hwnd)
@@ -153,11 +161,13 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 			return 0
 		}
 		if s.handleProductionChromeCommand(id) {
+			s.refreshOperationsDashboardControls()
 			s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 			redrawProductionWindow(hwnd)
 			return 0
 		}
 		s.handleCommand(id, notify)
+		s.refreshOperationsDashboardControls()
 		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
@@ -189,7 +199,10 @@ func (s *Shell) layoutProduction() {
 	showWindow(s.controls[idCopyChatGPTBootstrap], s.page == pageSettings)
 	showWindow(s.controls[idShowArchivedTasks], s.page == pageWork)
 	showWindow(s.controls[idArchiveTask], s.page == pageWork)
+	s.hideOperationsDashboardControls()
 	switch s.page {
+	case pageDashboard:
+		s.layoutOperationsDashboardControls(width, height)
 	case pageWork:
 		s.layoutProductionWork(contentX, contentY, contentW, contentH)
 	case pageSettings:
@@ -211,6 +224,7 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 		s.page = pageDashboard
 		s.applyPageVisibility()
 		s.refresh()
+		s.refreshOperationsDashboardControls()
 		s.layoutProduction()
 		return true
 	case idNavWork:
