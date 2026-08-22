@@ -244,7 +244,7 @@ jobs:
             # Dashboard stays open here. Engine notifications must move the selected
             # item from Queued to Running without a navigation or manual refresh.
             Wait-Until { ((Read-State).tasks | Where-Object {$_.intent -eq 'Acceptance queue target' -and $_.status -eq 'running'}).Count -eq 1 } 'reprioritised target to enter Running' 35
-            Wait-Until { ((Get-ListLines $aiList) | Where-Object {$_ -like '*Acceptance queue target*' -and $_ -like '*RUNNING*'}).Count -eq 1 } 'already-open dashboard to show target Running' 10
+            Wait-Until { ((Get-ListLines $aiList) | Where-Object {$_ -like '*Acceptance queue target*' -and $_ -like '*WORKING*'}).Count -eq 1 } 'already-open dashboard to show target Running' 10
             $runningDetails = Get-BoundedText $details 'running details'
             if ($runningDetails -notmatch 'Assigned worker: structured-harness' -or $runningDetails -notmatch 'Start / elapsed:' -or $runningDetails -notmatch 'deterministic percentage unavailable') { throw "Running drill-down was incomplete: $runningDetails" }
             $olderQueued = ((Read-State).tasks | Where-Object {$_.intent -like 'Acceptance older queue *' -and $_.status -eq 'queued'}).Count
