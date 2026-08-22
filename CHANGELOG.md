@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.57 — 2026-08-22
+
+- Operations dashboard is now a live operational surface that updates as work moves through queued, running, waiting, Needs You, completed and failed states.
+- Operations lanes expose all jobs with selectable drill-down details, compact recent outcomes, deterministic progress when available, and explicit indeterminate progress otherwise.
+- Queued local jobs can be reprioritised from Operations, and the scheduler respects the resulting durable priority order.
+- Waiting and Needs You items now show actionable reasons, automatic retry or check behaviour, and direct task routing where available.
+- Dashboard lane totals, project activity and worker assignments now derive from one canonical live operations set with invariant coverage and production acceptance tests.
+
 ## 0.9.56 — 2026-08-22
 
 - Add a bounded, path-free Workbench desktop identity to the existing outbound Windows heartbeat so Sprint review can independently verify the running version and release-equivalent SHA-256 without widening Windows command authority.
