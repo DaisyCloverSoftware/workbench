@@ -98,8 +98,6 @@ func operationsTelemetryState(status core.TaskStatus) string {
 		return "COMPLETED"
 	case core.TaskFailed:
 		return "FAILED"
-	case core.TaskCancelling:
-		return "CANCELLING"
 	case core.TaskCancelled:
 		return "CANCELLED"
 	default:
