@@ -45,19 +45,19 @@ func TestSprint1OperationsCanonicalLayoutKeepsCompactLanesWide(t *testing.T) {
 }
 
 func TestSprint1OperationsListboxesAreOwnerDrawnAtCreation(t *testing.T) {
-	controls, err := os.ReadFile("production_controls_windows.go")
+	creator, err := os.ReadFile("dashboard_operations_controls_ownerdraw_windows.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	controlText := string(controls)
+	creatorText := string(creator)
 	for _, want := range []string{
-		"prepareOperationsListboxPainting(s)",
-		"recreateOperationsOwnerDrawListbox(s, id)",
-		"idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList",
-		"idOpsWaitingList, idOpsNeedsList, idOpsFullList",
+		"lbsNotify | lbsOwnerDrawFixed | lbsHasStrings",
+		"wsVScroll | lbsOwnerDrawFixed | lbsHasStrings",
+		"prepareOperationsOwnerDrawList",
+		"lbSetItemHeight",
 	} {
-		if !strings.Contains(controlText, want) {
-			t.Fatalf("Operations owner-draw setup missing %q", want)
+		if !strings.Contains(creatorText, want) {
+			t.Fatalf("Operations creation-time owner draw missing %q", want)
 		}
 	}
 
@@ -66,12 +66,7 @@ func TestSprint1OperationsListboxesAreOwnerDrawnAtCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	ownerText := string(ownerDraw)
-	for _, want := range []string{
-		"lbsOwnerDrawFixed | lbsHasStrings",
-		"s.control(id, \"LISTBOX\", \"\", style)",
-		"drawOperationsListItem",
-		"dtEndEllipsis",
-	} {
+	for _, want := range []string{"lbsOwnerDrawFixed", "lbsHasStrings", "drawOperationsListItem", "dtEndEllipsis"} {
 		if !strings.Contains(ownerText, want) {
 			t.Fatalf("Operations owner-draw implementation missing %q", want)
 		}
@@ -81,7 +76,11 @@ func TestSprint1OperationsListboxesAreOwnerDrawnAtCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(shell), "s.drawOperationsListItem(lParam)") {
+	shellText := string(shell)
+	if !strings.Contains(shellText, "s.createOperationsDashboardControlsOwnerDraw()") {
+		t.Fatal("production shell does not create owner-drawn Operations listboxes")
+	}
+	if !strings.Contains(shellText, "s.drawOperationsListItem(lParam)") {
 		t.Fatal("production WM_DRAWITEM path does not route Operations list rows")
 	}
 }
