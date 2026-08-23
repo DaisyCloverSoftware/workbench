@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,11 +13,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 )
 
 const (
 	HarnessProtocolVersion = 1
 	maxHarnessJobBytes      = 512 << 10
+	maxHarnessProgressBytes = 4096
+	harnessProgressPrefix   = "WORKBENCH_PROGRESS:"
 )
 
 type HarnessJobStatus string
@@ -79,6 +83,19 @@ type HarnessJobResult struct {
 	Retryable   bool                   `json:"retryable,omitempty"`
 }
 
+// HarnessProgress is an optional, backwards-compatible live telemetry record.
+// Structured adapters emit these records on stderr prefixed by
+// WORKBENCH_PROGRESS:. Final result JSON remains the sole stdout value.
+type HarnessProgress struct {
+	Kind       ProgressKind `json:"kind"`
+	Current    int64        `json:"current,omitempty"`
+	Total      int64        `json:"total,omitempty"`
+	Unit       string       `json:"unit,omitempty"`
+	Phase      string       `json:"phase"`
+	Stage      int          `json:"stage,omitempty"`
+	StageTotal int          `json:"stage_total,omitempty"`
+}
+
 func BuildHarnessJob(task Task, prompt string) HarnessJob {
 	return HarnessJob{
 		Version:     HarnessProtocolVersion,
@@ -101,7 +118,8 @@ func BuildHarnessJob(task Task, prompt string) HarnessJob {
 // RunHarnessAdapter executes one explicitly configured adapter executable
 // directly, without a command shell or operator/model-supplied arguments. The
 // adapter receives one HarnessJob JSON object on stdin and must return exactly
-// one HarnessJobResult JSON object on stdout.
+// one HarnessJobResult JSON object on stdout. Optional validated progress events
+// may be sent on stderr and are reported immediately into canonical task state.
 func RunHarnessAdapter(ctx context.Context, adapterPath string, task Task, prompt string) (RunResult, error) {
 	path, err := validateHarnessAdapterPath(adapterPath)
 	if err != nil {
@@ -127,8 +145,35 @@ func RunHarnessAdapter(ctx context.Context, adapterPath string, task Task, promp
 	stdout := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
 	stderr := newBoundedWorkerCapture(maxWorkerStreamCaptureBytes)
 	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	runErr := cmd.Run()
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return RunResult{Retryable: true}, err
+	}
+	if err := cmd.Start(); err != nil {
+		return RunResult{Retryable: true}, err
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stderrPipe)
+		scanner.Buffer(make([]byte, 4096), maxWorkerStreamCaptureBytes)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if progress, ok := parseHarnessProgressLine(line); ok {
+				reportTaskTelemetry(ctx, progress)
+				continue
+			}
+			_, _ = stderr.Write([]byte(line + "\n"))
+		}
+		if scanErr := scanner.Err(); scanErr != nil {
+			_, _ = stderr.Write([]byte("structured harness stderr capture: " + scanErr.Error() + "\n"))
+		}
+	}()
+
+	runErr := cmd.Wait()
+	wg.Wait()
 	if stdout.Truncated() {
 		return RunResult{Retryable: true}, errors.New("structured harness response exceeded Workbench's bounded output limit")
 	}
@@ -149,6 +194,37 @@ func RunHarnessAdapter(ctx context.Context, adapterPath string, task Task, promp
 		return boundRunResultForPersistence(res), fmt.Errorf("structured harness adapter exited unexpectedly: %w", runErr)
 	}
 	return boundRunResultForPersistence(res), resultErr
+}
+
+func parseHarnessProgressLine(line string) (WorkProgress, bool) {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, harnessProgressPrefix) {
+		return WorkProgress{}, false
+	}
+	payload := strings.TrimSpace(strings.TrimPrefix(line, harnessProgressPrefix))
+	if payload == "" || len(payload) > maxHarnessProgressBytes {
+		return WorkProgress{}, false
+	}
+	dec := json.NewDecoder(strings.NewReader(payload))
+	dec.DisallowUnknownFields()
+	var raw HarnessProgress
+	if err := dec.Decode(&raw); err != nil {
+		return WorkProgress{}, false
+	}
+	var trailing any
+	if err := dec.Decode(&trailing); err != io.EOF {
+		return WorkProgress{}, false
+	}
+	progress := WorkProgress{
+		Kind:       raw.Kind,
+		Current:    raw.Current,
+		Total:      raw.Total,
+		Unit:       raw.Unit,
+		Phase:      raw.Phase,
+		Stage:      raw.Stage,
+		StageTotal: raw.StageTotal,
+	}
+	return normalizeTaskTelemetry(progress)
 }
 
 func validateHarnessAdapterPath(path string) (string, error) {

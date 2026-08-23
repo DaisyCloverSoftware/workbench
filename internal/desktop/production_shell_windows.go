@@ -48,7 +48,7 @@ func runProductionShell(s *Shell) error {
 		0,
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(titlePtr)),
-		wsOverlappedWindow|wsVisible,
+		wsOverlappedWindow|wsVisible|wsClipChildren,
 		32, 24, 1280, 840,
 		0, 0, instance, 0,
 	)
@@ -64,6 +64,28 @@ func runProductionShell(s *Shell) error {
 			procPostMessageW.Call(s.hwnd, wmAppRefresh, 0, 0)
 		}
 	})
+
+	// Task state changes remain event-driven through Engine.Subscribe. This
+	// one-second UI clock only re-renders time-derived elapsed/activity ages so
+	// an open dashboard continues to show that time is advancing even when a
+	// worker has not emitted another telemetry event yet.
+	clockDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if s.hwnd != 0 {
+					procPostMessageW.Call(s.hwnd, wmAppOperationsClock, 0, 0)
+				}
+			case <-clockDone:
+				return
+			}
+		}
+	}()
+	defer close(clockDone)
+
 	procShowWindow.Call(hwnd, swShow)
 	procUpdateWindow.Call(hwnd)
 
@@ -112,6 +134,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		showWindow(s.controls[idGlobalStatus], false)
 		s.refresh()
 		s.refreshOperationsDashboardControls()
+		s.refreshOperationsTelemetryPresentation()
 		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		s.applyPageVisibility()
 		s.layoutProduction()
@@ -139,14 +162,21 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmAppRefresh:
 		s.refresh()
 		s.refreshOperationsDashboardControls()
+		s.refreshOperationsTelemetryPresentation()
 		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
+		return 0
+	case wmAppOperationsClock:
+		if s.page == pageDashboard {
+			s.refreshOperationsTelemetryPresentation()
+		}
 		return 0
 	case wmCommand:
 		id := int(uint16(wParam & 0xffff))
 		notify := uint16((wParam >> 16) & 0xffff)
 		if s.handleOperationsDashboardCommand(id, notify) {
+			s.refreshOperationsTelemetryPresentation()
 			s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 			redrawProductionWindow(hwnd)
 			return 0
@@ -162,12 +192,14 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		}
 		if s.handleProductionChromeCommand(id) {
 			s.refreshOperationsDashboardControls()
+			s.refreshOperationsTelemetryPresentation()
 			s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 			redrawProductionWindow(hwnd)
 			return 0
 		}
 		s.handleCommand(id, notify)
 		s.refreshOperationsDashboardControls()
+		s.refreshOperationsTelemetryPresentation()
 		s.refreshTaskHistoryControls(BuildSnapshot(s.eng, s.selectedTaskID))
 		showWindow(s.controls[idGlobalStatus], false)
 		redrawProductionWindow(hwnd)
@@ -225,6 +257,7 @@ func (s *Shell) handleProductionChromeCommand(id int) bool {
 		s.applyPageVisibility()
 		s.refresh()
 		s.refreshOperationsDashboardControls()
+		s.refreshOperationsTelemetryPresentation()
 		s.layoutProduction()
 		return true
 	case idNavWork:

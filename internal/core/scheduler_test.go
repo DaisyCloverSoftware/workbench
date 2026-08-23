@@ -33,12 +33,15 @@ func TestQueuePositionUsesPriorityBeforeFIFO(t *testing.T) {
 	}
 }
 
-func TestProgressFallsBackToIndeterminate(t *testing.T) {
+func TestProgressFallsBackToExecutionStages(t *testing.T) {
 	progress := TaskProgress(Task{Status: TaskRunning, Progress: WorkProgress{Kind: ProgressMeasured, Total: 0}})
-	if progress.Kind != ProgressIndeterminate {
+	if progress.Kind != ProgressStages {
 		t.Fatalf("progress kind=%q", progress.Kind)
 	}
-	if progress.Phase != "Implementing" {
+	if progress.Stage != 2 || progress.StageTotal != 4 {
+		t.Fatalf("stage=%d/%d", progress.Stage, progress.StageTotal)
+	}
+	if progress.Phase != "Executing worker" {
 		t.Fatalf("phase=%q", progress.Phase)
 	}
 }

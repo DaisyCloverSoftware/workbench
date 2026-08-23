@@ -213,7 +213,7 @@ func (s *Shell) refreshOperationsDashboardDetail() {
 		procEnableWindow.Call(s.controls[idOpsOpenTask], 0)
 		return
 	}
-	setWindowText(s.controls[idOpsDetails], operationsDetailText(detail, time.Now()))
+	setWindowText(s.controls[idOpsDetails], operationsTelemetryDetailText(detail, time.Now()))
 	_, canRaise := higherOperationsPriority(detail.Item.Priority)
 	_, canLower := lowerOperationsPriority(detail.Item.Priority)
 	procEnableWindow.Call(s.controls[idOpsPriorityUp], boolWord(detail.CanReprioritize && canRaise))
@@ -236,21 +236,11 @@ func setOperationsList(hwnd uintptr, lines []string, selection int) {
 }
 
 func operationsCompactListLine(item core.WorkItem) string {
-	project := operationsProjectLabel(item)
-	phase := operationsProgressSummary(item.Progress, item.State)
-	if item.State == core.TaskQueued && item.QueuePosition > 0 {
-		return fmt.Sprintf("#%d %s · %s — %s", item.QueuePosition, strings.ToUpper(item.Priority.String()), project, item.Title)
-	}
-	return fmt.Sprintf("%s · %s — %s · %s", strings.ToUpper(dashboardStatusLabel(item.State, string(item.State))), project, item.Title, phase)
+	return operationsTelemetryListLine(item, time.Now())
 }
 
 func operationsExpandedListLine(item core.WorkItem) string {
-	line := operationsCompactListLine(item)
-	worker := strings.TrimSpace(item.Provider)
-	if worker != "" {
-		line += " · " + worker
-	}
-	return line
+	return operationsTelemetryExpandedLine(item, time.Now())
 }
 
 func operationsRecentOutcomeLine(item core.WorkItem) string {
@@ -346,14 +336,14 @@ func (s *Shell) layoutOperationsDashboardControls(clientWidth, clientHeight int)
 	contentY := productionHeaderHeight + 18
 	contentW := clientWidth - contentX - 18
 	contentH := clientHeight - contentY - 18
-	if contentW < 850 || contentH < 620 {
+	if contentW < 720 || contentH < 560 {
 		return
 	}
 
 	metricsY := contentY + 68
 	metricH := 72
 	boardY := metricsY + metricH + 12
-	resourceH := 164
+	resourceH := 132
 	resourceY := contentY + contentH - resourceH
 	boardH := resourceY - boardY - 12
 
@@ -376,18 +366,18 @@ func (s *Shell) layoutOperationsDashboardControls(clientWidth, clientHeight int)
 	}
 
 	colGap := 10
-	rowGap := 10
-	colW := (contentW - colGap*2) / 3
-	rowH := (boardH - rowGap) / 2
+	rowGap := 8
+	colW := (contentW - colGap) / 2
+	rowH := (boardH - rowGap*2) / 3
 	for i, control := range operationsLaneControls {
-		col := i % 3
-		row := i / 3
+		col := i % 2
+		row := i / 2
 		x := contentX + col*(colW+colGap)
 		y := boardY + row*(rowH+rowGap)
 		showWindow(s.controls[control.Header], true)
 		showWindow(s.controls[control.List], true)
-		moveWindow(s.controls[control.Header], x+8, y+5, colW-16, 30)
-		moveWindow(s.controls[control.List], x+10, y+42, colW-20, rowH-50)
+		moveWindow(s.controls[control.Header], x+4, y+2, colW-8, 26)
+		moveWindow(s.controls[control.List], x+6, y+32, colW-12, rowH-38)
 	}
 
 	if operationsDashboardUI.SelectedID != "" {

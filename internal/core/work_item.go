@@ -123,21 +123,34 @@ func TaskProgress(task Task) WorkProgress {
 	if progress.Kind == ProgressMeasured && progress.Total <= 0 {
 		progress.Kind = ProgressIndeterminate
 	}
-	if progress.Kind == ProgressStages && progress.StageTotal <= 0 {
+	if progress.Kind == ProgressStages && (progress.StageTotal <= 0 || progress.Stage <= 0 || progress.Stage > progress.StageTotal) {
 		progress.Kind = ProgressIndeterminate
 	}
 	if progress.Kind == "" {
 		progress.Kind = ProgressIndeterminate
 	}
 	phase := strings.TrimSpace(progress.Phase)
-	if task.Status == TaskRunning && (phase == "" || strings.EqualFold(phase, "running")) {
-		// A generic "Running" label does not tell an operator what phase the
-		// worker is in. Use a truthful mode-aware stage when the provider has not
-		// supplied a deterministic measurement or richer phase yet.
+
+	// An active task must always have an operationally useful progress mode.
+	// Providers with real measurements retain measured progress. Providers that
+	// cannot measure completion use the Engine's real four-step lifecycle:
+	// selecting an executor, executing work, finalizing the result, completing.
+	if task.Status == TaskRouting && progress.Kind == ProgressIndeterminate {
+		return WorkProgress{Kind: ProgressStages, Phase: "Selecting executor", Stage: 1, StageTotal: 4}
+	}
+	if task.Status == TaskRunning && progress.Kind == ProgressIndeterminate {
+		if IsOperationsTask(task) {
+			phase = "Executing operation"
+		} else {
+			phase = "Executing worker"
+		}
+		return WorkProgress{Kind: ProgressStages, Phase: phase, Stage: 2, StageTotal: 4}
+	}
+	if task.Status == TaskRunning && progress.Kind == ProgressStages && (phase == "" || strings.EqualFold(phase, "running")) {
 		if IsOperationsTask(task) {
 			progress.Phase = "Executing operation"
 		} else {
-			progress.Phase = "Implementing"
+			progress.Phase = "Executing worker"
 		}
 		return progress
 	}
@@ -145,14 +158,16 @@ func TaskProgress(task Task) WorkProgress {
 		switch task.Status {
 		case TaskQueued:
 			progress.Phase = "Queued"
-		case TaskRouting:
-			progress.Phase = "Selecting executor"
 		case TaskWaitingDependency:
 			progress.Phase = "Waiting on dependency"
 		case TaskWaitingRetry:
 			progress.Phase = "Waiting to retry"
 		case TaskNeedsAttention:
 			progress.Phase = "Needs human decision"
+		case TaskCompleted:
+			progress.Phase = "Completed"
+		case TaskFailed:
+			progress.Phase = "Failed"
 		}
 	}
 	return progress

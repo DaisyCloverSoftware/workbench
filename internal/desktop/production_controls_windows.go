@@ -143,6 +143,22 @@ func applyDarkExplorerTheme(hwnd uintptr) {
 	procSetWindowTheme.Call(hwnd, uintptr(unsafe.Pointer(theme)), 0)
 }
 
+func isOperationsListboxHandle(s *Shell, hwnd uintptr) bool {
+	if s == nil || hwnd == 0 {
+		return false
+	}
+	for _, id := range []int{
+		idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList,
+		idOpsWaitingList, idOpsNeedsList, idOpsFullList,
+		idOpsWorkersList, idOpsProjectsList, idOpsRecentList,
+	} {
+		if s.controls[id] == hwnd {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Shell) productionControlColor(message uint32, wParam, lParam uintptr) uintptr {
 	hdc := wParam
 	if hdc == 0 {
@@ -153,9 +169,18 @@ func (s *Shell) productionControlColor(message uint32, wParam, lParam uintptr) u
 	brush := productionPanelBrush
 
 	switch message {
-	case wmCtlColorEdit, wmCtlColorListBox:
+	case wmCtlColorEdit:
 		background = productionPalette.PanelAlt
 		brush = productionFieldBrush
+	case wmCtlColorListBox:
+		background = productionPalette.PanelAlt
+		brush = productionFieldBrush
+		// The Operations board must keep unselected rows readable. The themed
+		// LISTBOX can otherwise inherit a transparent text background that makes
+		// white row text disappear against the dark parent surface.
+		if isOperationsListboxHandle(s, lParam) {
+			procSetBkMode.Call(hdc, 2) // OPAQUE
+		}
 	case wmCtlColorStatic:
 		if lParam == s.controls[idBrand] {
 			background = productionPalette.Sidebar
