@@ -217,7 +217,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		user32.NewProc("DestroyWindow").Call(hwnd)
 		return 0
 	case wmDestroy:
-		procPostQuitMessageW.Call(0)
+		procPostQuitMessage.Call(0)
 		return 0
 	}
 	return defWindowProc(hwnd, message, wParam, lParam)
