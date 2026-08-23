@@ -206,15 +206,20 @@ function Select-ListLine($p,[int]$id,[string]$needle) {
     $index=-1
     for($i=0;$i -lt $lines.Count;$i++){if($lines[$i] -like "*$needle*"){$index=$i;break}}
     if($index -lt 0){throw "Could not find '$needle' in control ${id}: $($lines -join ' | ')"}
-    # Set the native selection and immediately deliver the same LBN_SELCHANGE
-    # notification Windows sends for a real owner click. The dashboard's
-    # one-second telemetry clock can legitimately rebuild the list between two
-    # separate inspection messages, so the durable post-notification UI state
-    # is the correct selection proof.
-    [void](Send-Bounded $list 0x0186 ([IntPtr]$index) ([IntPtr]::Zero) 'select list row')
-    $cmd=[IntPtr]($id -bor (1 -shl 16))
-    [void](Send-Bounded $p.MainWindowHandle 0x0111 $cmd $list 'notify list selection')
+
+    # Exercise the listbox's real mouse-selection path instead of manufacturing
+    # a parent LBN_SELCHANGE notification. Scroll the target row to the top,
+    # click the first visible row, and verify the listbox accepted the selection.
+    [void](Send-Bounded $list 0x0197 ([IntPtr]$index) ([IntPtr]::Zero) 'scroll list row into view')
+    $itemHeight=[int](Send-Bounded $list 0x01A1 ([IntPtr]$index) ([IntPtr]::Zero) 'list item height')
+    if($itemHeight -le 0){$itemHeight=18}
+    $y=[Math]::Max(1,[int]($itemHeight/2))
+    $coords=([int64]$y -shl 16) -bor 8
+    [void](Send-Bounded $list 0x0201 ([IntPtr]1) ([IntPtr]$coords) 'list mouse down')
+    [void](Send-Bounded $list 0x0202 ([IntPtr]::Zero) ([IntPtr]$coords) 'list mouse up')
     Start-Sleep -Milliseconds 200
+    $selected=[int](Send-Bounded $list 0x0188 ([IntPtr]::Zero) ([IntPtr]::Zero) 'selected list row')
+    if($selected -ne $index){throw "Listbox selection did not stick for '$needle': expected $index, got $selected"}
 }
 function Wait-Until([scriptblock]$condition,[string]$description,[int]$seconds=30) {
     $deadline=[DateTime]::UtcNow.AddSeconds($seconds)
