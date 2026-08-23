@@ -51,6 +51,23 @@ func (s *Shell) refreshOperationsTelemetryPresentation() {
 	// two columns by three rows so each job exposes progress/runtime/activity at
 	// normal production window width without changing the deeper detail layout.
 	s.layoutOperationsTelemetryCompactBoard()
+	redrawOperationsTelemetryControls(s)
+}
+
+func redrawOperationsTelemetryControls(s *Shell) {
+	if s == nil {
+		return
+	}
+	// WS_CLIPCHILDREN prevents the parent dashboard paint from covering these
+	// controls. Explicit child invalidation ensures every unselected row is
+	// repainted immediately after LB_RESETCONTENT/LB_ADDSTRING as well, rather
+	// than waiting for a selection change to cause a native listbox repaint.
+	for _, id := range operationsDashboardControlIDs() {
+		hwnd := s.controls[id]
+		if hwnd != 0 {
+			procRedrawWindow.Call(hwnd, 0, 0, rdwInvalidate|rdwErase|rdwUpdateNow)
+		}
+	}
 }
 
 func operationsTelemetryListLine(item core.WorkItem, now time.Time) string {
