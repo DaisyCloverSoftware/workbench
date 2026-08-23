@@ -61,6 +61,9 @@ func RunMachineCommand(ctx context.Context, req MachineCommandRequest) (MachineC
 	if readOnly {
 		return MachineCommandResult{}, errors.New("machine command is read-only; use inspect_machine")
 	}
+	if err := validateOwnerGatedProductMutation(req); err != nil {
+		return MachineCommandResult{}, err
+	}
 	return executeMachineCommand(ctx, req, false)
 }
 
