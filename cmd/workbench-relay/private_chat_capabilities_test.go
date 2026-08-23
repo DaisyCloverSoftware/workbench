@@ -23,12 +23,14 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		"relay/outbox/<id>.json",
 		"relay/answers/<id>.json",
 		"[workbench:operations]",
+		"[workbench:continuation]",
+		"WORKBENCH_WAIT_GITHUB_ACTIONS:",
+		"authenticated_development_continuation",
 		"github_actions",
 		"inspect_machine",
 		"inspect_machine_batch",
 		"run_machine_command",
 		"run_operations_script",
-		"optional_machine_side_autonomy_fallback",
 		"preferred_write_transport",
 		"no_model_credit_required",
 		"machine_read_batch_policy",
@@ -57,7 +59,7 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 	if !strings.Contains(manifest.MCPRole, "read_fetch_on_personal_plans") || !strings.Contains(manifest.MCPRole, "full_mcp") {
 		t.Fatalf("MCP plan-role contract missing: %q", manifest.MCPRole)
 	}
-	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") || !strings.Contains(manifest.FreshChatBootstrap, "built-in operations") {
+	if !strings.Contains(manifest.FreshChatBootstrap, "connected GitHub") || !strings.Contains(manifest.FreshChatBootstrap, "WORKBENCH_CAPABILITIES.json") || !strings.Contains(manifest.FreshChatBootstrap, "built-in operations") || !strings.Contains(manifest.FreshChatBootstrap, "continuation/dependency") {
 		t.Fatalf("fresh-chat relay bootstrap missing: %q", manifest.FreshChatBootstrap)
 	}
 	for _, want := range []string{"1-8", "sequentially", "exact inspect_machine read-only policy", "does not stop later reads", "no run_machine_command_batch", "one-at-a-time"} {
@@ -133,10 +135,13 @@ func TestPrivateChatCapabilitiesAreMachineReadableAndSecretFree(t *testing.T) {
 		manifest.ControlResult != "relay/control-outbox/<id>.json" ||
 		manifest.AutonomousRequest != "relay/inbox/<id>.json" ||
 		manifest.AutonomousResult != "relay/outbox/<id>.json" ||
-		manifest.AutonomousPurpose != "optional_machine_side_autonomy_fallback" ||
+		manifest.AutonomousPurpose != "optional_machine_side_autonomy_fallback_or_authenticated_development_continuation" ||
 		manifest.AutonomousOperationsPrefix != core.RelayOperationsIntentPrefix ||
+		manifest.AutonomousContinuationPrefix != core.RelayContinuationIntentPrefix ||
+		manifest.GitHubActionsWaitPrefix != "WORKBENCH_WAIT_GITHUB_ACTIONS:" ||
+		!strings.Contains(manifest.AutonomousContinuationPurpose, "already_authorised_development") ||
 		manifest.AttentionAnswer != "relay/answers/<id>.json" {
-		t.Fatalf("unexpected private relay protocol paths/operations purpose: %+v", manifest)
+		t.Fatalf("unexpected private relay protocol paths/purpose: %+v", manifest)
 	}
 	if !strings.Contains(manifest.ProjectReference, "exact opaque ref returned by list_projects") {
 		t.Fatalf("capability manifest missing opaque project-ref rule: %q", manifest.ProjectReference)
