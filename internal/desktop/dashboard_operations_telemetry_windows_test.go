@@ -20,7 +20,7 @@ func TestOperationsTelemetryRowShowsMeasuredProgressRuntimeActivityAndPriority(t
 		Progress: core.WorkProgress{Kind: core.ProgressMeasured, Current: 64, Total: 100, Unit: "files", Phase: "Verifying files"},
 	}
 	line := operationsTelemetryListLine(item, now)
-	for _, want := range []string{"RUNNING", "Workbench/Verify source", "64%", "Verifying fi…", "1m30s elapsed", "8s ago", "HIGH"} {
+	for _, want := range []string{"RUNNING", "Workbench/Verify source", "64%", "Verifying f…", "1m30s elapsed", "8s ago", "HIGH"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("row %q missing %q", line, want)
 		}
