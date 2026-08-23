@@ -31,9 +31,10 @@ fi
 
 ACTOR="$(GH_TOKEN="$TOKEN" gh api user --jq .login 2>/dev/null || true)"
 [[ -n "$ACTOR" ]] || ACTOR="mattbrownsett"
-AUTHFILE="$(mktemp)"
+AUTHDIR="$(mktemp -d)"
+AUTHFILE="$AUTHDIR/auth.json"
 cleanup() {
-  rm -f "$AUTHFILE"
+  rm -rf "$AUTHDIR"
 }
 trap cleanup EXIT HUP INT TERM
 
