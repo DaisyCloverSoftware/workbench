@@ -12,7 +12,7 @@ func TestSprint1OperationsTelemetryPresentationContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(body)
-	for _, want := range []string{"ProgressMeasured", "telemetryBar", "ProgressStages", "telemetryStageDots", "operationsActivityAge", "operationsTelemetryElapsed", "Priority"} {
+	for _, want := range []string{"ProgressMeasured", "telemetryBar", "ProgressStages", "telemetryStageDots", "operationsActivityAge", "operationsTelemetryElapsed", "Priority", "redrawOperationsTelemetryControls", "rdwUpdateNow"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("telemetry presentation missing %q", want)
 		}
