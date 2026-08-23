@@ -153,6 +153,9 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 	case wmEraseBkgnd:
 		return 1
 	case wmDrawItem:
+		if result := s.drawOperationsListItem(lParam); result != 0 {
+			return result
+		}
 		if result := s.drawProductionButton(lParam); result != 0 {
 			return result
 		}
