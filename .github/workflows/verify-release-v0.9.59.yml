@@ -1,0 +1,41 @@
+name: verify-release-v0.9.59
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/verify-release-v0.9.59.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-stable-updater-channel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify latest stable release and Windows payload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest")"
+          tag="$(jq -r '.tag_name' <<<"$release_json")"
+          draft="$(jq -r '.draft' <<<"$release_json")"
+          prerelease="$(jq -r '.prerelease' <<<"$release_json")"
+          [ "$tag" = 'v0.9.59' ] || { echo "latest stable is $tag, expected v0.9.59" >&2; exit 1; }
+          [ "$draft" = 'false' ] || { echo 'latest release is draft' >&2; exit 1; }
+          [ "$prerelease" = 'false' ] || { echo 'latest release is prerelease' >&2; exit 1; }
+
+          assets="$(jq -r '.assets[].name' <<<"$release_json")"
+          for required in Workbench.exe Workbench.exe.sha256; do
+            grep -Fxq "$required" <<<"$assets" || { echo "missing release asset $required" >&2; exit 1; }
+          done
+
+          dir="$RUNNER_TEMP/workbench-v0.9.59"
+          mkdir -p "$dir"
+          gh release download v0.9.59 -R "$GITHUB_REPOSITORY" -p 'Workbench.exe' -p 'Workbench.exe.sha256' -D "$dir"
+          (cd "$dir" && sha256sum -c Workbench.exe.sha256)
+
+          echo "Latest stable: $tag"
+          echo 'Verified assets: Workbench.exe + Workbench.exe.sha256'
+          echo 'Published Workbench.exe matches its SHA-256.'
