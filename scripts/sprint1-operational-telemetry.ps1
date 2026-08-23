@@ -220,7 +220,17 @@ function Wait-Until([scriptblock]$condition,[string]$description,[int]$seconds=3
     } while([DateTime]::UtcNow -lt $deadline)
     throw "Timed out: $description"
 }
-function Read-State(){Get-Content -Raw $statePath | ConvertFrom-Json}
+function Read-State(){
+    $deadline=[DateTime]::UtcNow.AddSeconds(5)
+    do {
+        try {
+            return (Get-Content -Raw -ErrorAction Stop $statePath | ConvertFrom-Json)
+        } catch {
+            if([DateTime]::UtcNow -ge $deadline){throw}
+            Start-Sleep -Milliseconds 100
+        }
+    } while($true)
+}
 function Row([IntPtr]$list,[string]$needle){return @((Get-ListLines $list)|Where-Object{$_ -like "*$needle*"}|Select-Object -First 1)[0]}
 function Percent([string]$row){if($row -match '(\d+)%'){return [int]$Matches[1]};return -1}
 function Save-Window($p,[string]$name) {
