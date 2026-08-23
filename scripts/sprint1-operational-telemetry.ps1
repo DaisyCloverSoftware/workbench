@@ -157,6 +157,8 @@ public static class WBTelemetry {
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
     [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
@@ -207,18 +209,25 @@ function Select-ListLine($p,[int]$id,[string]$needle) {
     for($i=0;$i -lt $lines.Count;$i++){if($lines[$i] -like "*$needle*"){$index=$i;break}}
     if($index -lt 0){throw "Could not find '$needle' in control ${id}: $($lines -join ' | ')"}
 
-    # Exercise the listbox's real mouse-selection path instead of manufacturing
-    # a parent LBN_SELCHANGE notification. Scroll the target row to the top,
-    # click the first visible row, and verify the listbox accepted the selection.
+    # Drive the same desktop mouse path as an owner click. First scroll the row
+    # to the top of the listbox, then click the center of that first visible row
+    # in screen coordinates so the native listbox generates LBN_SELCHANGE.
     [void](Send-Bounded $list 0x0197 ([IntPtr]$index) ([IntPtr]::Zero) 'scroll list row into view')
     $itemHeight=[int](Send-Bounded $list 0x01A1 ([IntPtr]$index) ([IntPtr]::Zero) 'list item height')
     if($itemHeight -le 0){$itemHeight=18}
-    $y=[Math]::Max(1,[int]($itemHeight/2))
-    $coords=([int64]$y -shl 16) -bor 8
-    [void](Send-Bounded $list 0x0201 ([IntPtr]1) ([IntPtr]$coords) 'list mouse down')
-    [void](Send-Bounded $list 0x0202 ([IntPtr]::Zero) ([IntPtr]$coords) 'list mouse up')
-    Start-Sleep -Milliseconds 200
-    $selected=[int](Send-Bounded $list 0x0188 ([IntPtr]::Zero) ([IntPtr]::Zero) 'selected list row')
+    $rect=New-Object WBTelemetry+RECT
+    if(-not [WBTelemetry]::GetWindowRect($list,[ref]$rect)){throw 'Could not locate listbox on screen.'}
+    $x=$rect.Left+12
+    $y=$rect.Top+[Math]::Max(1,[int]($itemHeight/2))
+    [void][WBTelemetry]::SetForegroundWindow($p.MainWindowHandle)
+    [void][WBTelemetry]::SetCursorPos($x,$y)
+    Start-Sleep -Milliseconds 75
+    [WBTelemetry]::mouse_event(0x0002,0,0,0,[UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 50
+    [WBTelemetry]::mouse_event(0x0004,0,0,0,[UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 250
+    $rawSelected=Send-Bounded $list 0x0188 ([IntPtr]::Zero) ([IntPtr]::Zero) 'selected list row'
+    $selected=if($rawSelected -eq [uint64]::MaxValue){-1}else{[int]$rawSelected}
     if($selected -ne $index){throw "Listbox selection did not stick for '$needle': expected $index, got $selected"}
 }
 function Wait-Until([scriptblock]$condition,[string]$description,[int]$seconds=30) {
