@@ -20,7 +20,7 @@ EXPECTED_CI_NAME="CI"
 VERIFIER_PATH="scripts/ops/verify-rum-dev-owner-rating-flow.sh"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.57.0-noble"
 
-for command in gh git mktemp bash; do
+for command in gh git mktemp bash python3 sed grep; do
   command -v "$command" >/dev/null 2>&1 || {
     echo "ERROR: required command unavailable: $command" >&2
     exit 2
@@ -73,6 +73,41 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
   exit 78
 }
 
+# The production API image intentionally excludes dev-only Laravel Tinker.
+# Preserve the exact candidate's browser journey and database assertions while
+# adapting only its three `artisan tinker --execute=...` calls in a disposable
+# verifier copy to equivalent bootstrapped Laravel PHP evaluation.
+tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
+[[ "$tinker_calls" == "3" ]] || {
+  echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
+  exit 78
+}
+compat_verifier="$tmp_root/verify-rum-dev-owner-rating-flow-compat.sh"
+python3 - "$VERIFIER_PATH" "$compat_verifier" <<'PY'
+from pathlib import Path
+import sys
+src = Path(sys.argv[1]).read_text()
+bootstrap = r'''PHP_EVAL_BOOTSTRAP='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);'\n'''
+needle = 'php artisan tinker --execute='
+if src.count(needle) != 3:
+    raise SystemExit('unexpected tinker call count')
+lines = src.splitlines(keepends=True)
+insert_at = 2 if len(lines) >= 2 else 0
+lines.insert(insert_at, bootstrap)
+out = ''.join(lines).replace(needle, 'php -r "$PHP_EVAL_BOOTSTRAP" ')
+Path(sys.argv[2]).write_text(out)
+PY
+chmod 700 "$compat_verifier"
+[[ "$(grep -c 'php artisan tinker --execute=' "$compat_verifier" || true)" == "0" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier still contains Tinker calls." >&2
+  exit 78
+}
+[[ "$(grep -c 'php -r \"\$PHP_EVAL_BOOTSTRAP\"' "$compat_verifier" || true)" == "3" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier did not contain exactly three Laravel bootstrap probes." >&2
+  exit 78
+}
+printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
+
 # The cluster-control host intentionally has no Docker daemon. Podman is
 # Docker-CLI compatible for the candidate verifier's bounded `docker run`
 # usage. The official Playwright Python image carries the browser binaries but
@@ -105,10 +140,11 @@ else
 fi
 
 # The cloned verifier needs no GitHub credential. Drop token variables before
-# invoking the candidate's CI-verified browser/database isolation check.
+# invoking the candidate's browser/database isolation check.
 unset TOKEN GH_TOKEN GHCR_TOKEN
 
 printf 'RUM_OWNER_FLOW_CANDIDATE_SHA=%s\n' "$CANDIDATE_SHA"
 printf 'RUM_OWNER_FLOW_VERIFIER=%s\n' "$VERIFIER_PATH"
+printf 'RUM_OWNER_FLOW_EXECUTED_VERIFIER=%s\n' "$compat_verifier"
 
-bash "$VERIFIER_PATH"
+bash "$compat_verifier"
