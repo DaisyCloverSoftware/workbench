@@ -72,6 +72,23 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
   exit 78
 }
 
+# The cluster-control host intentionally has no Docker daemon. Podman is
+# Docker-CLI compatible for the candidate verifier's bounded `docker run`
+# usage, so expose it through a disposable PATH shim without changing the
+# exact candidate source. Fail closed if neither runtime exists.
+if command -v docker >/dev/null 2>&1; then
+  printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=docker\n'
+elif command -v podman >/dev/null 2>&1; then
+  runtime_bin="$tmp_root/runtime-bin"
+  mkdir -p "$runtime_bin"
+  ln -s "$(command -v podman)" "$runtime_bin/docker"
+  export PATH="$runtime_bin:$PATH"
+  printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=podman\n'
+else
+  echo "VERIFY BLOCKED: neither Docker nor Podman is available for the exact candidate browser verifier." >&2
+  exit 78
+fi
+
 # The cloned verifier needs no GitHub credential. Drop token variables before
 # invoking the candidate's CI-verified browser/database isolation check.
 unset TOKEN GH_TOKEN GHCR_TOKEN
