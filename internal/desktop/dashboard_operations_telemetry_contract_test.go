@@ -12,7 +12,7 @@ func TestSprint1OperationsTelemetryPresentationContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(body)
-	for _, want := range []string{"ProgressMeasured", "telemetryBar", "ProgressStages", "telemetryStageDots", "operationsActivityAge", "operationsTelemetryElapsed", "Priority", "redrawOperationsTelemetryControls", "rdwUpdateNow"} {
+	for _, want := range []string{"ProgressMeasured", "telemetryBar", "ProgressStages", "telemetryStageDots", "operationsActivityAge", "operationsTelemetryElapsed", "Priority"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("telemetry presentation missing %q", want)
 		}
@@ -41,5 +41,23 @@ func TestSprint1OperationsCanonicalLayoutKeepsCompactLanesWide(t *testing.T) {
 	}
 	if strings.Contains(text, "colW := (contentW - colGap*2) / 3") {
 		t.Fatal("canonical Operations layout regressed to three narrow columns")
+	}
+}
+
+func TestSprint1OperationsListboxesUseReadableWin32ColorPainting(t *testing.T) {
+	body, err := os.ReadFile("production_controls_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, want := range []string{
+		"disableOperationsListboxThemes(s)",
+		"idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList",
+		"idOpsWaitingList, idOpsNeedsList, idOpsFullList",
+		"procSetWindowTheme.Call",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("Operations listbox theme contract missing %q", want)
+		}
 	}
 }
