@@ -66,11 +66,11 @@ func operationsTelemetryListLine(item core.WorkItem, now time.Time) string {
 		if item.QueuePosition > 0 {
 			queue = fmt.Sprintf(" #%d", item.QueuePosition)
 		}
-		return fmt.Sprintf("%s%s · %s · %s · %s", state, queue, task, activity, priority)
+		return fmt.Sprintf("%s%s · %s · %s · %s", state, queue, priority, activity, task)
 	}
 	progress := operationsTelemetryCompactProgress(item.Progress, item.State)
 	runtime := operationsTelemetryElapsedCompact(item, now)
-	return fmt.Sprintf("%s · %s · %s · %s · %s · %s", state, task, progress, runtime, activity, priority)
+	return fmt.Sprintf("%s · %s · %s · %s · %s · %s", state, progress, runtime, activity, priority, task)
 }
 
 func operationsTelemetryExpandedLine(item core.WorkItem, now time.Time) string {
@@ -121,7 +121,7 @@ func operationsTelemetryCompactProgress(progress core.WorkProgress, status core.
 				current = progress.Total
 			}
 			percent := int((current * 100) / progress.Total)
-			return fmt.Sprintf("%s %d%% %s", telemetryBar(percent, 6), percent, phase)
+			return fmt.Sprintf("%d%% %s", percent, telemetryBar(percent, 4))
 		}
 	case core.ProgressStages:
 		if progress.StageTotal > 0 && progress.Stage > 0 {
@@ -130,7 +130,7 @@ func operationsTelemetryCompactProgress(progress core.WorkProgress, status core.
 				stage = progress.StageTotal
 			}
 			dots := strings.ReplaceAll(telemetryStageDots(stage, progress.StageTotal), " ", "")
-			return fmt.Sprintf("Stage %d/%d %s %s", stage, progress.StageTotal, dots, phase)
+			return fmt.Sprintf("Stage %d/%d %s", stage, progress.StageTotal, dots)
 		}
 	}
 	return phase
