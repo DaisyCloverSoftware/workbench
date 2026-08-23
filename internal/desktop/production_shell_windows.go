@@ -48,7 +48,7 @@ func runProductionShell(s *Shell) error {
 		0,
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(titlePtr)),
-		wsOverlappedWindow|wsVisible,
+		wsOverlappedWindow|wsVisible|wsClipChildren,
 		32, 24, 1280, 840,
 		0, 0, instance, 0,
 	)
