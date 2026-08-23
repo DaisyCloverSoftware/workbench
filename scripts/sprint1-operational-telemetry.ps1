@@ -334,9 +334,11 @@ try {
     $evidence.Add('4. Compact rows exposed elapsed runtime, latest activity age, state and named priority without opening task details.')
 
     $priorityBefore=Row $ai 'Telemetry queued priority'
-    Select-ListLine $p 3607 'Telemetry queued priority'
     $priorityUp=Get-Control $p 3615
-    Wait-Until { [WBTelemetry]::IsWindowVisible($priorityUp) -and [WBTelemetry]::IsWindowEnabled($priorityUp) } 'Priority Up enabled for queued selection' 10
+    Wait-Until {
+        Select-ListLine $p 3607 'Telemetry queued priority'
+        [WBTelemetry]::IsWindowVisible($priorityUp) -and [WBTelemetry]::IsWindowEnabled($priorityUp)
+    } 'Priority Up enabled for queued selection' 12
     Click-Control $p 3615
     Wait-Until {
         $target=(Read-State).tasks|Where-Object{$_.intent -eq 'Telemetry queued priority target'}|Select-Object -First 1
