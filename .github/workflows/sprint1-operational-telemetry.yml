@@ -287,7 +287,7 @@ jobs:
             $needs=Get-Control $p 3611
 
             Wait-Until { ((Get-ListLines $ai)-join "`n") -match '\d+%' } 'measured percentage in active row' 20
-            Wait-Until { ((Get-ListLines $server)-join "`n") -match 'Stage 2/2' } 'stage progress in operation row' 12
+            Wait-Until { ((Get-ListLines $server)-join "`n") -match 'Stage 2/4' } 'stage progress in operation row' 12
             Wait-Until { ((Get-ListLines $waiting)-join "`n") -match 'Telemetry wait for CI' } 'Waiting visible on open Dashboard' 8
 
             $before=Row $ai 'Telemetry measured'
@@ -300,11 +300,11 @@ jobs:
             if($after -notmatch '\d+s elapsed' -or $after -notmatch '\d+s ago'){throw "Runtime/activity missing: $after"}
             if($after -match 'percentage unavailable'){throw "Unacceptable unavailable-percentage text: $after"}
             $serverRow=Row $server 'Telemetry stage operation'
-            if($serverRow -notmatch 'Stage 2/2' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
+            if($serverRow -notmatch 'Stage 2/4' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
             if($serverRow -notmatch 'RUNNING'){throw "Server operation did not expose RUNNING state: $serverRow"}
             $evidence.Add('1. Three simultaneous real operations were visible: measured Running, stage-based Server Ops Running, and a real Waiting dependency.')
             $evidence.Add("2. Deterministic progress advanced from $beforePercent% to $afterPercent% while Dashboard stayed open; percentage came from hashed source files processed / actual files discovered.")
-            $evidence.Add('3. Stage-only Server Ops displayed Stage 2/2 — Executing operation with no fabricated percentage.')
+            $evidence.Add('3. Stage-only Server Ops displayed Stage 2/4 — Executing operation with no fabricated percentage.')
             $evidence.Add('4. Running rows exposed elapsed runtime, latest activity age, state and named priority without selecting a task.')
             Save-Window $p 'Sprint1-Telemetry-Live-Progress.png'
 
