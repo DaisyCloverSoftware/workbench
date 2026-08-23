@@ -20,7 +20,7 @@ func TestOperationsTelemetryRowShowsMeasuredProgressRuntimeActivityAndPriority(t
 		Progress: core.WorkProgress{Kind: core.ProgressMeasured, Current: 64, Total: 100, Unit: "files", Phase: "Verifying files"},
 	}
 	line := operationsTelemetryListLine(item, now)
-	for _, want := range []string{"RUNNING", "Workbench/Verify source", "64%", "Verifying f…", "1m30s elapsed", "8s ago", "HIGH"} {
+	for _, want := range []string{"RUNNING", "Workbench/Verify source", "64%", "1m30s elapsed", "8s ago", "HIGH"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("row %q missing %q", line, want)
 		}
@@ -31,6 +31,7 @@ func TestOperationsTelemetryRowShowsMeasuredProgressRuntimeActivityAndPriority(t
 	if strings.Contains(line, "WORKING") {
 		t.Fatalf("row leaked internal working label: %q", line)
 	}
+	assertOperationsTelemetryBeforeTask(t, line, "64%", "elapsed", "ago", "HIGH")
 }
 
 func TestOperationsTelemetryRowShowsStageProgressWithoutInventingPercent(t *testing.T) {
@@ -42,7 +43,7 @@ func TestOperationsTelemetryRowShowsStageProgressWithoutInventingPercent(t *test
 		Progress: core.WorkProgress{Kind: core.ProgressStages, Stage: 3, StageTotal: 5, Phase: "Executing"},
 	}
 	line := operationsTelemetryListLine(item, now)
-	for _, want := range []string{"RUNNING", "Stage 3/5", "Executing", "22s elapsed", "2s ago", "NORMAL", "●", "○"} {
+	for _, want := range []string{"RUNNING", "Stage 3/5", "22s elapsed", "2s ago", "NORMAL", "●", "○"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("row %q missing %q", line, want)
 		}
@@ -50,6 +51,7 @@ func TestOperationsTelemetryRowShowsStageProgressWithoutInventingPercent(t *test
 	if strings.Contains(line, "%") || strings.Contains(strings.ToLower(line), "percentage unavailable") {
 		t.Fatalf("stage row invented or exposed unavailable percentage: %q", line)
 	}
+	assertOperationsTelemetryBeforeTask(t, line, "Stage 3/5", "elapsed", "ago", "NORMAL")
 }
 
 func TestOperationsTelemetryQueuedRowMakesPriorityAndQueueImmediatelyVisible(t *testing.T) {
@@ -59,6 +61,7 @@ func TestOperationsTelemetryQueuedRowMakesPriorityAndQueueImmediatelyVisible(t *
 	if !strings.Contains(line, "QUEUED #1") || !strings.Contains(line, "CRITICAL") {
 		t.Fatalf("queued row=%q", line)
 	}
+	assertOperationsTelemetryBeforeTask(t, line, "CRITICAL", "ago")
 }
 
 func TestOperationsTelemetryUsesOwnerFacingStateLabels(t *testing.T) {
@@ -70,5 +73,19 @@ func TestOperationsTelemetryUsesOwnerFacingStateLabels(t *testing.T) {
 	}
 	if got := operationsTelemetryState(core.TaskWaitingDependency); got != "WAITING" {
 		t.Fatalf("waiting label=%q", got)
+	}
+}
+
+func assertOperationsTelemetryBeforeTask(t *testing.T, line string, fields ...string) {
+	t.Helper()
+	taskPos := strings.Index(line, "Workbench/")
+	if taskPos < 0 {
+		t.Fatalf("row %q missing task label", line)
+	}
+	for _, field := range fields {
+		pos := strings.Index(line, field)
+		if pos < 0 || pos > taskPos {
+			t.Fatalf("row %q did not keep %q before task label", line, field)
+		}
 	}
 }
