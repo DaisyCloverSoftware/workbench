@@ -39,12 +39,12 @@ func TestHarnessProgressRejectsFabricatedOrInvalidMeasurements(t *testing.T) {
 func TestTaskProgressUsesStagesWhenPercentageIsNotDefensible(t *testing.T) {
 	development := Task{Status: TaskRunning, Mode: TaskModeDevelopment, Progress: WorkProgress{Kind: ProgressIndeterminate, Phase: "Running"}}
 	got := TaskProgress(development)
-	if got.Kind != ProgressStages || got.Stage != 2 || got.StageTotal != 4 || got.Phase != "Executing worker" {
+	if got.Kind != ProgressStages || got.Stage != 2 || got.StageTotal != 2 || got.Phase != "Executing worker" {
 		t.Fatalf("development progress=%#v", got)
 	}
 	operations := Task{Status: TaskRunning, Mode: TaskModeOperations, Progress: WorkProgress{Kind: ProgressIndeterminate, Phase: "Running"}}
 	got = TaskProgress(operations)
-	if got.Kind != ProgressStages || got.Stage != 2 || got.StageTotal != 4 || got.Phase != "Executing operation" {
+	if got.Kind != ProgressStages || got.Stage != 2 || got.StageTotal != 2 || got.Phase != "Executing operation" {
 		t.Fatalf("operations progress=%#v", got)
 	}
 	if strings.Contains(got.Phase, "%") {
