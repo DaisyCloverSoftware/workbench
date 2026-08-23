@@ -50,9 +50,11 @@ git -C "$WORKDIR/rum" checkout --detach "$CANDIDATE_SHA" >/dev/null
 chmod -R u+rwX,go+rX "$WORKDIR/rum"
 APP_VERSION="$(cat "$WORKDIR/rum/VERSION")+${CANDIDATE_SHA}"
 
-# Stage Composer for Buildah's external COPY source resolution.
+# Stage external/unqualified images for Buildah short-name resolution.
 podman pull docker.io/library/composer:2 >/dev/null
 podman tag docker.io/library/composer:2 composer:2
+podman pull docker.io/library/nginx:1.29.4-alpine3.23 >/dev/null
+podman tag docker.io/library/nginx:1.29.4-alpine3.23 nginx:1.29.4-alpine3.23
 
 podman build --pull=newer \
   --label "org.opencontainers.image.revision=${CANDIDATE_SHA}" \
