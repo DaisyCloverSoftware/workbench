@@ -287,7 +287,7 @@ jobs:
             $before=Row $ai 'Telemetry measured'
             $beforePercent=Percent $before
             if($beforePercent -lt 0){throw "Measured row lacked deterministic percent: $before"}
-            $serverRow=Row $server 'Telemetry stage operation'
+            $serverRow=Row $server 'Stage 2/4'
             if($serverRow -notmatch 'Stage 2/4' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
             if($serverRow -notmatch 'RUNNING'){throw "Server operation did not expose RUNNING state: $serverRow"}
             Save-Window $p 'Sprint1-Telemetry-Live-Progress.png'
