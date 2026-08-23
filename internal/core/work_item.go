@@ -133,11 +133,10 @@ func TaskProgress(task Task) WorkProgress {
 
 	// An active task must always have an operationally useful progress mode.
 	// Providers with real measurements retain measured progress. Providers that
-	// cannot measure completion use Workbench's real execution lifecycle rather
-	// than a guessed percentage. The generic lifecycle has only two observable
-	// active stages: selecting an executor, then executing the assigned work.
+	// cannot measure completion use the Engine's real four-step lifecycle:
+	// selecting an executor, executing work, finalizing the result, completing.
 	if task.Status == TaskRouting && progress.Kind == ProgressIndeterminate {
-		return WorkProgress{Kind: ProgressStages, Phase: "Selecting executor", Stage: 1, StageTotal: 2}
+		return WorkProgress{Kind: ProgressStages, Phase: "Selecting executor", Stage: 1, StageTotal: 4}
 	}
 	if task.Status == TaskRunning && progress.Kind == ProgressIndeterminate {
 		if IsOperationsTask(task) {
@@ -145,7 +144,7 @@ func TaskProgress(task Task) WorkProgress {
 		} else {
 			phase = "Executing worker"
 		}
-		return WorkProgress{Kind: ProgressStages, Phase: phase, Stage: 2, StageTotal: 2}
+		return WorkProgress{Kind: ProgressStages, Phase: phase, Stage: 2, StageTotal: 4}
 	}
 	if task.Status == TaskRunning && progress.Kind == ProgressStages && (phase == "" || strings.EqualFold(phase, "running")) {
 		if IsOperationsTask(task) {
