@@ -30,6 +30,10 @@ func TestRUMDevOwnerFlowVerifierUsesExactCIValidatedCandidate(t *testing.T) {
 		`no successful exact-head ${EXPECTED_CI_NAME} workflow run exists`,
 		`RUM PR #${CANDIDATE_PR} is not the expected open, draft, unmerged exact candidate`,
 		`git checkout --detach "$CANDIDATE_SHA"`,
+		`command -v podman`,
+		`ln -s "$(command -v podman)" "$runtime_bin/docker"`,
+		`RUM_OWNER_FLOW_CONTAINER_RUNTIME=podman`,
+		`neither Docker nor Podman is available`,
 		`unset TOKEN GH_TOKEN GHCR_TOKEN`,
 		`bash "$VERIFIER_PATH"`,
 	}
