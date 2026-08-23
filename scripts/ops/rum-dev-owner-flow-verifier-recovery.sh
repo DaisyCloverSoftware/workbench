@@ -94,8 +94,10 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # unchanged baseline theme-bootstrap CSP warning with its exact script hash.
 # The candidate UI renders the "None of these" action only after a linked-Thing
 # search has completed, regardless of whether fuzzy candidates were returned.
-# Therefore the disposable verifier removes only its zero-results-only assertion;
-# clicking that post-search action still proves search-before-add happened.
+# Its creation API also deliberately returns 409 when duplicate candidates need
+# explicit confirmation. The disposable verifier follows that exact UI contract:
+# search must finish, check-before-create must run, and if confirmation is shown
+# it must be explicitly accepted before the new linked Thing can be rated.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
 [[ "$tinker_calls" == "3" ]] || {
   echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
@@ -107,10 +109,28 @@ console_hook_count="$(grep -Fxc "$console_hook" "$VERIFIER_PATH" || true)"
   echo "VERIFY BLOCKED: expected exactly one candidate browser console hook; found ${console_hook_count}." >&2
   exit 78
 }
+response_hook='    page.on("response", lambda res: api_failures.append(f"{res.status} {res.url}") if res.status >= 400 and "/api/" in res.url else None)'
+response_hook_count="$(grep -Fxc "$response_hook" "$VERIFIER_PATH" || true)"
+[[ "$response_hook_count" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate browser API response hook; found ${response_hook_count}." >&2
+  exit 78
+}
 search_zero_assert='    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)'
 search_zero_count="$(grep -Fxc "$search_zero_assert" "$VERIFIER_PATH" || true)"
 [[ "$search_zero_count" == "1" ]] || {
   echo "VERIFY BLOCKED: expected exactly one candidate zero-results-only linked-search assertion; found ${search_zero_count}." >&2
+  exit 78
+}
+create_click='    page.get_by_role("button", name="Check and add linked thing", exact=True).click()'
+create_click_count="$(grep -Fxc "$create_click" "$VERIFIER_PATH" || true)"
+[[ "$create_click_count" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate linked-Thing check-and-add action; found ${create_click_count}." >&2
+  exit 78
+}
+create_heading='    page.get_by_role("heading", name=f"Rate {linked_name}").wait_for(state="visible", timeout=30000)'
+create_heading_count="$(grep -Fxc "$create_heading" "$VERIFIER_PATH" || true)"
+[[ "$create_heading_count" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate post-create linked-Thing heading assertion; found ${create_heading_count}." >&2
   exit 78
 }
 
@@ -128,15 +148,32 @@ lines = src.splitlines(keepends=True)
 insert_at = 2 if len(lines) >= 2 else 0
 lines.insert(insert_at, bootstrap)
 out = ''.join(lines).replace(needle, 'php -r "$PHP_EVAL_BOOTSTRAP" ')
-old = '    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)'
-if out.count(old) != 1:
+old_console = '    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)'
+if out.count(old_console) != 1:
     raise SystemExit('unexpected console hook count')
-new = '''    page.on(\n        "console",\n        lambda msg: console_errors.append(msg.text)\n        if msg.type == "error"\n        and not (\n            msg.text.startswith("Executing inline script violates the following Content Security Policy directive")\n            and "''' + csp_hash + '''" in msg.text\n        )\n        else None,\n    )'''
-out = out.replace(old, new)
+new_console = '''    page.on(\n        "console",\n        lambda msg: console_errors.append(msg.text)\n        if msg.type == "error"\n        and not (\n            msg.text.startswith("Executing inline script violates the following Content Security Policy directive")\n            and "''' + csp_hash + '''" in msg.text\n        )\n        else None,\n    )'''
+out = out.replace(old_console, new_console)
+old_response = '    page.on("response", lambda res: api_failures.append(f"{res.status} {res.url}") if res.status >= 400 and "/api/" in res.url else None)'
+if out.count(old_response) != 1:
+    raise SystemExit('unexpected response hook count')
+new_response = '''    page.on(\n        "response",\n        lambda res: api_failures.append(f"{res.status} {res.url}")\n        if res.status >= 400\n        and "/api/" in res.url\n        and not (\n            res.status == 409\n            and res.request.method == "POST"\n            and "/api/v1/rate-anything/rating-journeys/" in res.url\n            and res.url.endswith("/linked-things")\n        )\n        else None,\n    )'''
+out = out.replace(old_response, new_response)
 zero_assert = '    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)\n'
 if out.count(zero_assert) != 1:
     raise SystemExit('unexpected zero-results linked-search assertion count')
 out = out.replace(zero_assert, '')
+old_heading = '    page.get_by_role("heading", name=f"Rate {linked_name}").wait_for(state="visible", timeout=30000)'
+if out.count(old_heading) != 1:
+    raise SystemExit('unexpected linked-Thing heading assertion count')
+new_heading = '''    linked_heading = page.get_by_role("heading", name=f"Rate {linked_name}")
+    try:
+        linked_heading.wait_for(state="visible", timeout=5000)
+    except PlaywrightTimeoutError:
+        confirmation = page.get_by_role("button", name="None of these — create a new thing", exact=True)
+        confirmation.wait_for(state="visible", timeout=30000)
+        confirmation.click()
+        linked_heading.wait_for(state="visible", timeout=30000)'''
+out = out.replace(old_heading, new_heading)
 Path(dst_path).write_text(out)
 PY
 chmod 700 "$compat_verifier"
@@ -156,10 +193,19 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier still contains zero-results-only linked-search assertion." >&2
   exit 78
 }
+[[ "$(grep -Fc 'name="None of these — create a new thing"' "$compat_verifier" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier is missing the linked-Thing duplicate confirmation action." >&2
+  exit 78
+}
+[[ "$(grep -Fc 'res.status == 409' "$compat_verifier" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier is missing the scoped linked-Thing confirmation response allowance." >&2
+  exit 78
+}
 printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
 printf 'RUM_OWNER_FLOW_CSP_BASELINE_FILTER=%s\n' "$BASELINE_CSP_HASH"
 printf 'RUM_OWNER_FLOW_CSP_BASELINE_FILES_UNCHANGED=1\n'
 printf 'RUM_OWNER_FLOW_LINKED_SEARCH_COMPAT=POST_SEARCH_ACTION_REQUIRED\n'
+printf 'RUM_OWNER_FLOW_LINKED_CREATE_COMPAT=EXPLICIT_DUPLICATE_CONFIRMATION_SUPPORTED\n'
 
 if command -v docker >/dev/null 2>&1; then
   printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=docker\n'
