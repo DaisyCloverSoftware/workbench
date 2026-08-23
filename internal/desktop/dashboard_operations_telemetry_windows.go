@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
@@ -45,25 +46,31 @@ func (s *Shell) refreshOperationsTelemetryPresentation() {
 	if detail, ok := surface.Details[operationsDashboardUI.SelectedID]; ok && operationsDashboardUI.SelectedID != "" {
 		setWindowText(s.controls[idOpsDetails], operationsTelemetryDetailText(detail, now))
 	}
+	// The original Sprint 1 board used three narrow columns. That clipped the
+	// operational telemetry before an owner could read it. Compact mode is now
+	// two columns by three rows so each job exposes progress/runtime/activity at
+	// normal production window width without changing the deeper detail layout.
+	s.layoutOperationsTelemetryCompactBoard()
 }
 
 func operationsTelemetryListLine(item core.WorkItem, now time.Time) string {
-	project := telemetryCompact(operationsProjectLabel(item), 18)
-	title := telemetryCompact(item.Title, 32)
-	state := strings.ToUpper(string(item.State))
+	project := telemetryCompact(operationsProjectLabel(item), 10)
+	title := telemetryCompact(item.Title, 28)
+	state := operationsTelemetryState(item.State)
 	priority := strings.ToUpper(item.Priority.String())
-	activity := operationsActivityAge(item.UpdatedAt, now)
+	task := project + "/" + title
+	activity := operationsActivityAgeCompact(item.UpdatedAt, now)
 
 	if item.State == core.TaskQueued {
-		queue := priority
+		queue := ""
 		if item.QueuePosition > 0 {
-			queue = fmt.Sprintf("#%d %s", item.QueuePosition, priority)
+			queue = fmt.Sprintf(" #%d", item.QueuePosition)
 		}
-		return fmt.Sprintf("%s · %s — %s · %s · %s", queue, project, title, state, activity)
+		return fmt.Sprintf("%s%s · %s · %s · %s", state, queue, task, activity, priority)
 	}
-	progress := operationsTelemetryProgress(item.Progress, item.State)
-	runtime := operationsTelemetryElapsed(item, now)
-	return fmt.Sprintf("%s · %s — %s · %s · %s · %s · %s", state, project, title, progress, runtime, activity, priority)
+	progress := operationsTelemetryCompactProgress(item.Progress, item.State)
+	runtime := operationsTelemetryElapsedCompact(item, now)
+	return fmt.Sprintf("%s · %s · %s · %s · %s · %s", state, task, progress, runtime, activity, priority)
 }
 
 func operationsTelemetryExpandedLine(item core.WorkItem, now time.Time) string {
@@ -75,10 +82,66 @@ func operationsTelemetryExpandedLine(item core.WorkItem, now time.Time) string {
 	return line
 }
 
+func operationsTelemetryState(status core.TaskStatus) string {
+	switch status {
+	case core.TaskRunning:
+		return "RUNNING"
+	case core.TaskRouting:
+		return "STARTING"
+	case core.TaskQueued:
+		return "QUEUED"
+	case core.TaskWaitingDependency, core.TaskWaitingRetry:
+		return "WAITING"
+	case core.TaskNeedsAttention:
+		return "NEEDS YOU"
+	case core.TaskCompleted:
+		return "COMPLETED"
+	case core.TaskFailed:
+		return "FAILED"
+	case core.TaskCancelling:
+		return "CANCELLING"
+	case core.TaskCancelled:
+		return "CANCELLED"
+	default:
+		return strings.ToUpper(strings.ReplaceAll(string(status), "_", " "))
+	}
+}
+
+func operationsTelemetryCompactProgress(progress core.WorkProgress, status core.TaskStatus) string {
+	phase := telemetryCompact(strings.TrimSpace(progress.Phase), 12)
+	if phase == "" {
+		phase = telemetryCompact(operationsTelemetryState(status), 12)
+	}
+	switch progress.Kind {
+	case core.ProgressMeasured:
+		if progress.Total > 0 {
+			current := progress.Current
+			if current < 0 {
+				current = 0
+			}
+			if current > progress.Total {
+				current = progress.Total
+			}
+			percent := int((current * 100) / progress.Total)
+			return fmt.Sprintf("%s %d%% %s", telemetryBar(percent, 6), percent, phase)
+		}
+	case core.ProgressStages:
+		if progress.StageTotal > 0 && progress.Stage > 0 {
+			stage := progress.Stage
+			if stage > progress.StageTotal {
+				stage = progress.StageTotal
+			}
+			dots := strings.ReplaceAll(telemetryStageDots(stage, progress.StageTotal), " ", "")
+			return fmt.Sprintf("Stage %d/%d %s %s", stage, progress.StageTotal, dots, phase)
+		}
+	}
+	return phase
+}
+
 func operationsTelemetryProgress(progress core.WorkProgress, status core.TaskStatus) string {
 	phase := strings.TrimSpace(progress.Phase)
 	if phase == "" {
-		phase = string(status)
+		phase = operationsTelemetryState(status)
 	}
 	switch progress.Kind {
 	case core.ProgressMeasured:
@@ -159,6 +222,13 @@ func operationsTelemetryElapsed(item core.WorkItem, now time.Time) string {
 	return "elapsed " + telemetryDuration(now.Sub(*item.StartedAt))
 }
 
+func operationsTelemetryElapsedCompact(item core.WorkItem, now time.Time) string {
+	if item.StartedAt == nil || item.StartedAt.IsZero() {
+		return "elapsed —"
+	}
+	return telemetryDuration(now.Sub(*item.StartedAt)) + " elapsed"
+}
+
 func operationsActivityAge(at, now time.Time) string {
 	if at.IsZero() {
 		return "activity —"
@@ -168,6 +238,17 @@ func operationsActivityAge(at, now time.Time) string {
 		d = 0
 	}
 	return "activity " + telemetryDuration(d) + " ago"
+}
+
+func operationsActivityAgeCompact(at, now time.Time) string {
+	if at.IsZero() {
+		return "activity —"
+	}
+	d := now.Sub(at)
+	if d < 0 {
+		d = 0
+	}
+	return telemetryDuration(d) + " ago"
 }
 
 func telemetryDuration(d time.Duration) string {
@@ -189,7 +270,7 @@ func operationsTelemetryDetailText(detail DashboardOperationsDetail, now time.Ti
 	writeOperationsDetailLine(&b, "Project", detail.Project)
 	writeOperationsDetailLine(&b, "Task / sprint", detail.Task)
 	writeOperationsDetailLine(&b, "Assigned worker", detail.Worker)
-	writeOperationsDetailLine(&b, "State", strings.ToUpper(string(item.State)))
+	writeOperationsDetailLine(&b, "State", operationsTelemetryState(item.State))
 	writeOperationsDetailLine(&b, "Current stage", strings.TrimSpace(item.Progress.Phase))
 	writeOperationsDetailLine(&b, "Progress", operationsTelemetryProgress(item.Progress, item.State))
 	if item.StartedAt != nil && !item.StartedAt.IsZero() {
@@ -199,7 +280,7 @@ func operationsTelemetryDetailText(detail DashboardOperationsDetail, now time.Ti
 	if !item.UpdatedAt.IsZero() {
 		activity := strings.TrimSpace(item.Progress.Phase)
 		if activity == "" {
-			activity = strings.ToUpper(string(item.State))
+			activity = operationsTelemetryState(item.State)
 		}
 		writeOperationsDetailLine(&b, "Latest meaningful activity", fmt.Sprintf("%s · %s · %s", activity, item.UpdatedAt.Local().Format("2 Jan 15:04:05"), operationsActivityAge(item.UpdatedAt, now)))
 	}
@@ -223,6 +304,65 @@ func operationsTelemetryDetailText(detail DashboardOperationsDetail, now time.Ti
 		writeOperationsDetailLine(&b, "Owner action", detail.OwnerAction)
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func (s *Shell) layoutOperationsTelemetryCompactBoard() {
+	if s == nil || s.page != pageDashboard || operationsDashboardUI.SelectedID != "" || operationsDashboardUI.ExpandedLane != "" {
+		return
+	}
+	var rect nativeRect
+	procGetClientRect.Call(s.hwnd, uintptr(unsafe.Pointer(&rect)))
+	clientWidth := int(rect.Right - rect.Left)
+	clientHeight := int(rect.Bottom - rect.Top)
+	contentX := productionSidebarWidth + 20
+	contentY := productionHeaderHeight + 18
+	contentW := clientWidth - contentX - 18
+	contentH := clientHeight - contentY - 18
+	if contentW < 720 || contentH < 560 {
+		return
+	}
+
+	metricsY := contentY + 68
+	metricH := 72
+	boardY := metricsY + metricH + 12
+	resourceH := 132
+	resourceY := contentY + contentH - resourceH
+	boardH := resourceY - boardY - 12
+	if boardH < 240 {
+		return
+	}
+
+	s.hideOperationsDashboardControls()
+	colGap := 10
+	rowGap := 8
+	colW := (contentW - colGap) / 2
+	rowH := (boardH - rowGap*2) / 3
+	for i, control := range operationsLaneControls {
+		col := i % 2
+		row := i / 2
+		x := contentX + col*(colW+colGap)
+		y := boardY + row*(rowH+rowGap)
+		showWindow(s.controls[control.Header], true)
+		showWindow(s.controls[control.List], true)
+		moveWindow(s.controls[control.Header], x+4, y+2, colW-8, 26)
+		moveWindow(s.controls[control.List], x+6, y+32, colW-12, rowH-38)
+	}
+
+	for _, id := range []int{idOpsWorkersLabel, idOpsWorkersList, idOpsProjectsLabel, idOpsProjectsList, idOpsRecentLabel, idOpsRecentList} {
+		showWindow(s.controls[id], true)
+	}
+	gap := 10
+	panelW := (contentW - gap*2) / 3
+	bottomSpecs := []struct{ label, list int }{
+		{label: idOpsWorkersLabel, list: idOpsWorkersList},
+		{label: idOpsProjectsLabel, list: idOpsProjectsList},
+		{label: idOpsRecentLabel, list: idOpsRecentList},
+	}
+	for i, spec := range bottomSpecs {
+		x := contentX + i*(panelW+gap)
+		moveWindow(s.controls[spec.label], x+8, resourceY+4, panelW-16, 20)
+		moveWindow(s.controls[spec.list], x+8, resourceY+27, panelW-16, resourceH-34)
+	}
 }
 
 func telemetryCompact(value string, limit int) string {
