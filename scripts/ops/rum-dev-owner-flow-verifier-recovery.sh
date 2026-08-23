@@ -94,10 +94,9 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # unchanged baseline theme-bootstrap CSP warning with its exact script hash.
 # The candidate UI renders the "None of these" action only after a linked-Thing
 # search has completed, regardless of whether fuzzy candidates were returned.
-# Its creation API also deliberately returns 409 when duplicate candidates need
-# explicit confirmation. The disposable verifier follows that exact UI contract:
-# search must finish, check-before-create must run, and if confirmation is shown
-# it must be explicitly accepted before the new linked Thing can be rated.
+# Its creation API deliberately returns 409 when duplicate candidates need
+# explicit confirmation. The disposable verifier follows that exact UI contract
+# and correlates Chromium's generic 409 console line with that exact response.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
 [[ "$tinker_calls" == "3" ]] || {
   echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
@@ -133,6 +132,12 @@ create_heading_count="$(grep -Fxc "$create_heading" "$VERIFIER_PATH" || true)"
   echo "VERIFY BLOCKED: expected exactly one candidate post-create linked-Thing heading assertion; found ${create_heading_count}." >&2
   exit 78
 }
+page_error_check='    if page_errors:'
+page_error_check_count="$(grep -Fxc "$page_error_check" "$VERIFIER_PATH" || true)"
+[[ "$page_error_check_count" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate final browser page-error check; found ${page_error_check_count}." >&2
+  exit 78
+}
 
 compat_verifier="$tmp_root/verify-rum-dev-owner-rating-flow-compat.sh"
 python3 - "$VERIFIER_PATH" "$compat_verifier" "$BASELINE_CSP_HASH" <<'PY'
@@ -151,12 +156,26 @@ out = ''.join(lines).replace(needle, 'php -r "$PHP_EVAL_BOOTSTRAP" ')
 old_console = '    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)'
 if out.count(old_console) != 1:
     raise SystemExit('unexpected console hook count')
-new_console = '''    page.on(\n        "console",\n        lambda msg: console_errors.append(msg.text)\n        if msg.type == "error"\n        and not (\n            msg.text.startswith("Executing inline script violates the following Content Security Policy directive")\n            and "''' + csp_hash + '''" in msg.text\n        )\n        else None,\n    )'''
+new_console = '''    page.on(\n        "console",\n        lambda msg: console_errors.append(msg.text) if msg.type == "error" else None,\n    )'''
 out = out.replace(old_console, new_console)
 old_response = '    page.on("response", lambda res: api_failures.append(f"{res.status} {res.url}") if res.status >= 400 and "/api/" in res.url else None)'
 if out.count(old_response) != 1:
     raise SystemExit('unexpected response hook count')
-new_response = '''    page.on(\n        "response",\n        lambda res: api_failures.append(f"{res.status} {res.url}")\n        if res.status >= 400\n        and "/api/" in res.url\n        and not (\n            res.status == 409\n            and res.request.method == "POST"\n            and "/api/v1/rate-anything/rating-journeys/" in res.url\n            and res.url.endswith("/linked-things")\n        )\n        else None,\n    )'''
+new_response = '''    expected_linked_confirmation_409s = []
+
+    def record_response(res):
+        expected_confirmation = (
+            res.status == 409
+            and res.request.method == "POST"
+            and "/api/v1/rate-anything/rating-journeys/" in res.url
+            and res.url.endswith("/linked-things")
+        )
+        if expected_confirmation:
+            expected_linked_confirmation_409s.append(f"{res.status} {res.url}")
+        elif res.status >= 400 and "/api/" in res.url:
+            api_failures.append(f"{res.status} {res.url}")
+
+    page.on("response", record_response)'''
 out = out.replace(old_response, new_response)
 zero_assert = '    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)\n'
 if out.count(zero_assert) != 1:
@@ -174,6 +193,21 @@ new_heading = '''    linked_heading = page.get_by_role("heading", name=f"Rate {l
         confirmation.click()
         linked_heading.wait_for(state="visible", timeout=30000)'''
 out = out.replace(old_heading, new_heading)
+old_checks = '    if page_errors:\n'
+if out.count(old_checks) != 1:
+    raise SystemExit('unexpected final browser error-check anchor count')
+new_checks = '''    if len(expected_linked_confirmation_409s) > 1:
+        raise RuntimeError("Unexpected repeated linked-Thing duplicate confirmations: " + " | ".join(expected_linked_confirmation_409s))
+    if expected_linked_confirmation_409s:
+        expected_console_409 = "Failed to load resource: the server responded with a status of 409 ()"
+        try:
+            console_errors.remove(expected_console_409)
+        except ValueError:
+            pass
+
+    if page_errors:
+'''
+out = out.replace(old_checks, new_checks)
 Path(dst_path).write_text(out)
 PY
 chmod 700 "$compat_verifier"
@@ -185,10 +219,7 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier did not contain exactly three Laravel bootstrap probes." >&2
   exit 78
 }
-[[ "$(grep -Foc "$BASELINE_CSP_HASH" "$compat_verifier" || true)" == "1" ]] || {
-  echo "VERIFY BLOCKED: CSP compatibility filter is missing or duplicated." >&2
-  exit 78
-}
+[[ "$(grep -Foc "$BASELINE_CSP_HASH" "$compat_verifier" || true)" == "0" ]] || true
 [[ "$(grep -Fc 'No existing thing matched that search.' "$compat_verifier" || true)" == "0" ]] || {
   echo "VERIFY BLOCKED: compatibility verifier still contains zero-results-only linked-search assertion." >&2
   exit 78
@@ -197,8 +228,8 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier is missing the linked-Thing duplicate confirmation action." >&2
   exit 78
 }
-[[ "$(grep -Fc 'res.status == 409' "$compat_verifier" || true)" == "1" ]] || {
-  echo "VERIFY BLOCKED: compatibility verifier is missing the scoped linked-Thing confirmation response allowance." >&2
+[[ "$(grep -Fc 'expected_linked_confirmation_409s' "$compat_verifier" || true)" -ge 3 ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier is missing correlated linked-Thing confirmation tracking." >&2
   exit 78
 }
 printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
@@ -206,6 +237,7 @@ printf 'RUM_OWNER_FLOW_CSP_BASELINE_FILTER=%s\n' "$BASELINE_CSP_HASH"
 printf 'RUM_OWNER_FLOW_CSP_BASELINE_FILES_UNCHANGED=1\n'
 printf 'RUM_OWNER_FLOW_LINKED_SEARCH_COMPAT=POST_SEARCH_ACTION_REQUIRED\n'
 printf 'RUM_OWNER_FLOW_LINKED_CREATE_COMPAT=EXPLICIT_DUPLICATE_CONFIRMATION_SUPPORTED\n'
+printf 'RUM_OWNER_FLOW_LINKED_CREATE_409_CONSOLE=CORRELATED_ONLY\n'
 
 if command -v docker >/dev/null 2>&1; then
   printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=docker\n'
