@@ -20,13 +20,16 @@ func TestOperationsTelemetryRowShowsMeasuredProgressRuntimeActivityAndPriority(t
 		Progress: core.WorkProgress{Kind: core.ProgressMeasured, Current: 64, Total: 100, Unit: "files", Phase: "Verifying files"},
 	}
 	line := operationsTelemetryListLine(item, now)
-	for _, want := range []string{"RUNNING", "64%", "Verifying files", "elapsed 1m30s", "activity 8s ago", "HIGH"} {
+	for _, want := range []string{"RUNNING", "Workbench/Verify source", "64%", "Verifying fi…", "1m30s elapsed", "8s ago", "HIGH"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("row %q missing %q", line, want)
 		}
 	}
 	if !strings.Contains(line, "█") || !strings.Contains(line, "░") {
 		t.Fatalf("row lacks visible measured progress bar: %q", line)
+	}
+	if strings.Contains(line, "WORKING") {
+		t.Fatalf("row leaked internal working label: %q", line)
 	}
 }
 
@@ -39,7 +42,7 @@ func TestOperationsTelemetryRowShowsStageProgressWithoutInventingPercent(t *test
 		Progress: core.WorkProgress{Kind: core.ProgressStages, Stage: 3, StageTotal: 5, Phase: "Executing"},
 	}
 	line := operationsTelemetryListLine(item, now)
-	for _, want := range []string{"Stage 3/5", "Executing", "elapsed 22s", "activity 2s ago", "NORMAL", "●", "○"} {
+	for _, want := range []string{"RUNNING", "Stage 3/5", "Executing", "22s elapsed", "2s ago", "NORMAL", "●", "○"} {
 		if !strings.Contains(line, want) {
 			t.Fatalf("row %q missing %q", line, want)
 		}
@@ -53,7 +56,19 @@ func TestOperationsTelemetryQueuedRowMakesPriorityAndQueueImmediatelyVisible(t *
 	now := time.Now()
 	item := core.WorkItem{ProjectName: "Workbench", Title: "Queued task", State: core.TaskQueued, Priority: core.PriorityCritical, QueuePosition: 1, UpdatedAt: now}
 	line := operationsTelemetryListLine(item, now)
-	if !strings.Contains(line, "#1 CRITICAL") || !strings.Contains(line, "QUEUED") {
+	if !strings.Contains(line, "QUEUED #1") || !strings.Contains(line, "CRITICAL") {
 		t.Fatalf("queued row=%q", line)
+	}
+}
+
+func TestOperationsTelemetryUsesOwnerFacingStateLabels(t *testing.T) {
+	if got := operationsTelemetryState(core.TaskRunning); got != "RUNNING" {
+		t.Fatalf("running label=%q", got)
+	}
+	if got := operationsTelemetryState(core.TaskNeedsAttention); got != "NEEDS YOU" {
+		t.Fatalf("needs-you label=%q", got)
+	}
+	if got := operationsTelemetryState(core.TaskWaitingDependency); got != "WAITING" {
+		t.Fatalf("waiting label=%q", got)
 	}
 }
