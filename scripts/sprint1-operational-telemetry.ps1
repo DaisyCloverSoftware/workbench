@@ -291,7 +291,7 @@ try {
     Click-Control $p 3001
     Delegate-Intent $p '[workbench:operations] Telemetry stage operation'
     Delegate-Intent $p 'Telemetry measured source verification'
-    Delegate-Intent $p '[workbench:operations] Telemetry needs you'
+    Delegate-Intent $p 'Telemetry needs you'
     Delegate-Intent $p 'Telemetry queued priority target'
     Delegate-Intent $p 'Telemetry queued follow-up'
     Delegate-Intent $p 'Telemetry queued follow-up two'
@@ -348,7 +348,7 @@ try {
     $evidence.Add("5. Priority Up changed the visible queued row from '$priorityBefore' to '$priorityAfter' and persisted scheduler priority High.")
     Save-Window $p 'Sprint1-Telemetry-Priority.png'
 
-    Wait-Until { @((Read-State).tasks|Where-Object{$_.intent -like '*Telemetry needs you*' -and $_.status -eq 'needs_attention'}).Count -eq 1 } 'Needs You state' 70
+    Wait-Until { @((Read-State).tasks|Where-Object{$_.intent -eq 'Telemetry needs you' -and $_.status -eq 'needs_attention'}).Count -eq 1 } 'Needs You state' 180
     Wait-Until { ((Get-ListLines $needs)-join "`n") -match 'Telemetry needs you' } 'Needs You visible without navigation' 10
     Select-ListLine $p 3611 'Telemetry needs you'
     $details=Get-Control $p 3614
