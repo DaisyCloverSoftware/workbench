@@ -87,7 +87,7 @@ python3 - "$VERIFIER_PATH" "$compat_verifier" <<'PY'
 from pathlib import Path
 import sys
 src = Path(sys.argv[1]).read_text()
-bootstrap = r'''PHP_EVAL_BOOTSTRAP='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);'\n'''
+bootstrap = r'''PHP_EVAL_BOOTSTRAP='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);' '''.rstrip() + "\n"
 needle = 'php artisan tinker --execute='
 if src.count(needle) != 3:
     raise SystemExit('unexpected tinker call count')
