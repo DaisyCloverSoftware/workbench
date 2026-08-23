@@ -44,7 +44,7 @@ func TestSprint1OperationsCanonicalLayoutKeepsCompactLanesWide(t *testing.T) {
 	}
 }
 
-func TestSprint1OperationsListboxesAreOwnerDrawn(t *testing.T) {
+func TestSprint1OperationsListboxesAreOwnerDrawnAtCreation(t *testing.T) {
 	controls, err := os.ReadFile("production_controls_windows.go")
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestSprint1OperationsListboxesAreOwnerDrawn(t *testing.T) {
 	controlText := string(controls)
 	for _, want := range []string{
 		"prepareOperationsListboxPainting(s)",
-		"enableOperationsOwnerDrawListbox(hwnd)",
+		"recreateOperationsOwnerDrawListbox(s, id)",
 		"idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList",
 		"idOpsWaitingList, idOpsNeedsList, idOpsFullList",
 	} {
@@ -66,7 +66,12 @@ func TestSprint1OperationsListboxesAreOwnerDrawn(t *testing.T) {
 		t.Fatal(err)
 	}
 	ownerText := string(ownerDraw)
-	for _, want := range []string{"lbsOwnerDrawFixed", "lbsHasStrings", "drawOperationsListItem", "dtEndEllipsis"} {
+	for _, want := range []string{
+		"lbsOwnerDrawFixed | lbsHasStrings",
+		"s.control(id, \"LISTBOX\", \"\", style)",
+		"drawOperationsListItem",
+		"dtEndEllipsis",
+	} {
 		if !strings.Contains(ownerText, want) {
 			t.Fatalf("Operations owner-draw implementation missing %q", want)
 		}
