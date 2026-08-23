@@ -18,6 +18,7 @@ CANDIDATE_BRANCH="sprint-0-rum-owner-rating-flow-20260823"
 CANDIDATE_PR="153"
 EXPECTED_CI_NAME="CI"
 VERIFIER_PATH="scripts/ops/verify-rum-dev-owner-rating-flow.sh"
+PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.57.0-noble"
 
 for command in gh git mktemp bash; do
   command -v "$command" >/dev/null 2>&1 || {
@@ -74,8 +75,10 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 
 # The cluster-control host intentionally has no Docker daemon. Podman is
 # Docker-CLI compatible for the candidate verifier's bounded `docker run`
-# usage, so expose it through a disposable PATH shim without changing the
-# exact candidate source. Fail closed if neither runtime exists.
+# usage. The official Playwright Python image carries the browser binaries but
+# does not include the Python playwright package expected by the exact
+# candidate verifier, so derive a local compatibility image from that exact
+# base and retag it under the verifier's unchanged image reference.
 if command -v docker >/dev/null 2>&1; then
   printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=docker\n'
 elif command -v podman >/dev/null 2>&1; then
@@ -83,7 +86,19 @@ elif command -v podman >/dev/null 2>&1; then
   mkdir -p "$runtime_bin"
   ln -s "$(command -v podman)" "$runtime_bin/docker"
   export PATH="$runtime_bin:$PATH"
+
+  playwright_ctx="$tmp_root/playwright-compat"
+  mkdir -p "$playwright_ctx"
+  cat >"$playwright_ctx/Containerfile" <<EOF
+FROM ${PLAYWRIGHT_IMAGE}
+RUN python -m pip install --no-cache-dir playwright==1.57.0
+EOF
+  podman pull "$PLAYWRIGHT_IMAGE" >/dev/null
+  podman build --pull=missing -t localhost/rum-playwright-python:1.57.0 "$playwright_ctx" >/dev/null
+  podman run --rm --entrypoint python localhost/rum-playwright-python:1.57.0 -c 'import playwright; from playwright.sync_api import sync_playwright; print("playwright_python_ready")'
+  podman tag localhost/rum-playwright-python:1.57.0 "$PLAYWRIGHT_IMAGE"
   printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=podman\n'
+  printf 'RUM_OWNER_FLOW_PLAYWRIGHT_PYTHON=ready\n'
 else
   echo "VERIFY BLOCKED: neither Docker nor Podman is available for the exact candidate browser verifier." >&2
   exit 78
