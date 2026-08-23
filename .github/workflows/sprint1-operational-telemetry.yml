@@ -126,7 +126,7 @@ jobs:
               if len(os.Args) >= 3 && os.Args[1] == "sessions" && os.Args[2] == "archive" { return }
               args := strings.Join(os.Args[1:], " ")
               if strings.Contains(args, "Telemetry stage operation") {
-                  time.Sleep(14 * time.Second)
+                  time.Sleep(30 * time.Second)
                   fmt.Println("Telemetry operation complete")
                   fmt.Println("WORKBENCH_OPERATION_COMPLETE: verified")
                   return
