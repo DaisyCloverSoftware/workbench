@@ -121,17 +121,11 @@ jobs:
           $openClawSource = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-openclaw.go'
           @'
           package main
-          import ("fmt"; "os"; "strings"; "time")
+          import ("fmt"; "os"; "time")
           func main() {
               if len(os.Args) >= 3 && os.Args[1] == "sessions" && os.Args[2] == "archive" { return }
-              args := strings.Join(os.Args[1:], " ")
-              if strings.Contains(args, "Telemetry stage operation") {
-                  time.Sleep(30 * time.Second)
-                  fmt.Println("Telemetry operation complete")
-                  fmt.Println("WORKBENCH_OPERATION_COMPLETE: verified")
-                  return
-              }
-              time.Sleep(2 * time.Second)
+              time.Sleep(30 * time.Second)
+              fmt.Println("Telemetry operation complete")
               fmt.Println("WORKBENCH_OPERATION_COMPLETE: verified")
           }
           '@ | Set-Content -Encoding UTF8 $openClawSource
@@ -293,20 +287,21 @@ jobs:
             $before=Row $ai 'Telemetry measured'
             $beforePercent=Percent $before
             if($beforePercent -lt 0){throw "Measured row lacked deterministic percent: $before"}
+            $serverRow=Row $server 'Telemetry stage operation'
+            if($serverRow -notmatch 'Stage 2/4' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
+            if($serverRow -notmatch 'RUNNING'){throw "Server operation did not expose RUNNING state: $serverRow"}
+            Save-Window $p 'Sprint1-Telemetry-Live-Progress.png'
+
             Start-Sleep -Seconds 2
             $after=Row $ai 'Telemetry measured'
             $afterPercent=Percent $after
             if($afterPercent -le $beforePercent){throw "Measured percent did not advance live: before=$beforePercent after=$afterPercent row=$after"}
             if($after -notmatch '\d+s elapsed' -or $after -notmatch '\d+s ago'){throw "Runtime/activity missing: $after"}
             if($after -match 'percentage unavailable'){throw "Unacceptable unavailable-percentage text: $after"}
-            $serverRow=Row $server 'Telemetry stage operation'
-            if($serverRow -notmatch 'Stage 2/4' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
-            if($serverRow -notmatch 'RUNNING'){throw "Server operation did not expose RUNNING state: $serverRow"}
             $evidence.Add('1. Three simultaneous real operations were visible: measured Running, stage-based Server Ops Running, and a real Waiting dependency.')
             $evidence.Add("2. Deterministic progress advanced from $beforePercent% to $afterPercent% while Dashboard stayed open; percentage came from hashed source files processed / actual files discovered.")
             $evidence.Add('3. Stage-only Server Ops displayed Stage 2/4 — Executing operation with no fabricated percentage.')
             $evidence.Add('4. Running rows exposed elapsed runtime, latest activity age, state and named priority without selecting a task.')
-            Save-Window $p 'Sprint1-Telemetry-Live-Progress.png'
 
             $priorityBefore=Row $ai 'Telemetry queued priority'
             Select-ListLine $p 3607 'Telemetry queued priority'
