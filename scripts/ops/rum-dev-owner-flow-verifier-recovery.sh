@@ -92,6 +92,10 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # exactly the candidate verifier's three Tinker probes to equivalent bootstrapped
 # Laravel PHP evaluation in a disposable copy. Also filter only the proven,
 # unchanged baseline theme-bootstrap CSP warning with its exact script hash.
+# The candidate UI renders the "None of these" action only after a linked-Thing
+# search has completed, regardless of whether fuzzy candidates were returned.
+# Therefore the disposable verifier removes only its zero-results-only assertion;
+# clicking that post-search action still proves search-before-add happened.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
 [[ "$tinker_calls" == "3" ]] || {
   echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
@@ -101,6 +105,12 @@ console_hook='    page.on("console", lambda msg: console_errors.append(msg.text)
 console_hook_count="$(grep -Fxc "$console_hook" "$VERIFIER_PATH" || true)"
 [[ "$console_hook_count" == "1" ]] || {
   echo "VERIFY BLOCKED: expected exactly one candidate browser console hook; found ${console_hook_count}." >&2
+  exit 78
+}
+search_zero_assert='    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)'
+search_zero_count="$(grep -Fxc "$search_zero_assert" "$VERIFIER_PATH" || true)"
+[[ "$search_zero_count" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate zero-results-only linked-search assertion; found ${search_zero_count}." >&2
   exit 78
 }
 
@@ -123,6 +133,10 @@ if out.count(old) != 1:
     raise SystemExit('unexpected console hook count')
 new = '''    page.on(\n        "console",\n        lambda msg: console_errors.append(msg.text)\n        if msg.type == "error"\n        and not (\n            msg.text.startswith("Executing inline script violates the following Content Security Policy directive")\n            and "''' + csp_hash + '''" in msg.text\n        )\n        else None,\n    )'''
 out = out.replace(old, new)
+zero_assert = '    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)\n'
+if out.count(zero_assert) != 1:
+    raise SystemExit('unexpected zero-results linked-search assertion count')
+out = out.replace(zero_assert, '')
 Path(dst_path).write_text(out)
 PY
 chmod 700 "$compat_verifier"
@@ -138,9 +152,14 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: CSP compatibility filter is missing or duplicated." >&2
   exit 78
 }
+[[ "$(grep -Fc 'No existing thing matched that search.' "$compat_verifier" || true)" == "0" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier still contains zero-results-only linked-search assertion." >&2
+  exit 78
+}
 printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
 printf 'RUM_OWNER_FLOW_CSP_BASELINE_FILTER=%s\n' "$BASELINE_CSP_HASH"
 printf 'RUM_OWNER_FLOW_CSP_BASELINE_FILES_UNCHANGED=1\n'
+printf 'RUM_OWNER_FLOW_LINKED_SEARCH_COMPAT=POST_SEARCH_ACTION_REQUIRED\n'
 
 if command -v docker >/dev/null 2>&1; then
   printf 'RUM_OWNER_FLOW_CONTAINER_RUNTIME=docker\n'
