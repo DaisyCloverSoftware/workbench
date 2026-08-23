@@ -105,8 +105,10 @@ func (s *Shell) applyProductionControlTheme() {
 		applyDarkExplorerTheme(s.controls[id])
 	}
 
-	// Operations rows are owner-drawn by Workbench. This keeps every unselected
-	// row readable while retaining native listbox selection and scrolling.
+	// LBS_OWNERDRAWFIXED must be present when the Win32 LISTBOX is created.
+	// Recreate the Operations lists once, before any rows are loaded, so
+	// Workbench owns deterministic row painting while native selection,
+	// notifications, scrolling and the proven priority command path stay intact.
 	prepareOperationsListboxPainting(s)
 }
 
@@ -114,17 +116,12 @@ func prepareOperationsListboxPainting(s *Shell) {
 	if s == nil {
 		return
 	}
-	empty := wstr("")
 	for _, id := range []int{
 		idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList,
 		idOpsWaitingList, idOpsNeedsList, idOpsFullList,
 		idOpsWorkersList, idOpsProjectsList, idOpsRecentList,
 	} {
-		hwnd := s.controls[id]
-		if hwnd != 0 {
-			procSetWindowTheme.Call(hwnd, uintptr(unsafe.Pointer(empty)), uintptr(unsafe.Pointer(empty)))
-			enableOperationsOwnerDrawListbox(hwnd)
-		}
+		recreateOperationsOwnerDrawListbox(s, id)
 	}
 }
 
