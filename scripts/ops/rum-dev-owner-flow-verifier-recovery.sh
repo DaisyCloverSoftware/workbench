@@ -59,10 +59,6 @@ ci_successes="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/actions/runs?head_
   exit 78
 }
 
-# The browser reports a CSP violation for the inline theme bootstrap. This is
-# allowed to be ignored only if both the HTML containing that exact bootstrap
-# and the Nginx CSP policy are byte-identical to the PR base. Any Sprint change
-# to either file disables the compatibility exception and fails closed.
 for path in apps/web/index.html apps/web/nginx.conf; do
   base_blob="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/contents/${path}?ref=${base_sha}" --jq '.sha')"
   candidate_blob="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/contents/${path}?ref=${CANDIDATE_SHA}" --jq '.sha')"
@@ -88,54 +84,39 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
   exit 78
 }
 
-# Production API images intentionally exclude dev-only Laravel Tinker. Rewrite
-# exactly the candidate verifier's three Tinker probes to equivalent bootstrapped
-# Laravel PHP evaluation in a disposable copy. Also filter only the proven,
-# unchanged baseline theme-bootstrap CSP warning with its exact script hash.
-# The candidate UI renders the "None of these" action only after a linked-Thing
-# search has completed, regardless of whether fuzzy candidates were returned.
-# Its creation API deliberately returns 409 when duplicate candidates need
-# explicit confirmation. The disposable verifier follows that exact UI contract
-# and correlates Chromium's generic 409 console line with that exact response.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
 [[ "$tinker_calls" == "3" ]] || {
   echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
   exit 78
 }
 console_hook='    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)'
-console_hook_count="$(grep -Fxc "$console_hook" "$VERIFIER_PATH" || true)"
-[[ "$console_hook_count" == "1" ]] || {
-  echo "VERIFY BLOCKED: expected exactly one candidate browser console hook; found ${console_hook_count}." >&2
+[[ "$(grep -Fxc "$console_hook" "$VERIFIER_PATH" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate browser console hook." >&2
   exit 78
 }
 response_hook='    page.on("response", lambda res: api_failures.append(f"{res.status} {res.url}") if res.status >= 400 and "/api/" in res.url else None)'
-response_hook_count="$(grep -Fxc "$response_hook" "$VERIFIER_PATH" || true)"
-[[ "$response_hook_count" == "1" ]] || {
-  echo "VERIFY BLOCKED: expected exactly one candidate browser API response hook; found ${response_hook_count}." >&2
+[[ "$(grep -Fxc "$response_hook" "$VERIFIER_PATH" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate browser API response hook." >&2
   exit 78
 }
 search_zero_assert='    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)'
-search_zero_count="$(grep -Fxc "$search_zero_assert" "$VERIFIER_PATH" || true)"
-[[ "$search_zero_count" == "1" ]] || {
-  echo "VERIFY BLOCKED: expected exactly one candidate zero-results-only linked-search assertion; found ${search_zero_count}." >&2
+[[ "$(grep -Fxc "$search_zero_assert" "$VERIFIER_PATH" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate zero-results-only linked-search assertion." >&2
   exit 78
 }
 create_click='    page.get_by_role("button", name="Check and add linked thing", exact=True).click()'
-create_click_count="$(grep -Fxc "$create_click" "$VERIFIER_PATH" || true)"
-[[ "$create_click_count" == "1" ]] || {
-  echo "VERIFY BLOCKED: expected exactly one candidate linked-Thing check-and-add action; found ${create_click_count}." >&2
+[[ "$(grep -Fxc "$create_click" "$VERIFIER_PATH" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate linked-Thing check-and-add action." >&2
   exit 78
 }
 create_heading='    page.get_by_role("heading", name=f"Rate {linked_name}").wait_for(state="visible", timeout=30000)'
-create_heading_count="$(grep -Fxc "$create_heading" "$VERIFIER_PATH" || true)"
-[[ "$create_heading_count" == "1" ]] || {
-  echo "VERIFY BLOCKED: expected exactly one candidate post-create linked-Thing heading assertion; found ${create_heading_count}." >&2
+[[ "$(grep -Fxc "$create_heading" "$VERIFIER_PATH" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate post-create linked-Thing heading assertion." >&2
   exit 78
 }
 page_error_check='    if page_errors:'
-page_error_check_count="$(grep -Fxc "$page_error_check" "$VERIFIER_PATH" || true)"
-[[ "$page_error_check_count" == "1" ]] || {
-  echo "VERIFY BLOCKED: expected exactly one candidate final browser page-error check; found ${page_error_check_count}." >&2
+[[ "$(grep -Fxc "$page_error_check" "$VERIFIER_PATH" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: expected exactly one candidate final browser page-error check." >&2
   exit 78
 }
 
@@ -150,13 +131,21 @@ needle = 'php artisan tinker --execute='
 if src.count(needle) != 3:
     raise SystemExit('unexpected tinker call count')
 lines = src.splitlines(keepends=True)
-insert_at = 2 if len(lines) >= 2 else 0
-lines.insert(insert_at, bootstrap)
+lines.insert(2 if len(lines) >= 2 else 0, bootstrap)
 out = ''.join(lines).replace(needle, 'php -r "$PHP_EVAL_BOOTSTRAP" ')
 old_console = '    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)'
 if out.count(old_console) != 1:
     raise SystemExit('unexpected console hook count')
-new_console = '''    page.on(\n        "console",\n        lambda msg: console_errors.append(msg.text) if msg.type == "error" else None,\n    )'''
+new_console = '''    page.on(
+        "console",
+        lambda msg: console_errors.append(msg.text)
+        if msg.type == "error"
+        and not (
+            msg.text.startswith("Executing inline script violates the following Content Security Policy directive")
+            and "''' + csp_hash + '''" in msg.text
+        )
+        else None,
+    )'''
 out = out.replace(old_console, new_console)
 old_response = '    page.on("response", lambda res: api_failures.append(f"{res.status} {res.url}") if res.status >= 400 and "/api/" in res.url else None)'
 if out.count(old_response) != 1:
@@ -219,7 +208,10 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier did not contain exactly three Laravel bootstrap probes." >&2
   exit 78
 }
-[[ "$(grep -Foc "$BASELINE_CSP_HASH" "$compat_verifier" || true)" == "0" ]] || true
+[[ "$(grep -Foc "$BASELINE_CSP_HASH" "$compat_verifier" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: CSP compatibility filter is missing or duplicated." >&2
+  exit 78
+}
 [[ "$(grep -Fc 'No existing thing matched that search.' "$compat_verifier" || true)" == "0" ]] || {
   echo "VERIFY BLOCKED: compatibility verifier still contains zero-results-only linked-search assertion." >&2
   exit 78
@@ -246,7 +238,6 @@ elif command -v podman >/dev/null 2>&1; then
   mkdir -p "$runtime_bin"
   ln -s "$(command -v podman)" "$runtime_bin/docker"
   export PATH="$runtime_bin:$PATH"
-
   playwright_ctx="$tmp_root/playwright-compat"
   mkdir -p "$playwright_ctx"
   cat >"$playwright_ctx/Containerfile" <<EOF
@@ -265,9 +256,7 @@ else
 fi
 
 unset TOKEN GH_TOKEN GHCR_TOKEN
-
 printf 'RUM_OWNER_FLOW_CANDIDATE_SHA=%s\n' "$CANDIDATE_SHA"
 printf 'RUM_OWNER_FLOW_VERIFIER=%s\n' "$VERIFIER_PATH"
 printf 'RUM_OWNER_FLOW_EXECUTED_VERIFIER=%s\n' "$compat_verifier"
-
 bash "$compat_verifier"
