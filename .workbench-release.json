@@ -1,9 +1,0 @@
-{
-  "version": "0.9.59",
-  "date": "2026-08-23",
-  "notes": [
-    "Make Operations an operational control surface with canonical live progress, runtime, activity-age, worker, priority and queue telemetry visible directly in active job rows.",
-    "Accept real deterministic worker progress events for defensible percentages and use truthful workflow-stage progress whenever percentage completion cannot be calculated.",
-    "Keep Operations live through the existing Engine event path, with automatic elapsed/activity-age updates, real Waiting and Needs You transitions, and scheduler-backed priority controls."
-  ]
-}
