@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
 
 $proof = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-proof'
 New-Item -ItemType Directory -Force -Path $proof | Out-Null
@@ -157,8 +159,6 @@ public static class WBTelemetry {
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int w, int h, bool repaint);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
-    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extraInfo);
     [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
@@ -204,31 +204,27 @@ function Get-ListLines([IntPtr]$list) {
 }
 function Select-ListLine($p,[int]$id,[string]$needle) {
     $list=Get-Control $p $id
-    $lines=@(Get-ListLines $list)
-    $index=-1
-    for($i=0;$i -lt $lines.Count;$i++){if($lines[$i] -like "*$needle*"){$index=$i;break}}
-    if($index -lt 0){throw "Could not find '$needle' in control ${id}: $($lines -join ' | ')"}
-
-    # Drive the same desktop mouse path as an owner click. First scroll the row
-    # to the top of the listbox, then click the center of that first visible row
-    # in screen coordinates so the native listbox generates LBN_SELCHANGE.
-    [void](Send-Bounded $list 0x0197 ([IntPtr]$index) ([IntPtr]::Zero) 'scroll list row into view')
-    $itemHeight=[int](Send-Bounded $list 0x01A1 ([IntPtr]$index) ([IntPtr]::Zero) 'list item height')
-    if($itemHeight -le 0){$itemHeight=18}
-    $rect=New-Object WBTelemetry+RECT
-    if(-not [WBTelemetry]::GetWindowRect($list,[ref]$rect)){throw 'Could not locate listbox on screen.'}
-    $x=$rect.Left+12
-    $y=$rect.Top+[Math]::Max(1,[int]($itemHeight/2))
-    [void][WBTelemetry]::SetForegroundWindow($p.MainWindowHandle)
-    [void][WBTelemetry]::SetCursorPos($x,$y)
-    Start-Sleep -Milliseconds 75
-    [WBTelemetry]::mouse_event(0x0002,0,0,0,[UIntPtr]::Zero)
-    Start-Sleep -Milliseconds 50
-    [WBTelemetry]::mouse_event(0x0004,0,0,0,[UIntPtr]::Zero)
+    $element=[System.Windows.Automation.AutomationElement]::FromHandle($list)
+    if($null -eq $element){throw "UI Automation could not resolve list control $id"}
+    $condition=New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::ListItem
+    )
+    $items=$element.FindAll([System.Windows.Automation.TreeScope]::Children,$condition)
+    $target=$null
+    for($i=0;$i -lt $items.Count;$i++){
+        $candidate=$items.Item($i)
+        if($candidate.Current.Name -like "*$needle*"){$target=$candidate;break}
+    }
+    if($null -eq $target){
+        $names=@()
+        for($i=0;$i -lt $items.Count;$i++){$names += $items.Item($i).Current.Name}
+        throw "UI Automation could not find '$needle' in control ${id}: $($names -join ' | ')"
+    }
+    $pattern=$target.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if($null -eq $pattern){throw "UI Automation selection pattern unavailable for '$needle'"}
+    $pattern.Select()
     Start-Sleep -Milliseconds 250
-    $rawSelected=Send-Bounded $list 0x0188 ([IntPtr]::Zero) ([IntPtr]::Zero) 'selected list row'
-    $selected=if($rawSelected -eq [uint64]::MaxValue){-1}else{[int]$rawSelected}
-    if($selected -ne $index){throw "Listbox selection did not stick for '$needle': expected $index, got $selected"}
 }
 function Wait-Until([scriptblock]$condition,[string]$description,[int]$seconds=30) {
     $deadline=[DateTime]::UtcNow.AddSeconds($seconds)
