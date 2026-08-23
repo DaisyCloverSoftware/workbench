@@ -22,7 +22,7 @@ jobs:
 
       - name: Run telemetry regression checks
         shell: pwsh
-        run: go test ./internal/core ./internal/desktop
+        run: go test ./...
 
       - name: Build production app and deterministic telemetry providers
         shell: pwsh
@@ -224,7 +224,7 @@ jobs:
             $lines=@(Get-ListLines $list)
             $index=-1
             for($i=0;$i -lt $lines.Count;$i++){if($lines[$i] -like "*$needle*"){$index=$i;break}}
-            if($index -lt 0){throw "Could not find '$needle' in control $id: $($lines -join ' | ')"}
+            if($index -lt 0){throw "Could not find '$needle' in control ${id}: $($lines -join ' | ')"}
             [void](Send-Bounded $list 0x0186 ([IntPtr]$index) ([IntPtr]::Zero) 'select list row')
             $cmd=[IntPtr]($id -bor (1 -shl 16))
             [void](Send-Bounded $p.MainWindowHandle 0x0111 $cmd $list 'notify list selection')
@@ -261,7 +261,7 @@ jobs:
             $deadline=[DateTime]::UtcNow.AddSeconds(15)
             do{Start-Sleep -Milliseconds 200;$p.Refresh()}while($p.MainWindowHandle -eq 0 -and -not $p.HasExited -and [DateTime]::UtcNow -lt $deadline)
             if($p.HasExited -or $p.MainWindowHandle -eq 0){throw 'Workbench production window missing'}
-            [void][WBTelemetry]::MoveWindow($p.MainWindowHandle,10,10,1000,740,$true)
+            [void][WBTelemetry]::MoveWindow($p.MainWindowHandle,10,10,1280,840,$true)
             Start-Sleep -Milliseconds 300
 
             # Create every workload item through the actual Workbench UI.
@@ -287,7 +287,7 @@ jobs:
             $needs=Get-Control $p 3611
 
             Wait-Until { ((Get-ListLines $ai)-join "`n") -match '\d+%' } 'measured percentage in active row' 20
-            Wait-Until { ((Get-ListLines $server)-join "`n") -match 'Stage 2/4' } 'stage progress in operation row' 12
+            Wait-Until { ((Get-ListLines $server)-join "`n") -match 'Stage 2/2' } 'stage progress in operation row' 12
             Wait-Until { ((Get-ListLines $waiting)-join "`n") -match 'Telemetry wait for CI' } 'Waiting visible on open Dashboard' 8
 
             $before=Row $ai 'Telemetry measured'
@@ -297,21 +297,22 @@ jobs:
             $after=Row $ai 'Telemetry measured'
             $afterPercent=Percent $after
             if($afterPercent -le $beforePercent){throw "Measured percent did not advance live: before=$beforePercent after=$afterPercent row=$after"}
-            if($after -notmatch 'elapsed \d' -or $after -notmatch 'activity \d'){throw "Runtime/activity missing: $after"}
+            if($after -notmatch '\d+s elapsed' -or $after -notmatch '\d+s ago'){throw "Runtime/activity missing: $after"}
             if($after -match 'percentage unavailable'){throw "Unacceptable unavailable-percentage text: $after"}
             $serverRow=Row $server 'Telemetry stage operation'
-            if($serverRow -notmatch 'Stage 2/4' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
+            if($serverRow -notmatch 'Stage 2/2' -or $serverRow -match '%'){throw "Stage-only operation was not truthful: $serverRow"}
+            if($serverRow -notmatch 'RUNNING'){throw "Server operation did not expose RUNNING state: $serverRow"}
             $evidence.Add('1. Three simultaneous real operations were visible: measured Running, stage-based Server Ops Running, and a real Waiting dependency.')
             $evidence.Add("2. Deterministic progress advanced from $beforePercent% to $afterPercent% while Dashboard stayed open; percentage came from hashed source files processed / actual files discovered.")
-            $evidence.Add('3. Stage-only Server Ops displayed Stage 2/4 — Executing operation with no fabricated percentage.')
+            $evidence.Add('3. Stage-only Server Ops displayed Stage 2/2 — Executing operation with no fabricated percentage.')
             $evidence.Add('4. Running rows exposed elapsed runtime, latest activity age, state and named priority without selecting a task.')
             Save-Window $p 'Sprint1-Telemetry-Live-Progress.png'
 
-            $priorityBefore=Row $ai 'Telemetry queued priority target'
-            Select-ListLine $p 3607 'Telemetry queued priority target'
+            $priorityBefore=Row $ai 'Telemetry queued priority'
+            Select-ListLine $p 3607 'Telemetry queued priority'
             Click-Control $p 3615
-            Wait-Until { (Row $ai 'Telemetry queued priority target') -match 'HIGH' } 'visible priority change' 8
-            $priorityAfter=Row $ai 'Telemetry queued priority target'
+            Wait-Until { (Row $ai 'Telemetry queued priority') -match 'HIGH' } 'visible priority change' 8
+            $priorityAfter=Row $ai 'Telemetry queued priority'
             if($priorityAfter -eq $priorityBefore){throw "Priority row did not change: $priorityAfter"}
             $target=(Read-State).tasks|Where-Object{$_.intent -eq 'Telemetry queued priority target'}|Select-Object -First 1
             if($target.priority -ne 2){throw "Durable scheduler priority was $($target.priority), expected High (2)"}
