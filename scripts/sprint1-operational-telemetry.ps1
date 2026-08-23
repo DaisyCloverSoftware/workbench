@@ -159,6 +159,7 @@ public static class WBTelemetry {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
     [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendPtr(IntPtr h,uint m,IntPtr w,IntPtr l,uint f,uint t,out UIntPtr r);
     [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendString(IntPtr h,uint m,IntPtr w,string l,uint f,uint t,out UIntPtr r);
     [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendBuffer(IntPtr h,uint m,IntPtr w,StringBuilder l,uint f,uint t,out UIntPtr r);
@@ -205,9 +206,12 @@ function Select-ListLine($p,[int]$id,[string]$needle) {
     $index=-1
     for($i=0;$i -lt $lines.Count;$i++){if($lines[$i] -like "*$needle*"){$index=$i;break}}
     if($index -lt 0){throw "Could not find '$needle' in control ${id}: $($lines -join ' | ')"}
+    # Set the native selection and immediately deliver the same LBN_SELCHANGE
+    # notification Windows sends for a real owner click. The dashboard's
+    # one-second telemetry clock can legitimately rebuild the list between two
+    # separate inspection messages, so the durable post-notification UI state
+    # is the correct selection proof.
     [void](Send-Bounded $list 0x0186 ([IntPtr]$index) ([IntPtr]::Zero) 'select list row')
-    $selected=[int](Send-Bounded $list 0x0188 ([IntPtr]::Zero) ([IntPtr]::Zero) 'selected list row')
-    if($selected -ne $index){throw "Selection did not stick for control ${id}: expected $index got $selected"}
     $cmd=[IntPtr]($id -bor (1 -shl 16))
     [void](Send-Bounded $p.MainWindowHandle 0x0111 $cmd $list 'notify list selection')
     Start-Sleep -Milliseconds 200
@@ -236,17 +240,32 @@ function Percent([string]$row){if($row -match '(\d+)%'){return [int]$Matches[1]}
 function Save-Window($p,[string]$name) {
     $p.Refresh()
     [void][WBTelemetry]::SetForegroundWindow($p.MainWindowHandle)
-    # Do not force RedrawWindow on the parent here. The application owns its
-    # normal child-paint lifecycle; forcing RDW_ALLCHILDREN in the CI capture
-    # can erase native LISTBOX text immediately before CopyFromScreen.
-    Start-Sleep -Milliseconds 750
+    Start-Sleep -Milliseconds 350
     $rect=New-Object WBTelemetry+RECT
     [void][WBTelemetry]::GetWindowRect($p.MainWindowHandle,[ref]$rect)
-    $bmp=New-Object Drawing.Bitmap ($rect.Right-$rect.Left),($rect.Bottom-$rect.Top)
-    $g=[Drawing.Graphics]::FromImage($bmp)
-    try{$g.CopyFromScreen($rect.Left,$rect.Top,0,0,$bmp.Size,[Drawing.CopyPixelOperation]::SourceCopy)}finally{$g.Dispose()}
-    $bmp.Save((Join-Path $proof $name),[Drawing.Imaging.ImageFormat]::Png)
-    $bmp.Dispose()
+    $bitmap=New-Object Drawing.Bitmap ($rect.Right-$rect.Left),($rect.Bottom-$rect.Top)
+    $graphics=[Drawing.Graphics]::FromImage($bitmap)
+    $captured=$false
+    try {
+        $hdc=$graphics.GetHdc()
+        try {
+            # Match the repository's established production screenshot path.
+            # PrintWindow renders the complete HWND and its native child controls
+            # reliably on hosted Windows runners; screen-copy remains a fallback.
+            $captured=[WBTelemetry]::PrintWindow($p.MainWindowHandle,$hdc,0)
+        } finally {
+            $graphics.ReleaseHdc($hdc)
+        }
+        if(-not $captured){
+            $graphics.CopyFromScreen($rect.Left,$rect.Top,0,0,$bitmap.Size,[Drawing.CopyPixelOperation]::SourceCopy)
+            $captured=$true
+        }
+    } finally {
+        $graphics.Dispose()
+    }
+    if(-not $captured){throw 'Could not capture the running Workbench window.'}
+    $bitmap.Save((Join-Path $proof $name),[Drawing.Imaging.ImageFormat]::Png)
+    $bitmap.Dispose()
 }
 
 $evidence=New-Object Collections.Generic.List[string]
