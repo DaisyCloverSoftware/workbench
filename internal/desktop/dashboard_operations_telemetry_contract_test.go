@@ -66,7 +66,7 @@ func TestSprint1OperationsListboxesAreOwnerDrawnAtCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	ownerText := string(ownerDraw)
-	for _, want := range []string{"lbsOwnerDrawFixed", "lbsHasStrings", "drawOperationsListItem", "dtEndEllipsis"} {
+	for _, want := range []string{"wmMeasureItem", "measureOperationsListItem", "ItemHeight = 22", "drawOperationsListItem", "dtEndEllipsis"} {
 		if !strings.Contains(ownerText, want) {
 			t.Fatalf("Operations owner-draw implementation missing %q", want)
 		}
@@ -77,10 +77,14 @@ func TestSprint1OperationsListboxesAreOwnerDrawnAtCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	shellText := string(shell)
-	if !strings.Contains(shellText, "s.createOperationsDashboardControlsOwnerDraw()") {
-		t.Fatal("production shell does not create owner-drawn Operations listboxes")
-	}
-	if !strings.Contains(shellText, "s.drawOperationsListItem(lParam)") {
-		t.Fatal("production WM_DRAWITEM path does not route Operations list rows")
+	for _, want := range []string{
+		"s.createOperationsDashboardControlsOwnerDraw()",
+		"case wmMeasureItem:",
+		"s.measureOperationsListItem(lParam)",
+		"s.drawOperationsListItem(lParam)",
+	} {
+		if !strings.Contains(shellText, want) {
+			t.Fatalf("production owner-draw route missing %q", want)
+		}
 	}
 }
