@@ -104,6 +104,30 @@ func (s *Shell) applyProductionControlTheme() {
 	for _, id := range []int{idShowArchivedTasks, idProtectWork, idAllowMetered, idPublishReviews} {
 		applyDarkExplorerTheme(s.controls[id])
 	}
+
+	// DarkMode_Explorer renders selected LISTBOX rows correctly but can suppress
+	// unselected text when combined with our custom dark WM_CTLCOLORLISTBOX
+	// palette. Operations depends on every row being readable without selection,
+	// so those listboxes intentionally use classic Win32 painting while keeping
+	// the same Workbench foreground/background colors from productionControlColor.
+	disableOperationsListboxThemes(s)
+}
+
+func disableOperationsListboxThemes(s *Shell) {
+	if s == nil {
+		return
+	}
+	empty := wstr("")
+	for _, id := range []int{
+		idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList,
+		idOpsWaitingList, idOpsNeedsList, idOpsFullList,
+		idOpsWorkersList, idOpsProjectsList, idOpsRecentList,
+	} {
+		hwnd := s.controls[id]
+		if hwnd != 0 {
+			procSetWindowTheme.Call(hwnd, uintptr(unsafe.Pointer(empty)), uintptr(unsafe.Pointer(empty)))
+		}
+	}
 }
 
 func productionFieldControlIDs() []int {
