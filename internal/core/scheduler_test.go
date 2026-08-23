@@ -38,7 +38,7 @@ func TestProgressFallsBackToExecutionStages(t *testing.T) {
 	if progress.Kind != ProgressStages {
 		t.Fatalf("progress kind=%q", progress.Kind)
 	}
-	if progress.Stage != 2 || progress.StageTotal != 2 {
+	if progress.Stage != 2 || progress.StageTotal != 4 {
 		t.Fatalf("stage=%d/%d", progress.Stage, progress.StageTotal)
 	}
 	if progress.Phase != "Executing worker" {
