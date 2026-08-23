@@ -51,20 +51,6 @@ func (s *Shell) refreshOperationsTelemetryPresentation() {
 	// two columns by three rows so each job exposes progress/runtime/activity at
 	// normal production window width without changing the deeper detail layout.
 	s.layoutOperationsTelemetryCompactBoard()
-	// Controls are often populated while hidden and then exposed by the compact
-	// layout. Queue a normal repaint after that transition. This deliberately
-	// avoids synchronous RedrawWindow/UpdateNow calls, which can block the UI
-	// command path; the message loop paints the invalidated children normally.
-	s.invalidateOperationsTelemetryControls()
-}
-
-func (s *Shell) invalidateOperationsTelemetryControls() {
-	if s == nil {
-		return
-	}
-	for _, id := range operationsDashboardControlIDs() {
-		invalidateWindow(s.controls[id])
-	}
 }
 
 func operationsTelemetryListLine(item core.WorkItem, now time.Time) string {
