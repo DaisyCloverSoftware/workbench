@@ -272,7 +272,7 @@ func (e *Engine) execute(taskID string) {
 	}
 	t := e.state.Tasks[i]
 	e.state.Tasks[i].Status = TaskRouting
-	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Selecting executor"}
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressStages, Phase: "Selecting executor", Stage: 1, StageTotal: 4}
 	e.state.Tasks[i].RetryAt = nil
 	e.state.Tasks[i].UpdatedAt = time.Now()
 	providers := append([]Provider(nil), e.providers...)
@@ -338,8 +338,14 @@ func (e *Engine) execute(taskID string) {
 			return
 		}
 		runCtx, runCancel := context.WithTimeout(ctx, 45*time.Minute)
+		runCtx = withTaskTelemetryReporter(runCtx, func(progress WorkProgress) {
+			e.updateTaskTelemetry(taskID, progress)
+		})
 		res, err := RunProviderIsolated(runCtx, p, current, prefs)
 		runCancel()
+		if err == nil {
+			e.updateTaskTelemetry(taskID, WorkProgress{Kind: ProgressStages, Phase: "Finalizing result", Stage: 3, StageTotal: 4})
+		}
 		record, coolingNow := RecordProviderRunOutcome(p.ID, res, err)
 		attempt := fmt.Sprintf("%s: %s", p.Name, attemptSummary(res, err))
 		if detail := operationFailureDetail(current, res, err); detail != "" {
@@ -458,8 +464,12 @@ func (e *Engine) updateRunning(id string, p Provider) {
 		return
 	}
 	now := time.Now()
+	phase := "Executing worker"
+	if IsOperationsTask(e.state.Tasks[i]) {
+		phase = "Executing operation"
+	}
 	e.state.Tasks[i].Status = TaskRunning
-	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Running"}
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressStages, Phase: phase, Stage: 2, StageTotal: 4}
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].ConsumesWork = p.Cost == CostScarce
 	e.state.Tasks[i].RouteReason = routeReason(p)
@@ -510,7 +520,7 @@ func (e *Engine) finishCompleted(id string, p Provider, res RunResult) {
 	}
 	now := time.Now()
 	e.state.Tasks[i].Status = TaskCompleted
-	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressStages, Phase: "Completed", Stage: 1, StageTotal: 1}
+	e.state.Tasks[i].Progress = WorkProgress{Kind: ProgressStages, Phase: "Completed", Stage: 4, StageTotal: 4}
 	e.state.Tasks[i].ProviderID = p.ID
 	e.state.Tasks[i].Output = strings.TrimSpace(res.Output)
 	e.state.Tasks[i].Review = cloneTaskReviewResult(res.Review)
