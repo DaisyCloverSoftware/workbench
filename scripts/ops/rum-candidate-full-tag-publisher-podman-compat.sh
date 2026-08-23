@@ -23,4 +23,4 @@ podman tag docker.io/library/composer:2 composer:2
 podman image inspect composer:2 >/dev/null
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/rum-candidate-full-tag-publisher.sh" "$1"
+exec bash "$SCRIPT_DIR/rum-candidate-full-tag-publisher.sh" "$1"
