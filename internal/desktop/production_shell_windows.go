@@ -123,7 +123,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createChatGPTBootstrapControl()
 		s.createTaskHistoryControls()
 		s.createDashboardChrome()
-		s.createOperationsDashboardControls()
+		s.createOperationsDashboardControlsOwnerDraw()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
 		brand := "Workbench"
