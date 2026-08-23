@@ -40,13 +40,13 @@ func TestDelegateOperationQueuesThroughScheduler(t *testing.T) {
 func TestTaskProgressUsesMeaningfulRunningStage(t *testing.T) {
 	development := Task{Status: TaskRunning, Progress: WorkProgress{Kind: ProgressIndeterminate, Phase: "Running"}}
 	dev := TaskProgress(development)
-	if dev.Kind != ProgressStages || dev.Stage != 2 || dev.StageTotal != 4 || dev.Phase != "Executing worker" {
+	if dev.Kind != ProgressStages || dev.Stage != 2 || dev.StageTotal != 2 || dev.Phase != "Executing worker" {
 		t.Fatalf("development running progress=%#v", dev)
 	}
 	operation := development
 	operation.Mode = TaskModeOperations
 	ops := TaskProgress(operation)
-	if ops.Kind != ProgressStages || ops.Stage != 2 || ops.StageTotal != 4 || ops.Phase != "Executing operation" {
+	if ops.Kind != ProgressStages || ops.Stage != 2 || ops.StageTotal != 2 || ops.Phase != "Executing operation" {
 		t.Fatalf("operations running progress=%#v", ops)
 	}
 	measured := Task{Status: TaskRunning, Progress: WorkProgress{Kind: ProgressMeasured, Phase: "Tests", Current: 3, Total: 10, Unit: "checks"}}
