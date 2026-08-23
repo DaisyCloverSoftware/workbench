@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.58 — 2026-08-23
+
+- Connect the Operations dashboard to canonical live Workbench execution state with automatic lane, worker, project and recent-outcome updates.
+- Route Server Operations through the scheduler so queue priority and lane capacity control real execution order.
+- Show meaningful Running stages without fabricated percentages and expose Waiting, Needs You, failure and completion details live.
+- Fix Windows Operations theming and visibility regressions and add deterministic end-to-end live workload acceptance coverage.
+
 ## 0.9.57 — 2026-08-22
 
 - Operations dashboard is now a live operational surface that updates as work moves through queued, running, waiting, Needs You, completed and failed states.
