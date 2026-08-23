@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+
+	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
 const privateChatCapabilitiesPath = "WORKBENCH_CAPABILITIES.json"
@@ -16,30 +18,33 @@ type privateBuiltinOperation struct {
 }
 
 type privateChatCapabilities struct {
-	Protocol                    int                       `json:"protocol"`
-	WorkbenchVersion            string                    `json:"workbench_version"`
-	Transport                   string                    `json:"transport"`
-	PrimaryBrain                string                    `json:"primary_brain"`
-	PreferredWriteTransport     string                    `json:"preferred_write_transport"`
-	MCPRole                     string                    `json:"mcp_role"`
-	NoModelCreditRequired       bool                      `json:"no_model_credit_required"`
-	FreshChatBootstrap          string                    `json:"fresh_chat_bootstrap"`
-	MachineReadBatchPolicy      string                    `json:"machine_read_batch_policy"`
-	OperationsScriptPolicy      string                    `json:"operations_script_policy"`
-	WindowsHostBridgePolicy     string                    `json:"windows_host_bridge_policy"`
-	BuiltinOperationsCommitRule string                    `json:"builtin_operations_commit_rule"`
-	BuiltinReadonlyOperations   []privateBuiltinOperation `json:"builtin_readonly_operations"`
-	ChatGPTOwns                 []string                  `json:"chatgpt_owns"`
-	OpenClawOwns                []string                  `json:"openclaw_owns"`
-	ControlRequest              string                    `json:"control_request"`
-	ControlResult               string                    `json:"control_result"`
-	ControlActions              []string                  `json:"control_actions"`
-	AutonomousRequest           string                    `json:"autonomous_request"`
-	AutonomousResult            string                    `json:"autonomous_result"`
-	AutonomousPurpose           string                    `json:"autonomous_purpose"`
-	AutonomousOperationsPrefix  string                    `json:"autonomous_operations_prefix,omitempty"`
-	AttentionAnswer             string                    `json:"attention_answer"`
-	ProjectReference            string                    `json:"project_reference"`
+	Protocol                      int                       `json:"protocol"`
+	WorkbenchVersion              string                    `json:"workbench_version"`
+	Transport                     string                    `json:"transport"`
+	PrimaryBrain                  string                    `json:"primary_brain"`
+	PreferredWriteTransport       string                    `json:"preferred_write_transport"`
+	MCPRole                       string                    `json:"mcp_role"`
+	NoModelCreditRequired         bool                      `json:"no_model_credit_required"`
+	FreshChatBootstrap            string                    `json:"fresh_chat_bootstrap"`
+	MachineReadBatchPolicy        string                    `json:"machine_read_batch_policy"`
+	OperationsScriptPolicy        string                    `json:"operations_script_policy"`
+	WindowsHostBridgePolicy       string                    `json:"windows_host_bridge_policy"`
+	BuiltinOperationsCommitRule   string                    `json:"builtin_operations_commit_rule"`
+	BuiltinReadonlyOperations     []privateBuiltinOperation `json:"builtin_readonly_operations"`
+	ChatGPTOwns                   []string                  `json:"chatgpt_owns"`
+	OpenClawOwns                  []string                  `json:"openclaw_owns"`
+	ControlRequest                string                    `json:"control_request"`
+	ControlResult                 string                    `json:"control_result"`
+	ControlActions                []string                  `json:"control_actions"`
+	AutonomousRequest             string                    `json:"autonomous_request"`
+	AutonomousResult              string                    `json:"autonomous_result"`
+	AutonomousPurpose             string                    `json:"autonomous_purpose"`
+	AutonomousOperationsPrefix    string                    `json:"autonomous_operations_prefix,omitempty"`
+	AutonomousContinuationPrefix  string                    `json:"autonomous_continuation_prefix,omitempty"`
+	AutonomousContinuationPurpose string                    `json:"autonomous_continuation_purpose,omitempty"`
+	GitHubActionsWaitPrefix       string                    `json:"github_actions_wait_prefix,omitempty"`
+	AttentionAnswer               string                    `json:"attention_answer"`
+	ProjectReference              string                    `json:"project_reference"`
 }
 
 func privateChatCapabilitiesJSON() ([]byte, error) {
@@ -51,7 +56,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 		PreferredWriteTransport: "private-git-relay",
 		MCPRole:                 "optional_direct_read_fetch_on_personal_plans; full_tools_when_the_chatgpt_plan_supports_full_mcp",
 		NoModelCreditRequired:   true,
-		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md. For common read-only health questions, prefer the built-in operations advertised in this manifest before issuing many individual machine reads.",
+		FreshChatBootstrap:      "Use connected GitHub to locate the user's private repository whose name contains workbench-relay, then read WORKBENCH_CAPABILITIES.json and WORKBENCH_CHATGPT.md. For common read-only health questions, prefer the built-in operations advertised in this manifest before issuing many individual machine reads. For unfinished authorised Development work, inspect project context and the authenticated continuation/dependency markers before asking the human to type continue.",
 		MachineReadBatchPolicy:  "The private relay action inspect_machine_batch accepts no project and args.commands containing 1-8 objects with program, optional literal args, and optional timeout_seconds. Items execute sequentially through the exact inspect_machine read-only policy; one failed or rejected item does not stop later reads. There is deliberately no run_machine_command_batch; mutations remain one-at-a-time.",
 		OperationsScriptPolicy:  "run_operations_script requires a project and a Git-tracked regular .sh beneath scripts/ops/. Without commit, Workbench executes exact local HEAD. With an optional full 40-character commit currently advertised by a credential-free github.com origin branch head, Workbench fetches into a disposable repository, creates a detached worktree at that exact commit, and executes without moving or modifying the registered checkout. Bash receives literal argv, never bash -c. Results include the commit and script SHA-256.",
 		WindowsHostBridgePolicy: "Windows local-tool access is outbound-only through the existing Workbench Runner SSH target; no inbound Windows listener is opened. Use list_windows_hosts with empty args, run_windows_blender_version with args.host_id, then get_windows_host_job with args.job_id. This tranche can execute only exact local argv blender.exe --version after a second Windows-side allowlist check. There is no generic Windows command action and rendering is not enabled yet.",
@@ -61,7 +66,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 				Name:    "workbench_health",
 				Project: "runner://workbench",
 				Path:    "scripts/ops/workbench-health.sh",
-				Purpose: "Check Workbench binaries, MCP and relay services, loopback MCP health, and relay checkout cleanliness without reading credentials or restarting anything.",
+				Purpose: "Check Workbench binaries/services, MCP and relay services, loopback MCP health, and relay checkout cleanliness without reading credentials or restarting anything.",
 			},
 			{
 				Name:    "cluster_health",
@@ -74,7 +79,7 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 				Project: "runner://workbench",
 				Path:    "scripts/ops/namespace-health.sh",
 				Args:    []string{"<namespace>"},
-				Purpose: "Return a compact read-only namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs, and recent Warning events.",
+				Purpose: "Return a compact namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs and recent Warning events.",
 			},
 		},
 		ChatGPTOwns: []string{
@@ -123,12 +128,15 @@ func privateChatCapabilitiesJSON() ([]byte, error) {
 			"update_status",
 			"update_workbench",
 		},
-		AutonomousRequest:          "relay/inbox/<id>.json",
-		AutonomousResult:           "relay/outbox/<id>.json",
-		AutonomousPurpose:          "optional_machine_side_autonomy_fallback",
-		AutonomousOperationsPrefix: "[workbench:operations]",
-		AttentionAnswer:            "relay/answers/<id>.json",
-		ProjectReference:           "Use the exact opaque ref returned by list_projects; do not infer a runner filesystem path.",
+		AutonomousRequest:             "relay/inbox/<id>.json",
+		AutonomousResult:              "relay/outbox/<id>.json",
+		AutonomousPurpose:             "optional_machine_side_autonomy_fallback_or_authenticated_development_continuation",
+		AutonomousOperationsPrefix:    core.RelayOperationsIntentPrefix,
+		AutonomousContinuationPrefix:  core.RelayContinuationIntentPrefix,
+		AutonomousContinuationPurpose: "resume_already_authorised_development_across_chat_or_runtime_boundaries_without_transferring_code_or_ci_ownership",
+		GitHubActionsWaitPrefix:       "WORKBENCH_WAIT_GITHUB_ACTIONS:",
+		AttentionAnswer:               "relay/answers/<id>.json",
+		ProjectReference:              "Use the exact opaque ref returned by list_projects; do not infer a runner filesystem path.",
 	}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
