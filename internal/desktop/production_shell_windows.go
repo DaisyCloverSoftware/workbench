@@ -152,6 +152,10 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		return result
 	case wmEraseBkgnd:
 		return 1
+	case wmMeasureItem:
+		if result := s.measureOperationsListItem(lParam); result != 0 {
+			return result
+		}
 	case wmDrawItem:
 		if result := s.drawOperationsListItem(lParam); result != 0 {
 			return result
@@ -213,7 +217,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		user32.NewProc("DestroyWindow").Call(hwnd)
 		return 0
 	case wmDestroy:
-		procPostQuitMessage.Call(0)
+		procPostQuitMessageW.Call(0)
 		return 0
 	}
 	return defWindowProc(hwnd, message, wParam, lParam)
