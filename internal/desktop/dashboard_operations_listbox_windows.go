@@ -27,14 +27,35 @@ func isOperationsOwnerDrawListID(id int) bool {
 	}
 }
 
-func enableOperationsOwnerDrawListbox(hwnd uintptr) {
+func operationsOwnerDrawListNotifies(id int) bool {
+	switch id {
+	case idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList,
+		idOpsWaitingList, idOpsNeedsList, idOpsFullList, idOpsRecentList:
+		return true
+	default:
+		return false
+	}
+}
+
+func recreateOperationsOwnerDrawListbox(s *Shell, id int) {
+	if s == nil || s.hwnd == 0 || !isOperationsOwnerDrawListID(id) {
+		return
+	}
+	if old := s.controls[id]; old != 0 {
+		user32.NewProc("DestroyWindow").Call(old)
+	}
+	style := uintptr(wsChild | wsVisible | wsBorder | wsVScroll | lbsOwnerDrawFixed | lbsHasStrings)
+	if operationsOwnerDrawListNotifies(id) {
+		style |= lbsNotify
+	}
+	hwnd := s.control(id, "LISTBOX", "", style)
 	if hwnd == 0 {
 		return
 	}
-	style, _, _ := procGetWindowLongPtrW.Call(hwnd, gwlStyle)
-	style |= lbsOwnerDrawFixed | lbsHasStrings
-	procSetWindowLongPtrW.Call(hwnd, gwlStyle, style)
-	procSetWindowPos.Call(hwnd, 0, 0, 0, 0, swpNoSize|swpNoMove|swpNoZOrder|swpNoActivate|swpFrameChanged)
+	if productionUIFont != 0 {
+		procSendMessageW.Call(hwnd, wmSetFont, productionUIFont, 1)
+	}
+	applyDarkExplorerTheme(hwnd)
 	procSendMessageW.Call(hwnd, lbSetItemHeight, 0, 22)
 }
 
