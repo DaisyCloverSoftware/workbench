@@ -5,7 +5,7 @@ on:
     paths:
       - 'internal/core/**'
       - 'internal/desktop/**'
-      - 'scripts/sprint1-operational-telemetry.ps1'
+      - 'scripts/sprint1-operational-telemetry-live.ps1'
       - '.github/workflows/sprint1-operational-telemetry.yml'
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Demonstrate live operational telemetry
         shell: pwsh
-        run: ./scripts/sprint1-operational-telemetry.ps1
+        run: ./scripts/sprint1-operational-telemetry-live.ps1
 
       - name: Upload Sprint 1 telemetry proof
         if: always()
