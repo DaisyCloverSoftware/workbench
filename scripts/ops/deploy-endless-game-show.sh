@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if sudo -n kubectl version --client >/dev/null 2>&1; then
+  KUBECTL=(sudo -n kubectl)
+elif sudo -n k3s kubectl version --client >/dev/null 2>&1; then
+  KUBECTL=(sudo -n k3s kubectl)
+else
+  echo "ERROR: no sanctioned non-interactive Kubernetes client is available" >&2
+  exit 1
+fi
+
 namespace="endless"
 release="endless-game-show"
 archive_sha="2418d4272ee693f46bfa5b1cf1b4516e30ae6495a0a7acf4d101b72866cb78f8"
@@ -14,10 +23,10 @@ ARCHIVE_BASE64
 base64 -d "$tmp_dir/app.tar.gz.b64" >"$tmp_dir/app.tar.gz"
 printf '%s  %s\n' "$archive_sha" "$tmp_dir/app.tar.gz" | sha256sum -c -
 
-kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n "$namespace" create configmap "$configmap" \
+"${KUBECTL[@]}" create namespace "$namespace" --dry-run=client -o yaml | "${KUBECTL[@]}" apply -f -
+"${KUBECTL[@]}" -n "$namespace" create configmap "$configmap" \
   --from-file=app.tar.gz="$tmp_dir/app.tar.gz" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | "${KUBECTL[@]}" apply -f -
 
 cat >"$tmp_dir/resources.yaml" <<EOF
 apiVersion: apps/v1
@@ -123,10 +132,10 @@ spec:
                   name: http
 EOF
 
-kubectl apply -f "$tmp_dir/resources.yaml"
-kubectl -n "$namespace" rollout status "deployment/$release" --timeout=180s
-kubectl -n "$namespace" get deployment,pod,service,ingress -o wide
-kubectl -n "$namespace" get endpoints "$release" -o wide
+"${KUBECTL[@]}" apply -f "$tmp_dir/resources.yaml"
+"${KUBECTL[@]}" -n "$namespace" rollout status "deployment/$release" --timeout=180s
+"${KUBECTL[@]}" -n "$namespace" get deployment,pod,service,ingress -o wide
+"${KUBECTL[@]}" -n "$namespace" get endpoints "$release" -o wide
 curl -fsS --max-time 20 https://endless.dcgames.uk/api/hello
 curl -fsS --max-time 20 -o /dev/null -w 'show_http=%{http_code}\n' https://endless.dcgames.uk/show
 curl -fsS --max-time 20 -o /dev/null -w 'play_http=%{http_code}\n' https://endless.dcgames.uk/play
