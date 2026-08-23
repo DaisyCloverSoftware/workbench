@@ -225,13 +225,23 @@ function Wait-Until([scriptblock]$condition,[string]$description,[int]$seconds=3
     throw "Timed out: $description"
 }
 function Read-State(){
-    $deadline=[DateTime]::UtcNow.AddSeconds(5)
+    $deadline=[DateTime]::UtcNow.AddSeconds(10)
     do {
+        $stream=$null
+        $reader=$null
         try {
-            return (Get-Content -Raw -ErrorAction Stop $statePath | ConvertFrom-Json)
+            $share=[System.IO.FileShare]([int][System.IO.FileShare]::ReadWrite -bor [int][System.IO.FileShare]::Delete)
+            $stream=[System.IO.File]::Open($statePath,[System.IO.FileMode]::Open,[System.IO.FileAccess]::Read,$share)
+            $reader=New-Object System.IO.StreamReader($stream)
+            $raw=$reader.ReadToEnd()
+            if([string]::IsNullOrWhiteSpace($raw)){throw 'state file was empty during update'}
+            return ($raw | ConvertFrom-Json)
         } catch {
             if([DateTime]::UtcNow -ge $deadline){throw}
-            Start-Sleep -Milliseconds 100
+            Start-Sleep -Milliseconds 50
+        } finally {
+            if($reader){$reader.Dispose()}
+            elseif($stream){$stream.Dispose()}
         }
     } while($true)
 }
