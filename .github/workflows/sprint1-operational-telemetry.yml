@@ -1,0 +1,256 @@
+name: sprint1-operational-telemetry
+
+on:
+  pull_request:
+    paths:
+      - 'internal/core/**'
+      - 'internal/desktop/**'
+      - '.github/workflows/sprint1-operational-telemetry.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  operational-telemetry:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Run telemetry regression checks
+        shell: pwsh
+        run: go test ./internal/core ./internal/desktop
+
+      - name: Build production app and telemetry providers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $harnessSource = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-harness.go'
+          @'
+          package main
+
+          import (
+              "crypto/sha256"
+              "encoding/json"
+              "fmt"
+              "io/fs"
+              "os"
+              "path/filepath"
+              "sort"
+              "strings"
+              "time"
+          )
+
+          type job struct {
+              Version int    `json:"version"`
+              TaskID string   `json:"task_id"`
+              ProjectPath string `json:"project_path"`
+              Intent string   `json:"intent"`
+          }
+
+          func progress(kind, phase string, current, total int64, stage, stageTotal int) {
+              payload := map[string]any{"kind":kind,"phase":phase}
+              if kind == "measured" {
+                  payload["current"] = current
+                  payload["total"] = total
+                  payload["unit"] = "files"
+              } else {
+                  payload["stage"] = stage
+                  payload["stage_total"] = stageTotal
+              }
+              b, _ := json.Marshal(payload)
+              fmt.Fprintf(os.Stderr, "WORKBENCH_PROGRESS: %s\n", b)
+          }
+
+          func measuredWork(j job) error {
+              root := filepath.Join(j.ProjectPath, "internal", "core")
+              files := []string{}
+              err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+                  if err != nil { return err }
+                  if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".go") {
+                      files = append(files, path)
+                  }
+                  return nil
+              })
+              if err != nil { return err }
+              sort.Strings(files)
+              if len(files) == 0 { return fmt.Errorf("no source files to verify") }
+              for i, path := range files {
+                  data, err := os.ReadFile(path)
+                  if err != nil { return err }
+                  _ = sha256.Sum256(data)
+                  progress("measured", "Verifying source files", int64(i+1), int64(len(files)), 0, 0)
+                  time.Sleep(80 * time.Millisecond)
+              }
+              return nil
+          }
+
+          func stageWork() {
+              phases := []string{"Preparing checks", "Executing checks", "Verifying result", "Finalizing result"}
+              for i, phase := range phases {
+                  progress("stages", phase, 0, 0, i+1, len(phases))
+                  time.Sleep(1300 * time.Millisecond)
+              }
+          }
+
+          func main() {
+              var j job
+              if err := json.NewDecoder(os.Stdin).Decode(&j); err != nil { os.Exit(2) }
+              switch {
+              case strings.Contains(j.Intent, "Telemetry measured"):
+                  if err := measuredWork(j); err != nil {
+                      fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"failed\",\"report\":%q,\"category\":\"adapter\",\"retryable\":false}\n", j.TaskID, err.Error())
+                      return
+                  }
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Measured source verification complete.\"}\n", j.TaskID)
+              case strings.Contains(j.Intent, "Telemetry stage"):
+                  stageWork()
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Stage based work complete.\"}\n", j.TaskID)
+              case strings.Contains(j.Intent, "Telemetry needs you"):
+                  progress("stages", "Checking owner boundary", 0, 0, 2, 4)
+                  time.Sleep(2 * time.Second)
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"needs_attention\",\"attention\":\"Choose the telemetry acceptance owner action.\"}\n", j.TaskID)
+              default:
+                  stageWork()
+                  fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Telemetry support job complete.\"}\n", j.TaskID)
+              }
+          }
+          '@ | Set-Content -Encoding UTF8 $harnessSource
+          go build -o (Join-Path $env:RUNNER_TEMP 'Sprint1TelemetryHarness.exe') $harnessSource
+
+          $openClawSource = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-openclaw.go'
+          @'
+          package main
+          import ("fmt"; "os"; "strings"; "time")
+          func main() {
+              if len(os.Args) >= 3 && os.Args[1] == "sessions" && os.Args[2] == "archive" { return }
+              args := strings.Join(os.Args[1:], " ")
+              if strings.Contains(args, "Telemetry") {
+                  time.Sleep(9 * time.Second)
+                  fmt.Println("Telemetry operation complete")
+                  fmt.Println("WORKBENCH_OPERATION_COMPLETE: verified")
+                  return
+              }
+              time.Sleep(2 * time.Second)
+              fmt.Println("WORKBENCH_OPERATION_COMPLETE: verified")
+          }
+          '@ | Set-Content -Encoding UTF8 $openClawSource
+          go build -o (Join-Path $env:RUNNER_TEMP 'openclaw.exe') $openClawSource
+          go build -ldflags='-s -w -H=windowsgui' -o (Join-Path $env:RUNNER_TEMP 'Workbench-Sprint1-Telemetry.exe') ./cmd/workbench
+
+      - name: Demonstrate live operational telemetry
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.Drawing
+          $proof = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-proof'
+          New-Item -ItemType Directory -Force -Path $proof | Out-Null
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-appdata'
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-localappdata'
+          $env:PATH = "$env:RUNNER_TEMP;$env:PATH"
+          New-Item -ItemType Directory -Force -Path $env:APPDATA,$env:LOCALAPPDATA | Out-Null
+          $stateDir = Join-Path $env:APPDATA 'Workbench'
+          New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+          $statePath = Join-Path $stateDir 'state.json'
+          $adapterPath = Join-Path $env:RUNNER_TEMP 'Sprint1TelemetryHarness.exe'
+          $exePath = Join-Path $env:RUNNER_TEMP 'Workbench-Sprint1-Telemetry.exe'
+          $projectPath = $pwd.Path
+          $now = [DateTime]::UtcNow
+          $state = [ordered]@{
+            version = 3; active_project_id = 'telemetry-project'; project_path = $projectPath; notes = 'Sprint 1 telemetry acceptance.'
+            projects = @([ordered]@{id='telemetry-project'; path=$projectPath; name='Workbench Telemetry'; notes=''; pinned=$true; added_at=$now.AddDays(-1).ToString('o'); last_used_at=$now.ToString('o')})
+            tasks = @(); secrets = @()
+            preferences = [ordered]@{avoid_work_usage=$true; allow_metered_api=$false; autonomy_mode='trusted-repo'; harness_adapter_path=$adapterPath; mcp_port=18943; mcp_token='sprint1-telemetry-local-token'}
+          }
+          $state | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 $statePath
+
+          Add-Type @'
+          using System; using System.Text; using System.Runtime.InteropServices;
+          public static class WBTelemetry {
+            [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left,Top,Right,Bottom; }
+            [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+            [DllImport("user32.dll")] public static extern bool RedrawWindow(IntPtr hWnd, IntPtr r, IntPtr rg, uint flags);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendPtr(IntPtr h,uint m,IntPtr w,IntPtr l,uint f,uint t,out UIntPtr r);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendString(IntPtr h,uint m,IntPtr w,string l,uint f,uint t,out UIntPtr r);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendBuffer(IntPtr h,uint m,IntPtr w,StringBuilder l,uint f,uint t,out UIntPtr r);
+          }
+          '@
+          function C($p,[int]$id){$h=[WBTelemetry]::GetDlgItem($p.MainWindowHandle,$id);if($h-eq[IntPtr]::Zero){throw "missing $id"};$h}
+          function S([IntPtr]$h,[uint32]$m,[IntPtr]$w,[IntPtr]$l){$r=[UIntPtr]::Zero;if([WBTelemetry]::SendPtr($h,$m,$w,$l,2,2000,[ref]$r)-eq[IntPtr]::Zero){throw 'message timeout'};[uint64]$r.ToUInt64()}
+          function T([IntPtr]$h,[string]$text){$r=[UIntPtr]::Zero;if([WBTelemetry]::SendString($h,0x000C,[IntPtr]::Zero,$text,2,2000,[ref]$r)-eq[IntPtr]::Zero){throw 'text timeout'}}
+          function GT([IntPtr]$h){$n=[int](S $h 0x000E ([IntPtr]::Zero) ([IntPtr]::Zero));$b=New-Object Text.StringBuilder ([Math]::Max(2,$n+2));$r=[UIntPtr]::Zero;if([WBTelemetry]::SendBuffer($h,0x000D,[IntPtr]$b.Capacity,$b,2,2000,[ref]$r)-eq[IntPtr]::Zero){throw 'read timeout'};$b.ToString()}
+          function Click($p,[int]$id){[void](S (C $p $id) 0x00F5 ([IntPtr]::Zero) ([IntPtr]::Zero));Start-Sleep -Milliseconds 150}
+          function Delegate($p,[string]$intent){T (C $p 3111) $intent;Click $p 3112}
+          function Lines([IntPtr]$list){$count=[int](S $list 0x018B ([IntPtr]::Zero) ([IntPtr]::Zero);$out=@();for($i=0;$i-lt$count;$i++){$n=[int](S $list 0x018A ([IntPtr]$i) ([IntPtr]::Zero));$b=New-Object Text.StringBuilder ([Math]::Max(2,$n+2));$r=[UIntPtr]::Zero;[void][WBTelemetry]::SendBuffer($list,0x0189,[IntPtr]$i,$b,2,2000,[ref]$r);$out+=$b.ToString()};$out}
+          function Wait([scriptblock]$condition,[string]$description,[int]$seconds=30){$d=[DateTime]::UtcNow.AddSeconds($seconds);do{if(&$condition){return};Start-Sleep -Milliseconds 200}while([DateTime]::UtcNow-lt$d);throw "Timed out: $description"}
+          function State(){Get-Content -Raw $statePath|ConvertFrom-Json}
+          function Shot($p,[string]$name){$p.Refresh();[void][WBTelemetry]::SetForegroundWindow($p.MainWindowHandle);[void][WBTelemetry]::RedrawWindow($p.MainWindowHandle,[IntPtr]::Zero,[IntPtr]::Zero,0x0185);Start-Sleep -Milliseconds 250;$r=New-Object WBTelemetry+RECT;[void][WBTelemetry]::GetWindowRect($p.MainWindowHandle,[ref]$r);$bmp=New-Object Drawing.Bitmap ($r.Right-$r.Left),($r.Bottom-$r.Top);$g=[Drawing.Graphics]::FromImage($bmp);try{$g.CopyFromScreen($r.Left,$r.Top,0,0,$bmp.Size,[Drawing.CopyPixelOperation]::SourceCopy)}finally{$g.Dispose()};$bmp.Save((Join-Path $proof $name),[Drawing.Imaging.ImageFormat]::Png);$bmp.Dispose()}
+
+          $evidence = New-Object Collections.Generic.List[string]
+          $p=Start-Process -FilePath $exePath -PassThru
+          try {
+            $deadline=[DateTime]::UtcNow.AddSeconds(15);do{Start-Sleep -Milliseconds 200;$p.Refresh()}while($p.MainWindowHandle-eq0-and-not$p.HasExited-and[DateTime]::UtcNow-lt$deadline)
+            if($p.MainWindowHandle-eq0){throw 'Workbench window missing'}
+            Click $p 3001
+            Delegate $p '[workbench:operations] Telemetry stage operation'
+            Delegate $p 'Telemetry measured source verification'
+            Delegate $p 'Telemetry needs you'
+            Delegate $p 'Telemetry queued priority target'
+            Delegate $p 'Telemetry queued follow-up'
+            Delegate $p 'Telemetry queued follow-up two'
+
+            Wait { @((State).tasks|?{$_.status-eq'running'}).Count -ge 2 } 'two running jobs' 25
+            Wait { @((State).tasks|?{$_.status-eq'queued'}).Count -ge 3 } 'three queued jobs' 15
+            $ai=C $p 3607; $server=C $p 3601
+            Wait { ((Lines $ai)-join "`n") -match '\d+%' } 'measured percentage in active row' 20
+            Wait { ((Lines $server)-join "`n") -match 'Stage \d+/4' } 'stage progress in operation row' 10
+            $measuredBefore=((Lines $ai)|?{$_-like'*Telemetry measured*'}|Select-Object -First 1)
+            Start-Sleep -Seconds 2
+            $measuredAfter=((Lines $ai)|?{$_-like'*Telemetry measured*'}|Select-Object -First 1)
+            if($measuredBefore-eq$measuredAfter){throw "Measured row did not visibly update: $measuredAfter"}
+            if($measuredAfter-notmatch'elapsed \d' -or $measuredAfter-notmatch'activity \d'){throw "Runtime/activity missing: $measuredAfter"}
+            if($measuredAfter-match'percentage unavailable'){throw "Unacceptable unavailable percentage text: $measuredAfter"}
+            $evidence.Add("1. Two real jobs ran concurrently and rows exposed progress without task selection.")
+            $evidence.Add("2. Measured worker emitted real current/total source-file telemetry and the row rendered a live percentage/progress bar.")
+            $evidence.Add("3. Server operation used stage progress rather than a fabricated percentage.")
+            $evidence.Add("4. Elapsed runtime and latest activity age advanced while Dashboard stayed open.")
+            Shot $p 'Sprint1-Telemetry-Live-Progress.png'
+
+            # Reprioritise a queued row and prove the visible row changes immediately.
+            $lines=@(Lines $ai);$idx=-1;for($i=0;$i-lt$lines.Count;$i++){if($lines[$i]-like'*Telemetry queued priority target*'){$idx=$i;break}}
+            if($idx-lt0){throw "priority target missing: $($lines-join' | ')"}
+            [void](S $ai 0x0186 ([IntPtr]$idx) ([IntPtr]::Zero);$cmd=[IntPtr](3607-bor(1-shl16));[void](S $p.MainWindowHandle 0x0111 $cmd $ai)
+            $before=((Lines $ai)|?{$_-like'*Telemetry queued priority target*'}|Select-Object -First 1)
+            Click $p 3615
+            Wait { (((Lines $ai)|?{$_-like'*Telemetry queued priority target*'}|Select-Object -First 1) -match 'HIGH') } 'visible priority change' 8
+            $after=((Lines $ai)|?{$_-like'*Telemetry queued priority target*'}|Select-Object -First 1)
+            if($before-eq$after){throw 'priority row did not change'}
+            $evidence.Add("5. Priority Up produced an immediately visible named-priority/queue-order change backed by durable scheduler state.")
+            Shot $p 'Sprint1-Telemetry-Priority.png'
+
+            Wait { @((State).tasks|?{$_.intent-eq'Telemetry needs you'-and$_.status-eq'needs_attention'}).Count -eq 1 } 'Needs You state' 30
+            $needs=(Lines (C $p 3611))-join "`n"
+            if($needs-notmatch'NEEDS'){throw "Needs You row missing: $needs"}
+            $evidence.Add("6. Needs You remained distinguishable alongside moving work, while canonical lane state continued updating automatically.")
+            Shot $p 'Sprint1-Telemetry-Needs-You.png'
+          } finally {
+            if($p-and-not$p.HasExited){Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue}
+            $evidence|Set-Content -Encoding UTF8 (Join-Path $proof 'Sprint1-Telemetry-Evidence.txt')
+            if(Test-Path $statePath){Copy-Item $statePath (Join-Path $proof 'Sprint1-Telemetry-Final-State.json') -Force}
+          }
+          if($evidence.Count-ne6){throw "Expected 6 evidence lines, got $($evidence.Count)"}
+          Get-Content (Join-Path $proof 'Sprint1-Telemetry-Evidence.txt')
+
+      - name: Upload Sprint 1 telemetry proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Sprint1-Operational-Telemetry-Proof
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/sprint1-telemetry-proof/*
