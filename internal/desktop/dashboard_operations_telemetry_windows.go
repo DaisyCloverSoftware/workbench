@@ -50,7 +50,7 @@ func (s *Shell) refreshOperationsTelemetryPresentation() {
 func operationsTelemetryListLine(item core.WorkItem, now time.Time) string {
 	project := telemetryCompact(operationsProjectLabel(item), 18)
 	title := telemetryCompact(item.Title, 32)
-	state := strings.ToUpper(dashboardStatusLabel(item.State, string(item.State)))
+	state := strings.ToUpper(string(item.State))
 	priority := strings.ToUpper(item.Priority.String())
 	activity := operationsActivityAge(item.UpdatedAt, now)
 
@@ -78,7 +78,7 @@ func operationsTelemetryExpandedLine(item core.WorkItem, now time.Time) string {
 func operationsTelemetryProgress(progress core.WorkProgress, status core.TaskStatus) string {
 	phase := strings.TrimSpace(progress.Phase)
 	if phase == "" {
-		phase = dashboardStatusLabel(status, string(status))
+		phase = string(status)
 	}
 	switch progress.Kind {
 	case core.ProgressMeasured:
@@ -189,7 +189,7 @@ func operationsTelemetryDetailText(detail DashboardOperationsDetail, now time.Ti
 	writeOperationsDetailLine(&b, "Project", detail.Project)
 	writeOperationsDetailLine(&b, "Task / sprint", detail.Task)
 	writeOperationsDetailLine(&b, "Assigned worker", detail.Worker)
-	writeOperationsDetailLine(&b, "State", detail.State)
+	writeOperationsDetailLine(&b, "State", strings.ToUpper(string(item.State)))
 	writeOperationsDetailLine(&b, "Current stage", strings.TrimSpace(item.Progress.Phase))
 	writeOperationsDetailLine(&b, "Progress", operationsTelemetryProgress(item.Progress, item.State))
 	if item.StartedAt != nil && !item.StartedAt.IsZero() {
@@ -199,7 +199,7 @@ func operationsTelemetryDetailText(detail DashboardOperationsDetail, now time.Ti
 	if !item.UpdatedAt.IsZero() {
 		activity := strings.TrimSpace(item.Progress.Phase)
 		if activity == "" {
-			activity = detail.State
+			activity = strings.ToUpper(string(item.State))
 		}
 		writeOperationsDetailLine(&b, "Latest meaningful activity", fmt.Sprintf("%s · %s · %s", activity, item.UpdatedAt.Local().Format("2 Jan 15:04:05"), operationsActivityAge(item.UpdatedAt, now)))
 	}
