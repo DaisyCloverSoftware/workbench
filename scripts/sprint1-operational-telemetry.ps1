@@ -67,7 +67,7 @@ func measuredWork(j job) error {
     sort.Strings(files)
     if len(files) == 0 { return fmt.Errorf("no source files to verify") }
 
-    const passes = 4
+    const passes = 2
     total := int64(len(files) * passes)
     var current int64
     for pass := 0; pass < passes; pass++ {
