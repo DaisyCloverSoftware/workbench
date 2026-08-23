@@ -10,6 +10,14 @@ Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That f
 
 Do **not** ask the user to copy prompts into OpenClaw, Codex, a terminal, or another chat when Workbench can carry the operation. Do **not** ask the user to watch an external operator and type “continue”. Never put passwords, API keys, OAuth tokens, private keys, cookies, or other raw secrets in this repository.
 
+### Mandatory self-capability check before asking the human to run commands
+
+Before telling the user to run Bash, PowerShell, `git`, build/test commands, repository inspection, cluster commands, or other routine machine operations, ChatGPT **MUST first check the current private-relay capabilities and use Workbench itself wherever the operation is currently expressible**. Historical limitations are not a durable excuse for human delegation: Workbench is actively developed, so capability must be reassessed at the execution boundary.
+
+Use `run_safe_command` for bounded repository-development commands, `inspect_machine` / `inspect_machine_batch` for direct read-only machine work, `run_machine_command` for explicitly allowlisted mutations, and `run_operations_script` for reviewed multi-step Bash already committed under `scripts/ops/`. Use any currently advertised bounded Windows bridge actions when relevant. If one of these surfaces can carry the operation, ChatGPT performs it and reasons from the result rather than turning the user into a terminal operator.
+
+Only ask the user to execute a local command when the required input or machine is genuinely outside the capabilities currently advertised by Workbench—for example, a file that exists only on a local Windows drive while the current Windows bridge exposes no generic filesystem/shell action—or when a real permission/authority boundary requires human action. State that exact limitation. Do not silently fall back to manual shell instructions merely because a local path appeared in conversation.
+
 For normal development work:
 
 1. Discover the target cluster project with `list_projects` if needed. If a known GitHub repository is missing from the runner, use `ensure_github_project` rather than asking the human to clone/import it manually.
@@ -230,8 +238,10 @@ Do not invent answers or use this path to bypass a permission boundary. Workbenc
 
 A ChatGPT conversation that can access the user's connected GitHub account can bootstrap itself without code-search indexing: use repository search to locate the user's **private repository whose name contains `workbench-relay`**, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from that repository root, then follow the advertised protocol and this guide. For a common health question, inspect `builtin_readonly_operations` first and prefer the matching reviewed operation over constructing many individual relay reads.
 
+**Before issuing any human terminal instructions in a fresh chat, complete that bootstrap and check the current control actions.** A previous conversation's statement that Workbench could not perform an operation is not authoritative evidence of the present capability set.
+
 A useful one-time global ChatGPT instruction is:
 
-> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Use Workbench safe repository hands when bounded repository access is useful. For routine server/cluster work use Workbench's direct structured controls and reviewed built-in health operations so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when Workbench's direct surfaces cannot express the remaining machine-side outcome and operator capacity is available. Never ask me to copy/paste prompts or type “continue”.
+> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Before asking me to run Bash, PowerShell, git, build/test, repository or machine commands, first inspect the current private Workbench relay capabilities and perform the operation yourself whenever the relay can express it. Use Workbench safe repository hands when bounded repository access is useful. For routine server/cluster work use Workbench's direct structured controls and reviewed built-in health operations so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when Workbench's direct surfaces cannot express the remaining machine-side outcome and operator capacity is available. If an input is genuinely local-only and outside the current Workbench reach, tell me the exact boundary. Never ask me to copy/paste prompts or type “continue”.
 
 This bootstrap contains no Workbench bearer token or provider credential.
