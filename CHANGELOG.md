@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.59 — 2026-08-23
+
+- Make Operations an operational control surface with canonical live progress, runtime, activity-age, worker, priority and queue telemetry visible directly in active job rows.
+- Accept real deterministic worker progress events for defensible percentages and use truthful workflow-stage progress whenever percentage completion cannot be calculated.
+- Keep Operations live through the existing Engine event path, with automatic elapsed/activity-age updates, real Waiting and Needs You transitions, and scheduler-backed priority controls.
+
 ## 0.9.58 — 2026-08-23
 
 - Connect the Operations dashboard to canonical live Workbench execution state with automatic lane, worker, project and recent-outcome updates.
