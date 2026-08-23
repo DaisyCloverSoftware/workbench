@@ -44,20 +44,39 @@ func TestSprint1OperationsCanonicalLayoutKeepsCompactLanesWide(t *testing.T) {
 	}
 }
 
-func TestSprint1OperationsListboxesUseReadableWin32ColorPainting(t *testing.T) {
-	body, err := os.ReadFile("production_controls_windows.go")
+func TestSprint1OperationsListboxesAreOwnerDrawn(t *testing.T) {
+	controls, err := os.ReadFile("production_controls_windows.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := string(body)
+	controlText := string(controls)
 	for _, want := range []string{
-		"disableOperationsListboxThemes(s)",
+		"prepareOperationsListboxPainting(s)",
+		"enableOperationsOwnerDrawListbox(hwnd)",
 		"idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList",
 		"idOpsWaitingList, idOpsNeedsList, idOpsFullList",
-		"procSetWindowTheme.Call",
 	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("Operations listbox theme contract missing %q", want)
+		if !strings.Contains(controlText, want) {
+			t.Fatalf("Operations owner-draw setup missing %q", want)
 		}
+	}
+
+	ownerDraw, err := os.ReadFile("dashboard_operations_listbox_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerText := string(ownerDraw)
+	for _, want := range []string{"lbsOwnerDrawFixed", "lbsHasStrings", "drawOperationsListItem", "dtEndEllipsis"} {
+		if !strings.Contains(ownerText, want) {
+			t.Fatalf("Operations owner-draw implementation missing %q", want)
+		}
+	}
+
+	shell, err := os.ReadFile("production_shell_windows.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(shell), "s.drawOperationsListItem(lParam)") {
+		t.Fatal("production WM_DRAWITEM path does not route Operations list rows")
 	}
 }
