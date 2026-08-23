@@ -41,3 +41,25 @@ func TestProductionDesktopStartsInRealDashboardShell(t *testing.T) {
 		}
 	}
 }
+
+func TestProductionDashboardClipsParentPaintingAroundNativeOperationsControls(t *testing.T) {
+	_, here, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot resolve desktop source directory")
+	}
+	dir := filepath.Dir(here)
+	shell, err := os.ReadFile(filepath.Join(dir, "production_shell_windows.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(shell), "wsOverlappedWindow|wsVisible|wsClipChildren") {
+		t.Fatal("production parent must use WS_CLIPCHILDREN so painted dashboard refreshes cannot cover native Operations controls")
+	}
+	style, err := os.ReadFile(filepath.Join(dir, "win32_clip_children_windows.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(style), "wsClipChildren = 0x02000000") {
+		t.Fatal("WS_CLIPCHILDREN constant missing or incorrect")
+	}
+}
