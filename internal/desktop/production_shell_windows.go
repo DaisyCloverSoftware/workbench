@@ -123,7 +123,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		s.createChatGPTBootstrapControl()
 		s.createTaskHistoryControls()
 		s.createDashboardChrome()
-		s.createOperationsDashboardControlsOwnerDraw()
+		s.createOperationsDashboardControls()
 		s.styleProductionControls()
 		s.applyProductionControlTheme()
 		brand := "Workbench"
@@ -152,14 +152,7 @@ func productionShellWndProc(hwnd uintptr, message uint32, wParam, lParam uintptr
 		return result
 	case wmEraseBkgnd:
 		return 1
-	case wmMeasureItem:
-		if result := s.measureOperationsListItem(lParam); result != 0 {
-			return result
-		}
 	case wmDrawItem:
-		if result := s.drawOperationsListItem(lParam); result != 0 {
-			return result
-		}
 		if result := s.drawProductionButton(lParam); result != 0 {
 			return result
 		}
