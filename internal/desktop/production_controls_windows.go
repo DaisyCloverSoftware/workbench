@@ -104,25 +104,6 @@ func (s *Shell) applyProductionControlTheme() {
 	for _, id := range []int{idShowArchivedTasks, idProtectWork, idAllowMetered, idPublishReviews} {
 		applyDarkExplorerTheme(s.controls[id])
 	}
-
-	// LBS_OWNERDRAWFIXED must be present when the Win32 LISTBOX is created.
-	// Recreate the Operations lists once, before any rows are loaded, so
-	// Workbench owns deterministic row painting while native selection,
-	// notifications, scrolling and the proven priority command path stay intact.
-	prepareOperationsListboxPainting(s)
-}
-
-func prepareOperationsListboxPainting(s *Shell) {
-	if s == nil {
-		return
-	}
-	for _, id := range []int{
-		idOpsServerList, idOpsCIList, idOpsWindowsList, idOpsAIList,
-		idOpsWaitingList, idOpsNeedsList, idOpsFullList,
-		idOpsWorkersList, idOpsProjectsList, idOpsRecentList,
-	} {
-		recreateOperationsOwnerDrawListbox(s, id)
-	}
 }
 
 func productionFieldControlIDs() []int {
