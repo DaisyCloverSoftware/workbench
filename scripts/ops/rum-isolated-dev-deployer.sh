@@ -17,7 +17,7 @@ REPOSITORY="DaisyCloverSoftware/rum"
 CANDIDATE_BRANCH="sprint-0-rum-owner-rating-flow-20260823"
 CANDIDATE_PR="153"
 EXPECTED_CI_NAME="CI"
-TAG="sha-${CANDIDATE_SHA:0:7}"
+TAG="sha-${CANDIDATE_SHA:0:8}"
 DEPLOY_SCRIPT="scripts/ops/deploy-rum-dev.sh"
 
 for command in gh git mktemp bash helm; do
