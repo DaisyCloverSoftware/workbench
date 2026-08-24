@@ -15,19 +15,20 @@ done
 
 # The RUM API Dockerfile uses Docker-compatible external-stage syntax:
 #   COPY --from=composer:2 ...
-# On this Podman/Buildah host the unqualified external image is not pulled
-# automatically. Pre-stage an equivalent local short-name alias without
-# changing the candidate Dockerfile or build context.
+# On this Podman/Buildah host the unqualified external image resolves to the
+# local transport name localhost/composer:2 instead of being pulled as the
+# Docker Hub image. Pre-stage both local aliases from the exact Docker Hub
+# source without changing the candidate Dockerfile or build context.
 podman pull docker.io/library/composer:2 >/dev/null
 podman tag docker.io/library/composer:2 composer:2
+podman tag docker.io/library/composer:2 localhost/composer:2
 podman image inspect composer:2 >/dev/null
+podman image inspect localhost/composer:2 >/dev/null
 
 # The guarded publisher uses --pull=always. On Buildah that also forces a
-# registry pull for COPY --from=composer:2, resolving the local short name as
-# localhost/composer:2 and failing. Run a disposable tooling-only copy with
-# --pull=newer instead: registry-backed base images are refreshed when their
-# digest differs, while a failed pull is suppressed when the required local
-# Composer image exists.
+# registry pull for COPY --from=composer:2. Run a disposable tooling-only copy
+# with --pull=newer instead: registry-backed base images are refreshed when
+# their digest differs, while the pre-staged local Composer image remains usable.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 compat_script="$(mktemp)"
 cleanup() { rm -f "$compat_script"; }
