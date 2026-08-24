@@ -11,6 +11,8 @@ SHA="$1"
 
 REPOSITORY="DaisyCloverSoftware/rum"
 IMAGE="ghcr.io/daisycloversoftware/rum-api@sha256:f4e700314dd2fe2b8b6dabee5f640f35b9463d914f8a2be79ff781862a80e978"
+RATING_CONTROLLER="apps/api/app/Http/Controllers/Api/V1/RatingController.php"
+RATING_SERVICE="apps/api/app/Services/RateAnythingRatingService.php"
 
 for command in gh git mktemp; do command -v "$command" >/dev/null 2>&1 || { echo "missing $command" >&2; exit 2; }; done
 TOKEN="${GH_TOKEN:-}"
@@ -26,27 +28,26 @@ else
 fi
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+cid=""
+cleanup() {
+  if [[ -n "$cid" ]]; then "$RUNTIME" rm -f "$cid" >/dev/null 2>&1 || true; fi
+  rm -rf "$tmp"
+}
+trap cleanup EXIT HUP INT TERM
 GH_TOKEN="$TOKEN" gh repo clone "$REPOSITORY" "$tmp/rum" -- --no-checkout --filter=blob:none >/dev/null
 git -C "$tmp/rum" checkout --detach "$SHA" >/dev/null
 [[ "$(git -C "$tmp/rum" rev-parse HEAD)" == "$SHA" ]] || { echo "checkout mismatch" >&2; exit 78; }
 
-# Rootless Podman must be able to traverse the disposable scratch parent. The
-# checkout contains no credentials; only the temporary source tree is exposed.
-chmod 755 "$tmp" "$tmp/rum"
-
 "$RUNTIME" pull "$IMAGE" >/dev/null
-if [[ "$RUNTIME" == "podman" ]]; then
-  VOLUME="$tmp/rum:/work:Z"
-else
-  VOLUME="$tmp/rum:/work"
-fi
-"$RUNTIME" run --rm \
-  -v "$VOLUME" \
-  -w /work/apps/api \
-  "$IMAGE" \
-  sh -lc 'test -f composer.json && composer install --no-interaction --prefer-dist --no-progress >/dev/null && vendor/bin/pint app/Http/Controllers/Api/V1/RatingController.php app/Services/RateAnythingRatingService.php >/dev/null'
+cid="$("$RUNTIME" create "$IMAGE" tail -f /dev/null)"
+"$RUNTIME" start "$cid" >/dev/null
+"$RUNTIME" exec "$cid" mkdir -p /work
+"$RUNTIME" cp "$tmp/rum/." "$cid:/work"
+"$RUNTIME" exec -w /work/apps/api "$cid" sh -lc \
+  'composer install --no-interaction --prefer-dist --no-progress >/dev/null && vendor/bin/pint app/Http/Controllers/Api/V1/RatingController.php app/Services/RateAnythingRatingService.php >/dev/null'
+"$RUNTIME" cp "$cid:/work/$RATING_CONTROLLER" "$tmp/rum/$RATING_CONTROLLER"
+"$RUNTIME" cp "$cid:/work/$RATING_SERVICE" "$tmp/rum/$RATING_SERVICE"
 
 printf '%s\n' '--- PINT DIFF START ---'
-git -C "$tmp/rum" diff -- apps/api/app/Http/Controllers/Api/V1/RatingController.php apps/api/app/Services/RateAnythingRatingService.php
+git -C "$tmp/rum" diff -- "$RATING_CONTROLLER" "$RATING_SERVICE"
 printf '%s\n' '--- PINT DIFF END ---'
