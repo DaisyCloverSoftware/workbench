@@ -5,6 +5,7 @@ umask 077
 REPOSITORY="DaisyCloverSoftware/rum"
 EXPECTED_BRANCH="ops/rum-candidate-image-publisher-20260823"
 EXPECTED_NAMES=(
+  "CI"
   "RUM owner candidate image publication"
   "RUM owner candidate full-SHA publication"
 )
@@ -14,11 +15,12 @@ RUN_IDS=(
   32666304703
   32666319315
   32666319350
+  32666319360
 )
 
 command -v gh >/dev/null 2>&1 || { echo "required command unavailable: gh" >&2; exit 2; }
 TOKEN="${GH_TOKEN:-}"
-if [[ -z "$TOKEN" ]]; then
+if [[ -z "$TOKEN" ]] && command -v gh >/dev/null 2>&1; then
   TOKEN="$(gh auth token 2>/dev/null || true)"
 fi
 [[ -n "$TOKEN" ]] || { echo "no GitHub token available" >&2; exit 2; }
