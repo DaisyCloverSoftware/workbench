@@ -253,6 +253,10 @@ with sync_playwright() as p:
     # Reason/Audience -> Review flow. Its own completion must finish like LIVE,
     # not offer another cascading continuation.
     add_linked.click()
+    linked_chooser = page.locator("section.rating-reason-panel").filter(has_text="Add or rate a linked thing").first
+    linked_chooser.wait_for(state="visible", timeout=15000)
+    linked_chooser.get_by_role("searchbox", name="Search linked things").wait_for(state="visible", timeout=15000)
+    linked_chooser.get_by_role("button", name="Add or rate a linked thing", exact=True).click()
     page.get_by_text("Search RUM before adding a missing linked thing", exact=True).wait_for(state="visible", timeout=15000)
     page.get_by_label("Search existing things before adding").fill(linked_name)
     page.get_by_role("button", name="Search RUM", exact=True).click()
