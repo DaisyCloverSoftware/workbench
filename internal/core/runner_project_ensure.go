@@ -75,6 +75,12 @@ func ensureRunnerGitHubProject(ctx context.Context, repository string, clone run
 		}
 	}
 	if len(nameMatches) == 1 {
+		// A same-named checkout is not enough by itself. Require the same origin
+		// readiness proof used by exact remote matches; this safely handles old
+		// GitHub owner slugs and SSH host aliases while refusing unrelated repos.
+		if err := ensureRunnerGitHubProjectOriginReady(ctx, nameMatches[0], owner, name); err != nil {
+			return RunnerProjectInfo{}, false, err
+		}
 		return nameMatches[0], false, nil
 	}
 	if len(nameMatches) > 1 {
