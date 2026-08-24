@@ -76,7 +76,7 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 
 # The production API image intentionally excludes dev-only Laravel Tinker.
 # Preserve the exact candidate's browser journey and database assertions while
-# adapting only its three `artisan tinker --execute=...` calls in a disposable
+# adapting only its two `artisan tinker --execute=...` calls in a disposable
 # verifier copy to equivalent bootstrapped Laravel PHP evaluation. Repeated DEV
 # verification also leaves prior linked Things behind, and the production fuzzy
 # search can legitimately match their long shared prefix; use a random-first
@@ -89,8 +89,8 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # exact inline script is LIVE_BASELINE_CSP_HASH. Filter only that proven baseline
 # message; any other console error still fails the candidate flow.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
-[[ "$tinker_calls" == "3" ]] || {
-  echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
+[[ "$tinker_calls" == "2" ]] || {
+  echo "VERIFY BLOCKED: expected exactly two candidate Tinker probe calls; found ${tinker_calls}." >&2
   exit 78
 }
 compat_verifier="$tmp_root/verify-rum-dev-owner-rating-flow-compat.sh"
@@ -101,7 +101,7 @@ src = Path(sys.argv[1]).read_text()
 baseline_csp_hash = sys.argv[3]
 bootstrap = r'''PHP_EVAL_BOOTSTRAP='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);' '''.rstrip() + "\n"
 needle = 'php artisan tinker --execute='
-if src.count(needle) != 3:
+if src.count(needle) != 2:
     raise SystemExit('unexpected tinker call count')
 lines = src.splitlines(keepends=True)
 insert_at = 2 if len(lines) >= 2 else 0
@@ -128,8 +128,8 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier still contains Tinker calls." >&2
   exit 78
 }
-[[ "$(grep -c 'php -r \"\$PHP_EVAL_BOOTSTRAP\"' "$compat_verifier" || true)" == "3" ]] || {
-  echo "VERIFY BLOCKED: compatibility verifier did not contain exactly three Laravel bootstrap probes." >&2
+[[ "$(grep -c 'php -r \"\$PHP_EVAL_BOOTSTRAP\"' "$compat_verifier" || true)" == "2" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier did not contain exactly two Laravel bootstrap probes." >&2
   exit 78
 }
 [[ "$(grep -c 'linked_name=\"Quillstone' "$compat_verifier" || true)" == "1" ]] || {
@@ -140,7 +140,7 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier did not contain exactly one proven LIVE CSP baseline hash." >&2
   exit 78
 }
-printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
+printf 'RUM_OWNER_FLOW_TINKER_COMPAT=2_PROBES_REWRITTEN\n'
 printf 'RUM_OWNER_FLOW_LINKED_NAME_COMPAT=RANDOM_FIRST\n'
 printf 'RUM_OWNER_FLOW_DIAGNOSTIC_ORDER=API_FIRST\n'
 printf 'RUM_OWNER_FLOW_LIVE_CSP_BASELINE=%s\n' "$LIVE_BASELINE_CSP_HASH"
