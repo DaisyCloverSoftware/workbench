@@ -3,7 +3,9 @@ package core
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -89,6 +91,76 @@ func TestEnsureRunnerGitHubProjectNormalisesInsteadOfCredentialRewrite(t *testin
 	want := "git@github.com:DaisyCloverSoftware/infrastructure.git"
 	if got != want || !isApprovedOperationsOrigin(got) {
 		t.Fatalf("normalised effective origin=%q want approved %q", got, want)
+	}
+}
+
+func TestRunnerGitRemoteHeadsEquivalentRequiresCompleteMatchingHeadSet(t *testing.T) {
+	base := t.TempDir()
+	seed := filepath.Join(base, "seed")
+	if out, err := exec.Command("git", "init", "--quiet", seed).CombinedOutput(); err != nil {
+		t.Fatalf("init seed: %v: %s", err, out)
+	}
+	for _, args := range [][]string{{"config", "user.name", "Workbench Test"}, {"config", "user.email", "workbench-test@example.invalid"}} {
+		if out, err := exec.Command("git", append([]string{"-C", seed}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("configure seed: %v: %s", err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(seed, "README.md"), []byte("same repository\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "README.md"}, {"commit", "--quiet", "-m", "initial"}, {"branch", "-M", "main"}} {
+		if out, err := exec.Command("git", append([]string{"-C", seed}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("seed commit: %v: %s", err, out)
+		}
+	}
+
+	bareA := filepath.Join(base, "origin-a.git")
+	bareB := filepath.Join(base, "origin-b.git")
+	for _, target := range []string{bareA, bareB} {
+		if out, err := exec.Command("git", "clone", "--quiet", "--bare", seed, target).CombinedOutput(); err != nil {
+			t.Fatalf("clone bare %s: %v: %s", target, err, out)
+		}
+	}
+	project := filepath.Join(base, "project")
+	if out, err := exec.Command("git", "clone", "--quiet", bareA, project).CombinedOutput(); err != nil {
+		t.Fatalf("clone project: %v: %s", err, out)
+	}
+
+	if !runnerGitRemoteHeadsEquivalent(context.Background(), project, bareB) {
+		t.Fatal("identical complete branch-ref sets must prove equivalence")
+	}
+
+	if out, err := exec.Command("git", "-C", seed, "checkout", "--quiet", "-b", "extra").CombinedOutput(); err != nil {
+		t.Fatalf("create extra branch: %v: %s", err, out)
+	}
+	if err := os.WriteFile(filepath.Join(seed, "EXTRA.md"), []byte("extra branch\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "EXTRA.md"}, {"commit", "--quiet", "-m", "extra"}, {"push", "--quiet", bareB, "extra:refs/heads/extra"}} {
+		if out, err := exec.Command("git", append([]string{"-C", seed}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("publish divergent branch: %v: %s", err, out)
+		}
+	}
+	if runnerGitRemoteHeadsEquivalent(context.Background(), project, bareB) {
+		t.Fatal("different complete branch-ref sets must not prove equivalence")
+	}
+}
+
+func TestParseGitRemoteHeadsRejectsMalformedOrEmptyInput(t *testing.T) {
+	valid := strings.Repeat("a", 40) + "\trefs/heads/main\n" + strings.Repeat("b", 40) + "\trefs/heads/release"
+	heads, ok := parseGitRemoteHeads(valid)
+	if !ok || len(heads) != 2 || heads["refs/heads/main"] != strings.Repeat("a", 40) {
+		t.Fatalf("valid heads were not parsed: ok=%v heads=%v", ok, heads)
+	}
+	for _, raw := range []string{
+		"",
+		"not-a-sha\trefs/heads/main",
+		strings.Repeat("a", 40) + "\trefs/tags/v1",
+		strings.Repeat("a", 40) + "\trefs/heads/main\n" + strings.Repeat("b", 40) + "\trefs/heads/main",
+	} {
+		if _, ok := parseGitRemoteHeads(raw); ok {
+			t.Fatalf("malformed head set accepted: %q", raw)
+		}
 	}
 }
 

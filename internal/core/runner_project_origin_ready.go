@@ -50,14 +50,71 @@ func githubSlugForRunnerProjectEnsure(ctx context.Context, root string) (string,
 	return githubSlugFromRemoteForEnsure(strings.TrimSpace(effective))
 }
 
+// runnerGitRemoteHeadsEquivalent proves that the existing origin and one fixed
+// candidate remote currently advertise the same complete branch-ref set. It is
+// a bounded fallback for long-lived checkouts that use an SSH host alias and/or
+// a historical GitHub owner slug, where URL text alone cannot prove canonical
+// github.com identity. No remote URL or command output is returned to callers.
+func runnerGitRemoteHeadsEquivalent(ctx context.Context, root, candidate string) bool {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" || strings.ContainsAny(candidate, "\x00\r\n") {
+		return false
+	}
+	currentRaw, currentErr := operationsGitNetworkOutput(ctx, root, "ls-remote", "--heads", "origin")
+	if currentErr != nil {
+		return false
+	}
+	candidateRaw, candidateErr := operationsGitNetworkOutput(ctx, root, "ls-remote", "--heads", candidate)
+	if candidateErr != nil {
+		return false
+	}
+	current, currentOK := parseGitRemoteHeads(currentRaw)
+	candidateHeads, candidateOK := parseGitRemoteHeads(candidateRaw)
+	if !currentOK || !candidateOK || len(current) != len(candidateHeads) {
+		return false
+	}
+	for ref, sha := range current {
+		if candidateHeads[ref] != sha {
+			return false
+		}
+	}
+	return true
+}
+
+func parseGitRemoteHeads(raw string) (map[string]string, bool) {
+	heads := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) != 2 || len(fields[0]) != 40 || !strings.HasPrefix(fields[1], "refs/heads/") {
+			return nil, false
+		}
+		for _, ch := range strings.ToLower(fields[0]) {
+			if (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') {
+				continue
+			}
+			return nil, false
+		}
+		if _, exists := heads[fields[1]]; exists {
+			return nil, false
+		}
+		heads[fields[1]] = strings.ToLower(fields[0])
+	}
+	return heads, len(heads) > 0
+}
+
 // ensureRunnerGitHubProjectOriginReady keeps project discovery non-destructive
 // while repairing one narrow unsafe legacy condition: a checkout whose origin
 // proves it is the requested github.com owner/name but is not acceptable for
-// exact-commit operations because the effective URL contains credentials (or
-// otherwise uses a non-approved GitHub transport). The replacement is the
-// fixed-host SSH URL used by Workbench's own clone fallback. The prior URL is
-// never returned or logged, and verification restores the checkout's original
-// configured origin if the fixed origin cannot be established exactly.
+// exact-commit operations. Besides direct URL identity, a same-named checkout
+// may prove identity by advertising the exact same complete branch-ref set as
+// Workbench's fixed canonical GitHub SSH target. The replacement is that fixed
+// SSH URL. The prior URL is never returned or logged, and verification restores
+// the checkout's original configured origin if the fixed origin cannot be
+// established exactly.
 func ensureRunnerGitHubProjectOriginReady(ctx context.Context, project RunnerProjectInfo, owner, name string) error {
 	root, err := ResolveRunnerProject(project.Ref)
 	if err != nil {
@@ -74,15 +131,20 @@ func ensureRunnerGitHubProjectOriginReady(ctx context.Context, project RunnerPro
 	}
 	current = strings.TrimSpace(current)
 	wantSlug := strings.ToLower(owner + "/" + name)
-	slug, ok := githubSlugForRunnerProjectEnsure(ctx, root)
-	if !ok || !strings.EqualFold(slug, wantSlug) {
+	desired := "git@github.com:" + owner + "/" + name + ".git"
+
+	slug, directIdentity := githubSlugForRunnerProjectEnsure(ctx, root)
+	identityReady := directIdentity && strings.EqualFold(slug, wantSlug)
+	if !identityReady && strings.EqualFold(project.Name, name) {
+		identityReady = runnerGitRemoteHeadsEquivalent(ctx, root, desired)
+	}
+	if !identityReady {
 		return errors.New("runner GitHub project origin does not match the requested repository")
 	}
 	if isApprovedOperationsOrigin(current) {
 		return nil
 	}
 
-	desired := "git@github.com:" + owner + "/" + name + ".git"
 	if _, err := runGitLimited(ctx, root, 4096, "remote", "set-url", "origin", desired); err != nil {
 		return errors.New("runner GitHub project origin could not be normalised")
 	}

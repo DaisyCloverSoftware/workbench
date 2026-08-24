@@ -75,6 +75,20 @@ func ensureRunnerGitHubProject(ctx context.Context, repository string, clone run
 		}
 	}
 	if len(nameMatches) == 1 {
+		// Preserve historical local-only project reuse when no origin exists.
+		// If a same-named checkout does have an origin, name alone is not enough:
+		// require the same readiness proof used by exact remote matches. This
+		// safely handles old GitHub owner slugs and SSH host aliases while
+		// refusing an unrelated remote with a colliding local directory name.
+		path, resolveErr := ResolveRunnerProject(nameMatches[0].Ref)
+		if resolveErr != nil {
+			return RunnerProjectInfo{}, false, resolveErr
+		}
+		if _, originErr := runGitLimited(ctx, path, 4096, "config", "--get", "remote.origin.url"); originErr == nil {
+			if err := ensureRunnerGitHubProjectOriginReady(ctx, nameMatches[0], owner, name); err != nil {
+				return RunnerProjectInfo{}, false, err
+			}
+		}
 		return nameMatches[0], false, nil
 	}
 	if len(nameMatches) > 1 {
