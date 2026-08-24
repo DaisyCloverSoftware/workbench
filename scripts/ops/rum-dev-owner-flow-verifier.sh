@@ -19,6 +19,7 @@ CANDIDATE_PR="153"
 EXPECTED_CI_NAME="CI"
 VERIFIER_PATH="scripts/ops/verify-rum-dev-owner-rating-flow.sh"
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright/python:v1.57.0-noble"
+LIVE_BASELINE_CSP_HASH="sha256-A0FJyCgxFUPhG7nac5LcQPwVRK5So9ZNz7x5ubsD9kU="
 
 for command in gh git mktemp bash python3 sed grep; do
   command -v "$command" >/dev/null 2>&1 || {
@@ -81,16 +82,23 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # search can legitimately match their long shared prefix; use a random-first
 # disposable name so the candidate's intended search-before-add empty-result
 # branch remains deterministic without changing product search semantics.
+#
+# LIVE currently serves commit 8106675325eb8a516696bfb45cf817e97f03d7f5,
+# whose index.html and nginx.conf are byte-identical to the candidate for the
+# inline theme bootstrap and script-src CSP. The browser-computed hash of that
+# exact inline script is LIVE_BASELINE_CSP_HASH. Filter only that proven baseline
+# message; any other console error still fails the candidate flow.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
 [[ "$tinker_calls" == "3" ]] || {
   echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
   exit 78
 }
 compat_verifier="$tmp_root/verify-rum-dev-owner-rating-flow-compat.sh"
-python3 - "$VERIFIER_PATH" "$compat_verifier" <<'PY'
+python3 - "$VERIFIER_PATH" "$compat_verifier" "$LIVE_BASELINE_CSP_HASH" <<'PY'
 from pathlib import Path
 import sys
 src = Path(sys.argv[1]).read_text()
+baseline_csp_hash = sys.argv[3]
 bootstrap = r'''PHP_EVAL_BOOTSTRAP='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);' '''.rstrip() + "\n"
 needle = 'php artisan tinker --execute='
 if src.count(needle) != 3:
@@ -105,10 +113,14 @@ if out.count(old_linked_name) != 1:
     raise SystemExit('unexpected linked-name fixture assignment')
 out = out.replace(old_linked_name, new_linked_name)
 old_checks = '''    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if console_errors:\n        raise RuntimeError("Browser console errors: " + " | ".join(console_errors[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n'''
-new_checks = '''    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if console_errors:\n        raise RuntimeError("Browser console errors: " + " | ".join(console_errors[:5]))\n'''
+new_checks = f'''    known_live_baseline_csp = [message for message in console_errors if "{baseline_csp_hash}" in message and "script-src 'self'" in message]\n    unexpected_console_errors = [message for message in console_errors if message not in known_live_baseline_csp]\n    print(f"known_live_baseline_csp_console_errors={{len(known_live_baseline_csp)}}")\n    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if unexpected_console_errors:\n        raise RuntimeError("Browser console errors excluding proven LIVE baseline CSP: " + " | ".join(unexpected_console_errors[:5]))\n'''
 if out.count(old_checks) != 1:
     raise SystemExit('unexpected browser failure-check block')
 out = out.replace(old_checks, new_checks)
+old_console_marker = 'print("console_errors=0")'
+if out.count(old_console_marker) != 1:
+    raise SystemExit('unexpected console success marker')
+out = out.replace(old_console_marker, 'print("unexpected_console_errors=0")')
 Path(sys.argv[2]).write_text(out)
 PY
 chmod 700 "$compat_verifier"
@@ -124,9 +136,14 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier did not contain the deterministic random-first linked name." >&2
   exit 78
 }
+[[ "$(grep -c "$LIVE_BASELINE_CSP_HASH" "$compat_verifier" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier did not contain exactly one proven LIVE CSP baseline hash." >&2
+  exit 78
+}
 printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
 printf 'RUM_OWNER_FLOW_LINKED_NAME_COMPAT=RANDOM_FIRST\n'
 printf 'RUM_OWNER_FLOW_DIAGNOSTIC_ORDER=API_FIRST\n'
+printf 'RUM_OWNER_FLOW_LIVE_CSP_BASELINE=%s\n' "$LIVE_BASELINE_CSP_HASH"
 
 # The cluster-control host intentionally has no Docker daemon. Podman is
 # Docker-CLI compatible for the candidate verifier's bounded `docker run`
