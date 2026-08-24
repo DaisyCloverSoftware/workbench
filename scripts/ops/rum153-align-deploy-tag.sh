@@ -3,16 +3,15 @@ set -euo pipefail
 umask 077
 REPOSITORY="DaisyCloverSoftware/workbench"
 BRANCH="ops/rum-candidate-image-publisher-20260823"
-EXPECTED_HEAD="4e5245c70419aa09121a1272bb64daf5a4a47684"
 PATH_NAME="scripts/ops/rum-isolated-dev-deployer.sh"
+EXPECTED_TARGET_BLOB="8ef28b1feb13eb6bea7861a9665e2fd3f10b07ce"
 for c in gh jq base64 python3 mktemp; do command -v "$c" >/dev/null 2>&1 || { echo "missing $c" >&2; exit 2; }; done
 TOKEN="${GH_TOKEN:-}"; if [[ -z "$TOKEN" ]]; then TOKEN="$(gh auth token 2>/dev/null || true)"; fi
 [[ -n "$TOKEN" ]] || { echo "no token" >&2; exit 2; }
-head="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/git/ref/heads/${BRANCH}" --jq '.object.sha')"
-[[ "$head" == "$EXPECTED_HEAD" ]] || { echo "ALIGN BLOCKED expected=$EXPECTED_HEAD actual=$head" >&2; exit 78; }
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/contents/${PATH_NAME}?ref=${BRANCH}" >"$tmp/meta.json"
 sha="$(jq -r '.sha' "$tmp/meta.json")"
+[[ "$sha" == "$EXPECTED_TARGET_BLOB" ]] || { echo "ALIGN BLOCKED target_blob=$sha expected=$EXPECTED_TARGET_BLOB" >&2; exit 78; }
 jq -r '.content' "$tmp/meta.json" | tr -d '\n' | base64 -d >"$tmp/file"
 python3 - "$tmp/file" <<'PY'
 from pathlib import Path
