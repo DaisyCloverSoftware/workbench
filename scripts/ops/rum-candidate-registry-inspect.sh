@@ -41,7 +41,7 @@ trap cleanup EXIT HUP INT TERM
 printf '%s' "$TOKEN" | podman login --authfile "$AUTHFILE" ghcr.io -u "$ACTOR" --password-stdin >/dev/null
 unset TOKEN GH_TOKEN GHCR_TOKEN
 
-TAG="sha-${CANDIDATE_SHA:0:7}"
+TAG="sha-${CANDIDATE_SHA:0:8}"
 missing=0
 for component in rum-web rum-api; do
   ref="ghcr.io/daisycloversoftware/${component}:${TAG}"
