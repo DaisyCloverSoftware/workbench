@@ -17,10 +17,15 @@ type runnerProjectCloneFunc func(context.Context, string, string) error
 
 // EnsureRunnerGitHubProject makes one GitHub repository available as a normal
 // runner:// project without accepting an arbitrary remote URL. Existing runner
-// projects are returned untouched. Missing repositories are cloned into the
-// first operator-authorised project root using a temporary same-filesystem
-// directory and atomic rename, so a failed clone never leaves a half-project
-// that the desktop can mistake for usable work.
+// projects are reused without moving or resetting their worktree. If an
+// existing checkout proves it is the requested GitHub repository but carries a
+// legacy credential-bearing/non-approved origin, only that origin metadata is
+// normalised to Workbench's fixed credential-free SSH form so exact-commit
+// operations can remain safely pinned.
+// Missing repositories are cloned into the first operator-authorised project
+// root using a temporary same-filesystem directory and atomic rename, so a
+// failed clone never leaves a half-project that the desktop can mistake for
+// usable work.
 func EnsureRunnerGitHubProject(ctx context.Context, repository string) (RunnerProjectInfo, bool, error) {
 	return ensureRunnerGitHubProject(ctx, repository, cloneGitHubRepository)
 }
@@ -51,11 +56,14 @@ func ensureRunnerGitHubProject(ctx context.Context, repository string, clone run
 		if remoteErr != nil {
 			continue
 		}
-		if slug, ok := githubSlugFromRemote(strings.TrimSpace(remote)); ok && strings.EqualFold(slug, canonicalSlug) {
+		if slug, ok := githubSlugFromRemoteForEnsure(strings.TrimSpace(remote)); ok && strings.EqualFold(slug, canonicalSlug) {
 			remoteMatches = append(remoteMatches, project)
 		}
 	}
 	if len(remoteMatches) == 1 {
+		if err := ensureRunnerGitHubProjectOriginReady(ctx, remoteMatches[0], owner, name); err != nil {
+			return RunnerProjectInfo{}, false, err
+		}
 		return remoteMatches[0], false, nil
 	}
 	if len(remoteMatches) > 1 {
