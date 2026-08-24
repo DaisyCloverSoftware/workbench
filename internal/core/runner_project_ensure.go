@@ -45,18 +45,16 @@ func ensureRunnerGitHubProject(ctx context.Context, repository string, clone run
 	// checkouts sometimes keep historical local names (for example a product's
 	// old codename) even after the GitHub repository is renamed. Workbench must
 	// reuse that checkout instead of silently cloning a duplicate merely because
-	// its basename differs from the current repository name.
+	// its basename differs from the current repository name. Repository identity
+	// is derived from the raw configured origin before Git's URL rewrite rules so
+	// service-account credential injection cannot hide an otherwise clear match.
 	remoteMatches := make([]RunnerProjectInfo, 0, 1)
 	for _, project := range projects {
 		path, resolveErr := ResolveRunnerProject(project.Ref)
 		if resolveErr != nil {
 			continue
 		}
-		remote, remoteErr := runGitLimited(ctx, path, 4096, "remote", "get-url", "origin")
-		if remoteErr != nil {
-			continue
-		}
-		if slug, ok := githubSlugFromRemoteForEnsure(strings.TrimSpace(remote)); ok && strings.EqualFold(slug, canonicalSlug) {
+		if slug, ok := githubSlugForRunnerProjectEnsure(ctx, path); ok && strings.EqualFold(slug, canonicalSlug) {
 			remoteMatches = append(remoteMatches, project)
 		}
 	}
