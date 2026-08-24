@@ -78,10 +78,10 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # Preserve the exact candidate's browser journey and database assertions while
 # adapting only its two `artisan tinker --execute=...` calls in a disposable
 # verifier copy to equivalent bootstrapped Laravel PHP evaluation. Repeated DEV
-# verification also leaves prior linked Things behind, and the production fuzzy
-# search can legitimately match their long shared prefix; use a random-first
-# disposable name so the candidate's intended search-before-add empty-result
-# branch remains deterministic without changing product search semantics.
+# verification can also leave fuzzy linked-Thing suggestions behind. The
+# explicit `None of these — add a linked thing` action is available only after
+# the required search completes, so accept legitimate suggestions instead of
+# requiring a zero-result search before exercising that add path.
 #
 # LIVE currently serves commit 8106675325eb8a516696bfb45cf817e97f03d7f5,
 # whose index.html and nginx.conf are byte-identical to the candidate for the
@@ -112,6 +112,10 @@ new_linked_name = 'linked_name="Quillstone${suffix//-/}Zeta"'
 if out.count(old_linked_name) != 1:
     raise SystemExit('unexpected linked-name fixture assignment')
 out = out.replace(old_linked_name, new_linked_name)
+old_empty_result_wait = '    page.get_by_text("No existing thing matched that search.", exact=True).wait_for(state="visible", timeout=30000)\n'
+if out.count(old_empty_result_wait) != 1:
+    raise SystemExit('unexpected linked search empty-result wait')
+out = out.replace(old_empty_result_wait, '')
 old_checks = '''    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if console_errors:\n        raise RuntimeError("Browser console errors: " + " | ".join(console_errors[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n'''
 new_checks = f'''    known_live_baseline_csp = [message for message in console_errors if "{baseline_csp_hash}" in message and "script-src 'self'" in message]\n    unexpected_console_errors = [message for message in console_errors if message not in known_live_baseline_csp]\n    print(f"known_live_baseline_csp_console_errors={{len(known_live_baseline_csp)}}")\n    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if unexpected_console_errors:\n        raise RuntimeError("Browser console errors excluding proven LIVE baseline CSP: " + " | ".join(unexpected_console_errors[:5]))\n'''
 if out.count(old_checks) != 1:
@@ -136,12 +140,16 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier did not contain the deterministic random-first linked name." >&2
   exit 78
 }
+[[ "$(grep -c 'No existing thing matched that search.' "$compat_verifier" || true)" == "0" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier still requires a zero-result linked search." >&2
+  exit 78
+}
 [[ "$(grep -c "$LIVE_BASELINE_CSP_HASH" "$compat_verifier" || true)" == "1" ]] || {
   echo "VERIFY BLOCKED: compatibility verifier did not contain exactly one proven LIVE CSP baseline hash." >&2
   exit 78
 }
 printf 'RUM_OWNER_FLOW_TINKER_COMPAT=2_PROBES_REWRITTEN\n'
-printf 'RUM_OWNER_FLOW_LINKED_NAME_COMPAT=RANDOM_FIRST\n'
+printf 'RUM_OWNER_FLOW_LINKED_SEARCH_COMPAT=SUGGESTIONS_ALLOWED_AFTER_SEARCH\n'
 printf 'RUM_OWNER_FLOW_DIAGNOSTIC_ORDER=API_FIRST\n'
 printf 'RUM_OWNER_FLOW_LIVE_CSP_BASELINE=%s\n' "$LIVE_BASELINE_CSP_HASH"
 
