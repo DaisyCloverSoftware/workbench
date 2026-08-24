@@ -76,7 +76,11 @@ git checkout --detach "$CANDIDATE_SHA" >/dev/null
 # The production API image intentionally excludes dev-only Laravel Tinker.
 # Preserve the exact candidate's browser journey and database assertions while
 # adapting only its three `artisan tinker --execute=...` calls in a disposable
-# verifier copy to equivalent bootstrapped Laravel PHP evaluation.
+# verifier copy to equivalent bootstrapped Laravel PHP evaluation. Repeated DEV
+# verification also leaves prior linked Things behind, and the production fuzzy
+# search can legitimately match their long shared prefix; use a random-first
+# disposable name so the candidate's intended search-before-add empty-result
+# branch remains deterministic without changing product search semantics.
 tinker_calls="$(grep -c 'php artisan tinker --execute=' "$VERIFIER_PATH" || true)"
 [[ "$tinker_calls" == "3" ]] || {
   echo "VERIFY BLOCKED: expected exactly three candidate Tinker probe calls; found ${tinker_calls}." >&2
@@ -95,6 +99,11 @@ lines = src.splitlines(keepends=True)
 insert_at = 2 if len(lines) >= 2 else 0
 lines.insert(insert_at, bootstrap)
 out = ''.join(lines).replace(needle, 'php -r "$PHP_EVAL_BOOTSTRAP" ')
+old_linked_name = 'linked_name="RUM DEV linked check ${suffix}"'
+new_linked_name = 'linked_name="Quillstone${suffix//-/}Zeta"'
+if out.count(old_linked_name) != 1:
+    raise SystemExit('unexpected linked-name fixture assignment')
+out = out.replace(old_linked_name, new_linked_name)
 old_checks = '''    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if console_errors:\n        raise RuntimeError("Browser console errors: " + " | ".join(console_errors[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n'''
 new_checks = '''    if api_failures:\n        raise RuntimeError("API responses >=400 during verified flow: " + " | ".join(api_failures[:5]))\n    if request_failures:\n        raise RuntimeError("Browser request failures: " + " | ".join(request_failures[:5]))\n    if page_errors:\n        raise RuntimeError("Browser page errors: " + " | ".join(page_errors[:5]))\n    if console_errors:\n        raise RuntimeError("Browser console errors: " + " | ".join(console_errors[:5]))\n'''
 if out.count(old_checks) != 1:
@@ -111,7 +120,12 @@ chmod 700 "$compat_verifier"
   echo "VERIFY BLOCKED: compatibility verifier did not contain exactly three Laravel bootstrap probes." >&2
   exit 78
 }
+[[ "$(grep -c 'linked_name=\"Quillstone' "$compat_verifier" || true)" == "1" ]] || {
+  echo "VERIFY BLOCKED: compatibility verifier did not contain the deterministic random-first linked name." >&2
+  exit 78
+}
 printf 'RUM_OWNER_FLOW_TINKER_COMPAT=3_PROBES_REWRITTEN\n'
+printf 'RUM_OWNER_FLOW_LINKED_NAME_COMPAT=RANDOM_FIRST\n'
 printf 'RUM_OWNER_FLOW_DIAGNOSTIC_ORDER=API_FIRST\n'
 
 # The cluster-control host intentionally has no Docker daemon. Podman is
