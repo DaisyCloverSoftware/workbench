@@ -45,6 +45,53 @@ func TestEnsureRunnerGitHubProjectNormalisesLegacyCredentialBearingOrigin(t *tes
 	}
 }
 
+func TestEnsureRunnerGitHubProjectNormalisesInsteadOfCredentialRewrite(t *testing.T) {
+	root := t.TempDir()
+	useRunnerRoots(t, root)
+	repo := initTestRepo(t, root, "infrastructure")
+	configured := "https://github.com/DaisyCloverSoftware/infrastructure.git"
+	if out, err := exec.Command("git", "-C", repo, "remote", "add", "origin", configured).CombinedOutput(); err != nil {
+		t.Fatalf("add configured origin: %v: %s", err, out)
+	}
+	if out, err := exec.Command("git", "-C", repo, "config", "url.https://runner-user@github.com/.insteadOf", "https://github.com/").CombinedOutput(); err != nil {
+		t.Fatalf("add credential rewrite: %v: %s", err, out)
+	}
+
+	effectiveOut, err := exec.Command("git", "-C", repo, "remote", "get-url", "origin").CombinedOutput()
+	if err != nil {
+		t.Fatalf("read rewritten origin: %v: %s", err, effectiveOut)
+	}
+	effective := strings.TrimSpace(string(effectiveOut))
+	if effective == configured || isApprovedOperationsOrigin(effective) {
+		t.Fatalf("test must exercise a rewritten non-approved effective origin")
+	}
+	rawOut, err := exec.Command("git", "-C", repo, "config", "--get", "remote.origin.url").CombinedOutput()
+	if err != nil || strings.TrimSpace(string(rawOut)) != configured {
+		t.Fatalf("configured origin identity was not preserved: err=%v", err)
+	}
+
+	called := false
+	project, cloned, err := ensureRunnerGitHubProject(context.Background(), "DaisyCloverSoftware/infrastructure", func(context.Context, string, string) error {
+		called = true
+		return errors.New("must not clone")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if called || cloned || project.Ref != "runner://infrastructure" {
+		t.Fatalf("rewritten checkout was not safely reused: called=%v cloned=%v project=%+v", called, cloned, project)
+	}
+	out, err := exec.Command("git", "-C", repo, "remote", "get-url", "origin").CombinedOutput()
+	if err != nil {
+		t.Fatalf("read normalised effective origin: %v: %s", err, out)
+	}
+	got := strings.TrimSpace(string(out))
+	want := "git@github.com:DaisyCloverSoftware/infrastructure.git"
+	if got != want || !isApprovedOperationsOrigin(got) {
+		t.Fatalf("normalised effective origin=%q want approved %q", got, want)
+	}
+}
+
 func TestGitHubSlugFromRemoteForEnsureDoesNotExposeOrTrustOtherHosts(t *testing.T) {
 	got, ok := githubSlugFromRemoteForEnsure("https://runner-user@github.com/ExampleOrg/repo.git")
 	if !ok || got != "exampleorg/repo" {
