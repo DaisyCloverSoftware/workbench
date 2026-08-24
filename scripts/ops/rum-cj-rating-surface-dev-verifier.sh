@@ -38,6 +38,8 @@ kctl(){ if command -v k3s >/dev/null 2>&1; then sudo k3s kubectl "$@"; else kube
 dev_hosts="$(kctl -n "$DEV_NAMESPACE" get ingress rum -o jsonpath='{range .spec.rules[*]}{.host}{"\n"}{end}' 2>/dev/null || true)"
 [[ "$dev_hosts" == "$DEV_HOST" ]] || { echo "VERIFY BLOCKED: isolated DEV ingress mismatch" >&2; exit 78; }
 if grep -Fqx "$LIVE_HOST" <<<"$dev_hosts"; then echo "VERIFY BLOCKED: DEV ingress contains LIVE host" >&2; exit 78; fi
+api_pod="$(kctl -n "$DEV_NAMESPACE" get pods -l 'app.kubernetes.io/instance=rum,app.kubernetes.io/component=api' --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')"
+[[ -n "$api_pod" ]] || { echo "VERIFY BLOCKED: DEV API pod unavailable" >&2; exit 78; }
 
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT HUP INT TERM
 suffix="$(date +%s)-$(python3 -c 'import secrets; print(secrets.token_hex(2))')"
@@ -45,15 +47,28 @@ username="rumcj${suffix//-/}"; username="${username:0:28}"
 email="${username}@example.com"
 password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 
-cat >"$work/verify.py" <<'PY'
+cat >"$work/register.py" <<'PY'
+import os
+from playwright.sync_api import sync_playwright
+base=os.environ["RUM_BASE_URL"]; email=os.environ["RUM_EMAIL"]; username=os.environ["RUM_USERNAME"]; password=os.environ["RUM_PASSWORD"]
+with sync_playwright() as p:
+    browser=p.chromium.launch(); context=browser.new_context(viewport={"width":1440,"height":1000}); page=context.new_page()
+    page.goto(base, wait_until="networkidle", timeout=60000)
+    page.get_by_role("button", name="Create an account").click()
+    page.get_by_label("Email").fill(email); page.get_by_label("Username").fill(username)
+    page.get_by_label("Password", exact=True).fill(password); page.get_by_label("Confirm password").fill(password)
+    page.get_by_role("checkbox", name="I accept the Terms and Community Rules.").check(); page.get_by_role("checkbox", name="I have read the Privacy Notice.").check()
+    page.get_by_role("button", name="Create account").click(); page.wait_for_url("**/me", timeout=30000)
+    context.storage_state(path="/work/cj-state.json"); browser.close()
+print(f"cj_surface_registration_ok={username}")
+PY
+
+cat >"$work/exercise.py" <<'PY'
 import os
 from urllib.parse import quote
 from playwright.sync_api import sync_playwright
 
 base=os.environ["RUM_BASE_URL"]
-email=os.environ["RUM_EMAIL"]
-username=os.environ["RUM_USERNAME"]
-password=os.environ["RUM_PASSWORD"]
 baseline=os.environ["RUM_BASELINE_CSP"]
 console_errors=[]; page_errors=[]; request_failures=[]; api_failures=[]
 
@@ -73,24 +88,12 @@ def api_get(page,path):
 
 with sync_playwright() as p:
     browser=p.chromium.launch()
-    context=browser.new_context(viewport={"width":1440,"height":1200})
+    context=browser.new_context(storage_state="/work/cj-state.json", viewport={"width":1440,"height":1200})
     page=context.new_page()
     page.on("console", lambda msg: console_errors.append(msg.text) if msg.type=="error" else None)
     page.on("pageerror", lambda err: page_errors.append(str(err)))
     page.on("requestfailed", lambda req: request_failures.append(f"{req.method} {req.url} {req.failure}"))
     page.on("response", lambda res: api_failures.append(f"{res.status} {res.url}") if res.status>=400 and "/api/" in res.url else None)
-
-    page.goto(base, wait_until="networkidle", timeout=60000)
-    page.get_by_role("button", name="Create an account").click()
-    page.get_by_label("Email").fill(email)
-    page.get_by_label("Username").fill(username)
-    page.get_by_label("Password", exact=True).fill(password)
-    page.get_by_label("Confirm password").fill(password)
-    page.get_by_role("checkbox", name="I accept the Terms and Community Rules.").check()
-    page.get_by_role("checkbox", name="I have read the Privacy Notice.").check()
-    page.get_by_role("button", name="Create account").click()
-    page.wait_for_url("**/me", timeout=30000)
-    print(f"cj_surface_registration_ok={username}")
 
     page.goto(f"{base}/rate", wait_until="networkidle", timeout=60000)
     wait_step(page,1,"Person")
@@ -107,7 +110,8 @@ with sync_playwright() as p:
 
     search=page.get_by_role("searchbox", name="Search RUM members and public identities")
     search.fill("CJ Investigates")
-    page.get_by_text("Searching public figures, creators and online identities…", exact=True).wait_for(state="hidden", timeout=45000)
+    busy=page.get_by_text("Searching public figures, creators and online identities…", exact=True)
+    if busy.count(): busy.wait_for(state="hidden", timeout=45000)
     card=page.locator(".person-card").filter(has_text="CJ Investigates").first
     card.wait_for(state="visible", timeout=45000)
     card.get_by_role("button", name="Rate", exact=True).click()
@@ -207,14 +211,22 @@ fi
 printf 'RUM_CJ_SURFACE_CONTAINER_RUNTIME=%s\n' "$runtime"
 
 unset TOKEN GH_TOKEN GHCR_TOKEN
-"$runtime" run --rm --network host \
-  -v "$work:/work:Z" \
-  -e RUM_BASE_URL="$BASE_URL" \
-  -e RUM_EMAIL="$email" \
-  -e RUM_USERNAME="$username" \
-  -e RUM_PASSWORD="$password" \
-  -e RUM_BASELINE_CSP="$LIVE_BASELINE_CSP_HASH" \
-  "$PLAYWRIGHT_IMAGE" python /work/verify.py
+"$runtime" run --rm --network host -v "$work:/work:Z" \
+  -e RUM_BASE_URL="$BASE_URL" -e RUM_EMAIL="$email" -e RUM_USERNAME="$username" -e RUM_PASSWORD="$password" \
+  "$PLAYWRIGHT_IMAGE" python /work/register.py
+
+# Match the established isolated-DEV browser-verifier fixture contract: the disposable
+# account is browser-created, then email verification is granted only in DEV before
+# social-search and Judge acceptance checks. No LIVE namespace is contacted.
+b64(){ printf '%s' "$1" | python3 -c 'import base64,sys; print(base64.b64encode(sys.stdin.buffer.read()).decode())'; }
+email_b64="$(b64 "$email")"
+PHP_BOOT='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);'
+kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "$PHP_BOOT" "\$u=App\\Models\\User::where('email',base64_decode('${email_b64}'))->firstOrFail(); \$u->forceFill(['email_verified_at'=>now()])->save();" >/dev/null
+printf 'cj_surface_dev_email_verified_ok\n'
+
+"$runtime" run --rm --network host -v "$work:/work:Z" \
+  -e RUM_BASE_URL="$BASE_URL" -e RUM_BASELINE_CSP="$LIVE_BASELINE_CSP_HASH" \
+  "$PLAYWRIGHT_IMAGE" python /work/exercise.py
 
 printf 'RUM_CJ_SURFACE_CANDIDATE_SHA=%s\n' "$CANDIDATE_SHA"
 printf 'RUM_CJ_SURFACE_NAMESPACE=%s\n' "$DEV_NAMESPACE"
