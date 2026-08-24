@@ -14,7 +14,7 @@ actual_host="$(${KUBECTL[@]} get ingress rum -n "$NAMESPACE" -o jsonpath='{.spec
 pod="$(${KUBECTL[@]} get pods -n "$NAMESPACE" -l app.kubernetes.io/component=api --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')"
 [[ -n "$pod" ]] || { echo "no running LIVE API pod" >&2; exit 2; }
 
-php_code='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); $rows=App\\Models\\RatingCategory::query()->where("status","active")->orderBy("sort_order")->orderBy("name")->get(["id","slug","name"]); echo "ACTIVE_CATEGORY_COUNT=".$rows->count().PHP_EOL; foreach($rows as $row){echo "CATEGORY=".$row->slug."|".$row->name.PHP_EOL;}'
+php_code='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); $rows=App\Models\RatingCategory::query()->where("status","active")->orderBy("sort_order")->orderBy("name")->get(["id","slug","name"]); echo "ACTIVE_CATEGORY_COUNT=".$rows->count().PHP_EOL; foreach($rows as $row){echo "CATEGORY=".$row->slug."|".$row->name.PHP_EOL;}'
 
 ${KUBECTL[@]} exec -n "$NAMESPACE" "$pod" -c php-fpm -- php -r "$php_code"
 printf 'LIVE_READ_ONLY=YES\n'
