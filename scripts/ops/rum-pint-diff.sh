@@ -39,11 +39,11 @@ git -C "$tmp/rum" checkout --detach "$SHA" >/dev/null
 [[ "$(git -C "$tmp/rum" rev-parse HEAD)" == "$SHA" ]] || { echo "checkout mismatch" >&2; exit 78; }
 
 "$RUNTIME" pull "$IMAGE" >/dev/null
-cid="$("$RUNTIME" create "$IMAGE" tail -f /dev/null)"
+cid="$("$RUNTIME" create --user 0:0 --entrypoint tail "$IMAGE" -f /dev/null)"
 "$RUNTIME" start "$cid" >/dev/null
-"$RUNTIME" exec "$cid" mkdir -p /work
+"$RUNTIME" exec --user 0:0 "$cid" mkdir -p /work
 "$RUNTIME" cp "$tmp/rum/." "$cid:/work"
-"$RUNTIME" exec -w /work/apps/api "$cid" sh -lc \
+"$RUNTIME" exec --user 0:0 -w /work/apps/api "$cid" sh -lc \
   'composer install --no-interaction --prefer-dist --no-progress >/dev/null && vendor/bin/pint app/Http/Controllers/Api/V1/RatingController.php app/Services/RateAnythingRatingService.php >/dev/null'
 "$RUNTIME" cp "$cid:/work/$RATING_CONTROLLER" "$tmp/rum/$RATING_CONTROLLER"
 "$RUNTIME" cp "$cid:/work/$RATING_SERVICE" "$tmp/rum/$RATING_SERVICE"
