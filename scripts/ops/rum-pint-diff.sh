@@ -11,10 +11,6 @@ SHA="$1"
 
 REPOSITORY="DaisyCloverSoftware/rum"
 IMAGE="ghcr.io/daisycloversoftware/rum-api@sha256:f4e700314dd2fe2b8b6dabee5f640f35b9463d914f8a2be79ff781862a80e978"
-FILES=(
-  "app/Http/Controllers/Api/V1/RatingController.php"
-  "app/Services/RateAnythingRatingService.php"
-)
 
 for command in gh git mktemp; do command -v "$command" >/dev/null 2>&1 || { echo "missing $command" >&2; exit 2; }; done
 TOKEN="${GH_TOKEN:-}"
@@ -35,12 +31,21 @@ GH_TOKEN="$TOKEN" gh repo clone "$REPOSITORY" "$tmp/rum" -- --no-checkout --filt
 git -C "$tmp/rum" checkout --detach "$SHA" >/dev/null
 [[ "$(git -C "$tmp/rum" rev-parse HEAD)" == "$SHA" ]] || { echo "checkout mismatch" >&2; exit 78; }
 
+# Rootless Podman must be able to traverse the disposable scratch parent. The
+# checkout contains no credentials; only the temporary source tree is exposed.
+chmod 755 "$tmp" "$tmp/rum"
+
 "$RUNTIME" pull "$IMAGE" >/dev/null
+if [[ "$RUNTIME" == "podman" ]]; then
+  VOLUME="$tmp/rum:/work:Z"
+else
+  VOLUME="$tmp/rum:/work"
+fi
 "$RUNTIME" run --rm \
-  -v "$tmp/rum:/work" \
+  -v "$VOLUME" \
   -w /work/apps/api \
   "$IMAGE" \
-  sh -lc 'composer install --no-interaction --prefer-dist --no-progress >/dev/null && vendor/bin/pint app/Http/Controllers/Api/V1/RatingController.php app/Services/RateAnythingRatingService.php >/dev/null'
+  sh -lc 'test -f composer.json && composer install --no-interaction --prefer-dist --no-progress >/dev/null && vendor/bin/pint app/Http/Controllers/Api/V1/RatingController.php app/Services/RateAnythingRatingService.php >/dev/null'
 
 printf '%s\n' '--- PINT DIFF START ---'
 git -C "$tmp/rum" diff -- apps/api/app/Http/Controllers/Api/V1/RatingController.php apps/api/app/Services/RateAnythingRatingService.php
