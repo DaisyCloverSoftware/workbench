@@ -35,7 +35,8 @@ func TestRUMDevOwnerFlowVerifierUsesExactCIValidatedCandidate(t *testing.T) {
 		`RUM_OWNER_FLOW_CONTAINER_RUNTIME=podman`,
 		`neither Docker nor Podman is available`,
 		`unset TOKEN GH_TOKEN GHCR_TOKEN`,
-		`bash "$VERIFIER_PATH"`,
+		`RUM_OWNER_FLOW_EXECUTED_VERIFIER=%s`,
+		`bash "$compat_verifier"`,
 	}
 	for _, marker := range required {
 		if !strings.Contains(script, marker) {
