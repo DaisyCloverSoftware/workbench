@@ -46,7 +46,8 @@ email="${username}@example.com"
 password="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
 
 cat >"$work/verify.py" <<'PY'
-import json, os, re
+import os
+from urllib.parse import quote
 from playwright.sync_api import sync_playwright
 
 base=os.environ["RUM_BASE_URL"]
@@ -55,7 +56,6 @@ username=os.environ["RUM_USERNAME"]
 password=os.environ["RUM_PASSWORD"]
 baseline=os.environ["RUM_BASELINE_CSP"]
 console_errors=[]; page_errors=[]; request_failures=[]; api_failures=[]
-rating_id=None
 
 def wait_step(page,n,name):
     header=page.locator(".step-header").filter(has_text=f"Step {n} of 5").first
@@ -94,11 +94,24 @@ with sync_playwright() as p:
 
     page.goto(f"{base}/rate", wait_until="networkidle", timeout=60000)
     wait_step(page,1,"Person")
+    search_payload=api_get(page, f"/api/v1/rateurmate/public-identities?q={quote('CJ Investigates')}")
+    matches=search_payload.get("data", [])
+    names=[str(item.get("entity",{}).get("name", "")) for item in matches]
+    print(f"cj_public_identity_api_count={len(matches)}")
+    print("cj_public_identity_api_names="+"|".join(names[:10]))
+    api_cj=next((item for item in matches if item.get("entity",{}).get("name") == "CJ Investigates"), None)
+    if api_cj is None:
+        raise RuntimeError(f"CJ Investigates missing from public identity API; names={names}")
+    print(f"cj_public_identity_entity_id={api_cj['entity']['id']}")
+    print("cj_public_identity_api_visible_ok")
+
     search=page.get_by_role("searchbox", name="Search RUM members and public identities")
     search.fill("CJ Investigates")
+    page.get_by_text("Searching public figures, creators and online identities…", exact=True).wait_for(state="hidden", timeout=45000)
     card=page.locator(".person-card").filter(has_text="CJ Investigates").first
-    card.wait_for(state="visible", timeout=30000)
+    card.wait_for(state="visible", timeout=45000)
     card.get_by_role("button", name="Rate", exact=True).click()
+    print("cj_public_identity_search_ui_visible_ok")
 
     wait_step(page,2,"Value")
     page.get_by_text("Loading rating options…", exact=True).wait_for(state="hidden", timeout=30000)
