@@ -153,6 +153,7 @@ def assert_initial_category_shortlist(page):
 
 def run_live_rating(page, category_mode="first"):
     wait_step(page, 2, "Value")
+    page.get_by_text("Loading rating options…", exact=True).wait_for(state="hidden", timeout=30000)
     page.get_by_role("radio", name="Thumbs up 5 of 5 — Exceptional").click()
     page.get_by_role("button", name="Continue", exact=True).click()
 
