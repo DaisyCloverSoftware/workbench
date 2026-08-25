@@ -11,8 +11,8 @@ SHA="$1"
 
 REPOSITORY="DaisyCloverSoftware/rum"
 API_IMAGE="ghcr.io/daisycloversoftware/rum-api@sha256:f4e700314dd2fe2b8b6dabee5f640f35b9463d914f8a2be79ff781862a80e978"
-POSTGRES_IMAGE="postgres:18"
-VALKEY_IMAGE="valkey/valkey:8-alpine"
+POSTGRES_IMAGE="docker.io/library/postgres:18"
+VALKEY_IMAGE="docker.io/valkey/valkey:8-alpine"
 
 for command in gh git mktemp; do
   command -v "$command" >/dev/null 2>&1 || { echo "missing $command" >&2; exit 2; }
