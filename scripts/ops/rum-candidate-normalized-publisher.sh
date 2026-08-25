@@ -23,11 +23,17 @@ umask 077
 TOKEN="${GH_TOKEN:-}"
 if [[ -z "$TOKEN" ]]; then TOKEN="$(gh auth token 2>/dev/null || true)"; fi
 [[ -n "$TOKEN" ]] || { echo "no GitHub/GHCR token available" >&2; exit 2; }
-branch_sha="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/git/ref/heads/${CANDIDATE_BRANCH}" --jq '.object.sha')"
-[[ "$branch_sha" == "$CANDIDATE_SHA" ]] || { echo "PUBLISH BLOCKED: candidate branch moved" >&2; exit 78; }
-pr_state="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/pulls/${CANDIDATE_PR}" --jq '[.state, (.draft|tostring), .head.sha, (.merged_at // "")] | @tsv')"
-IFS=$'\t' read -r state draft pr_head merged_at <<<"$pr_state"
-[[ "$state" == "open" && "$draft" == "true" && "$pr_head" == "$CANDIDATE_SHA" && -z "$merged_at" ]] || { echo "PUBLISH BLOCKED: PR is not open/draft/unmerged exact head" >&2; exit 78; }
+
+assert_candidate_current() {
+  local branch_sha pr_state state draft pr_head merged_at
+  branch_sha="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/git/ref/heads/${CANDIDATE_BRANCH}" --jq '.object.sha')"
+  [[ "$branch_sha" == "$CANDIDATE_SHA" ]] || { echo "PUBLISH BLOCKED: candidate branch moved" >&2; exit 78; }
+  pr_state="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/pulls/${CANDIDATE_PR}" --jq '[.state, (.draft|tostring), .head.sha, (.merged_at // "")] | @tsv')"
+  IFS=$'\t' read -r state draft pr_head merged_at <<<"$pr_state"
+  [[ "$state" == "open" && "$draft" == "true" && "$pr_head" == "$CANDIDATE_SHA" && -z "$merged_at" ]] || { echo "PUBLISH BLOCKED: PR is not open/draft/unmerged exact head" >&2; exit 78; }
+}
+
+assert_candidate_current
 ci_successes="$(GH_TOKEN="$TOKEN" gh api "repos/${REPOSITORY}/actions/runs?head_sha=${CANDIDATE_SHA}&event=pull_request&status=completed&per_page=100" --jq '[.workflow_runs[] | select(.name == "'"CI"'" and .head_sha == "'"${CANDIDATE_SHA}"'" and .conclusion == "'"success"'")] | length')"
 [[ "$ci_successes" =~ ^[0-9]+$ && "$ci_successes" -ge 1 ]] || { echo "PUBLISH BLOCKED: exact-head CI success missing" >&2; exit 78; }
 
@@ -88,6 +94,11 @@ printf 'RUM_API_BUILD=PASS\n'
 # before anything is pushed.
 timeout 30s podman run --rm --add-host rum-api:127.0.0.1 --entrypoint /bin/sh "$WEB_IMAGE" -c 'test -r /etc/nginx/nginx.conf; nginx -t >/dev/null 2>&1; test -r /usr/share/nginx/html/index.html; echo WEB_RUNTIME_CONFIG_OK'
 timeout 30s podman run --rm --entrypoint /bin/sh "$API_IMAGE" -c 'test -r /usr/local/etc/php-fpm.d/zz-rum.conf; php-fpm -tt >/dev/null 2>&1; test -r /var/www/html/artisan; echo API_RUNTIME_CONFIG_OK'
+
+# The build may be slow enough for the candidate branch to move. Re-prove the
+# exact open/draft/unmerged head immediately before any registry mutation.
+assert_candidate_current
+printf 'RUM_PRE_PUSH_HEAD_RECHECK=PASS\n'
 
 podman push --authfile "$AUTHFILE" "$WEB_IMAGE" >/dev/null
 podman push --authfile "$AUTHFILE" "$API_IMAGE" >/dev/null
