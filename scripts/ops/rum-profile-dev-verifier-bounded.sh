@@ -89,7 +89,7 @@ identity_line="$(kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "
 \$used=App\\Models\\User::query()->whereNotNull('founder_number')->pluck('founder_number')->map(fn(\$n)=>(int)\$n)->all(); \$founder=null; foreach(range(1,100) as \$candidate){ if(!in_array(\$candidate,\$used,true)){ \$founder=\$candidate; break; }} if(\$founder===null){ throw new RuntimeException('No unused Platinum founder number is available for isolated profile verification.'); }
 \$o->forceFill(['founder_number'=>\$founder])->save();
 App\\Models\\MateRelationship::query()->create(['requester_id'=>\$o->id,'addressee_id'=>\$r->id,'status'=>'accepted','accepted_at'=>now()]);
-echo \$o->id."\\t".base64_encode(\$o->profile->display_name)."\\t".\$founder;")"
+echo \$o->id.chr(9).base64_encode(\$o->profile->display_name).chr(9).\$founder;")"
 IFS=$'\t' read -r owner_id owner_name_b64 founder_number <<<"$identity_line"
 owner_name="$(decode64 "$owner_name_b64")"
 [[ "$owner_id" =~ ^[0-9a-z]{26}$ && -n "$owner_name" && "$founder_number" =~ ^[0-9]+$ && "$founder_number" -ge 1 && "$founder_number" -le 100 ]] || { echo "VERIFY BLOCKED: isolated fixture identity setup failed" >&2; exit 70; }
@@ -103,7 +103,7 @@ session_cookie(){
   \$session->put(Illuminate\\Support\\Facades\\Auth::guard('web')->getName(),\$u->getAuthIdentifier()); \$session->save();
   \$name=(string)config('session.cookie'); \$prefix=Illuminate\\Cookie\\CookieValuePrefix::create(\$name,app('encrypter')->getKey());
   \$value=app('encrypter')->encrypt(\$prefix.\$session->getId(),false);
-  echo base64_encode(\$name)."\\t".base64_encode(\$value);" 2>/dev/null | tail -n 1
+  echo base64_encode(\$name).chr(9).base64_encode(\$value);" 2>/dev/null | tail -n 1
 }
 write_state(){
   local email_b64="$1" output="$2" line cookie_name_b64 cookie_value_b64 cookie_name cookie_value
