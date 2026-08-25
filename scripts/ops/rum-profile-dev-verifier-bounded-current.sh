@@ -9,9 +9,10 @@ SOURCE="$ROOT/scripts/ops/rum-profile-dev-verifier-bounded.sh"
   exit 78
 }
 
-work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT HUP INT TERM
-COPY="$work/rum-profile-dev-verifier-bounded.sh"
+# Keep the temporary wrapper beside the committed source so the bounded
+# verifier's own repository-root discovery remains exact and fail-closed.
+COPY="$(mktemp "$ROOT/scripts/ops/.rum-profile-dev-verifier-bounded-current.XXXXXX.sh")"
+trap 'rm -f "$COPY"' EXIT HUP INT TERM
 cp "$SOURCE" "$COPY"
 
 # The canonical LIVE-derived member-rating flow redirects public submissions
