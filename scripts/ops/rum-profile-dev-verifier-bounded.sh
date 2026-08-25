@@ -15,8 +15,9 @@ COPY="$work/rum-profile-dev-verifier.sh"
 cp "$SOURCE" "$COPY"
 
 # Keep the base verifier authoritative, but make its isolated Founder fixture
-# collision-safe and its screenshot proof relay-safe. Every replacement is
-# fail-closed so a future base-verifier edit cannot silently weaken coverage.
+# collision-safe, avoid relying on a navigated-away Playwright response body,
+# and keep screenshot proof relay-safe. Every replacement is fail-closed so a
+# future base-verifier edit cannot silently weaken coverage.
 python3 - "$COPY" <<'PY'
 from pathlib import Path
 import sys
@@ -69,6 +70,16 @@ replace_once(
     '[[ "$owner_id" =~ ^[0-9a-z]{26}$ && -n "$owner_name" ]] || { echo "VERIFY BLOCKED: fixture identity setup failed: $identity_line" >&2; exit 70; }',
     '[[ "$owner_id" =~ ^[0-9a-z]{26}$ && -n "$owner_name" && "$founder_number" =~ ^[0-9]+$ && "$founder_number" -ge 1 && "$founder_number" -le 100 ]] || { echo "VERIFY BLOCKED: fixture identity setup failed: $identity_line" >&2; exit 70; }\nprintf \'RUM_PROFILE_FOUNDER_FIXTURE=%s\\n\' "$founder_number"',
     "fixture identity validation",
+)
+replace_once(
+    "    rating_id=str(response.json().get('data',{}).get('id',''))\n    if not rating_id: raise RuntimeError('profile fixture rating returned no canonical rating id')",
+    "    rating_id='submitted'",
+    "rating response body dependency",
+)
+replace_once(
+    'rating_id="$(cat "$work/rating-id")"\n[[ "$rating_id" =~ ^[0-9a-z]{26}$ ]] || { echo "VERIFY BLOCKED: invalid profile fixture rating id" >&2; exit 70; }',
+    'rating_id="$(kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "$PHP_BOOT" "\\$o=App\\\\Models\\\\User::where(\'email\',base64_decode(\'${owner_b64}\'))->firstOrFail(); \\$r=App\\\\Models\\\\User::where(\'email\',base64_decode(\'${rater_b64}\'))->firstOrFail(); \\$target=App\\\\Models\\\\AccountEntityLink::query()->where(\'user_id\',\\$o->id)->where(\'link_type\',\'represents_person\')->where(\'status\',\'active\')->whereNull(\'valid_to\')->value(\'entity_id\'); echo App\\\\Models\\\\RatingEvent::query()->where(\'rater_account_id\',\\$r->id)->where(\'target_entity_id\',\\$target)->where(\'status\',\'active\')->orderByDesc(\'submitted_at\')->value(\'id\');")"\n[[ "$rating_id" =~ ^[0-9a-z]{26}$ ]] || { echo "VERIFY BLOCKED: invalid saved profile fixture rating id: $rating_id" >&2; exit 70; }\nprintf \'RUM_PROFILE_SAVED_RATING_ID=%s\\n\' "$rating_id"',
+    "saved rating id lookup",
 )
 replace_once(
     '-e RUM_BASE_URL="$BASE_URL" -e RUM_OWNER_ID="$owner_id" -e RUM_OWNER_NAME="$owner_name" -e RUM_RATING_ID="$rating_id"',
