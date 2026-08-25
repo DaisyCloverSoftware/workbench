@@ -33,7 +33,7 @@ setup_end=text.find(setup_end_marker, setup_start)
 if setup_start < 0 or setup_end < 0:
     raise SystemExit('Judge login wrapper blocked: account setup markers unavailable')
 setup_end += len(setup_end_marker)
-direct_setup=r'''unset TOKEN GH_TOKEN GHCR_TOKEN
+direct_setup=r"""unset TOKEN GH_TOKEN GHCR_TOKEN
 b64(){ printf '%s' "$1" | python3 -c 'import base64,sys; print(base64.b64encode(sys.stdin.buffer.read()).decode())'; }
 viewer_b64="$(b64 "$viewer_email")"; rater_b64="$(b64 "$rater_email")"
 viewer_user_b64="$(b64 "$viewer_username")"; rater_user_b64="$(b64 "$rater_username")"
@@ -70,7 +70,7 @@ login_fixture(){
 login_fixture "$viewer_email" "$viewer_password" viewer-state.json
 login_fixture "$rater_email" "$rater_password" rater-state.json
 printf 'RUM_JUDGE_AUTH_FIXTURE=ISOLATED_USERS_NORMAL_LOGIN\n'
-printf 'judge_owner_review_dev_accounts_prepared_ok\n' '''
+printf 'judge_owner_review_dev_accounts_prepared_ok\n' """
 text=text[:setup_start]+direct_setup+text[setup_end:]
 '''
 script=script.replace(marker, extra+marker, 1)
