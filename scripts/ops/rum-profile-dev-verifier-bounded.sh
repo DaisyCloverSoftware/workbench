@@ -14,10 +14,12 @@ trap 'rm -rf "$work"' EXIT HUP INT TERM
 COPY="$work/rum-profile-dev-verifier.sh"
 cp "$SOURCE" "$COPY"
 
-# Keep the base verifier authoritative, but make its disposable isolated-DEV
-# identities independent of public auth throttling, make the Founder fixture
-# collision-safe, avoid a navigated-away Playwright response body, and keep the
-# screenshot proof relay-safe. Every replacement is fail-closed.
+# Keep the base browser verifier authoritative, but provision its disposable
+# identities and normal Laravel session cookies directly inside isolated DEV.
+# This avoids consuming public auth-rate-limit budget while all Profile/Judge
+# interactions still run through the deployed browser and HTTP APIs. Also make
+# Founder allocation collision-safe, avoid reading a navigated response body,
+# and return a bounded screenshot hash. Every replacement is fail-closed.
 python3 - "$COPY" <<'PY'
 from pathlib import Path
 import sys
@@ -33,16 +35,6 @@ def replace_once(old: str, new: str, label: str) -> None:
     text = text.replace(old, new, 1)
 
 replace_once(
-    "base=os.environ['RUM_BASE_URL']; target=os.environ['RUM_TARGET']; state=os.environ['RUM_STATE']; out=os.environ['RUM_RATING_ID_FILE']",
-    "base=os.environ['RUM_BASE_URL']; target=os.environ['RUM_TARGET']; token=os.environ['RUM_TOKEN']; out=os.environ['RUM_RATING_ID_FILE']",
-    "rating verifier environment",
-)
-replace_once(
-    "browser=p.chromium.launch(); context=browser.new_context(storage_state=state, viewport={'width':1280,'height':1100}); page=context.new_page()",
-    "browser=p.chromium.launch(); context=browser.new_context(extra_http_headers={'Authorization': f'Bearer {token}'}, viewport={'width':1280,'height':1100}); page=context.new_page()",
-    "rating bearer context",
-)
-replace_once(
     "    rating_id=str(response.json().get('data',{}).get('id',''))\n    if not rating_id: raise RuntimeError('profile fixture rating returned no canonical rating id')",
     "    rating_id='submitted'",
     "rating response body dependency",
@@ -54,23 +46,8 @@ replace_once(
 )
 replace_once(
     "base=os.environ['RUM_BASE_URL']; owner_id=os.environ['RUM_OWNER_ID']; owner_name=os.environ['RUM_OWNER_NAME']; rating_id=os.environ['RUM_RATING_ID']",
-    "base=os.environ['RUM_BASE_URL']; owner_id=os.environ['RUM_OWNER_ID']; owner_name=os.environ['RUM_OWNER_NAME']; rating_id=os.environ['RUM_RATING_ID']; founder_number=os.environ['RUM_FOUNDER_NUMBER']; owner_token=os.environ['RUM_OWNER_TOKEN']; viewer_token=os.environ['RUM_VIEWER_TOKEN']",
+    "base=os.environ['RUM_BASE_URL']; owner_id=os.environ['RUM_OWNER_ID']; owner_name=os.environ['RUM_OWNER_NAME']; rating_id=os.environ['RUM_RATING_ID']; founder_number=os.environ['RUM_FOUNDER_NUMBER']",
     "profile verifier environment",
-)
-replace_once(
-    "owner_context=browser.new_context(storage_state='/work/owner-state.json', viewport={'width':1280,'height':1100})",
-    "owner_context=browser.new_context(extra_http_headers={'Authorization': f'Bearer {owner_token}'}, viewport={'width':1280,'height':1100})",
-    "owner bearer context",
-)
-replace_once(
-    "viewer_context=browser.new_context(storage_state='/work/viewer-state.json', viewport={'width':1280,'height':1100})",
-    "viewer_context=browser.new_context(extra_http_headers={'Authorization': f'Bearer {viewer_token}'}, viewport={'width':1280,'height':1100})",
-    "viewer bearer context",
-)
-replace_once(
-    "mobile_context=browser.new_context(storage_state='/work/owner-state.json', viewport={'width':390,'height':844})",
-    "mobile_context=browser.new_context(extra_http_headers={'Authorization': f'Bearer {owner_token}'}, viewport={'width':390,'height':844})",
-    "mobile bearer context",
 )
 replace_once(
     "owner.get_by_text('F #27', exact=True)",
@@ -112,20 +89,42 @@ identity_line="$(kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "
 \$used=App\\Models\\User::query()->whereNotNull('founder_number')->pluck('founder_number')->map(fn(\$n)=>(int)\$n)->all(); \$founder=null; foreach(range(1,100) as \$candidate){ if(!in_array(\$candidate,\$used,true)){ \$founder=\$candidate; break; }} if(\$founder===null){ throw new RuntimeException('No unused Platinum founder number is available for isolated profile verification.'); }
 \$o->forceFill(['founder_number'=>\$founder])->save();
 App\\Models\\MateRelationship::query()->create(['requester_id'=>\$o->id,'addressee_id'=>\$r->id,'status'=>'accepted','accepted_at'=>now()]);
-\$ot=\$o->createToken('profile-owner-verifier')->plainTextToken; \$rt=\$r->createToken('profile-rater-verifier')->plainTextToken; \$vt=\$v->createToken('profile-viewer-verifier')->plainTextToken;
-echo \$o->id."\\t".base64_encode(\$o->profile->display_name)."\\t".\$founder."\\t".base64_encode(\$ot)."\\t".base64_encode(\$rt)."\\t".base64_encode(\$vt);")"
-IFS=$'\t' read -r owner_id owner_name_b64 founder_number owner_token_b64 rater_token_b64 viewer_token_b64 <<<"$identity_line"
-owner_name="$(decode64 "$owner_name_b64")"; owner_token="$(decode64 "$owner_token_b64")"; rater_token="$(decode64 "$rater_token_b64")"; viewer_token="$(decode64 "$viewer_token_b64")"
-[[ "$owner_id" =~ ^[0-9a-z]{26}$ && -n "$owner_name" && "$founder_number" =~ ^[0-9]+$ && "$founder_number" -ge 1 && "$founder_number" -le 100 && -n "$owner_token" && -n "$rater_token" && -n "$viewer_token" ]] || { echo "VERIFY BLOCKED: isolated fixture identity setup failed" >&2; exit 70; }
+echo \$o->id."\\t".base64_encode(\$o->profile->display_name)."\\t".\$founder;")"
+IFS=$'\t' read -r owner_id owner_name_b64 founder_number <<<"$identity_line"
+owner_name="$(decode64 "$owner_name_b64")"
+[[ "$owner_id" =~ ^[0-9a-z]{26}$ && -n "$owner_name" && "$founder_number" =~ ^[0-9]+$ && "$founder_number" -ge 1 && "$founder_number" -le 100 ]] || { echo "VERIFY BLOCKED: isolated fixture identity setup failed" >&2; exit 70; }
 printf 'RUM_PROFILE_FOUNDER_FIXTURE=%s\n' "$founder_number"
+
+session_cookie(){
+  local email_b64="$1"
+  kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "$PHP_BOOT" "
+  \$u=App\\Models\\User::where('email',base64_decode('${email_b64}'))->firstOrFail();
+  \$session=app('session')->driver(); \$session->setId(Illuminate\\Support\\Str::random(40)); \$session->start();
+  \$session->put(Illuminate\\Support\\Facades\\Auth::guard('web')->getName(),\$u->getAuthIdentifier()); \$session->save();
+  \$name=(string)config('session.cookie'); \$prefix=Illuminate\\Cookie\\CookieValuePrefix::create(\$name,app('encrypter')->getKey());
+  \$value=app('encrypter')->encrypt(\$prefix.\$session->getId(),false);
+  echo base64_encode(\$name)."\\t".base64_encode(\$value);" 2>/dev/null | tail -n 1
+}
+write_state(){
+  local email_b64="$1" output="$2" line cookie_name_b64 cookie_value_b64 cookie_name cookie_value
+  line="$(session_cookie "$email_b64")"
+  IFS=$'\t' read -r cookie_name_b64 cookie_value_b64 <<<"$line"
+  cookie_name="$(decode64 "$cookie_name_b64")"; cookie_value="$(decode64 "$cookie_value_b64")"
+  [[ -n "$cookie_name" && -n "$cookie_value" ]] || { echo "VERIFY BLOCKED: isolated Laravel session cookie generation failed" >&2; exit 70; }
+  python3 - "$output" "$cookie_name" "$cookie_value" "$DEV_HOST" <<'PY_STATE'
+import json,sys
+path,name,value,domain=sys.argv[1:]
+state={'cookies':[{'name':name,'value':value,'domain':domain,'path':'/','expires':-1,'httpOnly':True,'secure':True,'sameSite':'Lax'}],'origins':[]}
+with open(path,'w') as fh: json.dump(state,fh)
+PY_STATE
+}
+write_state "$owner_b64" "$work/owner-state.json"
+write_state "$rater_b64" "$work/rater-state.json"
+write_state "$viewer_b64" "$work/viewer-state.json"
+printf 'RUM_PROFILE_AUTH_FIXTURE=ISOLATED_LARAVEL_SESSIONS\n'
 '''
 text = text[:start] + identity_block + text[end:]
 
-replace_once(
-    '-e RUM_BASE_URL="$BASE_URL" -e RUM_TARGET="$owner_username" -e RUM_STATE=/work/rater-state.json -e RUM_RATING_ID_FILE=/work/rating-id',
-    '-e RUM_BASE_URL="$BASE_URL" -e RUM_TARGET="$owner_username" -e RUM_TOKEN="$rater_token" -e RUM_RATING_ID_FILE=/work/rating-id',
-    "rating container token",
-)
 replace_once(
     'rating_id="$(cat "$work/rating-id")"\n[[ "$rating_id" =~ ^[0-9a-z]{26}$ ]] || { echo "VERIFY BLOCKED: invalid profile fixture rating id" >&2; exit 70; }',
     'rating_id="$(kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "$PHP_BOOT" "\\$o=App\\\\Models\\\\User::where(\'email\',base64_decode(\'${owner_b64}\'))->firstOrFail(); \\$r=App\\\\Models\\\\User::where(\'email\',base64_decode(\'${rater_b64}\'))->firstOrFail(); \\$target=App\\\\Models\\\\AccountEntityLink::query()->where(\'user_id\',\\$o->id)->where(\'link_type\',\'represents_person\')->where(\'status\',\'active\')->whereNull(\'valid_to\')->value(\'entity_id\'); echo App\\\\Models\\\\RatingEvent::query()->where(\'rater_account_id\',\\$r->id)->where(\'target_entity_id\',\\$target)->where(\'status\',\'active\')->orderByDesc(\'submitted_at\')->value(\'id\');")"\n[[ "$rating_id" =~ ^[0-9a-z]{26}$ ]] || { echo "VERIFY BLOCKED: invalid saved profile fixture rating id" >&2; exit 70; }\nprintf \'RUM_PROFILE_SAVED_RATING_ID=%s\\n\' "$rating_id"',
@@ -133,8 +132,8 @@ replace_once(
 )
 replace_once(
     '-e RUM_BASE_URL="$BASE_URL" -e RUM_OWNER_ID="$owner_id" -e RUM_OWNER_NAME="$owner_name" -e RUM_RATING_ID="$rating_id"',
-    '-e RUM_BASE_URL="$BASE_URL" -e RUM_OWNER_ID="$owner_id" -e RUM_OWNER_NAME="$owner_name" -e RUM_RATING_ID="$rating_id" -e RUM_FOUNDER_NUMBER="$founder_number" -e RUM_OWNER_TOKEN="$owner_token" -e RUM_VIEWER_TOKEN="$viewer_token"',
-    "profile verification tokens",
+    '-e RUM_BASE_URL="$BASE_URL" -e RUM_OWNER_ID="$owner_id" -e RUM_OWNER_NAME="$owner_name" -e RUM_RATING_ID="$rating_id" -e RUM_FOUNDER_NUMBER="$founder_number"',
+    "founder browser environment",
 )
 
 path.write_text(text)
