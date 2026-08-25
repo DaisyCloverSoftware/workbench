@@ -31,7 +31,7 @@ login_new=r"""enc64(){ printf '%s' "$1" | python3 -c 'import base64,sys; print(b
 rater_email_pre="$(enc64 "$rater_email")"; mate_email_pre="$(enc64 "$mate_email")"
 rater_user_pre="$(enc64 "$rater_username")"; mate_user_pre="$(enc64 "$mate_username")"
 rater_pass_pre="$(enc64 "$rater_password")"; mate_pass_pre="$(enc64 "$mate_password")"
-PHP_BOOT_PRE='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap(); eval($argv[1]);'
+PHP_BOOT_PRE='require "/var/www/html/vendor/autoload.php"; $app=require "/var/www/html/bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); eval($argv[1]);'
 kctl -n "$DEV_NAMESPACE" exec "$api_pod" -c php-fpm -- php -r "$PHP_BOOT_PRE" "
 \$make=function(\$email64,\$username64,\$password64){
   \$email=base64_decode(\$email64); \$username=base64_decode(\$username64); \$password=base64_decode(\$password64);
