@@ -57,13 +57,16 @@ done
 
 "$RUNTIME" create --name "$api" --user 0:0 --network "$network" --entrypoint tail "$API_IMAGE" -f /dev/null >/dev/null
 "$RUNTIME" start "$api" >/dev/null
-"$RUNTIME" exec --user 0:0 "$api" mkdir -p /work
-"$RUNTIME" cp "$tmp/rum/apps/api/." "$api:/work"
+"$RUNTIME" exec --user 0:0 "$api" mkdir -p /repo
+# Preserve the repository-relative layout because API contract tests intentionally
+# read Helm and runtime-contract files outside apps/api.
+"$RUNTIME" cp "$tmp/rum/." "$api:/repo"
 
-"$RUNTIME" exec --user 0:0 -w /work "$api" sh -lc 'composer install --no-interaction --prefer-dist --no-progress >/dev/null'
-"$RUNTIME" exec --user 0:0 -w /work "$api" vendor/bin/pint --test
-"$RUNTIME" exec --user 0:0 -w /work "$api" vendor/bin/phpstan analyse --memory-limit=1G --no-progress
-"$RUNTIME" exec --user 0:0 -w /work \
+API_WORKDIR=/repo/apps/api
+"$RUNTIME" exec --user 0:0 -w "$API_WORKDIR" "$api" sh -lc 'composer install --no-interaction --prefer-dist --no-progress >/dev/null'
+"$RUNTIME" exec --user 0:0 -w "$API_WORKDIR" "$api" vendor/bin/pint --test
+"$RUNTIME" exec --user 0:0 -w "$API_WORKDIR" "$api" vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+"$RUNTIME" exec --user 0:0 -w "$API_WORKDIR" \
   -e APP_ENV=testing \
   -e APP_KEY='base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' \
   -e MODERATION_EVIDENCE_KEY='base64:ZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWU=' \
