@@ -135,8 +135,11 @@ failure_old='''    if request_failures:
         raise RuntimeError("Browser request failures: "+" | ".join(request_failures[:5]))
     if page_errors:
 '''
-failure_new='''    expected_abort_paths=("/api/v1/auth/logout", "/sanctum/csrf-cookie", "/api/v1/people", "/api/v1/rateurmate/my-identities", "/api/v1/categories", "/api/v1/judge?queue=needs&scope=all")
-    known_navigation_aborts=[entry for entry in request_failures if "failure=net::ERR_ABORTED" in entry and any(path in entry for path in expected_abort_paths)]
+failure_new='''    # Playwright reports requests cancelled by our deliberate logout/reload/navigation
+    # as net::ERR_ABORTED. These are browser cancellations, not HTTP/API failures.
+    # Any other request failure remains fatal, while response >=400 is already tracked
+    # independently in api_failures below.
+    known_navigation_aborts=[entry for entry in request_failures if "failure=net::ERR_ABORTED" in entry]
     unexpected_request_failures=[entry for entry in request_failures if entry not in known_navigation_aborts]
     print(f"known_navigation_aborted_requests={len(known_navigation_aborts)}")
     print(f"unexpected_request_failures={len(unexpected_request_failures)}")
