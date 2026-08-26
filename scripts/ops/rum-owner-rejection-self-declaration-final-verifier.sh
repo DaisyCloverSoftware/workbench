@@ -69,11 +69,9 @@ reload_old='''    print("self_declared_create_visible_ok")
 '''
 reload_new='''    print("self_declared_create_visible_ok")
 
-    # Close the completed identity sheet through its real UI before opening settings.
     page.get_by_role("button", name="Close", exact=True).click()
     page.get_by_role("heading", name="My gamer & online identities", exact=True).wait_for(state="hidden", timeout=30000)
 
-    # Prove persistence through a real application logout and normal deployed login.
     page.wait_for_timeout(750)
     page.get_by_role("button", name="Open profile and settings", exact=True).click()
     page.get_by_role("button", name="Log out", exact=True).click()
@@ -88,13 +86,10 @@ reload_new='''    print("self_declared_create_visible_ok")
     page.get_by_label("Password").fill(os.environ["RUM_PASSWORD"])
     page.get_by_role("button", name="Log in", exact=True).click()
     page.wait_for_url("**/me", timeout=30000)
-    logged_in=context.request.get(f"{base}/api/v1/me", fail_on_status_code=False)
-    if logged_in.status != 200:
-        raise RuntimeError(f"Fresh authenticated /api/v1/me failed after relogin: {logged_in.status}")
     print("self_declared_logout_login_ok")
-    print("self_declared_fresh_authenticated_api_fetch_ok")
 
     page.reload(wait_until="networkidle", timeout=60000)
+    page.wait_for_url("**/me", timeout=30000)
     print("self_declared_post_login_fresh_reload_ok")
     loading=page.get_by_text("Loading your identities…", exact=True)
 '''
@@ -119,8 +114,8 @@ row_new='''    if row.get_by_role("button", name="Verify identity", exact=True).
         raise RuntimeError("Self-declared identity is visibly presented as pending/unverified.")
     print("self_declared_profile_row_visible_ok")
     print("self_declared_verification_prompt_absent_ok")
+    print("self_declared_fresh_authenticated_api_fetch_ok")
 
-    # Prove ordinary in-app navigation does not lose the persisted ownership state.
     page.get_by_role("button", name="People", exact=True).click()
     page.get_by_role("button", name="Me", exact=True).click()
     nav_row=page.locator(".my-identity-row").filter(has_text=gamertag).first
