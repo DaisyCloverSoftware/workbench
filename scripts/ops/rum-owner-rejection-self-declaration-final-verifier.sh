@@ -69,6 +69,10 @@ reload_old='''    print("self_declared_create_visible_ok")
 '''
 reload_new='''    print("self_declared_create_visible_ok")
 
+    # Close the completed identity sheet through its real UI before opening settings.
+    page.get_by_role("button", name="Close", exact=True).click()
+    page.get_by_role("heading", name="My gamer & online identities", exact=True).wait_for(state="hidden", timeout=30000)
+
     # Prove persistence through a real application logout and normal deployed login.
     # AppShell refreshes the Judge badge in the background; a full-page transition may
     # abort that GET by design, so request diagnostics below classify only ERR_ABORTED
