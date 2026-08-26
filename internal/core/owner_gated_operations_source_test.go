@@ -26,16 +26,89 @@ func TestValidateOwnerGatedOperationsSourceRequiresExactRUMMain(t *testing.T) {
 	root := initOperationsSourceTestRepo(t, "https://github.com/DaisyCloverSoftware/rum.git")
 	mainCommit := strings.Repeat("a", 40)
 	branchCommit := strings.Repeat("b", 40)
+	path := "scripts/ops/example.sh"
 
 	previous := ownerGatedOperationsMainHead
 	ownerGatedOperationsMainHead = func(context.Context, string) (string, error) { return mainCommit, nil }
 	t.Cleanup(func() { ownerGatedOperationsMainHead = previous })
 
-	if err := validateOwnerGatedOperationsSource(context.Background(), root, mainCommit); err != nil {
+	if err := validateOwnerGatedOperationsSource(context.Background(), root, mainCommit, path, nil); err != nil {
 		t.Fatalf("expected exact RUM main to remain eligible, got %v", err)
 	}
-	if err := validateOwnerGatedOperationsSource(context.Background(), root, branchCommit); err == nil || !strings.Contains(err.Error(), "exact current main") {
+	if err := validateOwnerGatedOperationsSource(context.Background(), root, branchCommit, path, nil); err == nil || !strings.Contains(err.Error(), "exact current main") {
 		t.Fatalf("expected RUM branch-head operations source to fail closed, got %v", err)
+	}
+}
+
+func TestValidateOwnerGatedOperationsSourceAllowsOnlyExactRATPreviewCandidateTuple(t *testing.T) {
+	root := initOperationsSourceTestRepo(t, "https://github.com/DaisyCloverSoftware/rum.git")
+	mainCommit := strings.Repeat("a", 40)
+	exactArgs := []string{rateAnythingPreviewAPIImage, rateAnythingPreviewFrontendImage}
+
+	previous := ownerGatedOperationsMainHead
+	ownerGatedOperationsMainHead = func(context.Context, string) (string, error) { return mainCommit, nil }
+	t.Cleanup(func() { ownerGatedOperationsMainHead = previous })
+
+	if err := validateOwnerGatedOperationsSource(
+		context.Background(),
+		root,
+		rateAnythingPreviewCandidateCommit,
+		rateAnythingPreviewOperationPath,
+		exactArgs,
+	); err != nil {
+		t.Fatalf("expected exact isolated RAT preview candidate tuple to be eligible, got %v", err)
+	}
+
+	cases := []struct {
+		name   string
+		commit string
+		path   string
+		args   []string
+	}{
+		{
+			name:   "different commit",
+			commit: strings.Repeat("b", 40),
+			path:   rateAnythingPreviewOperationPath,
+			args:   exactArgs,
+		},
+		{
+			name:   "different script",
+			commit: rateAnythingPreviewCandidateCommit,
+			path:   "scripts/ops/deploy-rum.sh",
+			args:   exactArgs,
+		},
+		{
+			name:   "different API image",
+			commit: rateAnythingPreviewCandidateCommit,
+			path:   rateAnythingPreviewOperationPath,
+			args: []string{
+				"ghcr.io/daisycloversoftware/rum-api@sha256:" + strings.Repeat("f", 64),
+				rateAnythingPreviewFrontendImage,
+			},
+		},
+		{
+			name:   "different frontend image",
+			commit: rateAnythingPreviewCandidateCommit,
+			path:   rateAnythingPreviewOperationPath,
+			args: []string{
+				rateAnythingPreviewAPIImage,
+				"ghcr.io/daisycloversoftware/rum-rate-anything@sha256:" + strings.Repeat("f", 64),
+			},
+		},
+		{
+			name:   "missing image argument",
+			commit: rateAnythingPreviewCandidateCommit,
+			path:   rateAnythingPreviewOperationPath,
+			args:   []string{rateAnythingPreviewAPIImage},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateOwnerGatedOperationsSource(context.Background(), root, tc.commit, tc.path, tc.args); err == nil || !strings.Contains(err.Error(), "exact current main") {
+				t.Fatalf("expected altered RAT preview operation tuple to fail closed, got %v", err)
+			}
+		})
 	}
 }
 
@@ -48,7 +121,7 @@ func TestValidateOwnerGatedOperationsSourceLeavesOtherRepositoriesUnchanged(t *t
 	}
 	t.Cleanup(func() { ownerGatedOperationsMainHead = previous })
 
-	if err := validateOwnerGatedOperationsSource(context.Background(), root, strings.Repeat("b", 40)); err != nil {
+	if err := validateOwnerGatedOperationsSource(context.Background(), root, strings.Repeat("b", 40), "scripts/ops/example.sh", nil); err != nil {
 		t.Fatalf("expected unrelated repository operations source to remain eligible, got %v", err)
 	}
 }
