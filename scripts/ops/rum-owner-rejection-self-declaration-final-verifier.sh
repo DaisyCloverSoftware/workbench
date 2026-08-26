@@ -74,19 +74,25 @@ reload_new='''    print("self_declared_create_visible_ok")
     page.get_by_role("heading", name="My gamer & online identities", exact=True).wait_for(state="hidden", timeout=30000)
 
     # Prove persistence through a real application logout and normal deployed login.
-    # AppShell refreshes the Judge badge in the background; a full-page transition may
-    # abort that GET by design, so request diagnostics below classify only ERR_ABORTED
-    # for that exact unrelated endpoint as a navigation cancellation.
     page.wait_for_timeout(750)
     page.get_by_role("button", name="Open profile and settings", exact=True).click()
     page.get_by_role("button", name="Log out", exact=True).click()
     page.get_by_role("button", name="Log in", exact=True).wait_for(state="visible", timeout=30000)
+    logged_out=context.request.get(f"{base}/api/v1/me", fail_on_status_code=False)
+    if logged_out.status != 401:
+        raise RuntimeError(f"Logout did not clear the server session: /api/v1/me returned {logged_out.status}")
+    print("self_declared_logout_server_session_cleared_ok")
+
     page.get_by_role("button", name="Log in", exact=True).click()
     page.get_by_label("Username or email").fill(os.environ["RUM_LOGIN"])
     page.get_by_label("Password").fill(os.environ["RUM_PASSWORD"])
     page.get_by_role("button", name="Log in", exact=True).click()
     page.wait_for_url("**/me", timeout=30000)
+    logged_in=context.request.get(f"{base}/api/v1/me", fail_on_status_code=False)
+    if logged_in.status != 200:
+        raise RuntimeError(f"Fresh authenticated /api/v1/me failed after relogin: {logged_in.status}")
     print("self_declared_logout_login_ok")
+    print("self_declared_fresh_authenticated_api_fetch_ok")
 
     page.reload(wait_until="networkidle", timeout=60000)
     print("self_declared_post_login_fresh_reload_ok")
@@ -134,9 +140,11 @@ failure_old='''    if request_failures:
         raise RuntimeError("Browser request failures: "+" | ".join(request_failures[:5]))
     if page_errors:
 '''
-failure_new='''    known_navigation_aborts=[entry for entry in request_failures if "/api/v1/judge?queue=needs&scope=all" in entry and "ERR_ABORTED" in entry]
+failure_new='''    expected_abort_paths=("/api/v1/auth/logout", "/sanctum/csrf-cookie", "/api/v1/people", "/api/v1/rateurmate/my-identities", "/api/v1/categories", "/api/v1/judge?queue=needs&scope=all")
+    known_navigation_aborts=[entry for entry in request_failures if "failure=net::ERR_ABORTED" in entry and any(path in entry for path in expected_abort_paths)]
     unexpected_request_failures=[entry for entry in request_failures if entry not in known_navigation_aborts]
-    print(f"known_navigation_aborted_judge_requests={len(known_navigation_aborts)}")
+    print(f"known_navigation_aborted_requests={len(known_navigation_aborts)}")
+    print(f"unexpected_request_failures={len(unexpected_request_failures)}")
     if unexpected_request_failures:
         raise RuntimeError("Unexpected browser request failures: "+" | ".join(unexpected_request_failures[:5]))
     if page_errors:
