@@ -47,9 +47,7 @@ with sync_playwright() as p:
     context.storage_state(path=state); browser.close()
 print('self_login_session_ok')
 PY_LOGIN
-docker run --rm --ipc=host -v "$work:/work" \\
-  -e RUM_BASE_URL="$BASE_URL" -e RUM_LOGIN="$email" -e RUM_PASSWORD="$password" -e RUM_STATE_FILE="/work/self-state.json" \\
-  "$PLAYWRIGHT_IMAGE" python /work/login.py
+docker run --rm --ipc=host -v "$work:/work" -e RUM_BASE_URL="$BASE_URL" -e RUM_LOGIN="$email" -e RUM_PASSWORD="$password" -e RUM_STATE_FILE="/work/self-state.json" "$PLAYWRIGHT_IMAGE" python /work/login.py
 [[ -s "$state_file" ]] || { echo "VERIFY FAILED: self account browser state missing" >&2; exit 1; }
 chmod 600 "$state_file"
 printf 'RUM_SELF_DECLARATION_AUTH_FIXTURE=ISOLATED_USER_NORMAL_LOGIN\n'
@@ -147,9 +145,7 @@ env_old='''docker run --rm --ipc=host -v "$work:/work" \\
   -e RUM_BASE_URL="$BASE_URL" -e RUM_GAMERTAG="$gamertag" -e RUM_BASELINE_CSP="$LIVE_BASELINE_CSP_HASH" \\
   "$PLAYWRIGHT_IMAGE" python /work/exercise.py
 '''
-env_new='''docker run --rm --ipc=host -v "$work:/work" \\
-  -e RUM_BASE_URL="$BASE_URL" -e RUM_GAMERTAG="$gamertag" -e RUM_BASELINE_CSP="$LIVE_BASELINE_CSP_HASH" -e RUM_LOGIN="$email" -e RUM_PASSWORD="$password" \\
-  "$PLAYWRIGHT_IMAGE" python /work/exercise.py
+env_new='''docker run --rm --ipc=host -v "$work:/work" -e RUM_BASE_URL="$BASE_URL" -e RUM_GAMERTAG="$gamertag" -e RUM_BASELINE_CSP="$LIVE_BASELINE_CSP_HASH" -e RUM_LOGIN="$email" -e RUM_PASSWORD="$password" "$PLAYWRIGHT_IMAGE" python /work/exercise.py
 '''
 if text.count(env_old) != 1:
     raise SystemExit(f'final verifier blocked: exercise env block count={text.count(env_old)}')
