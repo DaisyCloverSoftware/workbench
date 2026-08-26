@@ -17,6 +17,32 @@ def replace_once(old,new,label):
     if count != 1: raise SystemExit(f'{label} marker count={count}')
     text=text.replace(old,new,1)
 
+old='''    page.goto(base, wait_until="networkidle", timeout=60000)
+    page.get_by_role("button", name="Create an account").click()
+    page.get_by_label("Email").fill(email)
+    page.get_by_label("Username").fill(username)
+    page.get_by_label("Password", exact=True).fill(password)
+    page.get_by_label("Confirm password").fill(password)
+    page.get_by_role("checkbox", name="I accept the Terms and Community Rules.").check()
+    page.get_by_role("checkbox", name="I have read the Privacy Notice.").check()
+    page.get_by_role("button", name="Create account").click()
+    page.wait_for_url("**/me", timeout=30000)
+    context.storage_state(path=state)
+'''
+new='''    response=context.request.post(f"{base}/api/v1/auth/register", data={
+        "email": email,
+        "username": username,
+        "password": password,
+        "passwordConfirmation": password,
+        "termsAccepted": True,
+        "privacyAccepted": True,
+    })
+    if response.status != 201:
+        raise RuntimeError(f"self-declaration fixture registration failed: {response.status} {response.text()[:500]}")
+    context.storage_state(path=state)
+'''
+replace_once(old,new,'deterministic account provisioning')
+
 old='''    print("self_declared_profile_row_visible_ok")
     print("self_declared_verification_prompt_absent_ok")
 
