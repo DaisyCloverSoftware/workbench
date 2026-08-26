@@ -85,7 +85,7 @@ func RunOperationsScript(ctx context.Context, project string, req OperationsScri
 	defer cleanupSource()
 	result.Commit = commit
 	result.Transport = transport
-	if err := validateOwnerGatedOperationsSource(ctx, root, commit); err != nil {
+	if err := validateOwnerGatedOperationsSource(ctx, root, commit, rel, req.Args); err != nil {
 		return result, err
 	}
 
