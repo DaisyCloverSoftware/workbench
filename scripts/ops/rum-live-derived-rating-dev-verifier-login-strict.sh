@@ -15,7 +15,10 @@ cp "$SOURCE" "$COPY"
 
 # Preserve the strict rating-flow assertions and replace only the public signup
 # transport. Disposable users are created inside isolated DEV, then sign in via
-# the deployed RUM login form. No browser session is synthesized.
+# the deployed RUM login form. No browser session is synthesized. The owner-
+# rejected repeated linked-Thing search is also asserted here: the query typed
+# into the linked chooser must be carried into the global RUM duplicate check
+# automatically, with no second required search field or button action.
 python3 - "$COPY" <<'PY'
 from pathlib import Path
 import sys
@@ -58,10 +61,23 @@ register(){ local email="$1" user="$2" pass="$3" state="$4"; "$runtime" run --rm
 if out.count(login_old) != 1:
     raise SystemExit(f'rating login wrapper blocked: registration function count={out.count(login_old)}')
 out=out.replace(login_old,login_new,1)
+
+linked_old=r'''    outer.click(); chooser=page.locator("section.rating-reason-panel").filter(has_text="Add or rate a linked thing").first; chooser.wait_for(state="visible", timeout=15000); chooser.get_by_role("searchbox", name="Search linked things").wait_for(state="visible", timeout=15000); chooser.get_by_role("button", name="Add or rate a linked thing", exact=True).click()
+    page.get_by_text("Search RUM before adding a missing linked thing", exact=True).wait_for(state="visible", timeout=15000); page.get_by_label("Search existing things before adding").fill(linked_name); page.get_by_role("button", name="Search RUM", exact=True).click(); page.get_by_role("button", name="None of these — add a linked thing", exact=True).wait_for(state="visible", timeout=30000); page.get_by_role("button", name="None of these — add a linked thing", exact=True).click(); page.get_by_label("Linked thing type").select_option("product"); page.get_by_label("Linked thing description").fill("Disposable linked Thing created only in isolated DEV to verify the LIVE-derived rating flow."); page.get_by_role("button", name="Check and add linked thing", exact=True).click(); rate(page,"search"); page.wait_for_url(re.compile(r"/judge(?:$|[?#])"), timeout=30000)'''
+linked_new=r'''    outer.click(); chooser=page.locator("section.rating-reason-panel").filter(has_text="Add or rate a linked thing").first; chooser.wait_for(state="visible", timeout=15000); linked_search=chooser.get_by_role("searchbox", name="Search linked things"); linked_search.wait_for(state="visible", timeout=15000); linked_search.fill(linked_name); chooser.get_by_role("button", name="Add or rate a linked thing", exact=True).click()
+    page.get_by_text(f"Checked RUM for “{linked_name}”", exact=True).wait_for(state="visible", timeout=30000)
+    if page.get_by_label("Search existing things before adding").count()!=0: raise RuntimeError("Linked Thing flow asked for the same search a second time")
+    if page.get_by_role("button", name="Search RUM", exact=True).count()!=0: raise RuntimeError("Linked Thing flow exposed a second mandatory Search RUM action")
+    add_missing=page.get_by_role("button", name=f"None of these — add “{linked_name}”", exact=True); add_missing.wait_for(state="visible", timeout=30000); add_missing.click(); print("linked_query_single_entry_handoff_ok")
+    page.get_by_label("Linked thing type").select_option("product"); page.get_by_label("Linked thing description").fill("Disposable linked Thing created only in isolated DEV to verify the LIVE-derived rating flow."); page.get_by_role("button", name="Check and add linked thing", exact=True).click(); rate(page,"search"); page.wait_for_url(re.compile(r"/judge(?:$|[?#])"), timeout=30000)'''
+if out.count(linked_old) != 1:
+    raise SystemExit(f'rating login wrapper blocked: linked-query flow count={out.count(linked_old)}')
+out=out.replace(linked_old,linked_new,1)
 '''
 script=script.replace(marker, extra+marker, 1)
 path.write_text(script)
 PY
 chmod 0700 "$COPY"
 printf 'RUM_RATING_PUBLIC_SIGNUP_BYPASS=PRECREATED_USERS_NORMAL_LOGIN\n'
+printf 'RUM_RATING_LINKED_QUERY_HANDOFF=SINGLE_ENTRY_REQUIRED\n'
 bash "$COPY" "$@"
