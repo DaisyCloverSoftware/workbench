@@ -412,8 +412,7 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 		if err != nil {
 			return err
 		}
-		added := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", tmp, ref)
-		if out, err := added.CombinedOutput(); err != nil {
+		if out, err := relayGitCombinedOutput(ctx, relayGitLocalTimeout, repo, "worktree", "add", "--detach", "--quiet", tmp, ref); err != nil {
 			_ = os.RemoveAll(tmp)
 			return fmt.Errorf("create private control publish worktree: %s", strings.TrimSpace(string(out)))
 		}
@@ -431,16 +430,15 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 				return err
 			}
 		}
-		addArgs := []string{"-C", tmp, "add", "--"}
+		addArgs := []string{"add", "--"}
 		addArgs = append(addArgs, stagePaths...)
-		if out, err := exec.Command("git", addArgs...).CombinedOutput(); err != nil {
+		if out, err := relayGitCombinedOutput(ctx, relayGitLocalTimeout, tmp, addArgs...); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("stage private relay files: %s", strings.TrimSpace(string(out)))
 		}
-		diffArgs := []string{"-C", tmp, "diff", "--cached", "--quiet", "--"}
+		diffArgs := []string{"diff", "--cached", "--quiet", "--"}
 		diffArgs = append(diffArgs, stagePaths...)
-		diffCmd := exec.Command("git", diffArgs...)
-		diffOut, diffErr := diffCmd.CombinedOutput()
+		diffOut, diffErr := relayGitCombinedOutput(ctx, relayGitLocalTimeout, tmp, diffArgs...)
 		if diffErr == nil {
 			cleanupWorktree(repo, tmp)
 			return nil
@@ -449,15 +447,11 @@ func publishPrivateControlFiles(ctx context.Context, repo, remote, branch string
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("check staged private relay files: %s", strings.TrimSpace(string(diffOut)))
 		}
-		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update private Workbench state")
-		if out, err := commit.CombinedOutput(); err != nil {
+		if out, err := relayGitCombinedOutput(ctx, relayGitLocalTimeout, tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update private Workbench state"); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("commit private relay files: %s", strings.TrimSpace(string(out)))
 		}
-		pushCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-		push := exec.CommandContext(pushCtx, "git", "-C", tmp, "push", "--quiet", remote, "HEAD:refs/heads/"+branch)
-		out, pushErr := push.CombinedOutput()
-		cancel()
+		out, pushErr := relayGitCombinedOutput(ctx, relayGitNetworkTimeout, tmp, "push", "--quiet", remote, "HEAD:refs/heads/"+branch)
 		cleanupWorktree(repo, tmp)
 		if pushErr == nil {
 			return nil
