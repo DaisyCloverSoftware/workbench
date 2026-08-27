@@ -118,8 +118,8 @@ func verifyRepo(repo, remote string) error {
 	if st, err := os.Stat(filepath.Join(repo, ".git")); err != nil || !st.IsDir() {
 		return fmt.Errorf("relay repo is not a git clone: %s", repo)
 	}
-	cmd := exec.Command("git", "-C", repo, "remote", "get-url", remote)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := relayGitCombinedOutput(context.Background(), relayGitLocalTimeout, repo, "remote", "get-url", remote)
+	if err != nil {
 		return fmt.Errorf("git remote %q unavailable: %s", remote, strings.TrimSpace(string(out)))
 	}
 	return nil
@@ -160,18 +160,15 @@ func poll(ctx context.Context, repo, remote, branch, mcpURL, authFile, resultMod
 }
 
 func fetchRemote(ctx context.Context, repo, remote, branch string) error {
-	fetchCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(fetchCtx, "git", "-C", repo, "fetch", "--quiet", remote, branch)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := relayGitCombinedOutput(ctx, relayGitNetworkTimeout, repo, "fetch", "--quiet", remote, branch)
+	if err != nil {
 		return fmt.Errorf("git fetch failed: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
 func relayPaths(repo, ref, prefix string) ([]string, error) {
-	cmd := exec.Command("git", "-C", repo, "ls-tree", "-r", "--name-only", ref, "--", prefix)
-	out, err := cmd.Output()
+	out, err := relayGitOutput(context.Background(), relayGitLocalTimeout, repo, "ls-tree", "-r", "--name-only", ref, "--", prefix)
 	if err != nil {
 		return nil, nil
 	}
@@ -188,8 +185,7 @@ func relayPaths(repo, ref, prefix string) ([]string, error) {
 }
 
 func readRefFile(repo, ref, path string, max int64) ([]byte, error) {
-	cmd := exec.Command("git", "-C", repo, "show", ref+":"+path)
-	out, err := cmd.Output()
+	out, err := relayGitOutput(context.Background(), relayGitLocalTimeout, repo, "show", ref+":"+path)
 	if err != nil {
 		return nil, err
 	}
@@ -481,8 +477,7 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 		if err != nil {
 			return err
 		}
-		added := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", tmp, ref)
-		if out, err := added.CombinedOutput(); err != nil {
+		if out, err := relayGitCombinedOutput(ctx, relayGitLocalTimeout, repo, "worktree", "add", "--detach", "--quiet", tmp, ref); err != nil {
 			_ = os.RemoveAll(tmp)
 			return fmt.Errorf("create relay publish worktree: %s", strings.TrimSpace(string(out)))
 		}
@@ -501,12 +496,11 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 				return err
 			}
 		}
-		if out, err := exec.Command("git", "-C", tmp, "add", "relay/outbox").CombinedOutput(); err != nil {
+		if out, err := relayGitCombinedOutput(ctx, relayGitLocalTimeout, tmp, "add", "relay/outbox"); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("stage relay outbox: %s", strings.TrimSpace(string(out)))
 		}
-		diffCmd := exec.Command("git", "-C", tmp, "diff", "--cached", "--quiet", "--", "relay/outbox")
-		diffOut, diffErr := diffCmd.CombinedOutput()
+		diffOut, diffErr := relayGitCombinedOutput(ctx, relayGitLocalTimeout, tmp, "diff", "--cached", "--quiet", "--", "relay/outbox")
 		if diffErr == nil {
 			cleanupWorktree(repo, tmp)
 			return nil
@@ -515,15 +509,11 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("check staged relay outbox: %s", strings.TrimSpace(string(diffOut)))
 		}
-		commit := exec.Command("git", "-C", tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update task status")
-		if out, err := commit.CombinedOutput(); err != nil {
+		if out, err := relayGitCombinedOutput(ctx, relayGitLocalTimeout, tmp, "-c", "user.name=Workbench Relay", "-c", "user.email=workbench-relay@users.noreply.github.com", "commit", "--quiet", "-m", "relay: update task status"); err != nil {
 			cleanupWorktree(repo, tmp)
 			return fmt.Errorf("commit relay outbox: %s", strings.TrimSpace(string(out)))
 		}
-		pushCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-		push := exec.CommandContext(pushCtx, "git", "-C", tmp, "push", "--quiet", remote, "HEAD:refs/heads/"+branch)
-		out, pushErr := push.CombinedOutput()
-		cancel()
+		out, pushErr := relayGitCombinedOutput(ctx, relayGitNetworkTimeout, tmp, "push", "--quiet", remote, "HEAD:refs/heads/"+branch)
 		cleanupWorktree(repo, tmp)
 		if pushErr == nil {
 			return nil
@@ -537,7 +527,7 @@ func publishOutbox(ctx context.Context, repo, remote, branch string, files map[s
 }
 
 func cleanupWorktree(repo, dir string) {
-	_ = exec.Command("git", "-C", repo, "worktree", "remove", "--force", dir).Run()
+	_ = relayGitRun(context.Background(), relayGitCleanupTimeout, repo, "worktree", "remove", "--force", dir)
 	_ = os.RemoveAll(dir)
 }
 
