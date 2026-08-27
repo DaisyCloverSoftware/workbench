@@ -10,17 +10,20 @@ POD="rat-browser-proof-$(date +%s)"
 ARTIFACT="/tmp/rat-browser-evidence-20260828.jpg"
 IMAGE="mcr.microsoft.com/playwright:v1.62.0-noble"
 
-for command in kubectl grep sha256sum base64; do
+for command in sudo k3s grep sha256sum base64 mktemp; do
   command -v "$command" >/dev/null 2>&1 || {
     echo "ERROR: required command unavailable: $command" >&2
     exit 3
   }
 done
 
-cleanup() {
-  kubectl -n "$NAMESPACE" delete pod "$POD" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+kc() {
+  sudo -n k3s kubectl "$@"
 }
-trap cleanup EXIT HUP INT TERM
+
+cleanup() {
+  kc -n "$NAMESPACE" delete pod "$POD" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+}
 
 node_script="$(mktemp)"
 trap 'rm -f "$node_script"; cleanup' EXIT HUP INT TERM
@@ -86,7 +89,7 @@ NODE
 
 PROOF_JS_B64="$(base64 -w 0 "$node_script")"
 
-kubectl -n "$NAMESPACE" run "$POD" \
+kc -n "$NAMESPACE" run "$POD" \
   --image="$IMAGE" \
   --restart=Never \
   --labels=app.kubernetes.io/component=rat-browser-proof \
@@ -108,11 +111,11 @@ echo "BROWSER_PROOF_POD=$NAMESPACE/$POD"
 
 logs=""
 for _ in $(seq 1 120); do
-  logs="$(kubectl -n "$NAMESPACE" logs "$POD" 2>&1 || true)"
+  logs="$(kc -n "$NAMESPACE" logs "$POD" 2>&1 || true)"
   if grep -Fq '__RAT_BROWSER_PROOF_DONE__' <<<"$logs"; then
     break
   fi
-  phase="$(kubectl -n "$NAMESPACE" get pod "$POD" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  phase="$(kc -n "$NAMESPACE" get pod "$POD" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
   if [[ "$phase" == "Failed" || "$phase" == "Succeeded" ]]; then
     break
   fi
@@ -122,11 +125,11 @@ done
 printf '%s\n' "$logs"
 grep -Fq '__RAT_BROWSER_PROOF_DONE__' <<<"$logs" || {
   echo "ERROR: browser proof did not complete successfully" >&2
-  kubectl -n "$NAMESPACE" describe pod "$POD" 2>/dev/null || true
+  kc -n "$NAMESPACE" describe pod "$POD" 2>/dev/null || true
   exit 5
 }
 
-kubectl -n "$NAMESPACE" cp "$POD:/evidence/rat-sprint.jpg" "$ARTIFACT" >/dev/null
+kc -n "$NAMESPACE" cp "$POD:/evidence/rat-sprint.jpg" "$ARTIFACT" >/dev/null
 [[ -s "$ARTIFACT" ]] || {
   echo "ERROR: screenshot artifact was not copied" >&2
   exit 6
