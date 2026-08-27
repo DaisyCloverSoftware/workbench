@@ -49,10 +49,16 @@ printf '[filesystem-inodes]\n'
 printf '[top-root-directories]\n'
 "${SSH[@]}" 'sudo -n du -x -B1G -d1 / 2>/dev/null | sort -n | tail -n 20'
 
-for path in /var/lib/kubelet /var/lib/rancher/k3s /var/log /var/tmp /tmp; do
+for path in /var /var/lib /home /var/lib/kubelet /var/lib/rancher/k3s /var/log /var/tmp /tmp; do
   printf '[usage:%s]\n' "$path"
-  "${SSH[@]}" "if [ -e '$path' ]; then sudo -n du -x -B1G -d1 '$path' 2>/dev/null | sort -n | tail -n 30; else echo missing; fi"
+  "${SSH[@]}" "if [ -e '$path' ]; then sudo -n du -x -B1G -d1 '$path' 2>/dev/null | sort -n | tail -n 40; else echo missing; fi"
 done
+
+printf '[home-second-level-largest]\n'
+"${SSH[@]}" 'if [ -d /home ]; then sudo -n du -x -B1G -d2 /home 2>/dev/null | sort -n | tail -n 50; else echo missing; fi'
+
+printf '[var-lib-second-level-largest]\n'
+"${SSH[@]}" 'if [ -d /var/lib ]; then sudo -n du -x -B1G -d2 /var/lib 2>/dev/null | sort -n | tail -n 60; else echo missing; fi'
 
 printf '[kubelet-pod-directories-largest]\n'
 "${SSH[@]}" 'if [ -d /var/lib/kubelet/pods ]; then sudo -n du -x -B1G -d1 /var/lib/kubelet/pods 2>/dev/null | sort -n | tail -n 30; else echo missing; fi'
