@@ -11,7 +11,7 @@ const ownerGatedOperationsSourceMessage = "owner-gated RUM operations scripts mu
 const (
 	rateAnythingPreviewCandidateCommit = "9f946210bc7053d043289107709010e8f88ee788"
 	rateAnythingPreviewOperationPath   = "scripts/ops/deploy-rate-anything-preview.sh"
-	rateAnythingPreviewAPIImage        = "ghcr.io/daisycloversoftware/rum-api@sha256:8f782a79666ea48cdced9187ea8ae1ce72d961fd2c9cea5e5f27f69660395930"
+	rateAnythingPreviewAPIImage        = "ghcr.io/daisycloversoftware/rum-api@sha256:b3ee83307651abae8e9b93e63920336659f29932474788e7c0ac9022bc7bee44"
 	rateAnythingPreviewFrontendImage   = "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:d18050db375eddb1adcc627721ddf31e0ebf8f2761cb423c7f933e3fa4013f73"
 )
 
