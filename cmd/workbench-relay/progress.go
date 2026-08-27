@@ -56,6 +56,10 @@ func relayIdleProgressLease() time.Duration {
 	return relayProgress.idleLease
 }
 
+func markRelayProgress(phase string, lease time.Duration) {
+	_ = noteRelayProgress(phase, lease)
+}
+
 func noteRelayProgress(phase string, lease time.Duration) error {
 	relayProgress.Lock()
 	defer relayProgress.Unlock()
@@ -148,6 +152,8 @@ func privateControlProgressLease(env privateControlEnvelope) time.Duration {
 				lease += core.MachineCommandTimeout(command.TimeoutSeconds)
 			}
 		}
+	case "ensure_github_project":
+		lease = relayProgressPublishLease
 	}
 	if lease < relayIdleProgressLease() {
 		return relayIdleProgressLease()
