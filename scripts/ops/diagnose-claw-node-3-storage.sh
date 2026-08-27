@@ -60,6 +60,11 @@ printf '[home-second-level-largest]\n'
 printf '[var-lib-second-level-largest]\n'
 "${SSH[@]}" 'if [ -d /var/lib ]; then sudo -n du -x -B1G -d2 /var/lib 2>/dev/null | sort -n | tail -n 60; else echo missing; fi'
 
+for path in /home/daisyclover-ci/.npm /home/daisyclover-ci/actions-runner /home/daisyclover-ci/actions-runner-2; do
+  printf '[ci-detail:%s]\n' "$path"
+  "${SSH[@]}" "if [ -d '$path' ]; then sudo -n du -x -B1M -d2 '$path' 2>/dev/null | sort -n | tail -n 60; else echo missing; fi"
+done
+
 printf '[kubelet-pod-directories-largest]\n'
 "${SSH[@]}" 'if [ -d /var/lib/kubelet/pods ]; then sudo -n du -x -B1G -d1 /var/lib/kubelet/pods 2>/dev/null | sort -n | tail -n 30; else echo missing; fi'
 
