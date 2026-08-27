@@ -9,10 +9,10 @@ import (
 const ownerGatedOperationsSourceMessage = "owner-gated RUM operations scripts must execute the exact current main commit; branch-head overrides are blocked"
 
 const (
-	rateAnythingPreviewCandidateCommit = "3cd88243cc8a25bd27f848a75776942c3282e7dd"
+	rateAnythingPreviewCandidateCommit = "9f946210bc7053d043289107709010e8f88ee788"
 	rateAnythingPreviewOperationPath   = "scripts/ops/deploy-rate-anything-preview.sh"
-	rateAnythingPreviewAPIImage        = "ghcr.io/daisycloversoftware/rum-api@sha256:426110a42c9695b4d0534fd322e6e8a92e0df8f0f151a225877575e738193bc5"
-	rateAnythingPreviewFrontendImage   = "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:465416509b764ac0a13b61b8124d5a2ee410da4f8bddea098529c215c877e970"
+	rateAnythingPreviewAPIImage        = "ghcr.io/daisycloversoftware/rum-api@sha256:8f782a79666ea48cdced9187ea8ae1ce72d961fd2c9cea5e5f27f69660395930"
+	rateAnythingPreviewFrontendImage   = "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:d18050db375eddb1adcc627721ddf31e0ebf8f2761cb423c7f933e3fa4013f73"
 )
 
 var ownerGatedOperationsMainHead = resolveOwnerGatedOperationsMainHead
