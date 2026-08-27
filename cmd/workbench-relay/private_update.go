@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,7 +49,7 @@ func schedulePrivateWorkbenchUpdate(relayRepo string) (map[string]any, error) {
 		return nil, errors.New("Workbench private update helper is unavailable at configured source tree")
 	}
 
-	remoteOut, err := exec.Command("git", "-C", relayRepo, "remote", "get-url", "origin").CombinedOutput()
+	remoteOut, err := relayGitCombinedOutput(context.Background(), relayGitLocalTimeout, relayRepo, "remote", "get-url", "origin")
 	if err != nil {
 		return nil, fmt.Errorf("read configured relay origin: %s", strings.TrimSpace(string(remoteOut)))
 	}
