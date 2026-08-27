@@ -107,7 +107,7 @@ printf '[ci-npm-cache-before]\n'
 "${SSH[@]}" "sudo -n du -sh '$CI_NPM_CACHE'"
 
 printf '[clear-ci-npm-cache]\n'
-"${SSH[@]}" "sudo -n -u '$CI_USER' /usr/bin/find '$CI_NPM_CACHE' -xdev -mindepth 1 -maxdepth 1 -exec /usr/bin/rm -rf -- {} +"
+"${SSH[@]}" "cd / && sudo -n -u '$CI_USER' /usr/bin/find '$CI_NPM_CACHE' -xdev -mindepth 1 -maxdepth 1 -exec /usr/bin/rm -rf -- {} +"
 
 printf '[ci-npm-cache-after]\n'
 "${SSH[@]}" "set -eu
