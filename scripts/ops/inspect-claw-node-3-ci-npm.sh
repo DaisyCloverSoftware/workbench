@@ -4,12 +4,14 @@ set -euo pipefail
 TARGET_NODE="claw-node-3"
 CI_USER="daisyclover-ci"
 CI_HOME="/home/daisyclover-ci"
+CI_NPM_CACHE="/home/daisyclover-ci/.npm"
 
 if [ "${1:-}" = "--self-test" ]; then
   [ "$#" -eq 1 ]
   [ "$TARGET_NODE" = "claw-node-3" ]
   [ "$CI_USER" = "daisyclover-ci" ]
   [ "$CI_HOME" = "/home/daisyclover-ci" ]
+  [ "$CI_NPM_CACHE" = "/home/daisyclover-ci/.npm" ]
   printf 'INSPECT_CLAW_NODE_3_CI_NPM_SELF_TEST_OK\n'
   exit 0
 fi
@@ -38,6 +40,22 @@ printf 'target=%s\n' "$TARGET_NODE"
 "${SSH[@]}" 'set -eu
 printf "[cache]\n"
 sudo -n du -sh /home/daisyclover-ci/.npm 2>/dev/null || echo missing
+printf "[cache-path-safety]\n"
+if [ -e /home/daisyclover-ci/.npm ] || [ -L /home/daisyclover-ci/.npm ]; then
+  sudo -n stat -c "owner=%U:%G mode=%A type=%F path=%n" /home/daisyclover-ci/.npm
+  printf "resolved="; sudo -n readlink -f /home/daisyclover-ci/.npm
+  if [ -L /home/daisyclover-ci/.npm ]; then echo symlink=yes; else echo symlink=no; fi
+else
+  echo missing
+fi
+printf "[required-tools]\n"
+for tool in /usr/bin/find /usr/bin/rm /bin/find /bin/rm; do
+  if [ -x "$tool" ]; then printf "executable=%s\\n" "$tool"; else printf "missing=%s\\n" "$tool"; fi
+done
+printf "[immediate-entry-ownership]\n"
+sudo -n find /home/daisyclover-ci/.npm -xdev -mindepth 1 -maxdepth 1 -printf "%f|owner=%u:%g|type=%y\\n" 2>/dev/null | sort || true
+printf "[foreign-immediate-entries]\n"
+sudo -n find /home/daisyclover-ci/.npm -xdev -mindepth 1 -maxdepth 1 ! -user daisyclover-ci -printf "%p|owner=%u:%g\\n" 2>/dev/null | sort || true
 printf "[system-paths]\n"
 for path in /usr/bin/npm /usr/local/bin/npm /bin/npm /usr/bin/node /usr/local/bin/node /bin/node; do
   if [ -e "$path" ] || [ -L "$path" ]; then
