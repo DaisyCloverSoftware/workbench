@@ -13,6 +13,7 @@ import (
 
 const (
 	relayProgressMinimumLease = 2 * time.Minute
+	relayProgressIdleLease    = 10 * time.Minute
 	relayProgressControlGrace = 3 * time.Minute
 	relayProgressPublishLease = 15 * time.Minute
 )
@@ -31,9 +32,19 @@ var relayProgress struct {
 	idleLease time.Duration
 }
 
+func init() {
+	interval := 10 * time.Second
+	if raw := strings.TrimSpace(os.Getenv("WORKBENCH_RELAY_PROGRESS_INTERVAL")); raw != "" {
+		if parsed, err := time.ParseDuration(raw); err == nil && parsed > 0 {
+			interval = parsed
+		}
+	}
+	_ = configureRelayProgress(os.Getenv("WORKBENCH_RELAY_PROGRESS_FILE"), interval)
+}
+
 func configureRelayProgress(path string, interval time.Duration) error {
 	path = strings.TrimSpace(path)
-	idle := relayProgressMinimumLease
+	idle := relayProgressIdleLease
 	if candidate := interval + time.Minute; candidate > idle {
 		idle = candidate
 	}
@@ -50,8 +61,8 @@ func configureRelayProgress(path string, interval time.Duration) error {
 func relayIdleProgressLease() time.Duration {
 	relayProgress.Lock()
 	defer relayProgress.Unlock()
-	if relayProgress.idleLease < relayProgressMinimumLease {
-		return relayProgressMinimumLease
+	if relayProgress.idleLease < relayProgressIdleLease {
+		return relayProgressIdleLease
 	}
 	return relayProgress.idleLease
 }
@@ -66,7 +77,7 @@ func noteRelayProgress(phase string, lease time.Duration) error {
 	if relayProgress.path == "" {
 		return nil
 	}
-	if lease < relayProgress.idleLease {
+	if lease <= 0 {
 		lease = relayProgress.idleLease
 	}
 	if lease < relayProgressMinimumLease {
@@ -155,8 +166,8 @@ func privateControlProgressLease(env privateControlEnvelope) time.Duration {
 	case "ensure_github_project":
 		lease = relayProgressPublishLease
 	}
-	if lease < relayIdleProgressLease() {
-		return relayIdleProgressLease()
+	if lease < relayProgressMinimumLease {
+		return relayProgressMinimumLease
 	}
 	return lease
 }
