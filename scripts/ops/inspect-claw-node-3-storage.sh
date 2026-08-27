@@ -58,6 +58,26 @@ for root in /home /opt /srv /var /tmp; do
     sudo -n du -x -B1 -d1 "$root" 2>/dev/null || true
   fi
 done | sort -nr | head -n 100
+printf "[var-lib-children-bytes]\n"
+sudo -n du -x -B1 -d1 /var/lib 2>/dev/null | sort -nr | head -n 100 || true
+printf "[docker-storage-bytes]\n"
+if [ -d /var/lib/docker ]; then
+  sudo -n du -x -B1 -d2 /var/lib/docker 2>/dev/null | sort -nr | head -n 100 || true
+else
+  echo missing
+fi
+printf "[docker-system-df]\n"
+if command -v docker >/dev/null 2>&1; then
+  sudo -n docker system df 2>/dev/null || true
+else
+  echo unavailable
+fi
+printf "[runner-home-children-bytes]\n"
+if [ -d /home/daisyclover-ci ]; then
+  sudo -n du -x -B1 -d2 /home/daisyclover-ci 2>/dev/null | sort -nr | head -n 100 || true
+else
+  echo missing
+fi
 printf "[runner-workspaces-bytes]\n"
 for root in /home /opt /srv /var /tmp; do
   [ -e "$root" ] || continue
@@ -68,6 +88,19 @@ done | while IFS= read -r workspace; do
   [ -n "$bytes" ] || bytes=0
   printf "%s\t%s\n" "$bytes" "$workspace"
 done | sort -nr
+printf "[runner-workspace-metadata]\n"
+for workspace in /home/daisyclover-ci/actions-runner/_work /home/daisyclover-ci/actions-runner-2/_work; do
+  if [ -d "$workspace" ]; then
+    sudo -n stat -c "%n|bytes=%s|modified=%y|owner=%U:%G" "$workspace" 2>/dev/null || true
+    sudo -n find "$workspace" -mindepth 1 -maxdepth 1 -printf "%T@\t%p\n" 2>/dev/null | sort -nr | head -n 20 || true
+  fi
+done
+printf "[legacy-runner-systemd-units]\n"
+sudo -n systemctl list-units --type=service --all --no-pager --no-legend 2>/dev/null | grep -Ei "actions[.]runner|github.*runner|runner.*github" || true
+printf "[legacy-runner-service-files]\n"
+sudo -n find /etc/systemd/system -maxdepth 2 \( -type f -o -type l \) \( -name "actions.runner*.service" -o -iname "*github*runner*.service" \) -printf "%p -> %l\n" 2>/dev/null | sort || true
+printf "[legacy-runner-processes]\n"
+ps -eo pid=,lstart=,args= | grep -E "Runner[.](Listener|Worker)|runsvc[.]sh|actions-runner/(bin/)?Runner" | grep -v grep || true
 printf "[kubelet-storage-bytes]\n"
 sudo -n du -x -B1 -d2 /var/lib/kubelet 2>/dev/null | sort -nr | head -n 80 || true
 printf "[k3s-storage-bytes]\n"
