@@ -40,6 +40,7 @@ func newRelayGitCommand(ctx context.Context, timeout time.Duration, repo string,
 	if timeout <= 0 {
 		timeout = relayGitLocalTimeout
 	}
+	markRelayProgress("git", relayIdleProgressLease())
 	gitCtx, cancel := context.WithTimeout(ctx, timeout)
 	argv := append([]string{"-C", repo}, args...)
 	cmd := exec.CommandContext(gitCtx, "git", argv...)
