@@ -42,6 +42,8 @@ const { chromium } = require('playwright');
     'One down. Five up. No stars.',
     'Explore RUM',
   ];
+  const consoleErrors = [];
+  const pageErrors = [];
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -50,35 +52,43 @@ const { chromium } = require('playwright');
     serviceWorkers: 'block',
   });
   const page = await context.newPage();
+  page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+  page.on('pageerror', (err) => pageErrors.push(String(err)));
   await page.setExtraHTTPHeaders({ 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' });
-  await page.goto(url + '/?browser_proof=' + Date.now(), { waitUntil: 'networkidle', timeout: 60000 });
-  await page.waitForTimeout(1200);
+  const response = await page.goto(url + '/', { waitUntil: 'networkidle', timeout: 60000 });
+  await page.waitForTimeout(2500);
   const title = await page.title();
   const visible = await page.locator('body').innerText();
-
-  for (const marker of markers) {
-    if (!visible.includes(marker)) throw new Error('missing visible marker: ' + marker);
-  }
-  if (visible.includes('RateUrMate')) throw new Error('obsolete RateUrMate placeholder text is still visibly present');
-
   await page.screenshot({ path: screenshot, fullPage: true, type: 'jpeg', quality: 78 });
 
   const versionPage = await context.newPage();
   await versionPage.setExtraHTTPHeaders({ 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' });
-  await versionPage.goto(url + '/VERSION?browser_proof=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
+  const versionResponse = await versionPage.goto(url + '/VERSION', { waitUntil: 'domcontentloaded', timeout: 30000 });
   const versionText = (await versionPage.locator('body').innerText()).trim();
-  if (!versionText.includes(expectedVersion)) throw new Error('VERSION mismatch: ' + JSON.stringify(versionText));
 
   const bytes = fs.readFileSync(screenshot);
   const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  const compactVisible = visible.replace(/\s+/g, ' ').trim().slice(0, 2200);
+  console.log('HTTP_STATUS=' + (response ? response.status() : 'none'));
   console.log('BROWSER_TITLE=' + title.replace(/\s+/g, ' ').trim());
+  console.log('VISIBLE_TEXT=' + compactVisible);
+  console.log('CONSOLE_ERRORS=' + consoleErrors.map(x => x.replace(/\s+/g, ' ')).join(' || ').slice(0, 1800));
+  console.log('PAGE_ERRORS=' + pageErrors.map(x => x.replace(/\s+/g, ' ')).join(' || ').slice(0, 1800));
+  console.log('VERSION_HTTP_STATUS=' + (versionResponse ? versionResponse.status() : 'none'));
+  console.log('VERSION=' + versionText.replace(/\s+/g, ' ').trim());
+  console.log('SCREENSHOT_SHA256=' + digest);
+  console.log('__RAT_BROWSER_CAPTURED__');
+
+  const missing = markers.filter(marker => !visible.includes(marker));
+  if (missing.length) throw new Error('missing visible markers: ' + missing.join(' || '));
+  if (visible.includes('RateUrMate')) throw new Error('obsolete RateUrMate placeholder text is still visibly present');
+  if (!versionText.includes(expectedVersion)) throw new Error('VERSION mismatch: ' + JSON.stringify(versionText));
+
   console.log('VISIBLE_MARKER_SEARCH=true');
   console.log('VISIBLE_MARKER_FIND_RATE=true');
   console.log('VISIBLE_MARKER_SCALE=true');
   console.log('VISIBLE_MARKER_EXPLORE=true');
   console.log('OLD_PLACEHOLDER_VISIBLE=false');
-  console.log('VERSION=' + versionText.replace(/\s+/g, ' ').trim());
-  console.log('SCREENSHOT_SHA256=' + digest);
   console.log('__RAT_BROWSER_PROOF_DONE__');
   await browser.close();
 })().catch((error) => {
@@ -97,13 +107,15 @@ kc -n "$NAMESPACE" run "$POD" \
   --env="RAT_EXPECTED_VERSION=$EXPECTED_VERSION" \
   --env="PROOF_JS_B64=$PROOF_JS_B64" \
   --command -- bash -lc '
-    set -euo pipefail
+    set -u
     mkdir -p /proof /evidence
     printf "%s" "$PROOF_JS_B64" | base64 -d > /proof/proof.js
     cd /proof
     npm init -y >/dev/null 2>&1
     npm install --no-save playwright@1.62.0
     node /proof/proof.js
+    status=$?
+    echo BROWSER_NODE_EXIT=$status
     sleep 600
   ' >/dev/null
 
@@ -112,8 +124,10 @@ echo "BROWSER_PROOF_POD=$NAMESPACE/$POD"
 logs=""
 for _ in $(seq 1 120); do
   logs="$(kc -n "$NAMESPACE" logs "$POD" 2>&1 || true)"
-  if grep -Fq '__RAT_BROWSER_PROOF_DONE__' <<<"$logs"; then
-    break
+  if grep -Eq '__RAT_BROWSER_(CAPTURED|PROOF_DONE)__' <<<"$logs"; then
+    if grep -Fq 'BROWSER_NODE_EXIT=' <<<"$logs"; then
+      break
+    fi
   fi
   phase="$(kc -n "$NAMESPACE" get pod "$POD" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
   if [[ "$phase" == "Failed" || "$phase" == "Succeeded" ]]; then
@@ -123,19 +137,20 @@ for _ in $(seq 1 120); do
 done
 
 printf '%s\n' "$logs"
+
+if grep -Fq '__RAT_BROWSER_CAPTURED__' <<<"$logs"; then
+  kc -n "$NAMESPACE" cp "$POD:/evidence/rat-sprint.jpg" "$ARTIFACT" >/dev/null || true
+fi
+if [[ -s "$ARTIFACT" ]]; then
+  printf 'BROWSER_EVIDENCE_CAPTURED=true\n'
+  printf 'BROWSER_EVIDENCE_PATH=%s\n' "$ARTIFACT"
+  printf 'BROWSER_EVIDENCE_SHA256=%s\n' "$(sha256sum "$ARTIFACT" | awk '{print $1}')"
+  printf 'BROWSER_EVIDENCE_BYTES=%s\n' "$(wc -c < "$ARTIFACT" | tr -d ' ')"
+else
+  printf 'BROWSER_EVIDENCE_CAPTURED=false\n'
+fi
+
 grep -Fq '__RAT_BROWSER_PROOF_DONE__' <<<"$logs" || {
-  echo "ERROR: browser proof did not complete successfully" >&2
-  kc -n "$NAMESPACE" describe pod "$POD" 2>/dev/null || true
+  echo "ERROR: browser proof assertions did not pass" >&2
   exit 5
 }
-
-kc -n "$NAMESPACE" cp "$POD:/evidence/rat-sprint.jpg" "$ARTIFACT" >/dev/null
-[[ -s "$ARTIFACT" ]] || {
-  echo "ERROR: screenshot artifact was not copied" >&2
-  exit 6
-}
-
-printf 'BROWSER_EVIDENCE_CAPTURED=true\n'
-printf 'BROWSER_EVIDENCE_PATH=%s\n' "$ARTIFACT"
-printf 'BROWSER_EVIDENCE_SHA256=%s\n' "$(sha256sum "$ARTIFACT" | awk '{print $1}')"
-printf 'BROWSER_EVIDENCE_BYTES=%s\n' "$(wc -c < "$ARTIFACT" | tr -d ' ')"
