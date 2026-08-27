@@ -13,6 +13,8 @@ relay_branch="${WORKBENCH_RELAY_BRANCH:-main}"
 relay_interval="${WORKBENCH_RELAY_INTERVAL:-10s}"
 relay_private="${WORKBENCH_RELAY_PRIVATE:-0}"
 result_mode="${WORKBENCH_RELAY_RESULT_MODE:-}"
+progress_file="$state_dir/workbench-github-relay-progress.json"
+watchdog_bin="$bin_dir/workbench-relay-watchdog"
 mkdir -p "$bin_dir" "$config_dir" "$state_dir"
 chmod 0700 "$config_dir" "$state_dir"
 
@@ -161,6 +163,7 @@ cd "$repo_root"
 "$go_bin" test ./...
 "$go_bin" build -trimpath -o "$bin_dir/workbench-relay" ./cmd/workbench-relay
 chmod 0755 "$bin_dir/workbench-relay"
+install -m 0755 "$repo_root/scripts/ops/workbench-relay-watchdog.sh" "$watchdog_bin"
 
 relay_args=(
   --repo-dir "$relay_repo"
@@ -177,6 +180,7 @@ relay_args=(
 # validated above; using --once here could execute an unrelated long control and
 # delay the supervisor restart while the old daemon kept running the old binary.
 "$bin_dir/workbench-relay" "${relay_args[@]}" --help >/dev/null 2>&1
+"$watchdog_bin" --self-test >/dev/null
 
 start_fallback() {
   local pid_file="$state_dir/workbench-github-relay.pid"
@@ -197,6 +201,10 @@ service_mode="fallback"
 if command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then
   unit_dir="$HOME/.config/systemd/user"
   mkdir -p "$unit_dir"
+  # Stop the old watchdog while replacing the relay binary and its progress
+  # file. This prevents a stale lease from racing an intentional installer
+  # restart. The timer is re-enabled only after the new PID publishes a lease.
+  systemctl --user disable --now workbench-github-relay-watchdog.timer >/dev/null 2>&1 || true
   cat > "$unit_dir/workbench-github-relay.service" <<EOF
 [Unit]
 Description=Workbench bidirectional Git task relay
@@ -205,6 +213,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+Environment=WORKBENCH_RELAY_PROGRESS_FILE=$progress_file
+Environment=WORKBENCH_RELAY_PROGRESS_INTERVAL=$relay_interval
 ExecStart=$bin_dir/workbench-relay --repo-dir=$relay_repo --remote=$relay_remote --branch=$relay_branch --interval=$relay_interval --mcp-url=$mcp_url --auth-file=$auth_file --result-mode=$result_mode --public-transport=$public_transport
 Restart=always
 RestartSec=3
@@ -212,6 +222,31 @@ RestartSec=3
 [Install]
 WantedBy=default.target
 EOF
+  cat > "$unit_dir/workbench-github-relay-watchdog.service" <<EOF
+[Unit]
+Description=Workbench Git relay forward-progress watchdog
+After=workbench-github-relay.service
+
+[Service]
+Type=oneshot
+Environment=WORKBENCH_RELAY_PROGRESS_FILE=$progress_file
+ExecStart=$watchdog_bin
+TimeoutStartSec=60s
+EOF
+  cat > "$unit_dir/workbench-github-relay-watchdog.timer" <<EOF
+[Unit]
+Description=Check Workbench Git relay forward progress
+
+[Timer]
+OnActiveSec=45s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Unit=workbench-github-relay-watchdog.service
+
+[Install]
+WantedBy=timers.target
+EOF
+  rm -f "$progress_file"
   systemctl --user daemon-reload
   # `enable --now` does not restart an already-active unit after its ExecStart
   # changes. Explicitly restart so rerunning the installer actually switches an
@@ -219,7 +254,7 @@ EOF
   systemctl --user enable workbench-github-relay.service >/dev/null
   systemctl --user restart workbench-github-relay.service
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if systemctl --user is-active --quiet workbench-github-relay.service; then
+    if systemctl --user is-active --quiet workbench-github-relay.service && [ -s "$progress_file" ]; then
       break
     fi
     sleep 1
@@ -228,7 +263,16 @@ EOF
     echo "Workbench relay service did not become active after restart." >&2
     exit 1
   }
-  service_mode="systemd --user"
+  [ -s "$progress_file" ] || {
+    echo "Workbench relay did not publish its initial forward-progress lease." >&2
+    exit 1
+  }
+  systemctl --user enable --now workbench-github-relay-watchdog.timer >/dev/null
+  systemctl --user is-active --quiet workbench-github-relay-watchdog.timer || {
+    echo "Workbench relay watchdog timer did not become active." >&2
+    exit 1
+  }
+  service_mode="systemd --user + adaptive progress watchdog"
 else
   start_fallback
 fi
