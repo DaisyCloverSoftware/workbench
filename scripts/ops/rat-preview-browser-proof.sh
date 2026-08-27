@@ -10,7 +10,7 @@ POD="rat-browser-proof-$(date +%s)"
 ARTIFACT="/tmp/rat-browser-evidence-20260828.jpg"
 IMAGE="mcr.microsoft.com/playwright:v1.62.0-noble"
 
-for command in kubectl grep sha256sum mktemp; do
+for command in kubectl grep sha256sum base64; do
   command -v "$command" >/dev/null 2>&1 || {
     echo "ERROR: required command unavailable: $command" >&2
     exit 3
@@ -22,7 +22,9 @@ cleanup() {
 }
 trap cleanup EXIT HUP INT TERM
 
-cat > /tmp/rat-browser-proof-node.js <<'NODE'
+node_script="$(mktemp)"
+trap 'rm -f "$node_script"; cleanup' EXIT HUP INT TERM
+cat > "$node_script" <<'NODE'
 const fs = require('fs');
 const crypto = require('crypto');
 const { chromium } = require('playwright');
@@ -62,9 +64,7 @@ const { chromium } = require('playwright');
   await versionPage.setExtraHTTPHeaders({ 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' });
   await versionPage.goto(url + '/VERSION?browser_proof=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
   const versionText = (await versionPage.locator('body').innerText()).trim();
-  if (!versionText.includes(expectedVersion)) {
-    throw new Error('VERSION mismatch: ' + JSON.stringify(versionText));
-  }
+  if (!versionText.includes(expectedVersion)) throw new Error('VERSION mismatch: ' + JSON.stringify(versionText));
 
   const bytes = fs.readFileSync(screenshot);
   const digest = crypto.createHash('sha256').update(bytes).digest('hex');
@@ -84,41 +84,55 @@ const { chromium } = require('playwright');
 });
 NODE
 
-# The temporary pod runs only inside the authorised isolated RAT namespace.
-# It stays alive briefly after proof so kubectl can copy the screenshot out.
+PROOF_JS_B64="$(base64 -w 0 "$node_script")"
+
 kubectl -n "$NAMESPACE" run "$POD" \
   --image="$IMAGE" \
   --restart=Never \
   --labels=app.kubernetes.io/component=rat-browser-proof \
   --env="RAT_URL=$URL" \
   --env="RAT_EXPECTED_VERSION=$EXPECTED_VERSION" \
+  --env="PROOF_JS_B64=$PROOF_JS_B64" \
   --command -- bash -lc '
     set -euo pipefail
     mkdir -p /proof /evidence
+    printf "%s" "$PROOF_JS_B64" | base64 -d > /proof/proof.js
     cd /proof
     npm init -y >/dev/null 2>&1
-    npm install --no-save playwright@1.62.0 >/dev/null 2>&1
-    cp /input/rat-browser-proof-node.js /proof/proof.js
+    npm install --no-save playwright@1.62.0
     node /proof/proof.js
     sleep 600
-  ' \
-  --overrides="$(python3 - <<'PY'
-import json
-print(json.dumps({
-  'spec': {
-    'containers': [{
-      'name': 'rat-browser-proof',
-      'image': 'mcr.microsoft.com/playwright:v1.62.0-noble',
-      'command': ['bash','-lc'],
-      'args': ['set -euo pipefail; mkdir -p /proof /evidence; cd /proof; npm init -y >/dev/null 2>&1; npm install --no-save playwright@1.62.0 >/dev/null 2>&1; cp /input/rat-browser-proof-node.js /proof/proof.js; node /proof/proof.js; sleep 600'],
-      'env': [
-        {'name':'RAT_URL','value':'https://dev-rum-ra.daisycloversoftware.uk'},
-        {'name':'RAT_EXPECTED_VERSION','value':'9f946210bc7053d043289107709010e8f88ee788'}
-      ],
-      'volumeMounts': [{'name':'proof-script','mountPath':'/input','readOnly':True}]
-    }],
-    'volumes': [{'name':'proof-script','configMap':{'name': 'PLACEHOLDER'}}]
-  }
-}))
-PY
-)" >/dev/null
+  ' >/dev/null
+
+echo "BROWSER_PROOF_POD=$NAMESPACE/$POD"
+
+logs=""
+for _ in $(seq 1 120); do
+  logs="$(kubectl -n "$NAMESPACE" logs "$POD" 2>&1 || true)"
+  if grep -Fq '__RAT_BROWSER_PROOF_DONE__' <<<"$logs"; then
+    break
+  fi
+  phase="$(kubectl -n "$NAMESPACE" get pod "$POD" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  if [[ "$phase" == "Failed" || "$phase" == "Succeeded" ]]; then
+    break
+  fi
+  sleep 5
+done
+
+printf '%s\n' "$logs"
+grep -Fq '__RAT_BROWSER_PROOF_DONE__' <<<"$logs" || {
+  echo "ERROR: browser proof did not complete successfully" >&2
+  kubectl -n "$NAMESPACE" describe pod "$POD" 2>/dev/null || true
+  exit 5
+}
+
+kubectl -n "$NAMESPACE" cp "$POD:/evidence/rat-sprint.jpg" "$ARTIFACT" >/dev/null
+[[ -s "$ARTIFACT" ]] || {
+  echo "ERROR: screenshot artifact was not copied" >&2
+  exit 6
+}
+
+printf 'BROWSER_EVIDENCE_CAPTURED=true\n'
+printf 'BROWSER_EVIDENCE_PATH=%s\n' "$ARTIFACT"
+printf 'BROWSER_EVIDENCE_SHA256=%s\n' "$(sha256sum "$ARTIFACT" | awk '{print $1}')"
+printf 'BROWSER_EVIDENCE_BYTES=%s\n' "$(wc -c < "$ARTIFACT" | tr -d ' ')"
