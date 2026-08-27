@@ -63,13 +63,16 @@ fi
 # /var consumer and are protected application data. The only additional reclaim
 # target here is the dedicated CI user's stale npm cache. Validate the exact path,
 # ownership and absence of symlink redirection before deleting cache contents.
+# The operator account cannot traverse the CI home directly, so path inspection is
+# deliberately performed through the same non-interactive sudo boundary used by
+# the diagnostics; deletion itself still runs as the CI user.
 printf '[ci-cache-safety]\n'
 "${SSH[@]}" "set -eu
-  test -d '$CI_NPM_CACHE'
-  test ! -L '$CI_NPM_CACHE'
-  resolved=\$(readlink -f '$CI_NPM_CACHE')
+  sudo -n test -d '$CI_NPM_CACHE'
+  sudo -n test ! -L '$CI_NPM_CACHE'
+  resolved=\$(sudo -n readlink -f '$CI_NPM_CACHE')
   [ \"\$resolved\" = '$CI_NPM_CACHE' ]
-  owner=\$(stat -c '%U:%G' '$CI_NPM_CACHE')
+  owner=\$(sudo -n stat -c '%U:%G' '$CI_NPM_CACHE')
   [ \"\$owner\" = '$CI_USER:$CI_USER' ]
   test -x /usr/bin/find
   test -x /usr/bin/rm
