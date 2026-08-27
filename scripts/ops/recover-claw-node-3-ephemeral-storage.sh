@@ -2,10 +2,14 @@
 set -euo pipefail
 
 TARGET_NODE="claw-node-3"
+CI_USER="daisyclover-ci"
+CI_NPM_CACHE="/home/daisyclover-ci/.npm"
 
 if [ "${1:-}" = "--self-test" ]; then
   [ "$#" -eq 1 ]
   [ "$TARGET_NODE" = "claw-node-3" ]
+  [ "$CI_USER" = "daisyclover-ci" ]
+  [ "$CI_NPM_CACHE" = "/home/daisyclover-ci/.npm" ]
   printf 'RECOVER_CLAW_NODE_3_EPHEMERAL_STORAGE_SELF_TEST_OK\n'
   exit 0
 fi
@@ -64,14 +68,25 @@ printf '[before-images-summary]\n'
 printf '[prune-unused-k3s-images]\n'
 "${SSH[@]}" 'sudo -n k3s crictl rmi --prune'
 
+# The current incident's read-only diagnosis proved Longhorn replicas consume the
+# majority of /var and must not be touched. The minimum safe disposable pool is
+# the dedicated CI user's npm cache. Clear only that cache; do not remove runner
+# workspaces, Docker volumes, Longhorn data, pods, or Kubernetes taints.
+printf '[ci-npm-cache-before]\n'
+"${SSH[@]}" "sudo -n test -d '$CI_NPM_CACHE' && sudo -n du -sh '$CI_NPM_CACHE'"
+"${SSH[@]}" "sudo -n -u '$CI_USER' sh -lc 'command -v npm >/dev/null'"
+printf '[clear-ci-npm-cache]\n'
+"${SSH[@]}" "sudo -n -u '$CI_USER' sh -lc 'npm cache clean --force'"
+printf '[ci-npm-cache-after]\n'
+"${SSH[@]}" "sudo -n du -sh '$CI_NPM_CACHE'"
+
 printf '[after-filesystem]\n'
 "${SSH[@]}" 'df -h / /var/lib/rancher/k3s 2>/dev/null || df -h /'
 
 # Do not remove the Kubernetes DiskPressure taint manually. Kubelet owns that
-# condition; wait only for the automatic condition/taint recovery after space is
-# reclaimed.
+# condition; wait only for automatic recovery after safe cache reclamation.
 pressure="True"
-for _ in $(seq 1 18); do
+for _ in $(seq 1 24); do
   pressure="$("${KUBECTL[@]}" get node "$TARGET_NODE" -o jsonpath='{.status.conditions[?(@.type=="DiskPressure")].status}')"
   if [ "$pressure" != "True" ]; then
     break
@@ -84,7 +99,7 @@ printf '[after-node-condition]\n'
   -o 'custom-columns=NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,DISK_PRESSURE:.status.conditions[?(@.type=="DiskPressure")].status,TAINTS:.spec.taints[*].key'
 
 if [ "$pressure" = "True" ]; then
-  echo "ERROR: unused-image prune completed but node remains under DiskPressure; no broader cleanup was attempted" >&2
+  echo "ERROR: unused-image and dedicated CI npm-cache cleanup completed but node remains under DiskPressure; no broader cleanup was attempted" >&2
   exit 3
 fi
 
