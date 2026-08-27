@@ -171,6 +171,8 @@ func executePrivateControlCandidate(ctx context.Context, candidate privateContro
 	}
 
 	out.Action = candidate.env.Action
+	markRelayProgress("control-execute", privateControlProgressLease(candidate.env))
+	defer markRelayProgress("control-return", relayIdleProgressLease())
 	result, execErr := executePrivateControlForRepo(ctx, candidate.env, repo, mcpURL, authFile)
 	if execErr != nil {
 		out.Error = execErr.Error()
