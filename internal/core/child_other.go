@@ -13,24 +13,22 @@ import (
 const nonInteractiveChildWaitDelay = 2 * time.Second
 
 func configureChildProcess(cmd *exec.Cmd, interactive bool) {
-	if cmd == nil || interactive {
+	// Keep plain exec.Command and interactive processes on their historical
+	// lifecycle. The process-group policy is specifically for bounded commands
+	// created with exec.CommandContext, which install a Cancel callback.
+	if cmd == nil || interactive || cmd.Cancel == nil {
 		return
 	}
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
-	// Non-interactive Workbench commands run in their own process group so a
-	// context cancellation can terminate descendants such as ssh, git helpers,
-	// or shell children instead of killing only the immediate process.
+	// Context-backed non-interactive Workbench commands run in their own
+	// process group so cancellation terminates descendants such as ssh, git
+	// helpers, or shell children instead of killing only the immediate process.
 	cmd.SysProcAttr.Setpgid = true
 
-	// exec.CommandContext installs a direct-process Kill callback. Replace it
-	// with a process-group kill when a context-backed command is configured.
-	// Plain exec.Command calls have no Cancel callback and retain their existing
-	// lifecycle semantics.
-	if cmd.Cancel == nil {
-		return
-	}
+	// exec.CommandContext defaults to killing only cmd.Process. Preserve that
+	// hard-stop behavior while addressing the whole process group.
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
 			return os.ErrProcessDone
