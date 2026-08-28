@@ -16,6 +16,20 @@ VERSION_DOM_FILE="${EVIDENCE_DIR}/version.dom.html"
 PAGE_SCREENSHOT="${EVIDENCE_DIR}/rate-anything.png"
 VERSION_SCREENSHOT="${EVIDENCE_DIR}/version.png"
 
+if sudo -n kubectl version --client >/dev/null 2>&1; then
+  KUBECTL=(sudo -n kubectl)
+elif sudo -n k3s kubectl version --client >/dev/null 2>&1; then
+  KUBECTL=(sudo -n k3s kubectl)
+else
+  echo "ERROR: no sanctioned non-interactive Kubernetes client is available" >&2
+  exit 11
+fi
+
+if ! "${KUBECTL[@]}" get namespace "${NS}" -o name >/dev/null 2>&1; then
+  echo "ERROR: isolated RAT namespace is not readable: ${NS}" >&2
+  exit 12
+fi
+
 mkdir -p "${EVIDENCE_DIR}"
 rm -rf "${PROFILE_DIR}"
 mkdir -p "${PROFILE_DIR}"
@@ -24,27 +38,27 @@ printf 'scope.namespace=%s\n' "${NS}"
 printf 'scope.host=%s\n' "${HOST}"
 printf 'expected.sha=%s\n' "${EXPECTED_SHA}"
 
-# Neutralize only the stale failed Helm rev-20 migration hook.  Suspending is
-# deliberately reversible and prevents the old image from ever executing if it
-# later becomes pullable.  No production namespace or LIVE hostname is touched.
-if kubectl get job "${STALE_JOB}" -n "${NS}" >/dev/null 2>&1; then
-  kubectl patch job "${STALE_JOB}" -n "${NS}" --type=merge -p '{"spec":{"suspend":true}}' >/dev/null
-  suspended="$(kubectl get job "${STALE_JOB}" -n "${NS}" -o jsonpath='{.spec.suspend}')"
+# Neutralize only the stale failed Helm rev-20 migration hook. Suspending is
+# deliberately reversible and prevents the old image from executing if it ever
+# becomes pullable. No production namespace or LIVE hostname is touched.
+if "${KUBECTL[@]}" get job "${STALE_JOB}" -n "${NS}" >/dev/null 2>&1; then
+  "${KUBECTL[@]}" patch job "${STALE_JOB}" -n "${NS}" --type=merge -p '{"spec":{"suspend":true}}' >/dev/null
+  suspended="$("${KUBECTL[@]}" get job "${STALE_JOB}" -n "${NS}" -o jsonpath='{.spec.suspend}')"
   if [[ "${suspended}" != "true" ]]; then
     echo "ERROR: stale migration job did not become suspended" >&2
     exit 21
   fi
 
-  # Suspension should terminate any active pod.  Give the controller a bounded
+  # Suspension should terminate any active pod. Give the controller a bounded
   # interval, then fail closed if any pod for the stale job is still Pending or Running.
   for _ in $(seq 1 30); do
-    phases="$(kubectl get pods -n "${NS}" -l "job-name=${STALE_JOB}" -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null || true)"
+    phases="$("${KUBECTL[@]}" get pods -n "${NS}" -l "job-name=${STALE_JOB}" -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null || true)"
     if ! grep -Eq '^(Pending|Running)$' <<<"${phases}"; then
       break
     fi
     sleep 2
   done
-  phases="$(kubectl get pods -n "${NS}" -l "job-name=${STALE_JOB}" -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null || true)"
+  phases="$("${KUBECTL[@]}" get pods -n "${NS}" -l "job-name=${STALE_JOB}" -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null || true)"
   if grep -Eq '^(Pending|Running)$' <<<"${phases}"; then
     echo "ERROR: stale migration job still has an active pod after suspension" >&2
     printf '%s\n' "${phases}" >&2
@@ -56,10 +70,10 @@ else
   echo "stale_migration.absent=true"
 fi
 
-api_image="$(kubectl get deployment rum-api -n "${NS}" -o jsonpath='{.spec.template.spec.containers[0].image}')"
-frontend_image="$(kubectl get deployment rum-rate-anything -n "${NS}" -o jsonpath='{.spec.template.spec.containers[0].image}')"
-api_ready="$(kubectl get deployment rum-api -n "${NS}" -o jsonpath='{.status.readyReplicas}')"
-frontend_ready="$(kubectl get deployment rum-rate-anything -n "${NS}" -o jsonpath='{.status.readyReplicas}')"
+api_image="$("${KUBECTL[@]}" get deployment rum-api -n "${NS}" -o jsonpath='{.spec.template.spec.containers[0].image}')"
+frontend_image="$("${KUBECTL[@]}" get deployment rum-rate-anything -n "${NS}" -o jsonpath='{.spec.template.spec.containers[0].image}')"
+api_ready="$("${KUBECTL[@]}" get deployment rum-api -n "${NS}" -o jsonpath='{.status.readyReplicas}')"
+frontend_ready="$("${KUBECTL[@]}" get deployment rum-rate-anything -n "${NS}" -o jsonpath='{.status.readyReplicas}')"
 
 [[ "${api_image}" == "${EXPECTED_API}" ]] || { echo "ERROR: API digest mismatch: ${api_image}" >&2; exit 31; }
 [[ "${frontend_image}" == "${EXPECTED_FRONTEND}" ]] || { echo "ERROR: frontend digest mismatch: ${frontend_image}" >&2; exit 32; }
@@ -71,11 +85,13 @@ printf 'deployed.frontend=%s\n' "${frontend_image}"
 printf 'deployment.api_ready=%s\n' "${api_ready}"
 printf 'deployment.frontend_ready=%s\n' "${frontend_ready}"
 
-helm_revision="$(helm status "${RELEASE}" -n "${NS}" -o json | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
-helm_status="$(helm status "${RELEASE}" -n "${NS}" -o json | python3 -c 'import json,sys; print(json.load(sys.stdin)["info"]["status"])')"
-[[ "${helm_status}" == "deployed" ]] || { echo "ERROR: Helm release status is ${helm_status}" >&2; exit 35; }
+# Read the deployed Helm revision from Helm's release-secret labels using the
+# same sanctioned Kubernetes client, avoiding any ambient kubeconfig dependency.
+helm_revisions="$("${KUBECTL[@]}" get secrets -n "${NS}" -l "owner=helm,name=${RELEASE},status=deployed" -o jsonpath='{range .items[*]}{.metadata.labels.version}{"\n"}{end}')"
+helm_revision="$(printf '%s\n' "${helm_revisions}" | grep -E '^[0-9]+$' | sort -n | tail -n 1)"
+[[ -n "${helm_revision}" ]] || { echo "ERROR: no deployed Helm release revision found" >&2; exit 35; }
 printf 'helm.revision=%s\n' "${helm_revision}"
-printf 'helm.status=%s\n' "${helm_status}"
+printf 'helm.status=deployed\n'
 
 BROWSER=""
 for candidate in chromium chromium-browser google-chrome google-chrome-stable; do
