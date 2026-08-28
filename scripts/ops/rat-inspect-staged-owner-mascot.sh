@@ -9,7 +9,10 @@ trap 'rm -rf "$tmp"' EXIT
 git clone --quiet --depth=1 --branch "$TRANSFER_BRANCH" "$RUM_REPO" "$tmp/rum"
 cd "$tmp/rum"
 
-cat .rat-transfer/mascot.00 .rat-transfer/mascot.01 .rat-transfer/mascot.02 .rat-transfer/mascot.03 .rat-transfer/mascot.04 .rat-transfer/mascot.05 | base64 -d > "$tmp/mascot.webp"
+: > "$tmp/mascot.webp"
+for part in .rat-transfer/mascot.00 .rat-transfer/mascot.01 .rat-transfer/mascot.02 .rat-transfer/mascot.03 .rat-transfer/mascot.04 .rat-transfer/mascot.05; do
+  base64 -d "$part" >> "$tmp/mascot.webp"
+done
 
 printf 'bytes=%s\n' "$(wc -c < "$tmp/mascot.webp")"
 printf 'sha256=%s\n' "$(sha256sum "$tmp/mascot.webp" | awk '{print $1}')"
