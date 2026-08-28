@@ -34,20 +34,19 @@ jobs:
           test -n "$BROWSER"
           "$BROWSER" --version | tee "$EVIDENCE/browser-version.txt"
 
-          # Network diagnostics are intentionally read-only and bounded. They make
-          # any browser failure distinguishable from a page/assertion failure.
           curl -fsS --connect-timeout 10 --max-time 20 "$RAT_URL/" -o "$EVIDENCE/curl-index.html"
           curl -fsS --connect-timeout 10 --max-time 20 "$RAT_URL/VERSION" -o "$EVIDENCE/curl-version.txt"
+          grep -Fq '<title>RAT — Rate A Thing</title>' "$EVIDENCE/curl-index.html"
+          grep -Fq "$EXPECTED_SHA" "$EVIDENCE/curl-version.txt"
 
           python3 -m pip install --disable-pip-version-check --quiet selenium
           python3 - <<'PY'
           import hashlib
+          import json
           import os
           import pathlib
           import shutil
-          import sys
           import tempfile
-          import time
 
           from selenium import webdriver
           from selenium.webdriver.chrome.options import Options
@@ -56,12 +55,10 @@ jobs:
           url = os.environ["RAT_URL"].rstrip("/")
           expected_sha = os.environ["EXPECTED_SHA"]
           evidence = pathlib.Path(os.environ["RUNNER_TEMP"]) / "rat-browser-evidence"
-          browser = None
-          for candidate in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
-              path = shutil.which(candidate)
-              if path:
-                  browser = path
-                  break
+          browser = next(
+              (shutil.which(name) for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser") if shutil.which(name)),
+              None,
+          )
           if not browser:
               raise SystemExit("No Chromium-family browser found")
 
@@ -87,67 +84,110 @@ jobs:
               driver.set_script_timeout(20)
               driver.set_window_size(1440, 1800)
 
+              marker = "Rate A Thing — search anything. Find the right #thing# first."
               driver.get(url + "/")
-              WebDriverWait(driver, 25).until(
-                  lambda d: "Search anything. Find the right thing first." in d.page_source
-              )
+              WebDriverWait(driver, 25).until(lambda d: marker in d.page_source)
+
               page_html = driver.page_source
-              (evidence / "rate-anything.dom.html").write_text(page_html, encoding="utf-8")
+              (evidence / "rat-home-desktop.dom.html").write_text(page_html, encoding="utf-8")
               (evidence / "page-title.txt").write_text(driver.title + "\n", encoding="utf-8")
               (evidence / "page-url.txt").write_text(driver.current_url + "\n", encoding="utf-8")
-              if not driver.save_screenshot(str(evidence / "rate-anything.png")):
-                  raise RuntimeError("Failed to save RAT page screenshot")
+              if driver.title != "RAT — Rate A Thing":
+                  raise AssertionError(f"Unexpected browser title: {driver.title!r}")
 
               expected_markers = (
-                  "RUM — Rate Anything",
+                  "RUM RAT",
+                  marker,
+                  "Search a product, creator, company, video or place…",
+                  "RAT searches Things and explicitly public personas. Private RUM people are never included.",
+                  "/brand/rat-wordmark.webp",
+                  "/brand/rum-thumb.webp",
+                  "/brand/rat-pirate-mascot.webp",
+              )
+              missing = [value for value in expected_markers if value not in page_html]
+              if missing:
+                  raise AssertionError(f"Missing deployed RAT browser markers: {missing}")
+
+              old_page_markers = (
+                  "RUM Rate Anything",
                   "Search anything. Find the right thing first.",
                   "Find it. Understand it. Rate it.",
                   "One down. Five up. No stars.",
-                  "Explore RUM",
-                  "/brand/rum-swipe-card-r-mark-transparent.png",
-                  "/brand/rum-six-position-rating-device.png",
               )
-              missing = [marker for marker in expected_markers if marker not in page_html]
-              if missing:
-                  raise AssertionError(f"Missing browser DOM markers: {missing}")
-              if "RateUrMate" in page_html:
-                  raise AssertionError("Legacy RateUrMate marker is still present")
-              if "rum-primary-horizontal-logo-on-cream.png" in page_html:
-                  raise AssertionError("Legacy horizontal logo asset is still present")
+              present_old = [value for value in old_page_markers if value in page_html]
+              if present_old:
+                  raise AssertionError(f"Obsolete Rate Anything page markers still rendered: {present_old}")
 
+              if not driver.save_screenshot(str(evidence / "rat-home-desktop.png")):
+                  raise RuntimeError("Failed to save desktop RAT screenshot")
+
+              desktop_metrics = driver.execute_script(
+                  "return {innerWidth: window.innerWidth, innerHeight: window.innerHeight, "
+                  "scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight};"
+              )
+              (evidence / "desktop-metrics.json").write_text(json.dumps(desktop_metrics, indent=2) + "\n", encoding="utf-8")
+
+              driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
+                  "width": 390,
+                  "height": 844,
+                  "deviceScaleFactor": 1,
+                  "mobile": True,
+              })
+              driver.get(url + "/")
+              WebDriverWait(driver, 25).until(lambda d: marker in d.page_source)
+              mobile_html = driver.page_source
+              (evidence / "rat-home-mobile-390.dom.html").write_text(mobile_html, encoding="utf-8")
+              mobile_metrics = driver.execute_script(
+                  "return {innerWidth: window.innerWidth, innerHeight: window.innerHeight, "
+                  "scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight};"
+              )
+              (evidence / "mobile-390-metrics.json").write_text(json.dumps(mobile_metrics, indent=2) + "\n", encoding="utf-8")
+              if int(mobile_metrics["innerWidth"]) != 390:
+                  raise AssertionError(f"390px viewport emulation failed: {mobile_metrics}")
+              if int(mobile_metrics["scrollWidth"]) > 390:
+                  raise AssertionError(f"Horizontal overflow at 390px: {mobile_metrics}")
+              if not driver.save_screenshot(str(evidence / "rat-home-mobile-390.png")):
+                  raise RuntimeError("Failed to save 390px RAT screenshot")
+
+              driver.execute_cdp_cmd("Emulation.clearDeviceMetricsOverride", {})
+              driver.set_window_size(1440, 900)
               driver.get(url + "/VERSION")
               WebDriverWait(driver, 20).until(lambda d: expected_sha in d.page_source)
               version_html = driver.page_source
               (evidence / "version.dom.html").write_text(version_html, encoding="utf-8")
               (evidence / "version-url.txt").write_text(driver.current_url + "\n", encoding="utf-8")
-              if expected_sha not in version_html:
-                  raise AssertionError("Expected candidate SHA is absent from browser /VERSION")
               if not driver.save_screenshot(str(evidence / "version.png")):
                   raise RuntimeError("Failed to save /VERSION screenshot")
 
-              page_png = evidence / "rate-anything.png"
-              version_png = evidence / "version.png"
-              page_sha256 = hashlib.sha256(page_png.read_bytes()).hexdigest()
-              version_sha256 = hashlib.sha256(version_png.read_bytes()).hexdigest()
-              proof = "\n".join((
+              screenshots = {
+                  "desktop": evidence / "rat-home-desktop.png",
+                  "mobile390": evidence / "rat-home-mobile-390.png",
+                  "version": evidence / "version.png",
+              }
+              proof_lines = [
                   "RAT_BROWSER_PROOF_OK",
                   f"url={url}",
                   f"version={expected_sha}",
                   "browser_page_verified=true",
                   "old_unapproved_page_replaced=true",
                   "browser_version_verified=true",
-                  f"page_screenshot_sha256={page_sha256}",
-                  f"page_screenshot_bytes={page_png.stat().st_size}",
-                  f"version_screenshot_sha256={version_sha256}",
-                  f"version_screenshot_bytes={version_png.stat().st_size}",
-                  "",
-              ))
+                  "desktop_verified=true",
+                  "mobile_390_verified=true",
+              ]
+              for label, path in screenshots.items():
+                  proof_lines.append(f"{label}_screenshot_sha256={hashlib.sha256(path.read_bytes()).hexdigest()}")
+                  proof_lines.append(f"{label}_screenshot_bytes={path.stat().st_size}")
+              proof = "\n".join(proof_lines) + "\n"
               (evidence / "proof.txt").write_text(proof, encoding="utf-8")
               print(proof, end="")
           except Exception as exc:
-              (evidence / "browser-failure.txt").write_text(
-                  f"{type(exc).__name__}: {exc}\n", encoding="utf-8"
-              )
+              if driver is not None:
+                  try:
+                      (evidence / "failure-current.dom.html").write_text(driver.page_source, encoding="utf-8")
+                      driver.save_screenshot(str(evidence / "failure-current.png"))
+                  except Exception:
+                      pass
+              (evidence / "browser-failure.txt").write_text(f"{type(exc).__name__}: {exc}\n", encoding="utf-8")
               raise
           finally:
               if driver is not None:
