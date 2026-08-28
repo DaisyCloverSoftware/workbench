@@ -1,0 +1,109 @@
+name: RAT Sprint 1 browser proof
+
+on:
+  push:
+    branches:
+      - ops/rat-s1-owner-review-proof-20260828
+
+permissions:
+  contents: read
+
+jobs:
+  browser-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Capture fresh Chromium evidence
+        shell: bash
+        env:
+          RAT_URL: https://dev-rum-ra.daisycloversoftware.uk
+          EXPECTED_SHA: 9f946210bc7053d043289107709010e8f88ee788
+        run: |
+          set -euo pipefail
+
+          EVIDENCE="$RUNNER_TEMP/rat-browser-evidence"
+          mkdir -p "$EVIDENCE"
+
+          BROWSER=""
+          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+            if command -v "$candidate" >/dev/null 2>&1; then
+              BROWSER="$(command -v "$candidate")"
+              break
+            fi
+          done
+          test -n "$BROWSER"
+          "$BROWSER" --version
+
+          fresh_browser() {
+            local profile
+            profile="$(mktemp -d "$RUNNER_TEMP/rat-chrome-profile.XXXXXX")"
+            timeout 45s "$BROWSER" \
+              --headless=new \
+              --no-sandbox \
+              --disable-gpu \
+              --disable-dev-shm-usage \
+              --incognito \
+              --user-data-dir="$profile" \
+              --window-size=1440,1800 \
+              --virtual-time-budget=8000 \
+              "$@"
+            rm -rf "$profile"
+          }
+
+          fresh_browser --dump-dom "$RAT_URL/" > "$EVIDENCE/rate-anything.dom.html" 2> "$EVIDENCE/rate-anything.stderr.log"
+          fresh_browser --screenshot="$EVIDENCE/rate-anything.png" "$RAT_URL/" > "$EVIDENCE/rate-anything-screenshot.stdout.log" 2> "$EVIDENCE/rate-anything-screenshot.stderr.log"
+          fresh_browser --dump-dom "$RAT_URL/VERSION" > "$EVIDENCE/version.dom.html" 2> "$EVIDENCE/version.stderr.log"
+          fresh_browser --screenshot="$EVIDENCE/version.png" "$RAT_URL/VERSION" > "$EVIDENCE/version-screenshot.stdout.log" 2> "$EVIDENCE/version-screenshot.stderr.log"
+
+          for marker in \
+            'RUM — Rate Anything' \
+            'Search anything. Find the right thing first.' \
+            'Find it. Understand it. Rate it.' \
+            'One down. Five up. No stars.' \
+            'Explore RUM' \
+            '/brand/rum-swipe-card-r-mark-transparent.png' \
+            '/brand/rum-six-position-rating-device.png'; do
+            grep -Fq "$marker" "$EVIDENCE/rate-anything.dom.html"
+          done
+
+          ! grep -Fq 'RateUrMate' "$EVIDENCE/rate-anything.dom.html"
+          ! grep -Fq 'rum-primary-horizontal-logo-on-cream.png' "$EVIDENCE/rate-anything.dom.html"
+          grep -Fq "$EXPECTED_SHA" "$EVIDENCE/version.dom.html"
+
+          test -s "$EVIDENCE/rate-anything.png"
+          test -s "$EVIDENCE/version.png"
+
+          PAGE_SHA256="$(sha256sum "$EVIDENCE/rate-anything.png" | awk '{print $1}')"
+          VERSION_SHA256="$(sha256sum "$EVIDENCE/version.png" | awk '{print $1}')"
+          PAGE_BYTES="$(wc -c < "$EVIDENCE/rate-anything.png" | tr -d ' ')"
+          VERSION_BYTES="$(wc -c < "$EVIDENCE/version.png" | tr -d ' ')"
+
+          cat > "$EVIDENCE/proof.txt" <<EOF
+          RAT_BROWSER_PROOF_OK
+          url=$RAT_URL
+          version=$EXPECTED_SHA
+          browser_page_verified=true
+          old_unapproved_page_replaced=true
+          browser_version_verified=true
+          page_screenshot_sha256=$PAGE_SHA256
+          page_screenshot_bytes=$PAGE_BYTES
+          version_screenshot_sha256=$VERSION_SHA256
+          version_screenshot_bytes=$VERSION_BYTES
+          EOF
+
+          cat "$EVIDENCE/proof.txt"
+          {
+            echo '## RAT Sprint 1 browser proof'
+            echo
+            echo '```text'
+            cat "$EVIDENCE/proof.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload browser evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rat-s1-browser-evidence
+          path: ${{ runner.temp }}/rat-browser-evidence
+          if-no-files-found: error
+          retention-days: 14
