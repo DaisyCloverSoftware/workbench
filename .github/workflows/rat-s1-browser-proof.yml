@@ -32,66 +32,129 @@ jobs:
             fi
           done
           test -n "$BROWSER"
-          "$BROWSER" --version
+          "$BROWSER" --version | tee "$EVIDENCE/browser-version.txt"
 
-          fresh_browser() {
-            local profile
-            profile="$(mktemp -d "$RUNNER_TEMP/rat-chrome-profile.XXXXXX")"
-            timeout 45s "$BROWSER" \
-              --headless=new \
-              --no-sandbox \
-              --disable-gpu \
-              --disable-dev-shm-usage \
-              --incognito \
-              --user-data-dir="$profile" \
-              --window-size=1440,1800 \
-              --virtual-time-budget=8000 \
-              "$@"
-            rm -rf "$profile"
-          }
+          # Network diagnostics are intentionally read-only and bounded. They make
+          # any browser failure distinguishable from a page/assertion failure.
+          curl -fsS --connect-timeout 10 --max-time 20 "$RAT_URL/" -o "$EVIDENCE/curl-index.html"
+          curl -fsS --connect-timeout 10 --max-time 20 "$RAT_URL/VERSION" -o "$EVIDENCE/curl-version.txt"
 
-          fresh_browser --dump-dom "$RAT_URL/" > "$EVIDENCE/rate-anything.dom.html" 2> "$EVIDENCE/rate-anything.stderr.log"
-          fresh_browser --screenshot="$EVIDENCE/rate-anything.png" "$RAT_URL/" > "$EVIDENCE/rate-anything-screenshot.stdout.log" 2> "$EVIDENCE/rate-anything-screenshot.stderr.log"
-          fresh_browser --dump-dom "$RAT_URL/VERSION" > "$EVIDENCE/version.dom.html" 2> "$EVIDENCE/version.stderr.log"
-          fresh_browser --screenshot="$EVIDENCE/version.png" "$RAT_URL/VERSION" > "$EVIDENCE/version-screenshot.stdout.log" 2> "$EVIDENCE/version-screenshot.stderr.log"
+          python3 -m pip install --disable-pip-version-check --quiet selenium
+          python3 - <<'PY'
+          import hashlib
+          import os
+          import pathlib
+          import shutil
+          import sys
+          import tempfile
+          import time
 
-          for marker in \
-            'RUM — Rate Anything' \
-            'Search anything. Find the right thing first.' \
-            'Find it. Understand it. Rate it.' \
-            'One down. Five up. No stars.' \
-            'Explore RUM' \
-            '/brand/rum-swipe-card-r-mark-transparent.png' \
-            '/brand/rum-six-position-rating-device.png'; do
-            grep -Fq "$marker" "$EVIDENCE/rate-anything.dom.html"
-          done
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.support.ui import WebDriverWait
 
-          ! grep -Fq 'RateUrMate' "$EVIDENCE/rate-anything.dom.html"
-          ! grep -Fq 'rum-primary-horizontal-logo-on-cream.png' "$EVIDENCE/rate-anything.dom.html"
-          grep -Fq "$EXPECTED_SHA" "$EVIDENCE/version.dom.html"
+          url = os.environ["RAT_URL"].rstrip("/")
+          expected_sha = os.environ["EXPECTED_SHA"]
+          evidence = pathlib.Path(os.environ["RUNNER_TEMP"]) / "rat-browser-evidence"
+          browser = None
+          for candidate in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
+              path = shutil.which(candidate)
+              if path:
+                  browser = path
+                  break
+          if not browser:
+              raise SystemExit("No Chromium-family browser found")
 
-          test -s "$EVIDENCE/rate-anything.png"
-          test -s "$EVIDENCE/version.png"
+          profile = tempfile.mkdtemp(prefix="rat-s1-chrome-", dir=os.environ["RUNNER_TEMP"])
+          options = Options()
+          options.binary_location = browser
+          options.page_load_strategy = "eager"
+          for arg in (
+              "--headless=new",
+              "--no-sandbox",
+              "--disable-gpu",
+              "--disable-dev-shm-usage",
+              "--incognito",
+              "--window-size=1440,1800",
+              f"--user-data-dir={profile}",
+          ):
+              options.add_argument(arg)
 
-          PAGE_SHA256="$(sha256sum "$EVIDENCE/rate-anything.png" | awk '{print $1}')"
-          VERSION_SHA256="$(sha256sum "$EVIDENCE/version.png" | awk '{print $1}')"
-          PAGE_BYTES="$(wc -c < "$EVIDENCE/rate-anything.png" | tr -d ' ')"
-          VERSION_BYTES="$(wc -c < "$EVIDENCE/version.png" | tr -d ' ')"
+          driver = None
+          try:
+              driver = webdriver.Chrome(options=options)
+              driver.set_page_load_timeout(30)
+              driver.set_script_timeout(20)
+              driver.set_window_size(1440, 1800)
 
-          cat > "$EVIDENCE/proof.txt" <<EOF
-          RAT_BROWSER_PROOF_OK
-          url=$RAT_URL
-          version=$EXPECTED_SHA
-          browser_page_verified=true
-          old_unapproved_page_replaced=true
-          browser_version_verified=true
-          page_screenshot_sha256=$PAGE_SHA256
-          page_screenshot_bytes=$PAGE_BYTES
-          version_screenshot_sha256=$VERSION_SHA256
-          version_screenshot_bytes=$VERSION_BYTES
-          EOF
+              driver.get(url + "/")
+              WebDriverWait(driver, 25).until(
+                  lambda d: "Search anything. Find the right thing first." in d.page_source
+              )
+              page_html = driver.page_source
+              (evidence / "rate-anything.dom.html").write_text(page_html, encoding="utf-8")
+              (evidence / "page-title.txt").write_text(driver.title + "\n", encoding="utf-8")
+              (evidence / "page-url.txt").write_text(driver.current_url + "\n", encoding="utf-8")
+              if not driver.save_screenshot(str(evidence / "rate-anything.png")):
+                  raise RuntimeError("Failed to save RAT page screenshot")
 
-          cat "$EVIDENCE/proof.txt"
+              expected_markers = (
+                  "RUM — Rate Anything",
+                  "Search anything. Find the right thing first.",
+                  "Find it. Understand it. Rate it.",
+                  "One down. Five up. No stars.",
+                  "Explore RUM",
+                  "/brand/rum-swipe-card-r-mark-transparent.png",
+                  "/brand/rum-six-position-rating-device.png",
+              )
+              missing = [marker for marker in expected_markers if marker not in page_html]
+              if missing:
+                  raise AssertionError(f"Missing browser DOM markers: {missing}")
+              if "RateUrMate" in page_html:
+                  raise AssertionError("Legacy RateUrMate marker is still present")
+              if "rum-primary-horizontal-logo-on-cream.png" in page_html:
+                  raise AssertionError("Legacy horizontal logo asset is still present")
+
+              driver.get(url + "/VERSION")
+              WebDriverWait(driver, 20).until(lambda d: expected_sha in d.page_source)
+              version_html = driver.page_source
+              (evidence / "version.dom.html").write_text(version_html, encoding="utf-8")
+              (evidence / "version-url.txt").write_text(driver.current_url + "\n", encoding="utf-8")
+              if expected_sha not in version_html:
+                  raise AssertionError("Expected candidate SHA is absent from browser /VERSION")
+              if not driver.save_screenshot(str(evidence / "version.png")):
+                  raise RuntimeError("Failed to save /VERSION screenshot")
+
+              page_png = evidence / "rate-anything.png"
+              version_png = evidence / "version.png"
+              page_sha256 = hashlib.sha256(page_png.read_bytes()).hexdigest()
+              version_sha256 = hashlib.sha256(version_png.read_bytes()).hexdigest()
+              proof = "\n".join((
+                  "RAT_BROWSER_PROOF_OK",
+                  f"url={url}",
+                  f"version={expected_sha}",
+                  "browser_page_verified=true",
+                  "old_unapproved_page_replaced=true",
+                  "browser_version_verified=true",
+                  f"page_screenshot_sha256={page_sha256}",
+                  f"page_screenshot_bytes={page_png.stat().st_size}",
+                  f"version_screenshot_sha256={version_sha256}",
+                  f"version_screenshot_bytes={version_png.stat().st_size}",
+                  "",
+              ))
+              (evidence / "proof.txt").write_text(proof, encoding="utf-8")
+              print(proof, end="")
+          except Exception as exc:
+              (evidence / "browser-failure.txt").write_text(
+                  f"{type(exc).__name__}: {exc}\n", encoding="utf-8"
+              )
+              raise
+          finally:
+              if driver is not None:
+                  driver.quit()
+              shutil.rmtree(profile, ignore_errors=True)
+          PY
+
           {
             echo '## RAT Sprint 1 browser proof'
             echo
@@ -101,6 +164,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload browser evidence
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: rat-s1-browser-evidence
