@@ -1,43 +1,50 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu
 
-# Read-only, bounded recovery probe for the two owner-supplied RAT brand images
-# that were committed with invalid WebP bytes. Do not print file contents.
-# Search only ephemeral/cache/workbench locations; never traverse secrets,
-# Kubernetes data, repositories outside the bounded known roots, or / broadly.
-
-roots=(
-  "$HOME/.cache"
-  "$HOME/.local/share/workbench"
-  "$HOME/workbench"
-  "$HOME/Workbench"
-  "/tmp"
-)
+WB_CACHE="$HOME/.cache/Workbench"
+WB_DATA="$HOME/.local/share/workbench"
 
 printf 'home=%s\n' "$HOME"
-for root in "${roots[@]}"; do
-  [[ -d "$root" ]] || continue
-  printf 'root=%s\n' "$root"
-  find "$root" -xdev -type f \
-    \( -iname '*rat*wordmark*' -o -iname '*pirate*mascot*' -o -iname '*rat*brand*' -o -iname '*rum*thumb*' \) \
-    -newermt '2026-08-25 00:00:00' ! -newermt '2026-08-28 23:59:59' \
-    -printf '%TY-%Tm-%TdT%TH:%TM:%TS|%s|%p\n' 2>/dev/null \
-    | head -n 200
+printf '%s\n' '--- Workbench cache roots ---'
+if [[ -d "$WB_CACHE" ]]; then
+  find "$WB_CACHE" -mindepth 1 -maxdepth 2 -type d -printf '%p\n' 2>/dev/null | sort | head -n 300 || true
+fi
 
-done
-
-# Also identify image-like files created during the owner-artwork handoff window,
-# but only under likely Workbench cache/tmp roots and only by magic signature.
-for root in "$HOME/.cache" /tmp; do
+printf '%s\n' '--- RAT brand paths in task/scratch trees ---'
+for root in "$WB_CACHE/task-workspaces" "$WB_CACHE/scratch"; do
   [[ -d "$root" ]] || continue
   while IFS= read -r -d '' path; do
-    kind="$(file -b --mime-type "$path" 2>/dev/null || true)"
-    case "$kind" in
+    mime="$(file -b --mime-type "$path" 2>/dev/null || true)"
+    bytes="$(stat -c '%s' "$path" 2>/dev/null || echo '?')"
+    sha="$(sha256sum "$path" 2>/dev/null | awk '{print $1}' || true)"
+    printf '%s|%s|%s|%s\n' "$mime" "$bytes" "$sha" "$path"
+  done < <(find "$root" -xdev -type f \
+    \( -iname 'rat-wordmark.webp' -o -iname 'rat-pirate-mascot.webp' -o -iname 'rum-thumb.webp' \
+       -o -iname '*rat*wordmark*' -o -iname '*pirate*mascot*' \) \
+    -print0 2>/dev/null)
+done
+
+printf '%s\n' '--- likely image handoff files (Aug 26) ---'
+for root in "$WB_CACHE" "$WB_DATA"; do
+  [[ -d "$root" ]] || continue
+  count=0
+  while IFS= read -r -d '' path; do
+    case "$path" in
+      */.git/*|*/node_modules/*|*/vendor/*) continue ;;
+    esac
+    mime="$(file -b --mime-type "$path" 2>/dev/null || true)"
+    case "$mime" in
       image/webp|image/png|image/jpeg)
-        printf 'image|%s|%s|%s\n' "$kind" "$(stat -c '%s' "$path" 2>/dev/null || echo '?')" "$path"
+        bytes="$(stat -c '%s' "$path" 2>/dev/null || echo '?')"
+        sha="$(sha256sum "$path" 2>/dev/null | awk '{print $1}' || true)"
+        printf '%s|%s|%s|%s\n' "$mime" "$bytes" "$sha" "$path"
+        count=$((count+1))
+        [[ "$count" -lt 500 ]] || break
         ;;
     esac
   done < <(find "$root" -xdev -type f \
-    -newermt '2026-08-26 12:00:00' ! -newermt '2026-08-27 00:00:00' \
-    -size +5k -size -20M -print0 2>/dev/null | head -z -n 3000)
+    -newermt '2026-08-26 00:00:00' ! -newermt '2026-08-27 23:59:59' \
+    -size +5k -size -30M -print0 2>/dev/null)
 done
+
+echo 'BRAND_SOURCE_PROBE_DONE'
