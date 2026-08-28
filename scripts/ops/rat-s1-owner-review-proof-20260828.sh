@@ -4,7 +4,6 @@ set -euo pipefail
 NS="rum-rate-anything-preview"
 HOST="dev-rum-ra.daisycloversoftware.uk"
 URL="https://${HOST}"
-RELEASE="rum-rate-anything"
 EXPECTED_SHA="9f946210bc7053d043289107709010e8f88ee788"
 EXPECTED_FRONTEND="ghcr.io/daisycloversoftware/rum-rate-anything@sha256:d18050db375eddb1adcc627721ddf31e0ebf8f2761cb423c7f933e3fa4013f73"
 EXPECTED_API="ghcr.io/daisycloversoftware/rum-api@sha256:b3ee83307651abae8e9b93e63920336659f29932474788e7c0ac9022bc7bee44"
@@ -49,8 +48,6 @@ if "${KUBECTL[@]}" get job "${STALE_JOB}" -n "${NS}" >/dev/null 2>&1; then
     exit 21
   fi
 
-  # Suspension should terminate any active pod. Give the controller a bounded
-  # interval, then fail closed if any pod for the stale job is still Pending or Running.
   for _ in $(seq 1 30); do
     phases="$("${KUBECTL[@]}" get pods -n "${NS}" -l "job-name=${STALE_JOB}" -o jsonpath='{range .items[*]}{.status.phase}{"\n"}{end}' 2>/dev/null || true)"
     if ! grep -Eq '^(Pending|Running)$' <<<"${phases}"; then
@@ -85,11 +82,18 @@ printf 'deployed.frontend=%s\n' "${frontend_image}"
 printf 'deployment.api_ready=%s\n' "${api_ready}"
 printf 'deployment.frontend_ready=%s\n' "${frontend_ready}"
 
-# Read the deployed Helm revision from Helm's release-secret labels using the
-# same sanctioned Kubernetes client, avoiding any ambient kubeconfig dependency.
-helm_revisions="$("${KUBECTL[@]}" get secrets -n "${NS}" -l "owner=helm,name=${RELEASE},status=deployed" -o jsonpath='{range .items[*]}{.metadata.labels.version}{"\n"}{end}')"
-helm_revision="$(printf '%s\n' "${helm_revisions}" | grep -E '^[0-9]+$' | sort -n | tail -n 1)"
-[[ -n "${helm_revision}" ]] || { echo "ERROR: no deployed Helm release revision found" >&2; exit 35; }
+# Find the currently deployed Helm release from Helm-owned Secret labels without
+# assuming the release name. Fields: secret|release|status|version.
+helm_rows="$("${KUBECTL[@]}" get secrets -n "${NS}" -l owner=helm -o jsonpath='{range .items[*]}{.metadata.name}{"|"}{.metadata.labels.name}{"|"}{.metadata.labels.status}{"|"}{.metadata.labels.version}{"\n"}{end}' 2>/dev/null || true)"
+helm_line="$(printf '%s\n' "${helm_rows}" | awk -F'|' '$3 == "deployed" && $4 ~ /^[0-9]+$/ {print}' | sort -t'|' -k4,4n | tail -n 1 || true)"
+[[ -n "${helm_line}" ]] || {
+  echo "ERROR: no deployed Helm release Secret found" >&2
+  printf '%s\n' "${helm_rows}" >&2
+  exit 35
+}
+helm_release="$(printf '%s' "${helm_line}" | cut -d'|' -f2)"
+helm_revision="$(printf '%s' "${helm_line}" | cut -d'|' -f4)"
+printf 'helm.release=%s\n' "${helm_release}"
 printf 'helm.revision=%s\n' "${helm_revision}"
 printf 'helm.status=deployed\n'
 
