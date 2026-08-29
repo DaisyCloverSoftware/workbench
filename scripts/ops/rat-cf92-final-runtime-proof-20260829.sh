@@ -46,6 +46,6 @@ check_asset() {
 }
 
 check_asset thumb "$THUMB" 14232 38643e3cad4e1e9e22b1726a9fdbc8cb415e6630ce60db9601c9c734627c853c
-check_asset mascot "$MASCOT" 9000 af77222814aed37753cc83bb86a4a0bbcc4ca413350414044c200ffeeeaf470b
+check_asset mascot "$MASCOT" 9000 279cccc86f46fb4c50fb63eecfdd58f7ffe1b5c3bf6e32f34b8fe5c8de0402b3
 
 echo 'runtime_asset_proof=PASS'
