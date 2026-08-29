@@ -16,7 +16,12 @@ version="$(curl -fsS --connect-timeout 10 --max-time 30 -H 'Cache-Control: no-ca
 printf 'version=%s\n' "$version"
 
 check_asset() {
-  local label="$1" path="$2" expected_bytes="$3" expected_sha="$4" out="$TMP/$label" headers="$TMP/$label.headers"
+  local label="$1"
+  local path="$2"
+  local expected_bytes="$3"
+  local expected_sha="$4"
+  local out="$TMP/$label"
+  local headers="$TMP/$label.headers"
   curl -fsS --connect-timeout 10 --max-time 30 -D "$headers" \
     -H 'Cache-Control: no-cache, no-store' -H 'Pragma: no-cache' \
     "$BASE$path" -o "$out"
