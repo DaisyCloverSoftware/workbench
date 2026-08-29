@@ -16,17 +16,20 @@ for i in 00 01 02 03 04 05 06 07 08; do
 done
 
 python3 - "$tmp" <<'PY'
-import base64, hashlib, pathlib, struct, sys
+import base64, hashlib, pathlib, re, sys
 root=pathlib.Path(sys.argv[1])
 parts=[]
 for i in range(9):
     p=root/f"part.{i:02d}"
     raw=p.read_bytes()
     text=b''.join(raw.split())
+    if not re.fullmatch(rb'[A-Za-z0-9+/=]*', text):
+        raise SystemExit(f'ERROR: part {i:02d} contains non-base64 characters')
     print(f"part={i:02d} chars={len(text)} sha256={hashlib.sha256(raw).hexdigest()}")
-    base64.b64decode(text, validate=True)
     parts.append(text)
 joined=b''.join(parts)
+if len(joined) % 4:
+    raise SystemExit(f'ERROR: combined base64 length is not divisible by 4: {len(joined)}')
 data=base64.b64decode(joined, validate=True)
 out=root/'mascot.webp'
 out.write_bytes(data)
@@ -36,7 +39,6 @@ print(f"sha256={hashlib.sha256(data).hexdigest()}")
 print(f"magic12={data[:12].hex()}")
 if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
     raise SystemExit('ERROR: reconstructed mascot is not RIFF/WEBP')
-# Parse VP8X dimensions when present.
 if data[12:16] == b'VP8X' and len(data) >= 30:
     w=1+int.from_bytes(data[24:27],'little')
     h=1+int.from_bytes(data[27:30],'little')
