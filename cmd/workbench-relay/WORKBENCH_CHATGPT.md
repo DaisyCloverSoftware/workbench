@@ -2,7 +2,7 @@
 
 This file is the canonical bootstrap for ordinary ChatGPT conversations using a **private** Workbench Git relay.
 
-Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That file is the machine-readable protocol summary: Workbench version, supported control actions, relay paths, built-in read-only operations, the optional supervised-operations marker, and the opaque-project-reference rule. Fresh chats can read it first for fast capability discovery, then use this guide for behavioural and safety policy.
+Workbench also publishes `WORKBENCH_CAPABILITIES.json` beside this guide. That file is the machine-readable protocol summary: Workbench version, supported control actions, relay paths, built-in read-only operations, the optional supervised-operations marker, the authenticated Development-continuation marker, and the opaque-project-reference rule. Fresh chats can read it first for fast capability discovery, then use this guide for behavioural and safety policy.
 
 ## Operating rule
 
@@ -29,8 +29,9 @@ For normal development work:
 7. For an explicitly allowlisted machine mutation, use `run_machine_command` through the private control channel. ChatGPT reasons between results and issues the next bounded command itself.
 8. For a reviewed multi-step Bash operation already committed beneath `scripts/ops/`, use `run_operations_script`. Prefer the built-in Workbench health operations for common read-only bridge/cluster/namespace diagnostics.
 9. Use `save_note`, `save_memory`, and `save_context` for durable non-secret context when useful.
-10. Use the optional autonomous operations lane only when a machine-side outcome cannot reasonably be expressed through the direct structured command or committed-operation surface and autonomous operator capacity is intentionally available.
-11. Only surface a genuine Workbench `needs_attention` question or authority boundary to the user.
+10. When an already-authorised Development workflow reaches an asynchronous wait that may reasonably outlive the current conversation/runtime, checkpoint the project with `save_context` and use the authenticated Development-continuation lane described below instead of making one chat turn poll indefinitely.
+11. Use the optional autonomous operations lane only when a machine-side outcome cannot reasonably be expressed through the direct structured command or committed-operation surface and autonomous operator capacity is intentionally available.
+12. Only surface a genuine Workbench `needs_attention` question or authority boundary to the user.
 
 ## Private safe-hands control channel
 
@@ -188,11 +189,36 @@ Direct machine control is deliberately **not** a generic shell.
 - Secret-like command arguments are rejected and secret-like command output is withheld.
 - If the direct allowlist cannot express an operation, decompose it into safer bounded primitives when possible. Do not silently escalate authority.
 
+## Durable Development continuation lane
+
+`relay/inbox/<id>.json` has one narrow authenticated exception to the optional machine-operations rule below: it may carry an already-authorised Development continuation whose intent begins exactly with `[workbench:continuation]`.
+
+This lane is **not a second coder and not a transfer of Development ownership to OpenClaw**. ChatGPT still owns source changes, Git/GitHub, PRs, CI and GitHub Actions. The private relay authenticates/seals the continuation request and Workbench persists the task/dependency state so execution can survive a conversational/runtime boundary. When the continuation is waiting on GitHub Actions, place the first-class dependency envelope immediately after the continuation marker:
+
+```json
+{
+  "version": 1,
+  "id": "ci_continuation_001",
+  "project": "runner://family-vault",
+  "intent": "[workbench:continuation] WORKBENCH_WAIT_GITHUB_ACTIONS: {\"repository\":\"ExampleOrg/example\",\"run_id\":123456789}\nResume the already-authorised Development workflow after this exact run becomes terminal. Re-verify the candidate and authority boundary before any external side effect."
+}
+```
+
+Continuation guarantees and boundaries:
+
+- The continuation lane is for resuming already-authorised Development work across runtime/chat boundaries; it is not new sprint authorisation.
+- `WORKBENCH_WAIT_GITHUB_ACTIONS:` records the exact repository/run dependency as durable task state. While the run is non-terminal, the task remains dependency-waiting and does not consume a coding worker.
+- Workbench re-inspects the dependency with bounded backoff and requeues the Development continuation when it becomes terminal; an ordinary dependency wait is not `needs_attention`.
+- Duplicate active waits for the same project/repository/run/continuation are deduplicated by Workbench's dependency lane. A resumed continuation must still re-read external state before any irreversible action so retries cannot duplicate merges, deployments, migrations, comments or publications.
+- The relay's authenticated continuation seal is the admission boundary. Unauthenticated/tampered continuation payloads are rejected rather than treated as ordinary autonomous work.
+- A continuation never grants merge, deployment, destructive-action, production, review or acceptance authority that the originating Development workflow did not already have.
+- Use `save_context` before a potentially long handoff so a fresh ChatGPT invocation can reconstruct objective, verified state, exact refs/run IDs, pending work and deterministic next action even if message delivery fails unexpectedly.
+
 ## Optional supervised OpenClaw operations lane
 
-`relay/inbox/<id>.json` is an **optional autonomous machine-operations bridge**, not a second coding queue and not the normal route for Kubernetes/systemd/Docker/Helm commands. ChatGPT must not put implementation, GitHub, PR, CI, or GitHub Actions work in this inbox.
+`relay/inbox/<id>.json` is also an **optional autonomous machine-operations bridge**, not a second coding queue and not the normal route for Kubernetes/systemd/Docker/Helm commands. Except for the authenticated `[workbench:continuation]` lane above, ChatGPT must not put implementation, GitHub, PR, CI, or GitHub Actions work in this inbox.
 
-Use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed through `inspect_machine` / `run_machine_command` / a reviewed committed operation and autonomous operator capacity is intentionally available. Write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
+Use the operations lane only when a host/server/cluster/runtime outcome genuinely cannot be expressed through `inspect_machine` / `run_machine_command` / a reviewed committed operation and autonomous operator capacity is intentionally available. Write an inbox item using the exact project `ref` returned by `list_projects` and prefix the intent exactly with the operations marker advertised by `WORKBENCH_CAPABILITIES.json`:
 
 ```json
 {
@@ -222,7 +248,7 @@ When an optional autonomous task finishes or fails, ChatGPT reads its `relay/out
 
 ## Genuine human attention
 
-If an autonomous operations task reaches `needs_attention`, ask the user only the exact decision/permission Workbench needs. Then write `relay/answers/<id>.json`:
+A Development task that is merely `waiting_dependency` remains Development-owned and must not be surfaced as human attention. If an autonomous operations task or Development continuation reaches a genuine `needs_attention` authority/decision boundary, ask the user only the exact decision/permission Workbench needs. Then write `relay/answers/<id>.json` when the task type supports that answer path:
 
 ```json
 {
@@ -232,16 +258,16 @@ If an autonomous operations task reaches `needs_attention`, ask the user only th
 }
 ```
 
-Do not invent answers or use this path to bypass a permission boundary. Workbench resumes the same durable task after the answer.
+Do not invent answers or use this path to bypass a permission boundary. Workbench resumes the same durable task after the answer where applicable.
 
 ## Fresh-chat bootstrap
 
 A ChatGPT conversation that can access the user's connected GitHub account can bootstrap itself without code-search indexing: use repository search to locate the user's **private repository whose name contains `workbench-relay`**, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md` from that repository root, then follow the advertised protocol and this guide. For a common health question, inspect `builtin_readonly_operations` first and prefer the matching reviewed operation over constructing many individual relay reads.
 
-**Before issuing any human terminal instructions in a fresh chat, complete that bootstrap and check the current control actions.** A previous conversation's statement that Workbench could not perform an operation is not authoritative evidence of the present capability set.
+**Before issuing any human terminal instructions in a fresh chat, complete that bootstrap and check the current control actions and continuation markers.** A previous conversation's statement that Workbench could not perform an operation is not authoritative evidence of the present capability set. If project context shows unfinished authorised Development work and no genuine human blocker, resume it rather than requiring a new `continue` prompt solely because the prior conversation ended.
 
 A useful one-time global ChatGPT instruction is:
 
-> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Before asking me to run Bash, PowerShell, git, build/test, repository or machine commands, first inspect the current private Workbench relay capabilities and perform the operation yourself whenever the relay can express it. Use Workbench safe repository hands when bounded repository access is useful. For routine server/cluster work use Workbench's direct structured controls and reviewed built-in health operations so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when Workbench's direct surfaces cannot express the remaining machine-side outcome and operator capacity is available. If an input is genuinely local-only and outside the current Workbench reach, tell me the exact boundary. Never ask me to copy/paste prompts or type “continue”.
+> For software development, repository, server and cluster work, use Workbench as my execution bridge, but keep ChatGPT as the developer. ChatGPT writes the code, handles Git and GitHub, creates/updates/merges PRs, runs and diagnoses CI, and operates GitHub Actions. Before asking me to run Bash, PowerShell, git, build/test, repository or machine commands, first inspect the current private Workbench relay capabilities and perform the operation yourself whenever the relay can express it. Use Workbench safe repository hands when bounded repository access is useful. For long asynchronous Development waits, save project context and use Workbench's authenticated continuation/dependency lane so a chat timeout does not require me to type “continue”. For routine server/cluster work use Workbench's direct structured controls and reviewed built-in health operations so no external AI worker is required. Use OpenClaw only as optional autonomous operator fallback when Workbench's direct surfaces cannot express the remaining machine-side outcome and operator capacity is available. If an input is genuinely local-only and outside the current Workbench reach, tell me the exact boundary. Never ask me to copy/paste prompts or type “continue”.
 
 This bootstrap contains no Workbench bearer token or provider credential.
