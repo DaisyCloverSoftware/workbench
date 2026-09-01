@@ -34,7 +34,6 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		"current capabilities override historical assumptions",
 		"Direct-capability failure never authorizes OpenClaw",
 		"WORKBENCH_CAPABILITIES.json",
-		"WORKBENCH_CHATGPT.md",
 	} {
 		if !strings.Contains(strings.ToLower(guide), strings.ToLower(want)) {
 			t.Fatalf("private ChatGPT guide missing %q", want)

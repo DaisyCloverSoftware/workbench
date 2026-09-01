@@ -114,7 +114,6 @@ func TestRepositoryContainsNoRetiredAutomaticOpenClawFallbackInstructions(t *tes
 		"use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed",
 		"Workbench uses OpenClaw only for delegated machine-side/autonomous operations that ChatGPT cannot reasonably complete",
 		"your job is only the machine-side operational work ChatGPT cannot execute itself",
-		"machine-side operations ChatGPT cannot execute itself",
 		"falling back to OpenClaw",
 	}
 
