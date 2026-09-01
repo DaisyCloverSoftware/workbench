@@ -13,11 +13,11 @@ type ReviewPullRequestStatus string
 const (
 	ReviewPublicationPrepared ReviewPublicationStatus = "prepared"
 	ReviewPublicationPublished ReviewPublicationStatus = "published"
-	ReviewPublicationFailed ReviewPublicationStatus = "publication_failed"
+	ReviewPublicationFailed   ReviewPublicationStatus = "publication_failed"
 
 	ReviewPullRequestNotApplicable ReviewPullRequestStatus = "not_applicable"
-	ReviewPullRequestAvailable ReviewPullRequestStatus = "available"
-	ReviewPullRequestUnavailable ReviewPullRequestStatus = "unavailable"
+	ReviewPullRequestAvailable     ReviewPullRequestStatus = "available"
+	ReviewPullRequestUnavailable   ReviewPullRequestStatus = "unavailable"
 )
 
 type TaskReviewResult struct {
@@ -41,20 +41,22 @@ type TaskReviewResult struct {
 // ordinary worker failure and human-attention pauses so another eligible worker
 // or the resumed task can continue the same isolated edits.
 //
-// ChatGPT-originated work has a stronger contract: ChatGPT owns source changes,
-// Git/GitHub operations, PRs, CI and GitHub Actions. It may use Workbench to
-// reach OpenClaw only for genuine host/server/cluster/runtime operations that
-// ChatGPT cannot execute itself. A private relay continuation is the explicit
-// exception: ChatGPT has deliberately handed the remainder of the development
-// loop to Workbench, and the task must carry a valid HMAC seal produced by the
-// local private relay before any autonomous coding worker may run.
+// ChatGPT-originated development work has a stronger contract: ChatGPT owns
+// source changes, Git/GitHub operations, PRs, CI and GitHub Actions. A private
+// relay continuation is the explicit development-continuity exception and must
+// carry a valid HMAC seal before any autonomous coding worker may run.
 //
-// Operations tasks use the same durable task/workspace machinery but have a
-// stricter role boundary: the cluster runner is only transport and OpenClaw is
-// the only worker allowed to execute host/cluster operations. Any repository
-// edits made by OpenClaw in that lane are isolated and discarded rather than
-// becoming a review branch, because ChatGPT remains the coder.
+// OpenClaw is a separate owner-selected machine-operations mode. An Operations
+// task may reach either the local OpenClaw adapter or the cluster runner only
+// when durable task state proves explicit owner authorization. Provider
+// availability, task mode, or the operations marker alone is not authorization.
 func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
+	if IsOperationsTask(task) && !task.OpenClawOwnerAuthorized {
+		return RunResult{}, errors.New("OpenClaw authorization denied: Operations task lacks durable explicit owner authorization naming OpenClaw")
+	}
+	if p.ID == "openclaw" && (!IsOperationsTask(task) || !task.OpenClawOwnerAuthorized) {
+		return RunResult{}, errors.New("OpenClaw is owner-opt-in only and cannot be used as an automatic development or fallback provider")
+	}
 	if strings.EqualFold(strings.TrimSpace(task.Origin), "chatgpt-mcp") && !IsOperationsTask(task) {
 		continuation, ok := ValidatePrivateRelayContinuationIntent(task.Intent, task.ProjectPath, prefs.MCPToken)
 		if !ok {
@@ -65,7 +67,7 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 		task.Intent = continuation
 	}
 	if IsOperationsTask(task) && p.ID != "openclaw" && p.ID != "workbench-runner" {
-		return RunResult{}, fmt.Errorf("provider %s is not applicable to a Workbench operations task; operations are reserved for the cluster runner/OpenClaw operator lane", p.Name)
+		return RunResult{}, fmt.Errorf("provider %s is not applicable to an explicitly owner-authorized OpenClaw operations task; operations are reserved for the cluster runner/OpenClaw operator lane", p.Name)
 	}
 
 	// A runner:// project deliberately has no desktop-local worktree. It may only
@@ -85,7 +87,7 @@ func RunProviderIsolated(ctx context.Context, p Provider, task Task, prefs Prefe
 	}
 	// Direct SSH OpenClaw cannot safely consume a desktop-local worktree path.
 	// When a runner host is configured, require the structured Workbench runner
-	// route instead of falling back to an unisolated remote coding session.
+	// route instead of using an unisolated remote session.
 	if p.ID == "openclaw" && strings.TrimSpace(prefs.OpenClawSSHHost) != "" {
 		return RunResult{Retryable: true}, errors.New("remote OpenClaw execution requires the Workbench cluster runner so task isolation is enforced on the execution host")
 	}
