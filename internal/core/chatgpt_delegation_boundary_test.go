@@ -15,11 +15,25 @@ func TestChatGPTDevelopmentTaskCannotBeFarmedOut(t *testing.T) {
 	}
 }
 
-func TestChatGPTOperationsTaskMayReachOperatorLane(t *testing.T) {
-	provider := Provider{ID: "claude", Name: "Claude", Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true, Command: "claude"}
-	task := Task{Origin: "chatgpt-mcp", Mode: TaskModeOperations, Intent: "Restart a service", ProjectPath: t.TempDir()}
+func TestUnauthorizedOperationsTaskCannotReachAnyOperatorLane(t *testing.T) {
+	for _, provider := range []Provider{
+		{ID: "openclaw", Name: "OpenClaw", Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true, Command: "openclaw"},
+		{ID: "workbench-runner", Name: "Workbench Runner", Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true, Command: "workbench-runner"},
+		{ID: "claude", Name: "Claude", Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true, Command: "claude"},
+	} {
+		task := Task{Origin: "chatgpt-mcp", Mode: TaskModeOperations, Intent: "Restart a service", ProjectPath: t.TempDir()}
+		_, err := RunProviderIsolated(context.Background(), provider, task, Preferences{})
+		if err == nil || !strings.Contains(err.Error(), "lacks durable explicit owner authorization naming OpenClaw") {
+			t.Fatalf("provider %s received unauthorized Operations task: %v", provider.ID, err)
+		}
+	}
+}
+
+func TestOpenClawCannotBeUsedAsDevelopmentProvider(t *testing.T) {
+	provider := Provider{ID: "openclaw", Name: "OpenClaw", Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true, Command: "openclaw"}
+	task := Task{Origin: "workbench-ui", Mode: TaskModeDevelopment, Intent: "Implement a feature", ProjectPath: t.TempDir()}
 	_, err := RunProviderIsolated(context.Background(), provider, task, Preferences{})
-	if err == nil || !strings.Contains(err.Error(), "operations are reserved for the cluster runner/OpenClaw operator lane") {
-		t.Fatalf("operations task did not reach the operator-only boundary: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "cannot be used as an automatic development or fallback provider") {
+		t.Fatalf("OpenClaw development-provider boundary was not enforced: %v", err)
 	}
 }
