@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,21 +18,118 @@ func TestDelegateOperationRejectsImplicitOpenClawForEveryOrigin(t *testing.T) {
 	}
 }
 
-func TestDelegateOperationAcceptsExplicitOwnerOpenClawAuthorization(t *testing.T) {
-	// Project validation occurs only after the authorization gate. Reaching that
-	// validation proves the explicit authorization was accepted rather than the
-	// operation being rejected as an implicit fallback.
-	e := &Engine{}
-	_, err := e.DelegateOperation("chatgpt-mcp", OpenClawExplicitAuthorizationPrefix+" investigate the runtime", "")
-	if err == nil || strings.Contains(err.Error(), "explicit owner authorization") {
-		t.Fatalf("explicit OpenClaw authorization did not cross the authorization gate: %v", err)
+func TestDelegateOperationPersistsExplicitOwnerOpenClawAuthorization(t *testing.T) {
+	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &Engine{
+		store:         store,
+		state:         DefaultState(),
+		cancel:        map[string]context.CancelFunc{},
+		schedulerWake: make(chan struct{}, 1),
+	}
+	project := t.TempDir()
+	task, err := e.DelegateOperation("chatgpt-mcp", OpenClawExplicitAuthorizationPrefix+" investigate the runtime", project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !task.OpenClawOwnerAuthorized || task.Mode != TaskModeOperations {
+		t.Fatalf("explicit OpenClaw authorization was not persisted on task: %#v", task)
+	}
+	stored, ok := e.Task(task.ID)
+	if !ok || !stored.OpenClawOwnerAuthorized {
+		t.Fatalf("durable task lost explicit OpenClaw authorization: %#v ok=%v", stored, ok)
 	}
 }
 
-func TestRetireLegacyChatGPTOperationTasksCancelsOnlyLegacyChatGPTWork(t *testing.T) {
-	now := time.Date(2026, 8, 20, 3, 20, 0, 0, time.UTC); retryAt := now.Add(5*time.Minute)
-	st := State{Tasks: []Task{{ID:"task-legacy-running",Origin:"chatgpt-mcp",Mode:TaskModeOperations,Status:TaskRunning,ProviderID:"openclaw",RouteReason:"legacy",ConsumesWork:false},{ID:"task-legacy-retry",Origin:"chatgpt-mcp",Mode:TaskModeOperations,Status:TaskWaitingRetry,ProviderID:"openclaw",RetryAt:&retryAt},{ID:"task-manual-operator",Origin:"workbench-ui",Mode:TaskModeOperations,Status:TaskRunning,ProviderID:"openclaw"},{ID:"task-legacy-complete",Origin:"chatgpt-mcp",Mode:TaskModeOperations,Status:TaskCompleted,FinishedAt:timePointer(now.Add(-time.Minute))}}}
-	if !retireLegacyChatGPTOperationTasks(&st, now){t.Fatal("expected legacy ChatGPT operations to be retired")}
-	for _, index := range []int{0,1}{got:=st.Tasks[index]; if got.Status!=TaskCancelled||got.ProviderID!=""||got.RouteReason!=""||got.RetryAt!=nil||got.FinishedAt==nil{t.Fatalf("legacy task was not fully retired: %#v",got)}}
-	manual:=st.Tasks[2]; if manual.Status!=TaskRunning||manual.ProviderID!="openclaw"{t.Fatalf("manual OpenClaw operation was incorrectly retired: %#v",manual)}
+func TestRouteCandidatesNeverSelectOpenClawWithoutDurableOwnerAuthorization(t *testing.T) {
+	providers := []Provider{
+		{ID: "openclaw", Name: "OpenClaw", Installed: true, Authenticated: true, CanWrite: true, Command: "openclaw", Cost: CostIncluded},
+		{ID: "claude", Name: "Claude", Installed: true, Authenticated: true, CanWrite: true, Command: "claude", Cost: CostIncluded},
+	}
+
+	unauthorizedOperation := Task{Mode: TaskModeOperations, ProjectPath: t.TempDir(), Intent: "restart service"}
+	if got := routeCandidates(providers, Preferences{}, unauthorizedOperation); len(got) != 0 {
+		t.Fatalf("unauthorized Operations task received provider candidates: %#v", got)
+	}
+
+	authorizedOperation := unauthorizedOperation
+	authorizedOperation.OpenClawOwnerAuthorized = true
+	got := routeCandidates(providers, Preferences{}, authorizedOperation)
+	if len(got) != 1 || got[0].ID != "openclaw" {
+		t.Fatalf("explicitly authorized operation candidates=%#v, want OpenClaw only", got)
+	}
+
+	development := Task{Mode: TaskModeDevelopment, ProjectPath: t.TempDir(), Intent: "implement feature"}
+	got = routeCandidates(providers, Preferences{}, development)
+	if len(got) != 1 || got[0].ID != "claude" {
+		t.Fatalf("ordinary development routing selected OpenClaw: %#v", got)
+	}
+}
+
+func TestRetireLegacyChatGPTOperationTasksCancelsAllUnauthorizedOpenClawWork(t *testing.T) {
+	now := time.Date(2026, 8, 20, 3, 20, 0, 0, time.UTC)
+	retryAt := now.Add(5 * time.Minute)
+	st := State{Tasks: []Task{
+		{
+			ID:           "task-legacy-running",
+			Origin:       "chatgpt-mcp",
+			Mode:         TaskModeOperations,
+			Status:       TaskRunning,
+			ProviderID:   "openclaw",
+			RouteReason:  "legacy",
+			ConsumesWork: false,
+		},
+		{
+			ID:         "task-legacy-retry",
+			Origin:     "chatgpt-mcp",
+			Mode:       TaskModeOperations,
+			Status:     TaskWaitingRetry,
+			ProviderID: "openclaw",
+			RetryAt:    &retryAt,
+		},
+		{
+			ID:         "task-old-manual-without-proof",
+			Origin:     "workbench-ui",
+			Mode:       TaskModeOperations,
+			Status:     TaskRunning,
+			ProviderID: "openclaw",
+		},
+		{
+			ID:                      "task-explicit-owner-authorized",
+			Origin:                  "workbench-ui",
+			Mode:                    TaskModeOperations,
+			OpenClawOwnerAuthorized: true,
+			Status:                  TaskRunning,
+			ProviderID:              "openclaw",
+		},
+		{
+			ID:         "task-legacy-complete",
+			Origin:     "chatgpt-mcp",
+			Mode:       TaskModeOperations,
+			Status:     TaskCompleted,
+			FinishedAt: timePointer(now.Add(-time.Minute)),
+		},
+	}}
+
+	if !retireLegacyChatGPTOperationTasks(&st, now) {
+		t.Fatal("expected unauthorized legacy OpenClaw operations to be retired")
+	}
+	for _, index := range []int{0, 1, 2} {
+		got := st.Tasks[index]
+		if got.Status != TaskCancelled || got.ProviderID != "" || got.RouteReason != "" || got.RetryAt != nil || got.FinishedAt == nil {
+			t.Fatalf("unauthorized legacy operation was not fully retired: %#v", got)
+		}
+		if len(got.Attempts) == 0 || !strings.Contains(got.Attempts[len(got.Attempts)-1], "no durable explicit owner authorization") {
+			t.Fatalf("legacy task retirement reason missing: %#v", got.Attempts)
+		}
+	}
+	authorized := st.Tasks[3]
+	if authorized.Status != TaskRunning || authorized.ProviderID != "openclaw" || !authorized.OpenClawOwnerAuthorized {
+		t.Fatalf("explicitly owner-authorized OpenClaw operation was incorrectly retired: %#v", authorized)
+	}
+	if st.Tasks[4].Status != TaskCompleted {
+		t.Fatalf("terminal task was changed: %#v", st.Tasks[4])
+	}
 }
