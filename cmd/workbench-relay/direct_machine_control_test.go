@@ -25,9 +25,15 @@ func TestPrivateRelayAdvertisesDirectMachineControls(t *testing.T) {
 	if !strings.Contains(controls, "inspect_machine") || !strings.Contains(controls, "run_machine_command") {
 		t.Fatalf("direct machine controls missing from capabilities: %s", controls)
 	}
+	if got.OpenClawPolicy != "explicit_owner_request_only" {
+		t.Fatalf("OpenClaw policy=%q, want explicit_owner_request_only", got.OpenClawPolicy)
+	}
 	openClaw := strings.Join(got.OpenClawOwns, " ")
-	if !strings.Contains(openClaw, "optional") {
-		t.Fatalf("OpenClaw must be presented as optional fallback: %s", openClaw)
+	if strings.Contains(strings.ToLower(openClaw), "fallback") || !strings.Contains(openClaw, "owner_explicitly_authorized") {
+		t.Fatalf("OpenClaw must be owner-authorized only and never an automatic fallback: %s", openClaw)
+	}
+	if got.AutonomousPurpose != "owner_selected_openclaw_execution_only_no_automatic_routing" {
+		t.Fatalf("autonomous purpose permits ambiguous routing: %q", got.AutonomousPurpose)
 	}
 	chat := strings.Join(got.ChatGPTOwns, " ")
 	if !strings.Contains(chat, "bounded_machine_inspection") || !strings.Contains(chat, "bounded_machine_mutation") {
