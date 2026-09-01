@@ -40,7 +40,7 @@ func TestPrimaryChatRoutingRowUsesVerifiedPrivateRelayHealth(t *testing.T) {
 	}
 }
 
-func TestAutonomousRoutingMakesCodexLastResort(t *testing.T) {
+func TestAutonomousRoutingMakesCodexLastResortAndOpenClawOwnerSelected(t *testing.T) {
 	codex := core.Provider{ID: "codex", Name: "OpenAI Codex / Work", Status: "CLI detected", Cost: core.CostScarce}
 	line := autonomousProviderRoutingLine("This PC", codex, true)
 	if !strings.Contains(line, "LAST RESORT") {
@@ -50,6 +50,16 @@ func TestAutonomousRoutingMakesCodexLastResort(t *testing.T) {
 	line = autonomousProviderRoutingLine("This PC", ordinary, true)
 	if !strings.Contains(line, "AUTONOMOUS") || strings.Contains(line, "LAST RESORT") {
 		t.Fatalf("ordinary worker role is misleading: %q", line)
+	}
+	openclaw := core.Provider{ID: "openclaw", Name: "OpenClaw", Status: "CLI detected · owner authorization required", Cost: core.CostIncluded}
+	line = autonomousProviderRoutingLine("This PC", openclaw, true)
+	if !strings.Contains(line, "OWNER-SELECTED") || strings.Contains(line, "AUTONOMOUS") {
+		t.Fatalf("OpenClaw availability must not be presented as automatic routing capacity: %q", line)
+	}
+
+	runnerLine := runnerAutonomousRoutingLine(core.RunnerProviderInfo{ID: "openclaw", Name: "OpenClaw", Status: "ready", Ready: true, Cost: core.CostIncluded})
+	if !strings.Contains(runnerLine, "OWNER-SELECTED") || strings.Contains(runnerLine, "AUTONOMOUS") {
+		t.Fatalf("runner OpenClaw availability must not be presented as automatic routing capacity: %q", runnerLine)
 	}
 }
 
