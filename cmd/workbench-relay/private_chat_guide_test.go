@@ -10,35 +10,29 @@ import (
 func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 	guide := string(privateChatGuide)
 	for _, want := range []string{
-		"ChatGPT owns the software-development and routine machine-operations loop",
-		"ChatGPT determines and writes the code",
-		"ChatGPT owns Git and GitHub",
-		"CI runs and GitHub Actions",
+		"ChatGPT is the primary brain and owns engineering",
+		"private Workbench control relay is the normal server/cluster/host/runtime execution transport",
 		"relay/control/<id>.json",
 		"relay/control-outbox/<id>.json",
+		"Direct machine operations do not require OpenClaw",
+		"OpenClaw is an owner-selected execution mode",
+		"Only an explicit owner instruction naming OpenClaw authorizes its use",
+		"effective OpenClaw authorization state is **DENIED**",
+		"inspect_machine",
+		"inspect_machine_batch",
+		"run_machine_command",
+		"run_safe_command",
+		"run_operations_script",
+		"scripts/ops/*.sh",
 		"list_projects",
 		"ensure_github_project",
 		"read_file",
 		"apply_patch",
-		"run_safe_command",
-		"inspect_machine",
-		"run_machine_command",
-		"run_operations_script",
-		"scripts/ops/workbench-health.sh",
-		"scripts/ops/cluster-health.sh",
-		"scripts/ops/namespace-health.sh",
-		"DaisyCloverSoftware/workbench",
-		"full 40-character head SHA",
-		"built-in zero-credit read-only operations",
-		"no shell or AI worker",
 		"relay/inbox/<id>.json",
-		"optional autonomous machine-operations bridge",
 		"[workbench:operations]",
-		"Optional supervised OpenClaw operations lane",
-		"human is never the transport layer",
-		"optional operator capacity",
-		"workbench-relay",
-		"repository search",
+		"only routing metadata and is not proof of owner consent",
+		"current capabilities override historical assumptions",
+		"Direct-capability failure never authorizes OpenClaw",
 		"WORKBENCH_CAPABILITIES.json",
 		"WORKBENCH_CHATGPT.md",
 	} {
@@ -47,13 +41,14 @@ func TestPrivateChatGuideBootstrapsFreshChatWithoutSecrets(t *testing.T) {
 		}
 	}
 	for _, forbidden := range []string{
-		"ordinary autonomous coding",
-		"ordinary development delegation",
-		"coding worker according to its configured routing policy",
-		"OpenClaw is an **operator only**",
+		"fallback to OpenClaw",
+		"optional fallback capacity",
+		"optional autonomous operator fallback",
+		"use OpenClaw only as optional autonomous operator fallback",
+		"use the optional autonomous operations lane only when",
 	} {
 		if strings.Contains(strings.ToLower(guide), strings.ToLower(forbidden)) {
-			t.Fatalf("private ChatGPT guide still advertises obsolete delegated-development/ownership wording: %q", forbidden)
+			t.Fatalf("private ChatGPT guide still advertises automatic OpenClaw fallback wording: %q", forbidden)
 		}
 	}
 	if core.LooksSecret(guide) {
