@@ -6,10 +6,12 @@ This document describes the current intended Workbench architecture. Product/gov
 
 Workbench is ChatGPT-first.
 
-- **ChatGPT** is the primary reasoning/coding brain. It owns source decisions, Git/GitHub/PR work, CI/release orchestration and normal bounded machine-operation decisions.
+- **ChatGPT** is the primary reasoning/coding brain. It owns source decisions, Git/GitHub/PR work, reviews, CI/release orchestration, subsequent engineering decisions and normal bounded machine-operation decisions.
 - **Workbench** supplies durable project/task state, safe repository eyes/hands, scheduling/execution infrastructure, machine controls, private transport, Windows bridging and continuity across waits/chat boundaries.
-- **Autonomous harnesses** such as OpenClaw are optional execution/operator capacity. They are not required for routine bounded operations and are not the default coder.
+- **OpenClaw** is not part of normal routing. It is an owner-selected machine-operation mode that may be used only when the owner explicitly requests OpenClaw by name for the applicable operation.
 - **The human** is an authority/decision boundary, not a clipboard or message bus.
+
+Direct machine operations do not require OpenClaw. A missing direct capability is a decomposition/capability/reviewed-operation/blocker decision, not authorization to select an autonomous operator.
 
 ## Components
 
@@ -30,20 +32,21 @@ Those sources may be projected into one UI, but they are not automatically the s
 
 - durable JSON state and state normalisation;
 - multi-project registry;
-- provider discovery and capability/cost routing;
+- provider discovery and capability/cost routing for eligible non-OpenClaw routes;
 - durable task lifecycle, retries and external dependency waits;
 - lane-aware scheduling and priority;
 - truthful work-item/progress projection;
 - safe repository operations;
 - attention boundaries;
 - private-relay continuation proof validation;
-- project/global knowledge and continuation state.
+- project/global knowledge and continuation state;
+- the explicit owner-authorization boundary for OpenClaw operations.
 
-Routing remains capability/trust/cost based. Metered and scarce routes remain policy-protected.
+OpenClaw availability is never an eligibility signal by itself. OpenClaw tasks may enter the execution engine only after explicit owner authorization has already been established.
 
 ### Durable scheduler
 
-Queued autonomous tasks are durable. Scheduler dispatch, not the delegation call itself, owns queued → routing transition.
+Queued durable tasks are scheduler-owned. Scheduler dispatch, not the delegation call itself, owns queued → routing transition.
 
 Execution lanes with current scheduler capacity are:
 
@@ -68,18 +71,31 @@ Elapsed time is not converted into a fake percentage.
 
 `internal/mcp` exposes a loopback-only authenticated Streamable-HTTP/JSON-RPC surface. It rejects unexpected browser origins.
 
-The model-safe design separates **bounded hands** from **autonomous delegation**:
+The model-safe design separates **bounded hands** from durable task control:
 
 - repository list/search/read and exact patch application;
 - allowlisted build/test/status commands;
+- bounded machine inspection/mutation where exposed;
 - durable task status and human-attention resolution;
-- autonomous delegation only through eligible explicit routes.
+- authenticated private-relay continuation.
 
-Direct ChatGPT development operations must not silently instantiate or route through OpenClaw. Authenticated private-relay continuation is a distinct trusted path, not an exception that reopens implicit delegation.
+Direct ChatGPT development operations must not silently instantiate or route through OpenClaw. A direct-capability miss must not call an OpenClaw/autonomous tool. OpenClaw delegation is available only after a separately established explicit owner instruction naming OpenClaw.
+
+Authenticated private-relay continuation is a distinct trusted path, not an exception that reopens OpenClaw routing.
 
 ### Private Git relay and runner
 
-The private relay is a durable transport for Personal-Pro-style workflows and cluster controls. It carries bounded control requests/results and explicit autonomous/deferred work without placing raw credentials in payloads.
+The private relay is a durable transport for Personal-Pro-style workflows and cluster controls. The normal machine-execution channel is:
+
+```text
+relay/control/<id>.json
+  -> Workbench bounded control
+relay/control-outbox/<id>.json
+```
+
+The current machine-readable manifest advertises the supported bounded actions, including direct inspection/mutation and reviewed `scripts/ops/*.sh` execution where applicable.
+
+`relay/inbox` exists only for deliberate durable handoffs, including explicitly owner-authorized OpenClaw use. It is not a fallback path. The `[workbench:operations]` marker is routing metadata only; an OpenClaw request requires a separate owner-authorization signal that normal routing does not synthesize.
 
 For Dashboard/activity reads, the runner builds a bounded current view of the append-oriented relay:
 
@@ -90,7 +106,7 @@ For Dashboard/activity reads, the runner builds a bounded current view of the ap
 
 This is a **projection/scaling mechanism**, not a retention policy. Underlying private transport retention/cleanup remains a separately governed operational concern.
 
-`RunnerChatActivityInfo` can carry both transport/action state and a bounded `Active`/`ActiveKnown` session-presence decision. That session-presence signal may be useful to show an active project/chat, but MUST NOT be interpreted as proof that each completed action is still executing.
+`RunnerChatActivityInfo` can carry both transport/action state and a bounded `Active`/`ActiveKnown` session-presence decision. That session-presence signal may be useful to show an active project/chat, but MUST NOT be interpreted as proof that each completed action is still executing or as authorization to create a new OpenClaw task.
 
 ### Durable continuation across waits
 
@@ -106,6 +122,8 @@ The dependency locator line is intentionally excluded from the signed worker bod
 
 Automatic wake-up has live evidence. Full post-fix productive completion remains an acceptance item; see `docs/CURRENT_STATE.md`.
 
+This continuation mechanism is not OpenClaw authorization.
+
 ### Outbound Windows host bridge
 
 Windows execution uses an outbound host bridge. The security boundary is intentionally typed/allowlisted.
@@ -116,9 +134,11 @@ The cluster/private control plane refers to hosts/projects through privacy-minim
 
 ### Provider / harness adapters
 
-Provider/harness integrations are thin adapters around explicit capabilities. Current discovery can include local models, included coding CLIs, structured external harnesses and scarce/metered fallbacks according to policy.
+Provider/harness integrations are thin adapters around explicit capabilities and authority.
 
-OpenClaw is an adapter/operator capacity, not an architectural foundation.
+OpenClaw is an adapter for explicitly owner-authorized machine operations, not an architectural foundation, default coder, automatic fallback, or route selected by capability/cost scoring. Its installed/healthy state does not make a task eligible for OpenClaw.
+
+Other provider/harness routing remains subject to its own current policy and does not weaken the ChatGPT/OpenClaw boundary in WB-DEC-018.
 
 ### Vault
 
@@ -157,7 +177,7 @@ running ───────────────┬── completed
   │                    └── needs_attention ── human answer ──> queued/resume
 ```
 
-Normal implementation choices are not attention boundaries.
+Normal implementation choices are not attention boundaries. For an OpenClaw operation, entry into this lifecycle additionally requires the owner authorization defined by WB-DEC-018.
 
 ## State/storage
 
