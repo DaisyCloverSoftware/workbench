@@ -69,35 +69,36 @@ type TaskDependency struct {
 }
 
 type Task struct {
-	ID                 string            `json:"id"`
-	CreatedAt          time.Time         `json:"created_at"`
-	UpdatedAt          time.Time         `json:"updated_at"`
-	Origin             string            `json:"origin"`
-	Title              string            `json:"title"`
-	Intent             string            `json:"intent"`
-	ProjectPath        string            `json:"project_path"`
-	Mode               TaskMode          `json:"mode,omitempty"`
-	Status             TaskStatus        `json:"status"`
-	Priority           WorkPriority      `json:"priority,omitempty"`
-	Progress           WorkProgress      `json:"progress,omitempty"`
-	Archived           bool              `json:"archived,omitempty"`
-	ProviderID         string            `json:"provider_id,omitempty"`
-	CloudModelOverride string            `json:"cloud_model_override,omitempty"`
-	RouteReason        string            `json:"route_reason,omitempty"`
-	Output             string            `json:"output,omitempty"`
-	Error              string            `json:"error,omitempty"`
-	AttentionQuestion  string            `json:"attention_question,omitempty"`
-	HumanAnswer        string            `json:"human_answer,omitempty"`
-	Attempts           []string          `json:"attempts,omitempty"`
-	Review             *TaskReviewResult `json:"review,omitempty"`
-	ConsumesWork       bool              `json:"consumes_work"`
-	AutoRetryCount     int               `json:"auto_retry_count,omitempty"`
-	RetryAt            *time.Time        `json:"retry_at,omitempty"`
-	Dependency         *TaskDependency   `json:"dependency,omitempty"`
-	DependencyResult   string            `json:"dependency_result,omitempty"`
-	StartedAt          *time.Time        `json:"started_at,omitempty"`
-	FinishedAt         *time.Time        `json:"finished_at,omitempty"`
-	memoryProjectPath string
+	ID                      string            `json:"id"`
+	CreatedAt               time.Time         `json:"created_at"`
+	UpdatedAt               time.Time         `json:"updated_at"`
+	Origin                  string            `json:"origin"`
+	Title                   string            `json:"title"`
+	Intent                  string            `json:"intent"`
+	ProjectPath             string            `json:"project_path"`
+	Mode                    TaskMode          `json:"mode,omitempty"`
+	OpenClawOwnerAuthorized bool              `json:"openclaw_owner_authorized,omitempty"`
+	Status                  TaskStatus        `json:"status"`
+	Priority                WorkPriority      `json:"priority,omitempty"`
+	Progress                WorkProgress      `json:"progress,omitempty"`
+	Archived                bool              `json:"archived,omitempty"`
+	ProviderID              string            `json:"provider_id,omitempty"`
+	CloudModelOverride      string            `json:"cloud_model_override,omitempty"`
+	RouteReason             string            `json:"route_reason,omitempty"`
+	Output                  string            `json:"output,omitempty"`
+	Error                   string            `json:"error,omitempty"`
+	AttentionQuestion       string            `json:"attention_question,omitempty"`
+	HumanAnswer             string            `json:"human_answer,omitempty"`
+	Attempts                []string          `json:"attempts,omitempty"`
+	Review                  *TaskReviewResult `json:"review,omitempty"`
+	ConsumesWork            bool              `json:"consumes_work"`
+	AutoRetryCount          int               `json:"auto_retry_count,omitempty"`
+	RetryAt                 *time.Time        `json:"retry_at,omitempty"`
+	Dependency              *TaskDependency   `json:"dependency,omitempty"`
+	DependencyResult        string            `json:"dependency_result,omitempty"`
+	StartedAt               *time.Time        `json:"started_at,omitempty"`
+	FinishedAt              *time.Time        `json:"finished_at,omitempty"`
+	memoryProjectPath       string
 }
 
 type Project struct {
@@ -111,15 +112,15 @@ type Project struct {
 }
 
 type Preferences struct {
-	AvoidWorkUsage      bool   `json:"avoid_work_usage"`
-	AllowMeteredAPI     bool   `json:"allow_metered_api"`
-	AutonomyMode        string `json:"autonomy_mode"`
-	OpenClawSSHHost     string `json:"openclaw_ssh_host,omitempty"`
-	HarnessAdapterPath  string `json:"harness_adapter_path,omitempty"`
-	OpenClawCommand     string `json:"openclaw_command,omitempty"`
+	AvoidWorkUsage       bool   `json:"avoid_work_usage"`
+	AllowMeteredAPI      bool   `json:"allow_metered_api"`
+	AutonomyMode         string `json:"autonomy_mode"`
+	OpenClawSSHHost      string `json:"openclaw_ssh_host,omitempty"`
+	HarnessAdapterPath   string `json:"harness_adapter_path,omitempty"`
+	OpenClawCommand      string `json:"openclaw_command,omitempty"`
 	NotificationCommand string `json:"notification_command,omitempty"`
-	MCPPort             int    `json:"mcp_port"`
-	MCPToken            string `json:"mcp_token"`
+	MCPPort              int    `json:"mcp_port"`
+	MCPToken             string `json:"mcp_token"`
 }
 
 type SecretRef struct {
