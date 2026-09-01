@@ -46,7 +46,7 @@ echo "WORKBENCH_OPERATION_COMPLETE: verified"
 	}
 
 	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: script, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
-	task := Task{ID: "task-supervised-op", Mode: TaskModeOperations, ProjectPath: dir, Intent: "Restart the runner and verify health"}
+	task := Task{ID: "task-supervised-op", Mode: TaskModeOperations, OpenClawOwnerAuthorized: true, ProjectPath: dir, Intent: "Restart the runner and verify health"}
 	res, err := RunOpenClawOperationSupervised(context.Background(), provider, task, Preferences{})
 	if err != nil {
 		t.Fatalf("supervised operation failed: %v; output=%q", err, res.Output)
@@ -74,5 +74,22 @@ echo "WORKBENCH_OPERATION_COMPLETE: verified"
 	}
 	if strings.Contains(res.Output, operationCompletePrefix) || !strings.Contains(res.Output, "health verification complete") {
 		t.Fatalf("unexpected final report: %q", res.Output)
+	}
+}
+
+func TestOpenClawOperationsSupervisorRejectsMissingOwnerAuthorizationBeforeInvocation(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "must-not-run")
+	if err := os.WriteFile(script, []byte("#!/bin/sh\necho invoked > invoked\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: script, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
+	task := Task{ID: "task-unauthorized-op", Mode: TaskModeOperations, ProjectPath: dir, Intent: "Restart the runner"}
+	_, err := RunOpenClawOperationSupervised(context.Background(), provider, task, Preferences{})
+	if err == nil || !strings.Contains(err.Error(), "authorization denied") {
+		t.Fatalf("unauthorized OpenClaw operation was not rejected: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "invoked")); !os.IsNotExist(statErr) {
+		t.Fatalf("OpenClaw process ran despite missing owner authorization: %v", statErr)
 	}
 }
