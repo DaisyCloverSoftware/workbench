@@ -8,12 +8,12 @@ This is the durable decision and supersession register for material Workbench pr
 
 Workbench is a ChatGPT-first developer/operations workspace and execution bridge.
 
-- ChatGPT owns primary reasoning, source-code decisions, Git/GitHub work, PR/CI/release orchestration and normal bounded machine operations.
+- ChatGPT owns primary reasoning, source-code decisions, Git/GitHub work, PR/CI/release orchestration, subsequent engineering decisions and normal bounded machine operations.
 - Workbench owns durable task state, safe repository eyes/hands, scheduling/execution infrastructure, machine operations, the outbound Windows bridge, private relay transport and continuity across chat boundaries.
-- OpenClaw and other autonomous harnesses are optional execution/operator capacity, not the default coder and not required for routine bounded operations.
+- OpenClaw is not part of normal routing. It is an owner-selected execution mode and may be used only when the owner explicitly requests OpenClaw by name for the applicable operation.
 - The human is interrupted only for a genuine human-only decision, permission or authority boundary.
 
-This aligns `README.md`, `VISION.md` and `docs/CHATGPT_BOOTSTRAP.md` and supersedes older architecture wording that made command-template delegation look central.
+This aligns `README.md`, `VISION.md`, `docs/CHATGPT_BOOTSTRAP.md` and the private relay bootstrap and supersedes older architecture wording that made command-template or autonomous delegation look central.
 
 ### WB-DEC-002 — Repository is the durable project authority — CURRENT
 
@@ -56,9 +56,11 @@ Direct bounded machine controls are a distinct control plane. Long-running execu
 
 ### WB-DEC-006 — Authenticated private continuation is distinct from implicit delegation — CURRENT
 
-Direct ChatGPT development operations MUST NOT silently become OpenClaw/autonomous coding delegation.
+Direct ChatGPT development operations MUST NOT silently become autonomous coding or OpenClaw operations.
 
 The authenticated private relay may carry an explicit durable continuation handoff. Continuation authority is HMAC-bound to the relay correlation, project and original continuation body; Workbench may append its exact dependency-result suffix when a durable wait becomes terminal. Arbitrary appended content remains fail-closed.
+
+Authenticated continuation is a development-continuity transport. It is not OpenClaw authorization and cannot satisfy the explicit owner-by-name requirement in WB-DEC-018.
 
 Automatic dependency wake-up has been observed live. A clean post-validator-fix proof of `waiting_dependency → automatic resume → useful work → completed` is not yet canonicalised as verified live acceptance.
 
@@ -102,7 +104,7 @@ The execution stopping rule in `docs/GOVERNANCE.md` is normative. Within an auth
 - The normal owner-return point is **AWAITING OWNER OBSERVATION**, after applicable engineering verification has passed, the candidate has reached the agreed inspectable target, the target has been verified to be running/serving that candidate, and the Sprint Review is ready.
 - Earlier owner interruption is reserved for genuine human-only decisions, permissions, approval gates or authority blockers that prevent safe in-scope continuation.
 
-This decision governs orchestration continuity only. It does not widen sprint scope, bypass publication/security/approval boundaries, transfer publication/deployment authority to a coding worker, authorise external/scarce model-credit use, waive semantic acceptance or owner sign-off, or permit the next sprint before **SIGNED OFF**.
+This decision governs orchestration continuity only. It does not widen sprint scope, bypass publication/security/approval boundaries, transfer publication/deployment authority to a coding worker, authorise external/scarce model-credit use, infer OpenClaw authorization, waive semantic acceptance or owner sign-off, or permit the next sprint before **SIGNED OFF**.
 
 ### WB-DEC-011 — Configured execution target and worker readiness must be truthful — CURRENT
 
@@ -113,12 +115,13 @@ When a project/task is explicitly configured for a runner, machine or execution 
 - Do not report a worker as ready when it is not actually available.
 - Worker location, capability, readiness and fallback state must be reported truthfully.
 - A fallback route may be used only when the current routing/policy contract explicitly permits it; fallback is not permission to lie about where work ran.
+- This generic execution-target rule does not authorize OpenClaw. OpenClaw is governed exclusively by the explicit owner authorization boundary in WB-DEC-018.
 
 ### WB-DEC-012 — External model-credit consumption requires explicit user authorisation — CURRENT
 
 Testing, experiments, probes and development must not consume external/metered/scarce model credit merely to see whether a provider works.
 
-- Local, zero-marginal and already-authorised included routes may be used according to policy.
+- Local, zero-marginal and already-authorised included routes may be used according to policy, except that OpenClaw still requires the separate explicit owner authorization in WB-DEC-018.
 - Any action that will spend external model credit or scarce paid quota for a test/experiment requires explicit user authorisation for that spend.
 - Provider availability may be inspected through non-consuming/categorical mechanisms when available.
 - Never turn a governance, health or routing check into a paid model invocation by convenience.
@@ -168,6 +171,21 @@ The bounded live projection prevents historical relay volume from defining curre
 
 Mass deletion/compaction is not required to complete public-source repository cleanup. A future retention/compaction policy must explicitly protect pending requests, audit/rollback needs, privacy and transport correctness before destructive cleanup is authorised.
 
+### WB-DEC-018 — OpenClaw is explicit-owner-request-only — CURRENT
+
+OpenClaw is installed/available capacity only. It is not a normal Workbench route and it is unavailable to automatic selection.
+
+- ChatGPT and Workbench MUST NOT select, invoke, suggest or use OpenClaw automatically.
+- Only an explicit owner instruction naming OpenClaw for the applicable operation authorizes OpenClaw.
+- Unless such an instruction exists, effective OpenClaw authorization is **DENIED**.
+- Availability, difficulty, duration, an allowlist miss, missing Workbench capability, CI/deployment failure, Kubernetes/Docker/systemd/Helm trouble, Bash requirements, prior OpenClaw use, historical task state, provider/model/tool availability or old routing configuration are not authorization.
+- Routine server/cluster/host/runtime work uses direct Workbench controls first. Reviewed `scripts/ops/*.sh` operations are the multi-step Bash path.
+- If direct execution cannot express the operation, ChatGPT must safely decompose it, use an existing reviewed operation, implement an appropriate bounded Workbench capability/reviewed operation where authorised, or report the exact capability/authority blocker. It must not fall through to OpenClaw.
+- `relay/inbox` may preserve deliberate explicit-use functionality, but `[workbench:operations]` is only routing metadata. A separate explicit owner-authorization signal is required, and normal routing must not be able to create authorization merely by entering the operations lane.
+- Historical OpenClaw tasks and conversations do not influence current routing.
+
+Compatibility intent: OpenClaw may remain installed and usable for a future operation the owner explicitly assigns to OpenClaw; otherwise it is inert from ChatGPT/Workbench routing perspective.
+
 ## Superseded / rejected decisions and behaviours
 
 ### Conversation history as project authority — REJECTED
@@ -206,17 +224,25 @@ Replacement: measured, stage-based or indeterminate progress only.
 
 Replacement: outbound typed/allowlisted Windows operations.
 
+### Automatic OpenClaw routing/fallback — REJECTED
+
+Old behaviour: ChatGPT/Workbench guidance or routing could treat OpenClaw/autonomous operations as an escalation/fallback when the direct structured machine surface could not express the task.
+
+Replacement: WB-DEC-018. A direct-capability miss is a decomposition/capability/reviewed-operation/blocker decision, never OpenClaw authorization. Only an explicit owner instruction naming OpenClaw authorizes that operation.
+
+Do not reintroduce: provider availability, `[workbench:operations]`, task difficulty, an allowlist miss or prior OpenClaw use must never create OpenClaw authorization.
+
 ### Implicit ChatGPT → OpenClaw development delegation — REJECTED
 
-Replacement: direct bounded Workbench operations by default; autonomous delegation only through explicit eligible paths. Authenticated private continuation is a separate trusted transport and does not reopen implicit delegation.
+Replacement: direct bounded Workbench operations and ChatGPT-owned engineering. Authenticated private continuation is a separate trusted development-continuity transport and does not reopen OpenClaw routing.
 
 ### OpenClaw as the primary Workbench coder — SUPERSEDED
 
-Replacement: WB-DEC-001. OpenClaw is optional operator/autonomous capacity.
+Replacement: WB-DEC-001 and WB-DEC-018. OpenClaw is owner-selected machine-operation capacity only when explicitly authorized by name.
 
 ### Silent local execution when a configured runner is unavailable — REJECTED
 
-Replacement: WB-DEC-011. Unavailable configured execution must remain visible as unavailable/blocked unless a policy-authorised fallback is explicitly selected and truthfully reported.
+Replacement: WB-DEC-011. Unavailable configured execution must remain visible as unavailable/blocked unless a policy-authorised non-OpenClaw fallback is explicitly selected and truthfully reported. OpenClaw remains subject to WB-DEC-018.
 
 ### Spending external model credit for unapproved tests/probes — REJECTED
 
@@ -271,6 +297,8 @@ Future changes MUST NOT:
 - present a skeleton, prototype, partial UI/backend demo or engineering preview as a finished coherent Workbench product;
 - restore generic inbound/generic-shell Windows control;
 - silently route direct ChatGPT development into OpenClaw;
+- select, invoke, suggest or use OpenClaw merely because direct Workbench execution is unavailable or inconvenient;
+- treat `[workbench:operations]`, prior OpenClaw tasks, provider availability or historical routing state as owner authorization;
 - treat OpenClaw as required for routine bounded operations;
 - call a release complete before the expected actual release/tag and downloadable artifact are verified;
 - conflate released, deployed/installed and semantically verified state;
