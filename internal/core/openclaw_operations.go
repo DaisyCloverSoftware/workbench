@@ -20,20 +20,24 @@ const (
 	openClawOperationArchiveTimeout = 15 * time.Second
 )
 
-// RunOpenClawOperationSupervised is the missing "keep going" loop. A clean
-// OpenClaw process exit is not considered task completion unless OpenClaw has
-// explicitly verified the requested operational outcome. Progress-only exits
-// and bounded unresponsive invocations are re-engaged automatically against the
-// same real host/cluster state instead of making the human type "continue".
+// RunOpenClawOperationSupervised runs only an explicitly owner-authorized
+// OpenClaw machine operation. A clean OpenClaw process exit is not considered
+// task completion unless OpenClaw has explicitly verified the requested
+// operational outcome. Progress-only exits and bounded unresponsive invocations
+// are re-engaged automatically against the same real host/cluster state instead
+// of making the human type "continue".
 //
-// Every durable Workbench task owns one explicit OpenClaw conversation. All
-// continuation passes and model failover attempts for that task reuse the same
-// session, while a different task receives a different session. This preserves
-// useful per-job context without inheriting stale bindings from OpenClaw's
-// long-lived interactive main conversation.
+// Every authorized durable Workbench task owns one explicit OpenClaw
+// conversation. All continuation passes and model failover attempts for that
+// task reuse the same session, while a different task receives a different
+// session. This preserves useful per-job context without inheriting stale
+// bindings from OpenClaw's long-lived interactive main conversation.
 func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, prefs Preferences) (RunResult, error) {
+	if !task.OpenClawOwnerAuthorized {
+		return RunResult{}, errors.New("OpenClaw authorization denied: durable task state does not contain explicit owner authorization naming OpenClaw")
+	}
 	if p.ID != "openclaw" {
-		return RunResult{}, errors.New("operations lane requires OpenClaw")
+		return RunResult{}, errors.New("explicitly owner-authorized OpenClaw operations lane requires the OpenClaw provider")
 	}
 	sessionID := openClawOperationSessionID(task)
 	previous := ""
@@ -63,12 +67,12 @@ func RunOpenClawOperationSupervised(ctx context.Context, p Provider, task Task, 
 		previous = operationContinuationReport(res.Output)
 	}
 	res := RunResult{Output: previous, Retryable: true}
-	return boundRunResultForPersistence(res), fmt.Errorf("OpenClaw stopped %d times without verifying the operational objective; Workbench exhausted its automatic continuation budget instead of asking the human to keep nudging it", maxOperationContinuationPasses)
+	return boundRunResultForPersistence(res), fmt.Errorf("OpenClaw stopped %d times without verifying the explicitly owner-authorized operational objective; Workbench exhausted its automatic continuation budget instead of asking the human to keep nudging it", maxOperationContinuationPasses)
 }
 
 func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	var b strings.Builder
-	b.WriteString("You are OpenClaw acting only as Workbench's infrastructure/host/cluster operator. ChatGPT owns the software-development loop: reasoning, source code, Git/GitHub changes, pull requests, CI and GitHub Actions. Your job is only the machine-side operational work ChatGPT cannot execute itself, so the human never has to copy prompts here or keep telling you to continue.\n\n")
+	b.WriteString("You are OpenClaw acting only on a machine-side operation the owner explicitly assigned to OpenClaw by name. ChatGPT owns the software-development loop: reasoning, source code, Git/GitHub changes, pull requests, CI, GitHub Actions, releases, and subsequent engineering decisions. Your authority is limited to the explicitly owner-authorized machine-operation objective below. Do not infer or expand authority from tool availability, task difficulty, previous OpenClaw use, or limitations of Workbench's direct controls.\n\n")
 	b.WriteString("Operational objective:\n")
 	b.WriteString(OperationsTaskIntent(task))
 	b.WriteString("\n\nRepository/context workspace:\n")
@@ -76,14 +80,14 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	b.WriteString("\n\nNon-negotiable role boundary:\n")
 	b.WriteString("- Do not implement application features, redesign product behaviour, make source-code or infrastructure-as-code changes, create commits/branches/PRs, push or merge, trigger/rerun CI, or operate GitHub Actions. ChatGPT owns all of that.\n")
 	b.WriteString("- You may inspect repository state read-only when needed to identify the deployed revision, but do not mutate Git or GitHub state.\n")
-	b.WriteString("- You may use shell/systemd/Docker/Kubernetes/Helm and equivalent host/runtime commands when they are necessary to achieve the stated objective.\n")
+	b.WriteString("- You may use shell/systemd/Docker/Kubernetes/Helm and equivalent host/runtime commands only when they are necessary to achieve this explicitly owner-authorized objective and remain within the existing authority boundary.\n")
 	b.WriteString("- Runtime/cluster changes explicitly requested by the objective (for example deploy an already-built artifact, restart, install, apply, recover, or verify) are operational work and may be carried out.\n")
 	b.WriteString("- If completing the objective requires any code/IaC/GitHub/CI change, stop with WORKER_UNAVAILABLE: ChatGPT-owned development change required; return to ChatGPT.\n")
 	b.WriteString("- Never print, copy, or expose secret values.\n")
-	b.WriteString("- Do not stop merely to report progress or ask whether to continue. Diagnose ordinary operational failures, retry safe alternatives, and keep working until the outcome is verified.\n")
+	b.WriteString("- Do not stop merely to report progress or ask whether to continue. Diagnose ordinary operational failures, retry safe alternatives, and keep working until the authorized outcome is verified.\n")
 	b.WriteString("- Ask the human only for a genuinely irreversible/destructive/production permission or product decision that is not already authorised by the objective. Use exactly ATTENTION_REQUIRED: followed by one concise question.\n")
 	b.WriteString("- If login, quota, local tool policy, missing executable, or another worker-local limitation prevents you acting, use exactly WORKER_UNAVAILABLE: followed by one concise reason; do not ask the human to babysit your setup.\n")
-	b.WriteString("- When and only when the operational objective is actually complete and verified, finish with a final line exactly WORKBENCH_OPERATION_COMPLETE: verified. A progress report without this marker is not completion and Workbench will automatically invoke you again.\n")
+	b.WriteString("- When and only when the operational objective is actually complete and verified, finish with a final line exactly WORKBENCH_OPERATION_COMPLETE: verified. A progress report without this marker is not completion and Workbench will automatically invoke you again within this same already-authorized task.\n")
 
 	if strings.TrimSpace(task.HumanAnswer) != "" {
 		b.WriteString("\nHuman answer to the previous genuine attention request:\n")
@@ -92,7 +96,7 @@ func BuildOpenClawOperationPrompt(task Task, pass int, previous string) string {
 	}
 	if pass > 1 {
 		b.WriteString(fmt.Sprintf("\nWorkbench supervisor continuation pass %d of %d:\n", pass, maxOperationContinuationPasses))
-		b.WriteString("Your previous invocation ended without the verified-completion marker or became unresponsive. Reinspect the current host/cluster/runtime state, preserve operational work already done, and continue the same objective in this same Workbench job conversation. Do not return another progress-only answer.\n")
+		b.WriteString("Your previous invocation ended without the verified-completion marker or became unresponsive. Reinspect the current host/cluster/runtime state, preserve operational work already done, and continue the same explicitly owner-authorized objective in this same Workbench job conversation. Do not return another progress-only answer.\n")
 		if previous = strings.TrimSpace(previous); previous != "" {
 			b.WriteString("Previous non-secret report (context only; verify actual state yourself):\n")
 			b.WriteString(previous)
@@ -144,6 +148,9 @@ func openClawOperationAgentArgsWithSession(prompt, model, sessionID string) []st
 }
 
 func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, prefs Preferences, prompt, sessionID string) (RunResult, bool, error) {
+	if !task.OpenClawOwnerAuthorized {
+		return RunResult{}, false, errors.New("OpenClaw authorization denied before process invocation")
+	}
 	invokeCtx, cancel := context.WithTimeout(ctx, operationInvocationTimeout)
 	defer cancel()
 	if strings.TrimSpace(sessionID) == "" || sessionID != openClawOperationSessionID(task) {
@@ -193,13 +200,13 @@ func runOpenClawOperationInvocation(ctx context.Context, p Provider, task Task, 
 	}
 	if strings.TrimSpace(res.WorkerUnavailable) != "" {
 		res.Retryable = true
-		return boundRunResultForPersistence(res), false, fmt.Errorf("OpenClaw is unavailable for this operational task: %s", res.WorkerUnavailable)
+		return boundRunResultForPersistence(res), false, fmt.Errorf("OpenClaw is unavailable for this explicitly owner-authorized operational task: %s", res.WorkerUnavailable)
 	}
 	if strings.TrimSpace(res.Attention) != "" && isWorkerSetupAttention(res.Attention) {
 		q := res.Attention
 		res.Attention = ""
 		res.Retryable = true
-		return boundRunResultForPersistence(res), false, fmt.Errorf("OpenClaw cannot act autonomously under its current local tool permissions: %s", q)
+		return boundRunResultForPersistence(res), false, fmt.Errorf("OpenClaw cannot act under its current local tool permissions: %s", q)
 	}
 	if runErr != nil {
 		if errors.Is(invokeCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
