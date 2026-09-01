@@ -28,27 +28,27 @@ So Workbench separates:
 
 - **Brains:** planning, reasoning, review, code generation and diagnosis.
 - **Hands:** file edits, safe commands, tests, diffs and execution.
-- **Autonomy:** independent exploration and multi-step action when the job genuinely requires it.
+- **Autonomy:** independent exploration and multi-step action only where the governing policy and current authority explicitly permit it.
 
-This leads to the design mantra:
-
-> **Use chat for brains. Use the harness for hands. Spend scarce agentic capacity only for autonomy.**
+For ChatGPT-driven engineering, ChatGPT remains responsible for the engineering loop and Workbench direct controls provide the normal machine-side hands. OpenClaw is not an automatic escalation route.
 
 ## A neutral AI IDE
 
 Workbench should not belong to one model vendor.
 
-Providers advertise capabilities and economic characteristics. A route can be local, included in a subscription, limited by a weekly/rolling agentic allowance, or metered by an API. Workbench chooses the cheapest *eligible* route rather than the cheapest model regardless of quality.
+Providers advertise capabilities and economic characteristics. A route can be local, included in a subscription, limited by a weekly/rolling agentic allowance, or metered by an API. Workbench chooses among routes that are already eligible under current authority rather than treating availability as permission.
 
-It should be normal for one job to involve several systems:
+It should be normal for one job to involve several systems when their separate policies permit it:
 
 - a local model classifies logs;
 - ChatGPT plans the change;
 - Workbench applies an exact patch and runs tests;
-- Copilot or Claude handles a larger autonomous implementation;
-- a different model reviews authentication-sensitive code;
-- OpenClaw performs an authorised operation on a remote environment;
+- a separately authorised worker may perform an eligible non-OpenClaw task;
+- a different model reviews authentication-sensitive code where policy permits;
+- OpenClaw performs a machine operation only when the owner explicitly requested OpenClaw by name for that operation;
 - the human hears nothing unless a real boundary is reached.
+
+OpenClaw availability, an allowlist miss, missing direct capability, CI/deployment failure or operational difficulty is never authorization to select OpenClaw.
 
 ## User-owned context
 
@@ -77,6 +77,6 @@ The project succeeds if other developers can bring their own AI subscriptions an
 
 Workbench should not rely on brittle automation of consumer web sessions to pretend that every chat product has an API. It should use supported provider CLIs, APIs, MCP/tools and user-authorised harnesses.
 
-Workbench should not silently ship secrets to models, silently deploy to production, or turn every trivial job into an expensive agent run.
+Workbench should not silently ship secrets to models, silently deploy to production, turn every trivial job into an expensive agent run, or infer OpenClaw authorization from availability or failure of another execution path.
 
 And it should never make the human babysit a progress spinner merely because the software cannot decide what to do next.
