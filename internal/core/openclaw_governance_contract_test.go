@@ -1,6 +1,7 @@
 package core
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,15 @@ func TestActiveChatGPTOpenClawGovernanceSurfacesRequireExplicitOwnerSelection(t 
 			"OpenClaw is an owner-selected execution mode",
 			"Only an explicit owner instruction naming OpenClaw",
 			"effective OpenClaw authorization state is **DENIED**",
+		},
+		"cmd/workbench-relay/private_chat_capabilities.go": {
+			"OpenClawPolicy",
+			"explicit_owner_request_only",
+			"owner_selected_openclaw_execution_only_no_automatic_routing",
+		},
+		"cmd/workbench-relay/private_continuation.go": {
+			"routing metadata, not owner authorization",
+			"OpenClawExplicitAuthorizationPrefix",
 		},
 		"docs/CHATGPT_BOOTSTRAP.md": {
 			"OpenClaw is owner-opt-in only",
@@ -59,6 +69,22 @@ func TestActiveChatGPTOpenClawGovernanceSurfacesRequireExplicitOwnerSelection(t 
 			"owner has explicitly assigned to OpenClaw by name",
 			"unavailable to automatic routing",
 		},
+		"internal/core/engine_operations.go": {
+			"OpenClawOwnerAuthorized: true",
+			"explicit owner authorization naming OpenClaw is required",
+		},
+		"internal/core/engine.go": {
+			"IsOperationsTask(t) && !t.OpenClawOwnerAuthorized",
+			"OpenClaw is not an automatic coding fallback",
+		},
+		"internal/core/task_execution.go": {
+			"Operations task lacks durable explicit owner authorization naming OpenClaw",
+			"cannot be used as an automatic development or fallback provider",
+		},
+		"internal/core/openclaw_operations.go": {
+			"owner explicitly assigned to OpenClaw by name",
+			"OpenClaw authorization denied before process invocation",
+		},
 	}
 
 	for rel, wants := range required {
@@ -75,23 +101,11 @@ func TestActiveChatGPTOpenClawGovernanceSurfacesRequireExplicitOwnerSelection(t 
 	}
 }
 
-func TestActiveGovernanceContainsNoAutomaticOpenClawFallbackInstructions(t *testing.T) {
+func TestRepositoryContainsNoRetiredAutomaticOpenClawFallbackInstructions(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", ".."))
-	files := []string{
-		"cmd/workbench-relay/WORKBENCH_CHATGPT.md",
-		"docs/CHATGPT_BOOTSTRAP.md",
-		"docs/CHATGPT_SHARED_INTEGRATION.md",
-		"docs/PERSONAL_PRO_RELAY.md",
-		"skills/workbench/SKILL.md",
-		"plugins/chatgpt/SKILL.md",
-		"docs/GOVERNANCE.md",
-		"ARCHITECTURE.md",
-		"README.md",
-		"VISION.md",
-		"docs/operations/openclaw-agent-cli-contract.md",
-	}
 	forbidden := []string{
 		"optional_machine_side_autonomy_fallback",
+		"machine_operations_outside_the_direct_allowlist",
 		"external autonomous operators are optional fallback capacity",
 		"use OpenClaw only as optional autonomous operator fallback",
 		"optional autonomous operator fallback",
@@ -99,18 +113,40 @@ func TestActiveGovernanceContainsNoAutomaticOpenClawFallbackInstructions(t *test
 		"use the autonomous inbox only when ordinary ChatGPT cannot sensibly complete",
 		"use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed",
 		"Workbench uses OpenClaw only for delegated machine-side/autonomous operations that ChatGPT cannot reasonably complete",
+		"your job is only the machine-side operational work ChatGPT cannot execute itself",
 	}
 
-	for _, rel := range files {
-		b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	allowedExtensions := map[string]bool{
+		".go": true, ".md": true, ".json": true, ".txt": true,
+		".yaml": true, ".yml": true, ".toml": true, ".sh": true, ".ps1": true,
+	}
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			t.Fatalf("read %s: %v", rel, err)
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !allowedExtensions[strings.ToLower(filepath.Ext(path))] {
+			return nil
+		}
+		b, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
 		}
 		low := strings.ToLower(string(b))
+		rel, _ := filepath.Rel(root, path)
 		for _, phrase := range forbidden {
 			if strings.Contains(low, strings.ToLower(phrase)) {
-				t.Errorf("%s still contains prohibited automatic OpenClaw fallback instruction %q", rel, phrase)
+				t.Errorf("%s still contains retired automatic OpenClaw fallback instruction %q", filepath.ToSlash(rel), phrase)
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
