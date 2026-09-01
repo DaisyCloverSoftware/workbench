@@ -36,7 +36,10 @@ func autonomousProviderRoutingLine(location string, provider core.Provider, read
 		mark = "●"
 	}
 	role := "AUTONOMOUS"
-	if provider.ID == "codex" || provider.Cost == core.CostScarce {
+	switch {
+	case provider.ID == "openclaw":
+		role = "OWNER-SELECTED"
+	case provider.ID == "codex" || provider.Cost == core.CostScarce:
 		role = "LAST RESORT"
 	}
 	return fmt.Sprintf("%s %s · %s · %s  ·  %s  ·  %s", mark, role, strings.TrimSpace(location), provider.Name, provider.Status, provider.Cost)
@@ -48,7 +51,9 @@ func runnerAutonomousRoutingLine(provider core.RunnerProviderInfo) string {
 		mark = "●"
 	}
 	role := "AUTONOMOUS"
-	if _, isCloudModel := core.RunnerCloudModelRefFromProviderID(provider.ID); isCloudModel {
+	if provider.ID == "openclaw" {
+		role = "OWNER-SELECTED"
+	} else if _, isCloudModel := core.RunnerCloudModelRefFromProviderID(provider.ID); isCloudModel {
 		role = "CLOUD MODEL"
 	} else if provider.ID == "codex" || provider.Cost == core.CostScarce {
 		role = "LAST RESORT"
