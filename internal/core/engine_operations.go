@@ -31,15 +31,16 @@ func (e *Engine) DelegateOperation(origin, intent, project string) (Task, error)
 	}
 	now := time.Now()
 	t := Task{
-		ID:          newID("task"),
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		Origin:      origin,
-		Title:       TaskTitle(intent),
-		Intent:      intent,
-		ProjectPath: project,
-		Mode:        TaskModeOperations,
-		Status:      TaskQueued,
+		ID:                      newID("task"),
+		CreatedAt:               now,
+		UpdatedAt:               now,
+		Origin:                  origin,
+		Title:                   TaskTitle(intent),
+		Intent:                  intent,
+		ProjectPath:             project,
+		Mode:                    TaskModeOperations,
+		OpenClawOwnerAuthorized: true,
+		Status:                  TaskQueued,
 	}
 	e.mu.Lock()
 	touchProjectState(&e.state, project)
