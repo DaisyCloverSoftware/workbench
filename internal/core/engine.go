@@ -289,6 +289,11 @@ func (e *Engine) execute(taskID string) {
 		e.wakeScheduler()
 	}()
 
+	if IsOperationsTask(t) && !t.OpenClawOwnerAuthorized {
+		e.finishFailed(taskID, "OpenClaw authorization denied: this Operations task has no durable explicit owner authorization naming OpenClaw. Workbench did not select or invoke an OpenClaw provider.")
+		return
+	}
+
 	eligible := routeCandidates(providers, prefs, t)
 	filterTime := time.Now().UTC()
 	candidates, cooling := FilterProviderCooldowns(eligible, filterTime)
@@ -308,17 +313,17 @@ func (e *Engine) execute(taskID string) {
 				}
 			}
 			if IsOperationsTask(t) {
-				e.finishFailed(taskID, "The eligible Workbench machine-operations path is temporarily cooling down after a recent provider failure. Workbench will retry when the cooldown permits.\n\n"+strings.Join(cooling, "\n"))
+				e.finishFailed(taskID, "The explicitly owner-authorized OpenClaw machine-operations path is temporarily cooling down after a recent provider failure. Workbench will retry when the cooldown permits.\n\n"+strings.Join(cooling, "\n"))
 				return
 			}
 			e.finishFailed(taskID, "All eligible coding workers are temporarily cooling down after recent provider-level failures. Use Rescan after fixing provider setup, or retry after the cooldown.\n\n"+strings.Join(cooling, "\n"))
 			return
 		}
 		if IsOperationsTask(t) {
-			e.finishFailed(taskID, "OpenClaw is not currently available to Workbench for this machine-side operation. The task was not handed to a coding worker.")
+			e.finishFailed(taskID, "The explicitly owner-authorized OpenClaw operation cannot run because the authorized operator path is currently unavailable. Workbench did not fall back to another provider.")
 			return
 		}
-		e.finishFailed(taskID, "No eligible coding worker is connected. Connect Antigravity, Copilot, Claude, a structured harness adapter, OpenClaw, or Codex; Workbench will keep metered APIs disabled unless you opt in.")
+		e.finishFailed(taskID, "No eligible coding worker is connected. Connect an eligible coding provider; Workbench will keep metered APIs disabled unless you opt in. OpenClaw is not an automatic coding fallback.")
 		return
 	}
 
@@ -379,7 +384,7 @@ func (e *Engine) execute(taskID string) {
 		}
 	}
 	if IsOperationsTask(t) {
-		e.finishFailed(taskID, "The Workbench machine-side operation failed.\n\n"+strings.Join(errorsSeen, "\n"))
+		e.finishFailed(taskID, "The explicitly owner-authorized Workbench/OpenClaw machine-side operation failed.\n\n"+strings.Join(errorsSeen, "\n"))
 		return
 	}
 	e.finishFailed(taskID, "Every eligible worker failed.\n\n"+strings.Join(errorsSeen, "\n"))
@@ -387,6 +392,9 @@ func (e *Engine) execute(taskID string) {
 
 func routeCandidates(providers []Provider, prefs Preferences, t Task) []Provider {
 	providers = providerInventoryWithConfiguredHarness(providers, prefs)
+	if IsOperationsTask(t) && !t.OpenClawOwnerAuthorized {
+		return nil
+	}
 	var out []Provider
 	for _, p := range providers {
 		if !p.Installed || !p.Authenticated || !p.CanWrite || strings.TrimSpace(p.Command) == "" {
@@ -400,6 +408,10 @@ func routeCandidates(providers []Provider, prefs Preferences, t Task) []Provider
 			} else if p.ID != "openclaw" {
 				continue
 			}
+		} else if p.ID == "openclaw" {
+			// OpenClaw is never an automatic development/coding route. It can be
+			// selected only through an explicitly owner-authorized Operations task.
+			continue
 		}
 		if p.ID == "workbench-runner" && strings.TrimSpace(prefs.OpenClawSSHHost) == "" {
 			continue
