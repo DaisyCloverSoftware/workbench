@@ -52,6 +52,9 @@ func TestScanProvidersUsesServiceSafeOpenClawDiscovery(t *testing.T) {
 		if !provider.Installed || !provider.Authenticated || provider.Command != command {
 			t.Fatalf("unexpected OpenClaw provider: %+v", provider)
 		}
+		if !strings.Contains(provider.Status, "owner authorization required") {
+			t.Fatalf("discovered OpenClaw provider must remain owner-gated: %+v", provider)
+		}
 		return
 	}
 	t.Fatal("OpenClaw provider row missing")
@@ -80,7 +83,7 @@ func TestOpenClawOperationRestoresSiblingNodeToServicePATH(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	project := t.TempDir()
 	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: openclaw, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
-	task := Task{ID: "task-service-path", Mode: TaskModeOperations, ProjectPath: project, Intent: "Verify service execution"}
+	task := Task{ID: "task-service-path", Mode: TaskModeOperations, OpenClawOwnerAuthorized: true, ProjectPath: project, Intent: "Verify service execution"}
 	sessionID := openClawOperationSessionID(task)
 
 	res, complete, err := runOpenClawOperationInvocation(context.Background(), provider, task, Preferences{}, "verify", sessionID)

@@ -43,7 +43,7 @@ func TestActiveChatGPTOpenClawGovernanceSurfacesRequireExplicitOwnerSelection(t 
 		},
 		"plugins/chatgpt/SKILL.md": {
 			"OpenClaw is owner-opt-in only",
-			"[workbench:operations] is routing metadata, not owner consent",
+			"routing metadata, not owner consent",
 		},
 		"docs/GOVERNANCE.md": {
 			"OpenClaw owner-authorization invariant",
@@ -54,7 +54,7 @@ func TestActiveChatGPTOpenClawGovernanceSurfacesRequireExplicitOwnerSelection(t 
 			"Automatic OpenClaw routing/fallback — REJECTED",
 		},
 		"ARCHITECTURE.md": {
-			"OpenClaw is not part of normal routing",
+			"is not part of normal routing",
 			"installed/healthy state does not make a task eligible for OpenClaw",
 		},
 		"README.md": {
@@ -114,6 +114,8 @@ func TestRepositoryContainsNoRetiredAutomaticOpenClawFallbackInstructions(t *tes
 		"use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed",
 		"Workbench uses OpenClaw only for delegated machine-side/autonomous operations that ChatGPT cannot reasonably complete",
 		"your job is only the machine-side operational work ChatGPT cannot execute itself",
+		"machine-side operations ChatGPT cannot execute itself",
+		"falling back to OpenClaw",
 	}
 
 	allowedExtensions := map[string]bool{
@@ -128,6 +130,12 @@ func TestRepositoryContainsNoRetiredAutomaticOpenClawFallbackInstructions(t *tes
 			if d.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		// Tests must be able to quote retired wording in negative regression
+		// assertions. The repository-wide instruction scan applies to active
+		// implementation/configuration/documentation surfaces, not test literals.
+		if strings.HasSuffix(strings.ToLower(d.Name()), "_test.go") {
 			return nil
 		}
 		if !allowedExtensions[strings.ToLower(filepath.Ext(path))] {

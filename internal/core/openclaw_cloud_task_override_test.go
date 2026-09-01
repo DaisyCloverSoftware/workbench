@@ -21,9 +21,19 @@ func TestExplicitCloudModelOverrideWinsOnlyInsideOpenClawLadder(t *testing.T) {
 		{ID: "openclaw", Name: "OpenClaw", Command: "openclaw", Installed: true, Authenticated: true, CanWrite: true, Cost: CostIncluded, Priority: 50},
 		{ID: "codex", Name: "Codex", Command: "codex", Installed: true, Authenticated: true, CanWrite: true, Cost: CostScarce, Priority: 80},
 	}
-	outer := routeCandidates(providers, Preferences{AvoidWorkUsage: true}, Task{CloudModelOverride: "openai/gpt-5.3-codex-spark"})
-	if len(outer) != 3 || outer[0].ID != "antigravity" || outer[1].ID != "openclaw" || outer[2].ID != "codex" {
-		t.Fatalf("cloud model override must not alter outer Workbench routing: %#v", outer)
+	outer := routeCandidates(providers, Preferences{AvoidWorkUsage: true}, Task{Mode: TaskModeDevelopment, CloudModelOverride: "openai/gpt-5.3-codex-spark"})
+	if len(outer) != 2 || outer[0].ID != "antigravity" || outer[1].ID != "codex" {
+		t.Fatalf("cloud model override must not make OpenClaw eligible for ordinary development routing: %#v", outer)
+	}
+
+	authorized := routeCandidates(providers, Preferences{AvoidWorkUsage: true}, Task{
+		Mode:                    TaskModeOperations,
+		OpenClawOwnerAuthorized: true,
+		ProjectPath:             t.TempDir(),
+		CloudModelOverride:      "openai/gpt-5.3-codex-spark",
+	})
+	if len(authorized) != 1 || authorized[0].ID != "openclaw" {
+		t.Fatalf("explicitly owner-authorized OpenClaw operation should keep the OpenClaw route: %#v", authorized)
 	}
 }
 
