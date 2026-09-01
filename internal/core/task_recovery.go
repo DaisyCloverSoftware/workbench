@@ -25,12 +25,12 @@ type taskDependencySchedule struct {
 func (e *Engine) ResumeInterruptedTasks() error {
 	e.mu.Lock()
 	now := time.Now().UTC()
-	retiredLegacyChatGPT := retireLegacyChatGPTOperationTasks(&e.state, now)
+	retiredUnauthorizedOpenClaw := retireLegacyChatGPTOperationTasks(&e.state, now)
 	ids := recoverInterruptedTasks(&e.state)
 	retryNow, retryLater := recoverWaitingRetryTasks(&e.state, now)
 	ids = append(ids, retryNow...)
 	dependencyLater, dependencyChanged := recoverWaitingDependencyTasks(&e.state, now)
-	stateChanged := retiredLegacyChatGPT || len(ids) > 0 || dependencyChanged
+	stateChanged := retiredUnauthorizedOpenClaw || len(ids) > 0 || dependencyChanged
 	st := cloneState(e.state)
 	e.mu.Unlock()
 
@@ -52,12 +52,13 @@ func (e *Engine) ResumeInterruptedTasks() error {
 	return nil
 }
 
-// retireLegacyChatGPTOperationTasks is the migration boundary from the earlier
-// ChatGPT→OpenClaw operations design to direct Workbench machine controls.
-// Existing non-terminal tasks created by the old chatgpt-mcp operator path must
-// not be resurrected after an upgrade/restart. Their history remains visible,
-// but Workbench cancels them and clears execution state instead of opening a new
-// OpenClaw session. Manual/local operations from other origins are unaffected.
+// retireLegacyChatGPTOperationTasks is kept under its historical name for
+// compatibility with existing tests/callers, but the migration boundary now
+// applies to every non-terminal Operations task that lacks durable proof of
+// explicit owner authorization for OpenClaw. Old origin strings, prior task
+// history, or an OpenClaw provider binding cannot establish authorization.
+// Explicitly owner-authorized tasks persist OpenClawOwnerAuthorized=true and may
+// be recovered normally.
 func retireLegacyChatGPTOperationTasks(st *State, now time.Time) bool {
 	if st == nil {
 		return false
@@ -66,7 +67,7 @@ func retireLegacyChatGPTOperationTasks(st *State, now time.Time) bool {
 	changed := false
 	for i := range st.Tasks {
 		t := &st.Tasks[i]
-		if !strings.EqualFold(strings.TrimSpace(t.Origin), "chatgpt-mcp") || !IsOperationsTask(*t) {
+		if !IsOperationsTask(*t) || t.OpenClawOwnerAuthorized {
 			continue
 		}
 		switch t.Status {
@@ -82,7 +83,7 @@ func retireLegacyChatGPTOperationTasks(st *State, now time.Time) bool {
 		t.AttentionQuestion = ""
 		t.FinishedAt = timePointer(now)
 		t.UpdatedAt = now
-		t.Attempts = append(t.Attempts, "Workbench retired this legacy ChatGPT→OpenClaw operation during the direct-control migration; it will not be resumed")
+		t.Attempts = append(t.Attempts, "Workbench retired this legacy/unauthorized OpenClaw operation because no durable explicit owner authorization is present; it will not be resumed")
 		changed = true
 	}
 	return changed
