@@ -54,3 +54,29 @@ func (e *Engine) DelegateOperation(origin, intent, project string) (Task, error)
 	e.wakeScheduler()
 	return t, nil
 }
+
+// applyExplicitOwnerOpenClawAuthorization upgrades only a task that already
+// carries the separate explicit-owner authorization signal. Compatibility
+// entry points such as the private relay's hidden delegate_task route and the
+// desktop task form may create a queued task before the scheduler sees it; the
+// scheduler seals that explicit signal into durable task state before provider
+// selection. Normal routing never synthesizes this prefix, and the ordinary
+// [workbench:operations] marker alone is deliberately insufficient.
+func applyExplicitOwnerOpenClawAuthorization(task *Task) bool {
+	if task == nil || task.OpenClawOwnerAuthorized {
+		return false
+	}
+	intent := strings.TrimSpace(task.Intent)
+	if !strings.HasPrefix(intent, OpenClawExplicitAuthorizationPrefix) {
+		return false
+	}
+	intent = strings.TrimSpace(strings.TrimPrefix(intent, OpenClawExplicitAuthorizationPrefix))
+	if intent == "" {
+		return false
+	}
+	task.Intent = intent
+	task.Title = TaskTitle(intent)
+	task.Mode = TaskModeOperations
+	task.OpenClawOwnerAuthorized = true
+	return true
+}
