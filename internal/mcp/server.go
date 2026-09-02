@@ -125,7 +125,7 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 			"protocolVersion": "2025-11-25",
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "Workbench", "version": "0.9.59"},
-			"instructions":    "Workbench is ChatGPT's execution bridge, not a replacement developer. ChatGPT owns reasoning, source code, Git/GitHub changes, pull requests, CI and GitHub Actions. Start with get_workspace, get_context and search_memory. Use list_files, search_text and read_file for repository visibility; use apply_patch for ChatGPT-authored source changes and run_safe_command for bounded local build/test/lint/status/diff work. For routine host and cluster work, prefer inspect_machine for read-only diagnostics and run_machine_command for explicit allowlisted mutations; these execute structured argv directly through Workbench without a shell or another AI model. Use delegate_operation only as an optional autonomous fallback when the required machine operation cannot be expressed through the direct command allowlist and an external operator is intentionally available. After delegating, use await_operation. OpenClaw is optional operator capacity, never the coder and never required for routine Workbench machine access. Only surface needs_attention to the human. Before a conversation becomes too long, save a compact context capsule with save_context.",
+			"instructions":    "Workbench is ChatGPT's execution bridge, not a replacement developer. ChatGPT owns reasoning, source code, Git/GitHub changes, pull requests, reviews, CI, GitHub Actions, releases and subsequent engineering decisions. Start with get_workspace, get_context and search_memory. Use list_files, search_text and read_file for repository visibility; use apply_patch for ChatGPT-authored source changes and run_safe_command for bounded local build/test/lint/status/diff work. For routine host and cluster work, use inspect_machine for read-only diagnostics and run_machine_command for explicit allowlisted mutations; these execute structured argv directly through Workbench without a shell or AI operator. OpenClaw is owner-opt-in only: never call delegate_operation, select OpenClaw, or suggest OpenClaw unless the owner explicitly asks for OpenClaw by name for the applicable operation. A direct allowlist/capability miss, CI/deployment failure, difficult task, prior OpenClaw use, or OpenClaw availability is not authorization. If direct controls cannot express an operation, decompose it safely, use or implement a bounded Workbench capability or reviewed scripts/ops operation where appropriate, or report the precise capability/authority blocker. Only after an explicit owner instruction naming OpenClaw may ChatGPT prefix the operation with [workbench:openclaw-owner-authorized] and call delegate_operation; [workbench:operations] alone is routing metadata, not owner consent. After a deliberately authorized OpenClaw operation, use await_operation. Only surface needs_attention to the human. Before a conversation becomes too long, save a compact context capsule with save_context.",
 		}
 	case "ping":
 		result = map[string]any{}
@@ -190,9 +190,9 @@ func toolsList() []map[string]any {
 		tool("save_context", "Save compact continuation context", "Save a bounded continuation capsule before chat context becomes too long. Keep only current objective, verified state, decisions, constraints, references, open threads and next action.", objSchema(map[string]any{"project_path": project, "objective": strProp("Current outcome"), "state": strProp("Concise verified state of work"), "decisions": stringArrayProp("Decisions that still matter"), "constraints": stringArrayProp("Constraints that still matter"), "references": stringArrayProp("Task, memory, branch or artefact IDs needed to continue"), "open_threads": stringArrayProp("Unresolved work/questions"), "next_action": strProp("Most useful next action")}, []string{"objective", "state"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("inspect_machine", "Inspect Workbench machine", "Run one read-only allowlisted host/cluster command directly on the Workbench operator host. This is structured program+argv execution with no shell and no AI worker. Use it for routine kubectl/helm/systemd/journal/docker/runtime and host diagnostics.", objSchema(map[string]any{"program": machineProgram, "args": machineArgs, "timeout_seconds": machineTimeout}, []string{"program"}), anyObjectSchema(), annotations(true, false, true)),
 		tool("run_machine_command", "Run Workbench machine command", "Run one explicitly allowlisted mutating host/cluster command directly on the Workbench operator host without a shell or AI worker. Use this for bounded mutations such as kubectl rollout restart/scale/patch/set, Helm install/upgrade/rollback, systemctl service actions, or allowed Docker lifecycle actions. Destructive primitives such as delete, exec, rm, arbitrary scripts and alternate credential/cluster targets are refused.", objSchema(map[string]any{"program": machineProgram, "args": machineArgs, "timeout_seconds": machineTimeout}, []string{"program"}), anyObjectSchema(), annotations(false, true, true)),
-		tool("delegate_operation", "Delegate optional autonomous machine operation", "Optional fallback only: delegate a machine-side outcome to OpenClaw as the external operator when the required work cannot be expressed through inspect_machine/run_machine_command and autonomous operator capacity is intentionally available. OpenClaw is optional operator capacity, never the coder. Do not use this for routine cluster commands, source code, Git/GitHub changes, pull requests, CI or GitHub Actions.", objSchema(map[string]any{"intent": strProp("Machine-side operational outcome to achieve"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, true, true)),
-		tool("await_operation", "Wait for machine operation", "Wait for a durable Workbench autonomous machine-side operation to complete, fail, need genuine human attention, or reach a bounded timeout. Use this only after delegate_operation. A timeout does not cancel the operation.", objSchema(map[string]any{"task_id": strProp("Workbench operations task id"), "timeout_seconds": intProp("Optional wait duration in seconds; defaults to 120 and is capped at 600.")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
-		tool("get_task", "Get task status", "Read durable task status for diagnostics. For normal direct machine commands no task is created; this is for durable autonomous operations and other Workbench tasks.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("delegate_operation", "Run owner-authorized OpenClaw operation", "Owner-selected OpenClaw execution only. Never call this tool unless the owner explicitly asked for OpenClaw by name for this operation. A direct-capability or allowlist miss is not authorization. The intent must begin with [workbench:openclaw-owner-authorized], which ChatGPT may add only after that explicit owner instruction. [workbench:operations] alone is routing metadata and is not owner consent. OpenClaw is machine-operations-only and must not own source code, Git/GitHub, pull requests, CI, GitHub Actions, releases or subsequent engineering decisions.", objSchema(map[string]any{"intent": strProp("Explicitly owner-authorized OpenClaw operational objective, prefixed with [workbench:openclaw-owner-authorized]"), "project_path": project}, []string{"intent"}), anyObjectSchema(), annotations(false, true, true)),
+		tool("await_operation", "Wait for owner-authorized OpenClaw operation", "Wait for a deliberately owner-authorized durable OpenClaw machine operation to complete, fail, need genuine human attention, or reach a bounded timeout. Use this only after an explicit owner-authorized delegate_operation call. A timeout does not cancel the operation.", objSchema(map[string]any{"task_id": strProp("Workbench owner-authorized OpenClaw operations task id"), "timeout_seconds": intProp("Optional wait duration in seconds; defaults to 120 and is capped at 600.")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
+		tool("get_task", "Get task status", "Read durable task status for diagnostics. Normal direct machine commands create no AI task; durable OpenClaw task state exists only for explicitly owner-authorized OpenClaw operations, alongside other non-OpenClaw Workbench task types.", objSchema(map[string]any{"task_id": strProp("Workbench task id")}, []string{"task_id"}), anyObjectSchema(), annotations(true, false, false)),
 		tool("list_tasks", "List Workbench tasks", "List recent Workbench tasks and their statuses.", objSchema(map[string]any{}, nil), anyObjectSchema(), annotations(true, false, false)),
 		tool("apply_patch", "Apply Chat-generated patch", "Apply a unified git patch supplied by ChatGPT to a local or cluster project. ChatGPT remains responsible for the source change; Workbench only supplies bounded repository hands.", objSchema(map[string]any{"project_path": project, "patch": strProp("Unified git patch")}, []string{"patch"}), anyObjectSchema(), annotations(false, false, false)),
 		tool("run_safe_command", "Run safe development command", "Run a non-destructive build, test, lint, status, or diff command under Workbench's repository allowlist on the local or cluster project. This tool intentionally does not run deployments or host commands; use inspect_machine/run_machine_command for those.", objSchema(map[string]any{"project_path": project, "command": strProp("Safe command, e.g. git diff, npm test, go test ./...")}, []string{"command"}), anyObjectSchema(), annotations(false, false, false)),
@@ -346,6 +346,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			"allow_metered_api":        st.Preferences.AllowMeteredAPI,
 			"autonomy_mode":            st.Preferences.AutonomyMode,
 			"direct_machine_execution": true,
+			"openclaw_policy":          "explicit_owner_request_only",
 			"connected_workers":        workers,
 		}, false)
 
@@ -470,7 +471,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			"status":       t.Status,
 			"project_path": project,
 			"mode":         t.Mode,
-			"instruction":  "Optional autonomous fallback started. Workbench owns the external-operator continuation loop. Call await_operation for this task; only surface needs_attention to the human. Routine machine commands should use direct Workbench execution instead.",
+			"instruction":  "Explicit owner-authorized OpenClaw operation started. Workbench owns continuation of this deliberately selected operator task. Call await_operation for this task; only surface needs_attention to the human. Routine machine commands remain on direct Workbench execution.",
 		}, false)
 
 	case "await_operation":
@@ -478,9 +479,9 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 		if err != nil {
 			return textContent(map[string]any{"error": err.Error()}, true)
 		}
-		instruction := "The autonomous machine-side operation reached a terminal state. Continue the ChatGPT-owned workflow from this result; only ask the human if status is needs_attention."
+		instruction := "The explicitly owner-authorized OpenClaw machine operation reached a terminal state. Continue the ChatGPT-owned workflow from this result; only ask the human if status is needs_attention."
 		if wait.WaitTimedOut {
-			instruction = "The bounded wait ended while the durable autonomous operation is still active. Call await_operation again; do not ask the human to watch the external operator or type continue."
+			instruction = "The bounded wait ended while the explicitly owner-authorized OpenClaw operation is still active. Call await_operation again; do not ask the human to watch the operator or type continue."
 		}
 		return textContent(map[string]any{
 			"task":           wait.Task,
@@ -491,7 +492,9 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 	// Kept callable for backwards-compatible private relay traffic while older
 	// relay binaries roll forward. It is intentionally not advertised in
 	// tools/list. RunProviderIsolated refuses non-operations chatgpt-mcp tasks, so
-	// this compatibility path cannot farm ChatGPT's development loop out.
+	// this compatibility path cannot farm ChatGPT's development loop out. The
+	// scheduler seals the separate explicit-owner OpenClaw authorization prefix;
+	// the ordinary operations marker alone never authorizes OpenClaw.
 	case "delegate_task":
 		project, errResult := s.requireProject(a)
 		if errResult != nil {
@@ -513,7 +516,7 @@ func (s *Server) callTool(ctx context.Context, name string, a map[string]any) an
 			"status":               t.Status,
 			"project_path":         project,
 			"cloud_model_override": t.CloudModelOverride,
-			"instruction":          "Compatibility route only. ChatGPT development work is not eligible for autonomous execution; only operations-marked tasks may run.",
+			"instruction":          "Compatibility route only. ChatGPT development work is not eligible for OpenClaw. An operations marker without the separate explicit-owner OpenClaw authorization signal will not become eligible for OpenClaw execution.",
 		}, false)
 
 	case "get_task":
