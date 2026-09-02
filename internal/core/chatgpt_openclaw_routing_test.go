@@ -146,6 +146,13 @@ func TestRetireLegacyChatGPTOperationTasksCancelsAllUnauthorizedOpenClawWork(t *
 			ProviderID: "openclaw",
 		},
 		{
+			ID:         "task-explicit-marker-awaiting-seal",
+			Origin:     "chatgpt-mcp",
+			Intent:     OpenClawExplicitAuthorizationPrefix + " " + RelayOperationsIntentPrefix + " inspect runtime",
+			Mode:       TaskModeOperations,
+			Status:     TaskQueued,
+		},
+		{
 			ID:                      "task-explicit-owner-authorized",
 			Origin:                  "workbench-ui",
 			Mode:                    TaskModeOperations,
@@ -174,11 +181,18 @@ func TestRetireLegacyChatGPTOperationTasksCancelsAllUnauthorizedOpenClawWork(t *
 			t.Fatalf("legacy task retirement reason missing: %#v", got.Attempts)
 		}
 	}
-	authorized := st.Tasks[3]
+	sealed := st.Tasks[3]
+	if sealed.Status != TaskQueued || !sealed.OpenClawOwnerAuthorized || sealed.Mode != TaskModeOperations {
+		t.Fatalf("explicit owner authorization marker was not preserved/sealed during recovery: %#v", sealed)
+	}
+	if strings.Contains(sealed.Intent, OpenClawExplicitAuthorizationPrefix) {
+		t.Fatalf("recovery left authorization transport marker in objective: %q", sealed.Intent)
+	}
+	authorized := st.Tasks[4]
 	if authorized.Status != TaskRunning || authorized.ProviderID != "openclaw" || !authorized.OpenClawOwnerAuthorized {
 		t.Fatalf("explicitly owner-authorized OpenClaw operation was incorrectly retired: %#v", authorized)
 	}
-	if st.Tasks[4].Status != TaskCompleted {
-		t.Fatalf("terminal task was changed: %#v", st.Tasks[4])
+	if st.Tasks[5].Status != TaskCompleted {
+		t.Fatalf("terminal task was changed: %#v", st.Tasks[5])
 	}
 }
