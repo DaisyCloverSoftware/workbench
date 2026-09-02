@@ -1,0 +1,9 @@
+{
+  "version": "0.9.60",
+  "date": "2026-09-02",
+  "notes": [
+    "Make OpenClaw explicit-owner-request-only: normal Development and machine work use direct Workbench controls, and direct-capability failures never authorize autonomous OpenClaw fallback.",
+    "Preserve authorised Development continuity across ordinary CI/tool latency and interrupted durable tasks so keepalive prompts such as continue are not semantic authorization boundaries.",
+    "Restore the Sprint 1 operational telemetry live demonstration under the corrected routing boundary and keep exact-head telemetry, runner, build, UI and operations acceptance gates green."
+  ]
+}
