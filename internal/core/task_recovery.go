@@ -58,7 +58,10 @@ func (e *Engine) ResumeInterruptedTasks() error {
 // explicit owner authorization for OpenClaw. Old origin strings, prior task
 // history, or an OpenClaw provider binding cannot establish authorization.
 // Explicitly owner-authorized tasks persist OpenClawOwnerAuthorized=true and may
-// be recovered normally.
+// be recovered normally. A compatibility task that already carries the separate
+// explicit-owner authorization prefix is sealed into that durable field before
+// the legacy/unauthorized retirement decision; the ordinary operations marker
+// alone is never enough.
 func retireLegacyChatGPTOperationTasks(st *State, now time.Time) bool {
 	if st == nil {
 		return false
@@ -67,7 +70,15 @@ func retireLegacyChatGPTOperationTasks(st *State, now time.Time) bool {
 	changed := false
 	for i := range st.Tasks {
 		t := &st.Tasks[i]
-		if !IsOperationsTask(*t) || t.OpenClawOwnerAuthorized {
+		if !IsOperationsTask(*t) {
+			continue
+		}
+		if t.OpenClawOwnerAuthorized {
+			continue
+		}
+		if applyExplicitOwnerOpenClawAuthorization(t) {
+			t.UpdatedAt = now
+			changed = true
 			continue
 		}
 		switch t.Status {
