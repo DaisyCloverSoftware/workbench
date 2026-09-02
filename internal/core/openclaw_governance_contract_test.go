@@ -85,6 +85,12 @@ func TestActiveChatGPTOpenClawGovernanceSurfacesRequireExplicitOwnerSelection(t 
 			"owner explicitly assigned to OpenClaw by name",
 			"OpenClaw authorization denied before process invocation",
 		},
+		"internal/mcp/server.go": {
+			"OpenClaw is owner-opt-in only",
+			"never call delegate_operation",
+			"explicit_owner_request_only",
+			"operations marker alone never authorizes OpenClaw",
+		},
 	}
 
 	for rel, wants := range required {
@@ -110,6 +116,10 @@ func TestRepositoryContainsNoRetiredAutomaticOpenClawFallbackInstructions(t *tes
 		"use OpenClaw only as optional autonomous operator fallback",
 		"optional autonomous operator fallback",
 		"delegate_operation remains optional autonomous operator capacity when an outcome cannot reasonably be decomposed",
+		"use delegate_operation only as an optional autonomous fallback",
+		"optional fallback only: delegate a machine-side outcome to OpenClaw",
+		"optional autonomous fallback started",
+		"only operations-marked tasks may run",
 		"use the autonomous inbox only when ordinary ChatGPT cannot sensibly complete",
 		"use it only when a host/server/cluster/runtime outcome genuinely cannot be expressed",
 		"Workbench uses OpenClaw only for delegated machine-side/autonomous operations that ChatGPT cannot reasonably complete",
