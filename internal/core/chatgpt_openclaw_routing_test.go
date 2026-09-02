@@ -43,6 +43,55 @@ func TestDelegateOperationPersistsExplicitOwnerOpenClawAuthorization(t *testing.
 	}
 }
 
+func TestSchedulerSealsExplicitOwnerAuthorizationFromCompatibilityTask(t *testing.T) {
+	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := &Engine{
+		store:         store,
+		state:         DefaultState(),
+		cancel:        map[string]context.CancelFunc{},
+		schedulerWake: make(chan struct{}, 1),
+	}
+	project := t.TempDir()
+	intent := OpenClawExplicitAuthorizationPrefix + " " + RelayOperationsIntentPrefix + " inspect the runtime"
+	task, err := e.Delegate("desktop", intent, project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.OpenClawOwnerAuthorized {
+		t.Fatalf("compatibility entry point should not synthesize durable authorization before scheduler sealing: %#v", task)
+	}
+	launch := e.schedulerDispatch()
+	if len(launch) != 1 || launch[0] != task.ID {
+		t.Fatalf("scheduler launch=%#v, want explicitly authorized task %q", launch, task.ID)
+	}
+	stored, ok := e.Task(task.ID)
+	if !ok {
+		t.Fatal("scheduled task disappeared")
+	}
+	if !stored.OpenClawOwnerAuthorized || stored.Mode != TaskModeOperations {
+		t.Fatalf("scheduler did not persist explicit OpenClaw owner authorization: %#v", stored)
+	}
+	if strings.Contains(stored.Intent, OpenClawExplicitAuthorizationPrefix) {
+		t.Fatalf("authorization transport marker leaked into operational objective: %q", stored.Intent)
+	}
+	if !strings.Contains(stored.Intent, RelayOperationsIntentPrefix) {
+		t.Fatalf("operations routing metadata was unexpectedly removed: %q", stored.Intent)
+	}
+}
+
+func TestOperationsMarkerAloneNeverBecomesOwnerAuthorization(t *testing.T) {
+	task := Task{Intent: RelayOperationsIntentPrefix + " kubectl apply", Mode: TaskModeOperations}
+	if applyExplicitOwnerOpenClawAuthorization(&task) {
+		t.Fatalf("ordinary operations routing metadata became OpenClaw authorization: %#v", task)
+	}
+	if task.OpenClawOwnerAuthorized {
+		t.Fatalf("ordinary operations routing metadata persisted OpenClaw authorization: %#v", task)
+	}
+}
+
 func TestRouteCandidatesNeverSelectOpenClawWithoutDurableOwnerAuthorization(t *testing.T) {
 	providers := []Provider{
 		{ID: "openclaw", Name: "OpenClaw", Installed: true, Authenticated: true, CanWrite: true, Command: "openclaw", Cost: CostIncluded},
