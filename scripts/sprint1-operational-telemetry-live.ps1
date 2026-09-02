@@ -1,29 +1,162 @@
-$ErrorActionPreference='Stop'
-$repo=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$proof=Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-proof'
-New-Item -ItemType Directory -Force $proof|Out-Null
-$statePath=Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-state.json'
-$exePath=Join-Path $env:RUNNER_TEMP 'Sprint1TelemetryHarness.exe'
-$env:WORKBENCH_STATE_PATH=$statePath
-$env:WORKBENCH_DISABLE_SINGLE_INSTANCE='1'
-$env:WORKBENCH_SPRINT1_TELEMETRY_DEMO='1'
-
-Push-Location $repo
-try {
-    go build -tags sprint1telemetry -ldflags '-H=windowsgui' -o $exePath ./cmd/workbench
-} finally {Pop-Location}
-
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
-Add-Type -TypeDefinition @'
+
+$proof = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-proof'
+New-Item -ItemType Directory -Force -Path $proof | Out-Null
+$env:APPDATA = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-appdata'
+$env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-localappdata'
+$env:PATH = "$env:RUNNER_TEMP;$env:PATH"
+New-Item -ItemType Directory -Force -Path $env:APPDATA,$env:LOCALAPPDATA | Out-Null
+
+$stateDir = Join-Path $env:APPDATA 'Workbench'
+New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+$statePath = Join-Path $stateDir 'state.json'
+$adapterPath = Join-Path $env:RUNNER_TEMP 'Sprint1TelemetryHarness.exe'
+$exePath = Join-Path $env:RUNNER_TEMP 'Workbench-Sprint1-Telemetry.exe'
+$projectPath = (Get-Location).Path
+$now = [DateTime]::UtcNow
+
+$harnessSource = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-harness.go'
+@'
+package main
+
+import (
+    "crypto/sha256"
+    "encoding/json"
+    "fmt"
+    "io/fs"
+    "os"
+    "path/filepath"
+    "sort"
+    "strings"
+    "time"
+)
+
+type job struct {
+    Version int `json:"version"`
+    TaskID string `json:"task_id"`
+    ProjectPath string `json:"project_path"`
+    Intent string `json:"intent"`
+}
+
+func progress(kind, phase string, current, total int64, stage, stageTotal int) {
+    payload := map[string]any{"kind": kind, "phase": phase}
+    if kind == "measured" {
+        payload["current"] = current
+        payload["total"] = total
+        payload["unit"] = "files"
+    } else {
+        payload["stage"] = stage
+        payload["stage_total"] = stageTotal
+    }
+    body, _ := json.Marshal(payload)
+    fmt.Fprintf(os.Stderr, "WORKBENCH_PROGRESS: %s\n", body)
+}
+
+func measuredWork(j job) error {
+    root := filepath.Join(j.ProjectPath, "internal", "core")
+    files := []string{}
+    err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+        if err != nil { return err }
+        if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".go") {
+            files = append(files, path)
+        }
+        return nil
+    })
+    if err != nil { return err }
+    sort.Strings(files)
+    if len(files) == 0 { return fmt.Errorf("no source files to verify") }
+
+    const passes = 4
+    total := int64(len(files) * passes)
+    var current int64
+    for pass := 0; pass < passes; pass++ {
+        for _, path := range files {
+            data, err := os.ReadFile(path)
+            if err != nil { return err }
+            _ = sha256.Sum256(data)
+            current++
+            progress("measured", "Verifying source files", current, total, 0, 0)
+            time.Sleep(120 * time.Millisecond)
+        }
+    }
+    return nil
+}
+
+func stageWork() {
+    phases := []string{"Preparing checks", "Executing checks", "Verifying result", "Finalizing result"}
+    for i, phase := range phases {
+        progress("stages", phase, 0, 0, i+1, len(phases))
+        time.Sleep(1200 * time.Millisecond)
+    }
+}
+
+func main() {
+    var j job
+    if err := json.NewDecoder(os.Stdin).Decode(&j); err != nil { os.Exit(2) }
+    switch {
+    case strings.Contains(j.Intent, "Telemetry measured"):
+        if err := measuredWork(j); err != nil {
+            fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"failed\",\"report\":%q,\"category\":\"adapter\",\"retryable\":false}\n", j.TaskID, err.Error())
+            return
+        }
+        fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Measured source verification complete.\"}\n", j.TaskID)
+    case strings.Contains(j.Intent, "Telemetry needs you"):
+        progress("stages", "Checking owner boundary", 0, 0, 2, 4)
+        time.Sleep(2 * time.Second)
+        fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"needs_attention\",\"attention\":\"Choose the telemetry acceptance owner action.\"}\n", j.TaskID)
+    default:
+        stageWork()
+        fmt.Printf("{\"version\":1,\"task_id\":%q,\"status\":\"completed\",\"report\":\"Telemetry support job complete.\"}\n", j.TaskID)
+    }
+}
+'@ | Set-Content -Encoding UTF8 $harnessSource
+
+go build -o $adapterPath $harnessSource
+
+$openClawSource = Join-Path $env:RUNNER_TEMP 'sprint1-telemetry-openclaw.go'
+@'
+package main
+import ("fmt"; "os"; "time")
+func main() {
+    if len(os.Args) >= 3 && os.Args[1] == "sessions" && os.Args[2] == "archive" { return }
+    time.Sleep(30 * time.Second)
+    fmt.Println("Telemetry operation complete")
+    fmt.Println("WORKBENCH_OPERATION_COMPLETE: verified")
+}
+'@ | Set-Content -Encoding UTF8 $openClawSource
+
+go build -o (Join-Path $env:RUNNER_TEMP 'openclaw.exe') $openClawSource
+go build -ldflags='-s -w -H=windowsgui' -o $exePath ./cmd/workbench
+
+$state = [ordered]@{
+    version = 3
+    active_project_id = 'telemetry-project'
+    project_path = $projectPath
+    notes = 'Sprint 1 telemetry acceptance.'
+    projects = @([ordered]@{
+        id='telemetry-project';path=$projectPath;name='Workbench Telemetry';notes='';pinned=$true
+        added_at=$now.AddDays(-1).ToString('o');last_used_at=$now.ToString('o')
+    })
+    tasks = @()
+    secrets = @()
+    preferences = [ordered]@{
+        avoid_work_usage=$true;allow_metered_api=$false;autonomy_mode='trusted-repo'
+        harness_adapter_path=$adapterPath;mcp_port=18943;mcp_token='sprint1-telemetry-local-token'
+    }
+}
+$state | ConvertTo-Json -Depth 12 | Set-Content -Encoding UTF8 $statePath
+
+Add-Type @'
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
 public static class WBTelemetryLive {
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left,Top,Right,Bottom; }
-    [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h,int id);
-    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h,out RECT r);
-    [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h,int x,int y,int w,int he,bool repaint);
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hWnd, int id);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+    [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int w, int h, bool repaint);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, uint flags);
     [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageTimeoutW")] public static extern IntPtr SendPtr(IntPtr h,uint m,IntPtr w,IntPtr l,uint f,uint t,out UIntPtr r);
@@ -121,10 +254,9 @@ try {
     Start-Sleep -Milliseconds 500
 
     Click-Control $p 3001
-    # This fixture deliberately exercises the OpenClaw Operations lane, so it
-    # must model an owner instruction that explicitly selected OpenClaw. The
-    # ordinary [workbench:operations] marker alone is routing metadata and is
-    # intentionally insufficient under the production authorization boundary.
+    # This fixture deliberately exercises OpenClaw only after a separate explicit
+    # owner-authorization signal. The ordinary operations marker alone remains
+    # routing metadata and must never authorize OpenClaw.
     Delegate-Intent $p '[workbench:openclaw-owner-authorized] [workbench:operations] Telemetry stage operation'
     Delegate-Intent $p 'Telemetry measured source verification'
     Delegate-Intent $p 'Telemetry needs you'
