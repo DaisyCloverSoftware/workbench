@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestDelegateOperationQueuesThroughScheduler(t *testing.T) {
+func TestDelegateOperationQueuesThroughSchedulerWhenOwnerAuthorized(t *testing.T) {
 	store, err := NewStoreAt(filepath.Join(t.TempDir(), "state.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -18,7 +18,8 @@ func TestDelegateOperationQueuesThroughScheduler(t *testing.T) {
 		schedulerWake: make(chan struct{}, 1),
 	}
 	project := t.TempDir()
-	task, err := e.DelegateOperation("desktop-ui", "verify the host", project)
+	intent := OpenClawExplicitAuthorizationPrefix + " verify the host"
+	task, err := e.DelegateOperation("desktop-ui", intent, project)
 	if err != nil {
 		t.Fatal(err)
 	}

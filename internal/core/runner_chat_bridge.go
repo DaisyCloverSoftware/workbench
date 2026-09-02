@@ -55,7 +55,7 @@ func classifyRunnerChatBridge(active bool, execStart string) *RunnerChatBridgeIn
 		return &RunnerChatBridgeInfo{
 			Ready:     true,
 			Transport: "private-git-relay",
-			Status:    "private ChatGPT relay active · safe hands + autonomous handoff ready",
+			Status:    "private ChatGPT relay active · safe hands + direct machine control ready · explicit owner-authorized OpenClaw handoff available",
 		}
 	}
 	if strings.Contains(strings.ToLower(execStart), "--public-transport=true") {

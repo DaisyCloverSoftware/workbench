@@ -12,12 +12,19 @@ import (
 func prepareRelayTaskIntent(authFile, relayID, project, intent string) (string, string, error) {
 	intent = strings.TrimSpace(intent)
 	switch {
-	case strings.HasPrefix(intent, core.RelayOperationsIntentPrefix):
-		body := strings.TrimSpace(strings.TrimPrefix(intent, core.RelayOperationsIntentPrefix))
-		if body == "" {
-			return "", "", errors.New("operations relay intent is empty")
+	case strings.HasPrefix(intent, core.OpenClawExplicitAuthorizationPrefix):
+		body := strings.TrimSpace(strings.TrimPrefix(intent, core.OpenClawExplicitAuthorizationPrefix))
+		if !strings.HasPrefix(body, core.RelayOperationsIntentPrefix) {
+			return "", "", errors.New("explicit OpenClaw authorization must be followed by [workbench:operations]")
 		}
-		return "[relay:" + relayID + "] " + core.RelayOperationsIntentPrefix + " " + body, "operations", nil
+		body = strings.TrimSpace(strings.TrimPrefix(body, core.RelayOperationsIntentPrefix))
+		if body == "" {
+			return "", "", errors.New("OpenClaw operations relay intent is empty")
+		}
+		return core.OpenClawExplicitAuthorizationPrefix + " [relay:" + relayID + "] " + core.RelayOperationsIntentPrefix + " " + body, "openclaw-operations", nil
+
+	case strings.HasPrefix(intent, core.RelayOperationsIntentPrefix):
+		return "", "", errors.New("[workbench:operations] is routing metadata, not owner authorization; relay/inbox OpenClaw operations require explicit owner authorization naming OpenClaw")
 
 	case strings.HasPrefix(intent, core.RelayContinuationIntentPrefix):
 		body := strings.TrimSpace(strings.TrimPrefix(intent, core.RelayContinuationIntentPrefix))
@@ -31,7 +38,7 @@ func prepareRelayTaskIntent(authFile, relayID, project, intent string) (string, 
 		return sealed, "continuation", nil
 
 	default:
-		return "", "", errors.New("relay/inbox requires an explicit [workbench:operations] or [workbench:continuation] handoff")
+		return "", "", errors.New("relay/inbox accepts an authenticated development continuation or an explicitly owner-authorized OpenClaw operation")
 	}
 }
 

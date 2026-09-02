@@ -41,13 +41,18 @@ func TestOperationsRoutingCannotFallThroughToCodingWorkers(t *testing.T) {
 	}
 	prefs := Preferences{OpenClawSSHHost: "runner.example"}
 
-	local := routeCandidates(providers, prefs, Task{Mode: TaskModeOperations, ProjectPath: t.TempDir()})
-	if len(local) != 1 || local[0].ID != "openclaw" {
-		t.Fatalf("local operations candidates=%+v; want OpenClaw only", local)
+	unauthorized := routeCandidates(providers, prefs, Task{Mode: TaskModeOperations, ProjectPath: t.TempDir()})
+	if len(unauthorized) != 0 {
+		t.Fatalf("unauthorized Operations task received candidates=%+v", unauthorized)
 	}
 
-	remote := routeCandidates(providers, prefs, Task{Mode: TaskModeOperations, ProjectPath: "runner://workbench"})
+	local := routeCandidates(providers, prefs, Task{Mode: TaskModeOperations, OpenClawOwnerAuthorized: true, ProjectPath: t.TempDir()})
+	if len(local) != 1 || local[0].ID != "openclaw" {
+		t.Fatalf("explicitly authorized local operations candidates=%+v; want OpenClaw only", local)
+	}
+
+	remote := routeCandidates(providers, prefs, Task{Mode: TaskModeOperations, OpenClawOwnerAuthorized: true, ProjectPath: "runner://workbench"})
 	if len(remote) != 1 || remote[0].ID != "workbench-runner" {
-		t.Fatalf("runner operations candidates=%+v; want Workbench runner only", remote)
+		t.Fatalf("explicitly authorized runner operations candidates=%+v; want Workbench runner only", remote)
 	}
 }

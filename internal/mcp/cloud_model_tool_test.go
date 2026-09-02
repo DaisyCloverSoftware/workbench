@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestChatGPTToolSurfaceExposesOperationsNotCodingDelegation(t *testing.T) {
+func TestChatGPTToolSurfaceExposesOnlyOwnerAuthorizedOpenClawOperations(t *testing.T) {
 	var operation map[string]any
 	for _, candidate := range toolsList() {
 		switch candidate["name"] {
@@ -17,17 +17,30 @@ func TestChatGPTToolSurfaceExposesOperationsNotCodingDelegation(t *testing.T) {
 		}
 	}
 	if operation == nil {
-		t.Fatal("delegate_operation tool is missing")
+		t.Fatal("deliberate explicit-use delegate_operation tool is missing")
 	}
 	body, err := json.Marshal(operation)
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(body)
-	for _, required := range []string{"machine-side", "OpenClaw", "never the coder", "source code", "Git/GitHub", "CI", "GitHub Actions"} {
+	for _, required := range []string{
+		"owner explicitly asked for OpenClaw by name",
+		"direct-capability or allowlist miss is not authorization",
+		"[workbench:openclaw-owner-authorized]",
+		"[workbench:operations] alone is routing metadata",
+		"machine-operations-only",
+		"source code",
+		"Git/GitHub",
+		"CI",
+		"GitHub Actions",
+	} {
 		if !strings.Contains(text, required) {
-			t.Fatalf("delegate_operation ownership contract missing %q in %s", required, text)
+			t.Fatalf("delegate_operation explicit-owner contract missing %q in %s", required, text)
 		}
+	}
+	if strings.Contains(strings.ToLower(text), "fallback") {
+		t.Fatalf("delegate_operation must not advertise OpenClaw as a fallback: %s", text)
 	}
 	if strings.Contains(text, "cloud_model") {
 		t.Fatalf("machine operations tool must not expose coding-model routing: %s", text)
@@ -37,6 +50,6 @@ func TestChatGPTToolSurfaceExposesOperationsNotCodingDelegation(t *testing.T) {
 		t.Fatalf("delegate_operation annotations missing: %#v", operation)
 	}
 	if ann["readOnlyHint"] != false || ann["destructiveHint"] != true || ann["openWorldHint"] != true {
-		t.Fatalf("machine operations must be advertised as permission-worthy write/open-world actions: %#v", ann)
+		t.Fatalf("owner-authorized machine operations must be advertised as permission-worthy write/open-world actions: %#v", ann)
 	}
 }

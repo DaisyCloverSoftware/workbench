@@ -254,7 +254,10 @@ try {
     Start-Sleep -Milliseconds 500
 
     Click-Control $p 3001
-    Delegate-Intent $p '[workbench:operations] Telemetry stage operation'
+    # This fixture deliberately exercises OpenClaw only after a separate explicit
+    # owner-authorization signal. The ordinary operations marker alone remains
+    # routing metadata and must never authorize OpenClaw.
+    Delegate-Intent $p '[workbench:openclaw-owner-authorized] [workbench:operations] Telemetry stage operation'
     Delegate-Intent $p 'Telemetry measured source verification'
     Delegate-Intent $p 'Telemetry needs you'
     Delegate-Intent $p 'Telemetry queued priority target'

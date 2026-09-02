@@ -30,8 +30,15 @@ func TestClassifyRunnerChatBridgeRequiresVerifiedPrivateModeForReady(t *testing.
 			if got.Status == "" {
 				t.Fatal("bridge classification must provide a categorical status")
 			}
-			if tc.name == "private" && (!strings.Contains(got.Status, "safe hands") || !strings.Contains(got.Status, "autonomous handoff")) {
-				t.Fatalf("private relay status must describe both Chat-first paths: %q", got.Status)
+			if tc.name == "private" {
+				for _, want := range []string{"safe hands", "direct machine control ready", "explicit owner-authorized OpenClaw handoff available"} {
+					if !strings.Contains(got.Status, want) {
+						t.Fatalf("private relay status missing %q: %q", want, got.Status)
+					}
+				}
+				if strings.Contains(got.Status, "autonomous handoff ready") {
+					t.Fatalf("private relay health must not present autonomous handoff as implicit authority: %q", got.Status)
+				}
 			}
 		})
 	}

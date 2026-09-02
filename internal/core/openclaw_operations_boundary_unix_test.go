@@ -43,7 +43,7 @@ echo 'WORKBENCH_OPERATION_COMPLETE: verified'
 		t.Fatal(err)
 	}
 	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: script, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
-	task := Task{ID: "task-op-boundary", Mode: TaskModeOperations, ProjectPath: repo, Intent: "Restart a service; do not change source"}
+	task := Task{ID: "task-op-boundary", Mode: TaskModeOperations, OpenClawOwnerAuthorized: true, ProjectPath: repo, Intent: "Restart a service; do not change source"}
 	res, err := RunProviderIsolated(context.Background(), provider, task, Preferences{})
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "source-code boundary") {
 		t.Fatalf("source edit was not rejected: err=%v output=%q", err, res.Output)

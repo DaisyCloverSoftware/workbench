@@ -6,7 +6,9 @@ Workbench is an open-source, standalone developer IDE/control plane for coordina
 
 The core idea is deliberately simple:
 
-> Tell Workbench the outcome. It chooses the cheapest eligible route, keeps going without constant supervision, and interrupts only for a decision that genuinely requires a human.
+> Tell Workbench the outcome. It chooses an eligible route under current authority, keeps going without constant supervision, and interrupts only for a decision that genuinely requires a human.
+
+For ChatGPT-driven engineering, ChatGPT remains the primary brain/developer and direct Workbench controls are the normal machine-execution path. **OpenClaw is a special owner-selected mode: Workbench/ChatGPT never select it automatically. Only an explicit owner instruction naming OpenClaw authorizes its use for that operation.**
 
 ## Why Workbench exists
 
@@ -18,28 +20,29 @@ Workbench separates **intelligence** from **agency**:
 2. Reuse compact project context, durable memory and proven routines before rediscovering work.
 3. Use safe repository eyes so Chat can inspect source without spending an autonomous-agent run.
 4. Use safe hands for exact patches, tests and builds.
-5. Route true autonomous coding work to zero-marginal or included workers first.
-6. Escalate to scarce agentic capacity only when cheaper eligible routes have not solved the task.
+5. Keep ChatGPT responsible for engineering decisions and use direct Workbench controls for routine server/cluster/host/runtime operations.
+6. Use autonomous/provider routes only when their separate current policy and authority permit them; cost/capability routing never authorizes OpenClaw.
 7. Keep metered APIs opt-in.
 8. Interrupt the human only for a real permission or decision boundary.
 
 ## What works today
 
 - One production task-first Windows application with a first-class multi-project sidebar, project-scoped notes/tasks, global attention navigation and advanced controls under Settings.
-- Headless Linux/cluster runner with cost-aware routing, durable detached jobs and operator-only verified updates.
+- Headless Linux/cluster runner with durable detached jobs and operator-only verified updates.
 - Cluster project discovery across multiple authorised runner roots with privacy-minimal opaque project references where host paths are unnecessary.
 - Adapter discovery for local models, coding CLIs and external harnesses.
 - Model-safe repository `list_files`, `search_text`, and `read_file` tools.
 - Persistent project/global knowledge for facts, decisions, constraints, patterns, routines and reusable code.
 - Compact continuation capsules so a fresh conversation can resume without replaying a long transcript.
 - Safe hands for exact patch application and allowlisted build/test/status commands.
-- Durable autonomous task delegation, retries, reports, scheduler-owned queueing and genuine attention boundaries.
+- Direct bounded machine inspection/mutation plus reviewed Git-tracked `scripts/ops/*.sh` execution for routine and multi-step machine work without requiring an AI operator.
+- Durable task state, retries, reports, scheduler-owned queueing and genuine attention boundaries.
 - Workbench-owned isolated task worktrees, deterministic review commits, controlled review-branch publication and retryable GitHub PR delivery without recoding.
 - Project-aware MCP workspace discovery that exposes safe routing facts without exposing project notes, secrets or publication targets.
 - Bounded worker and runner output so noisy CLIs cannot grow Workbench memory/state without limit while final attention/unavailable signals remain detectable.
 - Secret-like content protection for model-readable memory plus a local encrypted vault whose plaintext is not exposed through MCP.
-- Harness-agnostic architecture: OpenClaw is an adapter/operator capacity, not the foundation or default coder.
-- Bidirectional Git relay transport for Personal Pro-style workflows. Private mode carries bounded repository/machine controls and explicit durable continuation; autonomous delegation remains a separate escalation channel.
+- Harness-agnostic architecture with OpenClaw installed/available only as explicitly owner-authorized machine-operation capacity, never as an automatic fallback or default coder.
+- Bidirectional Git relay transport for Personal Pro-style workflows. Private mode carries bounded repository/machine controls and authenticated durable continuation; deliberate OpenClaw requests require a separate explicit owner-authorization signal and are not a fallback channel.
 - Outbound typed/allowlisted Windows host bridge for supported operations rather than a generic inbound remote shell.
 - Verified `Workbench-Updater.exe` plus transactional Linux cluster maintenance with checksum/architecture validation and rollback.
 
@@ -54,7 +57,7 @@ Then you go do something else.
 Workbench returns either:
 
 - **Done** — with a concise verified report; or
-- **Needs you** — one concise decision or permission request that genuinely could not be resolved autonomously.
+- **Needs you** — one concise decision or permission request that genuinely could not be resolved within current authority.
 
 A new conversation can pick up the same project from canonical repository state plus compact continuity data. Similar tasks can retrieve an existing routine or code pattern instead of starting from scratch.
 
@@ -66,7 +69,7 @@ Workbench's repository is the durable project authority. Conversations, handoffs
 
 Start with:
 
-- [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — source-of-truth hierarchy, change control and completion rules;
+- [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — source-of-truth hierarchy, change control, OpenClaw authorization invariant and completion rules;
 - [docs/DECISIONS.md](docs/DECISIONS.md) — current decisions, superseded/rejected behaviour and do-not-reintroduce rules;
 - [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — verified implementation/release/deployment state and known discrepancies;
 - [ARCHITECTURE.md](ARCHITECTURE.md) — current intended system boundaries;
@@ -88,14 +91,15 @@ MCP / private relay / typed task & machine control
     |
 Workbench scheduler / bounded control plane
     |-- direct safe repository & machine hands
-    |-- local / zero-marginal workers
-    |-- included-subscription workers
-    |-- optional autonomous harnesses
-    |-- scarce agentic fallback
-    `-- metered fallback (opt-in)
+    |-- reviewed operations scripts
+    |-- local / policy-eligible workers
+    |-- owner-selected OpenClaw operations (explicit authorization only)
+    `-- metered routes where separately authorised
     |
 runner / outbound Windows bridge / provider adapters
 ```
+
+OpenClaw does not participate in automatic cost/capability fallback. If direct Workbench machine execution cannot express an operation, the ChatGPT path is safe decomposition, an existing/implemented bounded capability or reviewed operation where appropriate, or a precise capability/authority blocker.
 
 Workbench is intentionally provider- and harness-agnostic. Private infrastructure, machine names, account inventories, credentials and dogfood topology are configuration, **not public source material**.
 
@@ -121,7 +125,7 @@ For real workloads, use private authenticated transport. Never place private tas
 
 ## Security posture
 
-Workbench assumes developers may paste secrets by accident. AI-facing tools are deliberately narrow, secret-like content is refused in exposed paths, private MCP services bind loopback, credentials remain local, Windows host operations remain typed/outbound, and metered/scarce routes are protected by policy.
+Workbench assumes developers may paste secrets by accident. AI-facing tools are deliberately narrow, secret-like content is refused in exposed paths, private MCP services bind loopback, credentials remain local, Windows host operations remain typed/outbound, and metered/scarce routes are protected by policy. OpenClaw additionally requires explicit owner authorization by name for each applicable operation.
 
 See [SECURITY.md](SECURITY.md).
 

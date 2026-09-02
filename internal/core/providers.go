@@ -47,7 +47,7 @@ func ScanProviders() []Provider {
 	}
 
 	if p, ok := scanCommand("ssh"); ok {
-		providers = append(providers, Provider{ID: "workbench-runner", Name: "Workbench Cluster Runner", Capability: "remote coding control plane", Command: p, Installed: true, Authenticated: true, Status: "SSH transport detected · configure runner host", Cost: CostIncluded, Priority: 15, CanWrite: true, CanRunTools: true, Notes: "Preferred remote hands. Routes again on the cluster before falling back to OpenClaw or scarce Work."})
+		providers = append(providers, Provider{ID: "workbench-runner", Name: "Workbench Cluster Runner", Capability: "remote coding control plane", Command: p, Installed: true, Authenticated: true, Status: "SSH transport detected · configure runner host", Cost: CostIncluded, Priority: 15, CanWrite: true, CanRunTools: true, Notes: "Preferred remote hands. Routes eligible work on the cluster under current task authority; it never infers OpenClaw authorization."})
 	} else {
 		providers = append(providers, Provider{ID: "workbench-runner", Name: "Workbench Cluster Runner", Capability: "remote coding control plane", Installed: false, Status: "SSH client not detected", Cost: CostIncluded, Priority: 15, CanWrite: true, CanRunTools: true, Notes: "Install an SSH client to use a remote Workbench Runner."})
 	}
@@ -82,9 +82,9 @@ func ScanProviders() []Provider {
 	}
 
 	if p, ok := findOpenClawExecutable(); ok {
-		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "machine-side operations harness", Command: p, Installed: true, Authenticated: true, Status: "CLI detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Workbench uses OpenClaw only for machine-side operations ChatGPT cannot execute itself."})
+		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "owner-selected machine operations", Command: p, Installed: true, Authenticated: true, Status: "CLI detected · owner authorization required", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "OpenClaw is inert for automatic routing. Workbench may select it only for a task carrying durable explicit owner authorization naming OpenClaw."})
 	} else {
-		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "machine-side operations harness", Status: "not detected", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Install OpenClaw or configure its command before machine-side operations can run."})
+		providers = append(providers, Provider{ID: "openclaw", Name: "OpenClaw", Capability: "owner-selected machine operations", Status: "not detected · optional explicit-use provider", Cost: CostIncluded, Priority: 50, CanWrite: true, CanRunTools: true, Notes: "Install OpenClaw only for deliberate owner-selected operations. Its absence does not affect direct Workbench machine controls."})
 	}
 
 	if p, ok := scanCommand("codex"); ok {

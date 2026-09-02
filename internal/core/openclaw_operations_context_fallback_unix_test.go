@@ -60,7 +60,7 @@ echo 'WORKBENCH_OPERATION_COMPLETE: verified'
 	}
 
 	provider := Provider{ID: "openclaw", Name: "OpenClaw", Command: script, Installed: true, Authenticated: true, CanWrite: true, CanRunTools: true}
-	task := Task{ID: "task-context-failover", Mode: TaskModeOperations, ProjectPath: dir, Intent: "Verify read-only host health"}
+	task := Task{ID: "task-context-failover", Mode: TaskModeOperations, OpenClawOwnerAuthorized: true, ProjectPath: dir, Intent: "Verify read-only host health"}
 	res, err := RunOpenClawOperationSupervised(context.Background(), provider, task, Preferences{})
 	if err != nil {
 		t.Fatalf("supervised context failover failed: %v; output=%q", err, res.Output)

@@ -9,16 +9,24 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/core"
 )
 
-func TestPrepareRelayTaskIntentPreservesOperationsLane(t *testing.T) {
-	intent, kind, err := prepareRelayTaskIntent("unused", "relay_ops_001", "/tmp/workbench", core.RelayOperationsIntentPrefix+" restart the bounded service")
+func TestPrepareRelayTaskIntentRejectsOperationsMarkerWithoutOwnerAuthorization(t *testing.T) {
+	_, _, err := prepareRelayTaskIntent("unused", "relay_ops_001", "/tmp/workbench", core.RelayOperationsIntentPrefix+" restart the bounded service")
+	if err == nil || !strings.Contains(err.Error(), "routing metadata") || !strings.Contains(err.Error(), "owner authorization") {
+		t.Fatalf("plain operations marker must not authorize OpenClaw: %v", err)
+	}
+}
+
+func TestPrepareRelayTaskIntentPreservesExplicitlyAuthorizedOpenClawLane(t *testing.T) {
+	raw := core.OpenClawExplicitAuthorizationPrefix + " " + core.RelayOperationsIntentPrefix + " restart the bounded service"
+	intent, kind, err := prepareRelayTaskIntent("unused", "relay_ops_002", "/tmp/workbench", raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if kind != "operations" || !strings.Contains(intent, core.RelayOperationsIntentPrefix) {
+	if kind != "openclaw-operations" || !strings.HasPrefix(intent, core.OpenClawExplicitAuthorizationPrefix) || !strings.Contains(intent, core.RelayOperationsIntentPrefix) {
 		t.Fatalf("kind=%q intent=%q", kind, intent)
 	}
 	if !core.IsOperationsTask(core.Task{Intent: intent}) {
-		t.Fatal("operations relay escaped operations lane")
+		t.Fatal("explicitly authorized OpenClaw relay escaped operations lane")
 	}
 }
 

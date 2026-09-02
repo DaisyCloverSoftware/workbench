@@ -1,18 +1,31 @@
 ---
 name: workbench-autopilot
-description: Use Workbench as ChatGPT's bounded repository hands and direct machine execution bridge. Select the transport the current ChatGPT plan actually permits; keep ChatGPT as the developer and external operators optional.
+description: Use Workbench as ChatGPT's bounded repository hands and direct machine execution bridge. Keep ChatGPT as the developer; OpenClaw is owner-opt-in only and unavailable to automatic routing.
 ---
 
 # Workbench Autopilot
 
-Workbench is the shared execution bridge for ordinary ChatGPT project chats. ChatGPT remains the developer: it reasons, writes code, handles Git and GitHub, creates and reviews pull requests, diagnoses CI, and decides what happens next. Workbench supplies bounded repository eyes/hands plus direct structured access to the configured machine/cluster.
+Workbench is the shared execution bridge for ordinary ChatGPT project chats. ChatGPT remains the developer: it reasons, writes code, handles Git and GitHub, creates and reviews pull requests, diagnoses CI, owns releases, and decides what happens next. Workbench supplies bounded repository eyes/hands plus direct structured access to configured machines/clusters.
 
 ## Choose the transport, not a different execution model
 
-- If the current ChatGPT workspace exposes Workbench's full custom MCP write actions, use the direct Workbench app/MCP tools that are actually advertised by that connection.
+- If the current ChatGPT workspace exposes Workbench's full custom MCP write actions, use the direct Workbench app/MCP tools actually advertised by that connection.
 - If full custom MCP writes are unavailable, use the private Workbench Git relay as the **primary write/mutation transport**. With connected GitHub, locate the user's private repository whose name contains `workbench-relay`, read `WORKBENCH_CAPABILITIES.json` and `WORKBENCH_CHATGPT.md`, then use `relay/control`.
-- The relay and MCP paths represent the same Workbench authority model. Do not treat the relay as an AI-worker handoff.
-- Never make the human upgrade a plan, paste terminal commands, or open OpenClaw merely because one ChatGPT transport cannot expose writes.
+- The relay and MCP paths represent the same Workbench authority model. Do not treat a transport limitation as authority to change execution mode.
+- Never make the human upgrade a plan, paste routine terminal commands, or open OpenClaw merely because one ChatGPT transport cannot expose writes.
+
+## Fresh-chat routing bootstrap
+
+At the start of a Workbench-capable conversation, determine current capabilities from the private relay rather than historical assumptions.
+
+The resulting routing contract is:
+
+1. ChatGPT is the primary brain and owns engineering.
+2. The direct Workbench control surface is the normal machine-execution path.
+3. Direct machine operations do not require OpenClaw.
+4. OpenClaw is denied by default and requires an explicit owner instruction naming OpenClaw for the specific operation.
+5. Previous OpenClaw tasks, old chats, installed provider state and model/tool availability are not authorization.
+6. Failure of a direct capability never implicitly authorizes OpenClaw.
 
 ## Start or resume work
 
@@ -26,54 +39,82 @@ Workbench is the shared execution bridge for ordinary ChatGPT project chats. Cha
 - Use Workbench file/list/search/read controls for model-safe repository visibility when needed.
 - ChatGPT authors the source change. When the change can be expressed exactly, use Workbench patch hands rather than delegating coding to another model.
 - Use the bounded safe-command surface for non-destructive build, test, lint, status, and diff verification. This repository command surface intentionally does not become a deployment shell.
-- ChatGPT owns commits, branches, pushes, pull requests, merges, releases, CI, and GitHub Actions through its GitHub capabilities.
+- ChatGPT owns commits, branches, pushes, pull requests, reviews, merges, releases, CI, and GitHub Actions through its GitHub capabilities.
 - Never ask the human to paste a protected credential/file into Chat because a safe Workbench read was refused.
 
 ## Direct machine-side operations
 
 Routine host and cluster work should **not** require OpenClaw or another AI model.
 
-- Use `inspect_machine` (or the relay action of the same name) for one read-only allowlisted diagnostic.
-- Use `inspect_machine_batch` when 2-8 independent read-only diagnostics are naturally needed together. It executes sequentially in the supplied order. Every item is independently passed through the exact `inspect_machine` policy, and one rejected/failed item does not prevent later safe reads from running. Batch item output is additionally bounded for transport safety.
-- There is deliberately **no** `run_machine_command_batch`. Mutations remain one-at-a-time so ChatGPT can inspect each result before granting itself the next bounded action.
-- Use `run_machine_command` for an explicitly allowlisted mutation such as Kubernetes rollout restart/undo/scale/patch/set/label/annotate, Helm install/upgrade/rollback, systemd service lifecycle actions, or approved Docker lifecycle actions.
-- Pass a program basename plus a literal argv array. Do not construct shell strings, pipes, redirects, substitutions, credential flags, arbitrary scripts, alternate cluster targets, Kubernetes Secret reads, delete/exec/remove primitives or commands outside Workbench's policy.
-- Direct commands execute through Workbench itself. They do not create an AI-worker task and do not consume Claude/Codex/Work/model credit.
+- Use `inspect_machine` for one read-only allowlisted diagnostic.
+- Use `inspect_machine_batch` when several independent read-only diagnostics are naturally needed together. Every item is independently passed through the exact `inspect_machine` policy; one rejected/failed item does not prevent later safe reads from running.
+- There is deliberately **no** `run_machine_command_batch`. Mutations remain one-at-a-time so ChatGPT can inspect each result before issuing the next bounded action.
+- Use `run_machine_command` for an explicitly allowlisted mutation such as supported Kubernetes, Helm, systemd or Docker lifecycle actions.
+- Pass a program basename plus a literal argv array. Do not construct shell strings, pipes, redirects, substitutions, credential flags, arbitrary scripts, alternate cluster targets, Kubernetes Secret reads, high-risk primitives or commands outside Workbench's policy.
+- Direct commands execute through Workbench itself. They do not create an AI-worker task and do not consume external model credit.
 - Prefer a built-in reviewed health operation when it already answers the question more compactly than a custom batch.
 - Reason between mutation results in the current ChatGPT conversation and issue the next bounded mutation only when needed.
 
 ## Committed operations scripts
 
-On the private-relay write path, when a repository already contains a reviewed multi-step Bash deployment/runbook under `scripts/ops/`, use the advertised `run_operations_script` relay control instead of asking the human to paste a Bash block or delegating it to OpenClaw. If a full-MCP connection does not advertise this action, use its structured machine tools instead; never invent a nonexistent MCP tool.
+When a repository already contains a reviewed multi-step Bash deployment/runbook under `scripts/ops/`, use the advertised `run_operations_script` relay control instead of asking the human to paste a Bash block or delegating it to an autonomous operator.
 
 - The relay action is project-scoped and accepts only a canonical Git-tracked regular `.sh` beneath `scripts/ops/`.
-- Without `commit`, Workbench resolves the repository's exact local HEAD. When GitHub has a newer reviewed version, pass its full 40-character `commit`; Workbench requires that SHA to be currently advertised by the project's credential-free `github.com` origin branch head, fetches it into a disposable repository, verifies the fetched SHA exactly, and never moves or updates the registered checkout.
-- Workbench creates a detached disposable worktree at the selected commit and runs `bash --noprofile --norc <script> <literal argv...>` from that worktree. It never accepts `bash -c` or arbitrary shell source as an argument. Dirty developer-checkout edits cannot affect execution.
+- Without `commit`, Workbench resolves the repository's exact local HEAD. When GitHub has a newer reviewed version, pass the current authorised full commit SHA according to the capability contract.
+- Workbench creates a detached disposable worktree at the selected commit and runs the script with literal argv. It never accepts `bash -c` or arbitrary caller-supplied shell source.
 - Symlink/non-blob/untracked scripts, traversal, secret-like arguments and secret-like output are refused; runtime and output are bounded.
-- The result reports the exact commit and SHA-256 of the script that ran. Preserve those identifiers in deployment evidence when they matter.
-- This is an explicit mutating/open-world operations path. Use it only for an already-reviewed committed operations script whose effect matches the current user authority. Do not use it to bypass a permission boundary.
-- If no reviewed committed script exists, prefer direct `inspect_machine` / `inspect_machine_batch` / `run_machine_command` primitives rather than inventing and immediately executing arbitrary shell text.
+- The result reports the exact commit and script digest where supported. Preserve those identifiers in deployment evidence when they matter.
+- This is an explicit mutating/open-world operations path. Use it only for an already-reviewed committed operation whose effect matches current user authority.
 
-### Built-in read-only health operations
+If no reviewed committed script exists and individual direct controls cannot safely express the operation, ChatGPT should determine whether to implement an appropriate bounded Workbench capability or reviewed operation within the authorised engineering scope. If that is not possible, report the exact capability/authority blocker.
+
+## Built-in read-only health operations
 
 Workbench's own repository carries reviewed read-only operations that fresh project chats can reuse through `runner://workbench` and an exact advertised Workbench commit:
 
-- `scripts/ops/workbench-health.sh` checks the Workbench runner/server/relay binaries, MCP and relay service state, loopback MCP health and relay checkout cleanliness without reading credentials or restarting anything.
-- `scripts/ops/cluster-health.sh` returns one compact cluster-wide snapshot: Kubernetes node state, only currently abnormal pods, the 20 most recent Warning events, concise ARC runner assignments, named Longhorn node readiness/schedulability, total Longhorn volume count and only attached unhealthy volumes. It never reads Secrets or mutates cluster state.
-- `scripts/ops/namespace-health.sh <namespace>` returns one compact Kubernetes namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs and the 12 most recent Warning events. It validates the namespace as a bounded DNS label, uses only sanctioned read-only Kubernetes calls, and never reads Secrets.
-- Prefer these single reviewed snapshots over a burst of repetitive `inspect_machine` or `inspect_machine_batch` calls when they answer the question. This reduces shared-relay traffic while preserving exact commit and script-hash evidence.
-- Treat warning events as diagnostic history rather than automatic proof of a current outage; compare them with the current deployment/pod state before deciding on a mutation.
+- `scripts/ops/workbench-health.sh` checks Workbench binaries/services, MCP/relay health and relay checkout cleanliness without reading credentials or restarting anything.
+- `scripts/ops/cluster-health.sh` returns a compact cluster-wide snapshot covering node state, abnormal pods, warnings and bounded storage/runner diagnostics.
+- `scripts/ops/namespace-health.sh <namespace>` returns a compact namespace snapshot covering deployments, statefulsets, pods, jobs, PVCs and recent Warning events.
+- Prefer these reviewed snapshots over a burst of repetitive machine reads when they answer the question.
+- Treat warning events as diagnostic history rather than automatic proof of a current outage; compare them with current state before deciding on a mutation.
 
-## Optional autonomous operator fallback
+## Hard OpenClaw authorization boundary
 
-Use `delegate_operation` / `relay/inbox` only when the remaining machine-side outcome cannot reasonably be expressed through direct Workbench commands or a reviewed committed operations script **and** external autonomous operator capacity is intentionally available.
+**OpenClaw is an owner-selected execution mode. ChatGPT and Workbench MUST NOT select, invoke, suggest or use it automatically.**
 
-- OpenClaw is optional operator capacity, never the coder and never required for routine cluster access.
-- Do not delegate merely because a provider exists; direct Workbench execution is preferred and costs no external model credit.
-- Workbench owns the durable wait/continuation loop for any optional delegated task.
-- Do not ask the human to watch OpenClaw, copy prompts, type `continue`, or babysit provider retries.
-- If external operator quota/login/model availability is exhausted, continue through direct Workbench/GitHub routes wherever possible rather than treating development as blocked.
-- If an operation discovers that code, IaC, GitHub, PR, or CI changes are required, return that work to ChatGPT instead of letting OpenClaw make those changes.
+Only an explicit owner instruction naming OpenClaw for the applicable operation authorizes OpenClaw. Unless that instruction exists, the effective authorization state is **DENIED**.
+
+The following are not authorization:
+
+- an operation being difficult or long-running;
+- a direct command being unavailable or outside the allowlist;
+- Workbench lacking an existing capability;
+- CI or deployment failure;
+- Kubernetes, Docker, systemd or Helm problems;
+- Bash or multi-step troubleshooting requirements;
+- previous OpenClaw use or an old task having used OpenClaw;
+- OpenClaw being installed, healthy or otherwise available;
+- model/tool/provider availability.
+
+Availability does not constitute authorization.
+
+### Direct capability unavailable
+
+When direct Workbench execution cannot perform an operation:
+
+1. inspect the current capability manifest;
+2. attempt an appropriate safe decomposition;
+3. determine whether an existing reviewed `scripts/ops/*.sh` operation can perform it;
+4. where within authorised engineering scope, implement the appropriate bounded Workbench capability or reviewed operation;
+5. otherwise report the exact capability/authority blocker.
+
+Do not invoke OpenClaw, create an OpenClaw task, write an autonomous request, suggest the owner move the task to OpenClaw, or claim OpenClaw is required.
+
+### Deliberate explicit OpenClaw use
+
+`relay/inbox` exists only to preserve explicit-use functionality. `[workbench:operations]` is routing metadata, not proof of owner consent. The private capability manifest advertises a separate owner-authorization signal that must be present for an OpenClaw request. ChatGPT may add that signal only after the owner explicitly names OpenClaw for the operation; normal routing/fallback logic must never synthesize it.
+
+Once explicitly authorized, OpenClaw remains machine-operations-only. It does not own source changes, Git/GitHub, pull requests, CI, GitHub Actions, releases or subsequent engineering decisions.
 
 ## Human attention
 
@@ -85,4 +126,4 @@ Never request raw Workbench vault values. Treat `vault://...` references as sens
 
 ## North-star experience
 
-A project chat should be able to receive an intent, use the Workbench transport available to that plan, perform safe repository work, direct machine operations and reviewed committed operations scripts where the selected transport exposes them, and return either a verified result or one genuine human decision request. Running out of external AI-worker credit or lacking full-MCP write support must not stop ordinary Workbench development or cluster operations.
+A project chat should be able to receive an intent, use the Workbench transport available to that plan, perform safe repository work, direct machine operations and reviewed committed operations scripts, and return either a verified result or one genuine human decision request. Running out of external AI-worker credit, lacking full-MCP write support, or OpenClaw being unavailable must not stop ordinary Workbench development or cluster operations.

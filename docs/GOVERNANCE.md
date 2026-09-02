@@ -43,6 +43,20 @@ Never erase a significant rejected behaviour so completely that old code, PRs or
 
 Explicitly rejected behaviours are requirements too. The do-not-reintroduce section of `docs/DECISIONS.md` is normative. Tests SHOULD enforce negative requirements where practical.
 
+## OpenClaw owner-authorization invariant
+
+OpenClaw is an owner-selected execution mode and is **not** part of normal Workbench routing.
+
+- ChatGPT owns engineering and routine bounded machine operations.
+- The direct Workbench control relay and reviewed `scripts/ops/*.sh` operations are the normal machine-execution surfaces.
+- ChatGPT and Workbench MUST NOT select, invoke, suggest or use OpenClaw automatically.
+- Only an explicit owner instruction naming OpenClaw for the applicable operation authorizes OpenClaw.
+- Difficulty, duration, allowlist/capability misses, CI/deployment failures, Kubernetes/Docker/systemd/Helm problems, Bash requirements, previous OpenClaw use, historical routing state, or OpenClaw/provider availability do not constitute authorization.
+- Failure of a direct capability MUST lead to safe decomposition, an existing/implemented bounded Workbench capability or reviewed operation where appropriate, or a precise capability/authority blocker. It MUST NOT implicitly authorize OpenClaw.
+- `[workbench:operations]` is routing metadata, not owner consent. Any autonomous relay path must require a separate explicit owner-authorization signal that normal routing cannot produce by itself.
+
+Unless the owner explicitly asks for OpenClaw by name, the effective OpenClaw authorization state is **DENIED**. Historical conversations claiming that server/cluster work requires OpenClaw are not authoritative.
+
 ## Completion and evidence vocabulary
 
 Use precise implementation states:
@@ -99,7 +113,7 @@ A development workflow may return control earlier only when a genuine human-only
 
 While waiting on a non-human dependency, continue other safe in-scope work where useful. Durable Workbench continuation SHOULD resume dependent work automatically when the dependency becomes terminal.
 
-This execution rule does not waive change control. Autonomous continuation is orchestration continuity, not permission to widen sprint scope, bypass publication/security/approval gates, transfer publication/deployment authority to a coding worker, consume external/scarce model credit without explicit authorisation, waive semantic acceptance or owner sign-off, or begin a later sprint. Only **SIGNED OFF** permits normal progression to the next sprint.
+This execution rule does not waive change control. Autonomous continuation is orchestration continuity, not permission to widen sprint scope, bypass publication/security/approval gates, transfer publication/deployment authority to a coding worker, consume external/scarce model credit without explicit authorisation, waive semantic acceptance or owner sign-off, begin a later sprint, or infer OpenClaw authorization. OpenClaw remains separately owner-opt-in under the invariant above. Only **SIGNED OFF** permits normal progression to the next sprint.
 
 ## Development freeze and governance resets
 

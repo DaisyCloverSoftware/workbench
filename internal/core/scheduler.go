@@ -44,10 +44,17 @@ func (e *Engine) schedulerDispatch() []string {
 	}
 
 	queued := make([]int, 0)
+	stateChanged := false
+	now := time.Now()
 	for i := range e.state.Tasks {
-		if e.state.Tasks[i].Status == TaskQueued {
-			queued = append(queued, i)
+		if e.state.Tasks[i].Status != TaskQueued {
+			continue
 		}
+		if applyExplicitOwnerOpenClawAuthorization(&e.state.Tasks[i]) {
+			e.state.Tasks[i].UpdatedAt = now
+			stateChanged = true
+		}
+		queued = append(queued, i)
 	}
 	sort.SliceStable(queued, func(a, b int) bool {
 		left, right := e.state.Tasks[queued[a]], e.state.Tasks[queued[b]]
@@ -62,7 +69,6 @@ func (e *Engine) schedulerDispatch() []string {
 	})
 
 	launch := make([]string, 0)
-	now := time.Now()
 	for _, idx := range queued {
 		task := &e.state.Tasks[idx]
 		lane := TaskLane(*task)
@@ -72,10 +78,11 @@ func (e *Engine) schedulerDispatch() []string {
 		task.Status = TaskRouting
 		task.Progress = WorkProgress{Kind: ProgressIndeterminate, Phase: "Selecting executor"}
 		task.UpdatedAt = now
+		stateChanged = true
 		active[lane]++
 		launch = append(launch, task.ID)
 	}
-	if len(launch) == 0 {
+	if !stateChanged {
 		e.mu.Unlock()
 		return nil
 	}
