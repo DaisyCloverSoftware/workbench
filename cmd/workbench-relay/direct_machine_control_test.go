@@ -76,3 +76,22 @@ func TestPrivateRelayMutationToolRejectsReadOnlyCommandClass(t *testing.T) {
 		t.Fatalf("mutating machine tool must reject read-only command class, got %v", err)
 	}
 }
+
+func TestUnsupportedDirectMachineOperationReturnsBoundaryWithoutOpenClawRouting(t *testing.T) {
+	_, err := executePrivateControl(context.Background(), privateControlEnvelope{
+		Version: 1,
+		ID:      "unsupported_direct_001",
+		Action:  "run_machine_command",
+		Args:    json.RawMessage(`{"program":"kubectl","args":["delete","pod","example","-n","app-dev"]}`),
+	}, "http://127.0.0.1:1", "unused")
+	if err == nil {
+		t.Fatal("unsupported direct operation should fail at the bounded Workbench policy")
+	}
+	low := strings.ToLower(err.Error())
+	if !strings.Contains(low, "not allowlisted") {
+		t.Fatalf("unsupported direct operation did not return a precise capability boundary: %v", err)
+	}
+	if strings.Contains(low, "openclaw") || strings.Contains(low, "autonomous") || strings.Contains(low, "fallback") {
+		t.Fatalf("unsupported direct operation suggested or routed to an autonomous/OpenClaw path: %v", err)
+	}
+}
