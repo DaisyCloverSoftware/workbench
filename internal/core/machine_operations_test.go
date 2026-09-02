@@ -28,6 +28,33 @@ func TestMachineCommandPolicySeparatesReadAndMutation(t *testing.T) {
 	}
 }
 
+func TestRoutineMachineOperationsRemainOnDirectWorkbenchPolicy(t *testing.T) {
+	cases := []struct {
+		name     string
+		req      MachineCommandRequest
+		readOnly bool
+	}{
+		{name: "kubernetes inspection", req: MachineCommandRequest{Program: "kubectl", Args: []string{"get", "nodes", "-o", "wide"}}, readOnly: true},
+		{name: "kubernetes mutation", req: MachineCommandRequest{Program: "kubectl", Args: []string{"rollout", "restart", "deployment/web", "-n", "app-dev"}}, readOnly: false},
+		{name: "docker inspection", req: MachineCommandRequest{Program: "docker", Args: []string{"ps"}}, readOnly: true},
+		{name: "docker allowed mutation", req: MachineCommandRequest{Program: "docker", Args: []string{"restart", "web"}}, readOnly: false},
+		{name: "systemd inspection", req: MachineCommandRequest{Program: "systemctl", Args: []string{"--user", "status", "workbench-mcp.service"}}, readOnly: true},
+		{name: "systemd allowed mutation", req: MachineCommandRequest{Program: "systemctl", Args: []string{"--user", "restart", "workbench-mcp.service"}}, readOnly: false},
+		{name: "supported host inspection", req: MachineCommandRequest{Program: "uptime"}, readOnly: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			readOnly, err := validateMachineCommand(tc.req)
+			if err != nil {
+				t.Fatalf("routine direct Workbench operation was rejected: %v", err)
+			}
+			if readOnly != tc.readOnly {
+				t.Fatalf("readOnly=%t, want %t for %+v", readOnly, tc.readOnly, tc.req)
+			}
+		})
+	}
+}
+
 func TestMachineCommandPolicyRejectsShellsPivotsSecretsAndDestructiveVerbs(t *testing.T) {
 	cases := []MachineCommandRequest{
 		{Program: "bash", Args: []string{"-lc", "kubectl get pods"}},
