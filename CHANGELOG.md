@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.60 — 2026-09-02
+
+- Make OpenClaw explicit-owner-request-only: normal Development and machine work use direct Workbench controls, and direct-capability failures never authorize autonomous OpenClaw fallback.
+- Preserve authorised Development continuity across ordinary CI/tool latency and interrupted durable tasks so keepalive prompts such as continue are not semantic authorization boundaries.
+- Restore the Sprint 1 operational telemetry live demonstration under the corrected routing boundary and keep exact-head telemetry, runner, build, UI and operations acceptance gates green.
+
 ## 0.9.59 — 2026-08-23
 
 - Make Operations an operational control surface with canonical live progress, runtime, activity-age, worker, priority and queue telemetry visible directly in active job rows.
