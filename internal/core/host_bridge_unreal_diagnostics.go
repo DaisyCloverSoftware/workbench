@@ -186,8 +186,8 @@ func (e unrealSmokeEvidence) summary() string {
 }
 
 // Keep the existing portable classifier entry points for callers and tests.
-// The Windows smoke uses the streaming collectors directly, so records after
-// the old 8 KiB output prefix are no longer silently unavailable to diagnosis.
+// The Windows smoke uses streaming collectors directly, retaining categorical
+// signals even in the middle omitted by the old bounded head/tail capture.
 func capturedUnrealSmokeEvidence(stdout, stderr string) unrealSmokeEvidence {
 	a, b := &unrealSmokeCapture{}, &unrealSmokeCapture{}
 	_, _ = a.Write([]byte(stdout))
