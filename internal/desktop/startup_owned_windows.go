@@ -56,17 +56,15 @@ func RunOwned(version string, processOwnershipConfirmed bool) error {
 		}
 	}
 
-	// The Windows host bridge is deliberately subordinate to the owned desktop
-	// lifecycle. It opens no inbound listener and uses the same configured
-	// Workbench Runner SSH target as the rest of the desktop. Bridge failures are
-	// non-fatal to the UI and are retried by the agent while Workbench is open.
+	// The single outbound bridge follows saved routing between complete cycles.
+	// Starting with no target must not require restarting this desktop later.
 	hostBridgeCtx, stopHostBridge := context.WithCancel(context.Background())
 	defer stopHostBridge()
-	if host := strings.TrimSpace(st.Preferences.OpenClawSSHHost); host != "" {
-		go func() {
-			_ = core.RunWindowsHostBridgeAgent(hostBridgeCtx, host)
-		}()
-	}
+	go func() {
+		_ = core.RunWindowsHostBridgeAgentWithTargetSource(hostBridgeCtx, func() string {
+			return eng.State().Preferences.OpenClawSSHHost
+		})
+	}()
 
 	shell := &Shell{
 		eng:      eng,
