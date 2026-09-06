@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/DaisyCloverSoftware/workbench/internal/runnerdiag"
 )
 
 const (
@@ -36,9 +38,10 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 	label := windowsHostBridgeLabel()
 
 	capabilities := map[string]HostCapability{
-		HostBridgeToolWorkbench: {Installed: false},
-		HostBridgeToolBlender:   {Installed: false},
-		HostBridgeToolUnreal:    {Installed: false},
+		HostBridgeToolWorkbench:        {Installed: false},
+		HostBridgeToolRunnerDiagnostic: {Installed: true, Version: "1"},
+		HostBridgeToolBlender:          {Installed: false},
+		HostBridgeToolUnreal:           {Installed: false},
 	}
 	var nextCapabilityProbe time.Time
 	for {
@@ -103,6 +106,15 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 	}
 
 	switch job.Spec.Tool {
+	case HostBridgeToolRunnerDiagnostic:
+		if job.Spec.Operation != HostBridgeOperationRunnerInspect {
+			return HostJobResult{ExitCode: 1}, "Unsupported read-only runner diagnostic operation"
+		}
+		output, err := runnerdiag.InspectJSON()
+		if err != nil {
+			return HostJobResult{ExitCode: 1}, "Runner diagnostic could not produce a bounded report"
+		}
+		return HostJobResult{Output: output, ExitCode: 0}, ""
 	case HostBridgeToolBlender:
 		executable := findBlenderExecutable()
 		if executable == "" {
@@ -156,9 +168,10 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 
 func discoverWindowsHostCapabilities(ctx context.Context) map[string]HostCapability {
 	capabilities := map[string]HostCapability{
-		HostBridgeToolWorkbench: {Installed: false},
-		HostBridgeToolBlender:   {Installed: false},
-		HostBridgeToolUnreal:    {Installed: false},
+		HostBridgeToolWorkbench:        {Installed: false},
+		HostBridgeToolRunnerDiagnostic: {Installed: true, Version: "1"},
+		HostBridgeToolBlender:          {Installed: false},
+		HostBridgeToolUnreal:           {Installed: false},
 	}
 	if identity, err := runningWorkbenchExecutableIdentity(); err == nil {
 		capabilities[HostBridgeToolWorkbench] = HostCapability{Installed: true, Version: identity}

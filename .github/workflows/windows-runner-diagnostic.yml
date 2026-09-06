@@ -1,0 +1,41 @@
+name: windows-runner-diagnostic
+on:
+  pull_request:
+    paths:
+      - 'internal/runnerdiag/**'
+      - 'internal/core/host_bridge*'
+      - 'cmd/workbench-actions-runner-inspect/**'
+      - '.github/workflows/windows-runner-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-readonly-diagnostic:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.23.x'
+      - name: Native read-only fixtures and local API smoke
+        shell: pwsh
+        run: |
+          go test -count=1 -v ./internal/runnerdiag
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build zero-argument diagnostic
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path diagnostic-artifact | Out-Null
+          go build -trimpath -o diagnostic-artifact/Workbench-Runner-Diagnostic.exe ./cmd/workbench-actions-runner-inspect
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $sha = (git rev-parse HEAD).Trim()
+          $hash = (Get-FileHash diagnostic-artifact/Workbench-Runner-Diagnostic.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          @{ source_sha=$sha; executable_sha256=$hash; read_only=$true; owner_host_executed=$false; unreal_proof='not_executed' } | ConvertTo-Json | Set-Content diagnostic-artifact/manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Workbench-Runner-Diagnostic-Windows
+          path: diagnostic-artifact/
+          if-no-files-found: error

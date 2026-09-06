@@ -204,7 +204,7 @@ func sanitizeHostHeartbeat(h HostBridgeHeartbeat) (HostBridgeHeartbeat, error) {
 		return HostBridgeHeartbeat{}, errors.New("host architecture is invalid")
 	}
 	clean := map[string]HostCapability{}
-	for _, name := range []string{HostBridgeToolWorkbench, HostBridgeToolBlender, HostBridgeToolUnreal} {
+	for _, name := range []string{HostBridgeToolWorkbench, HostBridgeToolBlender, HostBridgeToolUnreal, HostBridgeToolRunnerDiagnostic} {
 		capability, ok := h.Capabilities[name]
 		if !ok {
 			continue
