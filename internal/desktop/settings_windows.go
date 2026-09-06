@@ -392,7 +392,7 @@ func (s *Shell) saveRoutingSettings() {
 	prefs.OpenClawCommand = ""
 	prefs.NotificationCommand = strings.TrimSpace(windowText(s.controls[idNotifyCommand]))
 	s.invalidateSettingsCache()
-	if err := s.eng.SavePreferences(prefs); err != nil {
+	if err := s.saveRoutingPreferences(prefs); err != nil {
 		messageBox(s.hwnd, "Cannot save routing", err.Error(), mbOK|mbIconWarning)
 		return
 	}

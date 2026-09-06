@@ -22,8 +22,8 @@ func TestOwnedWindowsStartupRunsOutboundHostBridge(t *testing.T) {
 	for _, required := range []string{
 		"context.WithCancel(context.Background())",
 		"defer stopHostBridge()",
-		"return eng.State().Preferences.OpenClawSSHHost",
-		"core.RunWindowsHostBridgeAgentWithTargetSource(hostBridgeCtx, func() string {",
+		"core.NewSavedHostBridgeTarget(st.Preferences.OpenClawSSHHost)",
+		"core.RunWindowsHostBridgeAgentWithTargetSource(hostBridgeCtx, hostBridgeTarget.Current)",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("owned desktop startup is missing host bridge lifecycle contract %q", required)

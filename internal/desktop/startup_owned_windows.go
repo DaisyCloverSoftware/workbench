@@ -60,20 +60,20 @@ func RunOwned(version string, processOwnershipConfirmed bool) error {
 	// Starting with no target must not require restarting this desktop later.
 	hostBridgeCtx, stopHostBridge := context.WithCancel(context.Background())
 	defer stopHostBridge()
+	hostBridgeTarget := core.NewSavedHostBridgeTarget(st.Preferences.OpenClawSSHHost)
 	go func() {
-		_ = core.RunWindowsHostBridgeAgentWithTargetSource(hostBridgeCtx, func() string {
-			return eng.State().Preferences.OpenClawSSHHost
-		})
+		_ = core.RunWindowsHostBridgeAgentWithTargetSource(hostBridgeCtx, hostBridgeTarget.Current)
 	}()
 
 	shell := &Shell{
-		eng:      eng,
-		mcp:      srv,
-		mcpURL:   mcpURL,
-		mcpErr:   mcpErr,
-		version:  strings.TrimSpace(version),
-		controls: map[int]uintptr{},
-		page:     pageDashboard,
+		hostBridgeTarget: hostBridgeTarget,
+		eng:              eng,
+		mcp:              srv,
+		mcpURL:           mcpURL,
+		mcpErr:           mcpErr,
+		version:          strings.TrimSpace(version),
+		controls:         map[int]uintptr{},
+		page:             pageDashboard,
 	}
 	runningShell = shell
 	defer func() { runningShell = nil }()
