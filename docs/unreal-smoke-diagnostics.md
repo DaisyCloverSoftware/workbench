@@ -1,0 +1,23 @@
+# Unreal smoke diagnostic correction
+
+This is a diagnostic correction within S0-006, not a new Unreal execution capability or a change to startup acceptance. The existing governance, security, outbound host bridge and review/deployment gates apply.
+
+## Evidence contract
+
+The fixed disposable-project smoke must distinguish observations from inferred causes. A Zen failure label requires a Zen-related failure in the same log record. Healthy Zen output plus an unrelated loader/profiler failure elsewhere, including on another stream, must not produce `class=zen`. A disabled optional shared cache is not a failure of the local cache. This explicitly rejects the old whole-capture substring conjunction.
+
+A bounded streaming collector must retain only fixed categorical signals after each record. It reports observed Zen service readiness, local cache readiness, Zen errors, engine exit requests and video-memory warnings independently. Positive readiness and a later error may both be observed; neither may erase the other. These observations are not proof of the root cause or a successful job.
+
+No raw log line, path, hostname, address, command, credential, project data or caller-selected diagnostic text may be returned. Keep at most 8 KiB of an unfinished record per output stream. Discard an oversized record completely, report that coverage limitation, and resume at the next newline. Do not join records or streams, classify a retained prefix of an oversized record, or stop processing later records merely because the historical prefix capture would have filled. Empty or unrecognised output remains inconclusive.
+
+## Unchanged authority and acceptance
+
+Keep the same validated executable selection, fixed argv, disposable project, cleanup, five-minute timeout, typed job submission/claim/completion protocol and Windows-side allowlist. Do not add an arbitrary log reader, generic Windows command, inbound listener, project automation, cache repair, security change, longer timeout or new remote parameter.
+
+Successful startup still requires the real smoke process to exit successfully and its correlated host-job result to be retrieved. Error classification and observation flags never override the process outcome. Manual editor success, installed metadata, a green build or corrected diagnostics alone are not automated Unreal acceptance.
+
+## Regression and target verification
+
+Cover healthy Zen plus unrelated failures on the same and different streams, metadata substrings, disabled shared cache, genuine Zen errors, normal failure precedence, late records beyond 8 KiB total output, write-chunk boundaries, CRLF, unterminated final records, oversized records, privacy and successful-output compatibility. Test the actual Windows wiring as well as the portable collector. Run the full ordinary test/build gates on the exact candidate.
+
+Delivery is a PR/preview Windows build until separately approved through the existing release/install process. Verify the exact executable on the affected Windows host before using new diagnostic results. Do not launch another Unreal process alongside an owner-observed memory-constrained editor session or interrupt the owner's editor. A source-only fix does not close S0-006.
