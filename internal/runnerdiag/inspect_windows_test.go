@@ -7,8 +7,52 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"unsafe"
 )
+
+// Go's Windows TEMP can contain DOS 8.3 aliases (for example USERNA~1).
+// Positive fixtures use the actual long form, while production still refuses
+// aliases. This helper only resolves the temp directory created by this test.
+func canonicalFixtureRoot(t *testing.T) string {
+	t.Helper()
+	short := t.TempDir()
+	input, err := syscall.UTF16PtrFromString(short)
+	if err != nil {
+		t.Fatal("invalid fixture directory")
+	}
+	var buf [2048]uint16
+	n, _, _ := kernel.NewProc("GetLongPathNameW").Call(uintptr(unsafe.Pointer(input)), uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	if n == 0 || n >= uintptr(len(buf)) {
+		t.Fatal("fixture long-path query failed")
+	}
+	return syscall.UTF16ToString(buf[:n])
+}
+
+func TestRunnerDiagnosticWindowsShortAliasRejected(t *testing.T) {
+	root := canonicalFixtureRoot(t)
+	input, err := syscall.UTF16PtrFromString(root)
+	if err != nil {
+		t.Fatal("invalid fixture directory")
+	}
+	var buf [2048]uint16
+	n, _, _ := kernel.NewProc("GetShortPathNameW").Call(uintptr(unsafe.Pointer(input)), uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	if n == 0 || n >= uintptr(len(buf)) {
+		t.Skip("short-name facility unavailable")
+	}
+	short := syscall.UTF16ToString(buf[:n])
+	if strings.EqualFold(root, short) {
+		t.Skip("filesystem did not assign a short alias")
+	}
+	locks, status := lockRoot(short)
+	for _, h := range locks {
+		syscall.CloseHandle(h)
+	}
+	if status != "path_alias_or_unreadable_excluded" {
+		t.Fatalf("alias guard returned %s", status)
+	}
+}
 
 func TestRunnerDiagnosticWindowsPaths(t *testing.T) {
 	for _, p := range []string{`C:\actions-runner`, `D:\tools\runner`} {
@@ -33,7 +77,7 @@ func TestRunnerDiagnosticWindowsPaths(t *testing.T) {
 	}
 }
 func TestRunnerDiagnosticWindowsFixtureReadOnly(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalFixtureRoot(t)
 	if e := os.Mkdir(filepath.Join(root, "bin"), 0700); e != nil {
 		t.Fatal(e)
 	}
@@ -71,7 +115,7 @@ func TestRunnerDiagnosticWindowsFixtureReadOnly(t *testing.T) {
 	}
 }
 func TestRunnerDiagnosticWindowsAbsentAndGitExcluded(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalFixtureRoot(t)
 	if _, state := inspectRoot(candidate{filepath.Join(root, "missing"), "fixture"}); state != "absent" {
 		t.Fatal(state)
 	}
@@ -83,7 +127,7 @@ func TestRunnerDiagnosticWindowsAbsentAndGitExcluded(t *testing.T) {
 	}
 }
 func TestRunnerDiagnosticWindowsRejectsMetadataHardlinks(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalFixtureRoot(t)
 	original := filepath.Join(root, "metadata")
 	if e := os.WriteFile(original, []byte(`{"agentId":1}`), 0600); e != nil {
 		t.Fatal(e)
@@ -103,6 +147,9 @@ func TestRunnerDiagnosticWindowsNativeQuerySmoke(t *testing.T) {
 	}
 	if !r.ReadOnly || r.MachineWideAbsenceEstablished || r.UnrealProof != "not_executed" {
 		t.Fatal("false acceptance")
+	}
+	if r.ServicesRead != "visible_services_only" || r.ProcessesRead != "snapshot_only" {
+		t.Fatalf("native queries failed: services=%s processes=%s", r.ServicesRead, r.ProcessesRead)
 	}
 	if _, e := encodeReport(r); e != nil {
 		t.Fatal("invalid bounded report")
