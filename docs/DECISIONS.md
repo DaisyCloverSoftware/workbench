@@ -306,3 +306,8 @@ Future changes MUST NOT:
 - restore the superseded 90-second Unreal smoke or describe the removed `TNotNull` crash as the current failure;
 - assume Blender GUI preferences control factory-startup headless rendering;
 - accept no-op release retrigger commits as the permanent desired release design.
+
+
+## 2026-09-06 — Windows Actions runner inspection is read-only
+
+A dedicated typed diagnostic may observe local Actions-runner installation markers, non-secret configuration and query-only service/process state. No arbitrary path, executable, service, URL or script is accepted. Capability advertisement is implementation availability, not runner availability. No shell, credential reads, service mutation, runner provisioning or client upgrade is added. Full scope and negative requirements are in `docs/windows-actions-runner-diagnostic.md`. Scoped absence and local .runner state MUST NOT be promoted to machine-wide absence, live GitHub registration or Unreal proof. A later recovery mutation requires separate bounded design and actual diagnostic evidence.

@@ -19,7 +19,7 @@ import (
 // relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "run_windows_unreal_smoke", "get_windows_host_job":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "run_windows_unreal_smoke", "get_windows_host_job", "inspect_windows_actions_runner":
 		return true
 	default:
 		return false
@@ -117,6 +117,22 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 		return map[string]any{"hosts": hosts, "count": len(hosts)}, nil
 	}
 
+	if env.Action == "inspect_windows_actions_runner" {
+		if env.Project != "" {
+			return nil, errors.New("inspect_windows_actions_runner does not accept a project")
+		}
+		var a struct {
+			HostID string `json:"host_id"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		job, err := core.SubmitWindowsRunnerInspection(strings.TrimSpace(a.HostID))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"host_job": job}, nil
+	}
 	if env.Action == "run_windows_blender_version" {
 		if env.Project != "" {
 			return nil, errors.New("run_windows_blender_version does not accept a project")
@@ -270,8 +286,8 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 		}
 		return callMCP(ctx, mcpURL, authFile, "list_files", map[string]any{
 			"project_path": project,
-			"subdir":      strings.TrimSpace(a.Subdir),
-			"limit":       a.Limit,
+			"subdir":       strings.TrimSpace(a.Subdir),
+			"limit":        a.Limit,
 		})
 
 	case "search_text":
@@ -294,7 +310,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			"project_path": project,
 			"query":        a.Query,
 			"subdir":       strings.TrimSpace(a.Subdir),
-			"limit":       a.Limit,
+			"limit":        a.Limit,
 		})
 
 	case "read_file":
