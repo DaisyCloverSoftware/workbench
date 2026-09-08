@@ -82,10 +82,11 @@ func TestUnrealSmokeEvidenceProcessesLateRecordsAndAllChunkSizes(t *testing.T) {
 	text := strings.Repeat("LogInit: ordinary startup progress\n", 1200) +
 		"LogZenServiceInstance: Display: HTTP service status: OK!\r\n" +
 		"LogDerivedDataCache: Display: ZenLocal: Status: OK!\n" +
+		"LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()\n" +
 		"LogRenderer: Video memory has been exhausted\n" +
 		"LogCore: Engine exit requested"
 	want := capturedUnrealSmokeEvidence(text, "")
-	if !want.zenServiceOK || !want.zenLocalOK || !want.videoMemoryWarning || !want.quitObserved || want.oversizedLine {
+	if !want.zenServiceOK || !want.zenLocalOK || !want.engineInitialized || !want.videoMemoryWarning || !want.quitObserved || want.oversizedLine {
 		t.Fatalf("late evidence missing: %s", want.summary())
 	}
 	for _, chunk := range []int{1, 2, 7, 4096, 8192, len(text)} {
@@ -142,6 +143,7 @@ func TestUnrealSmokeEvidenceTimeoutStagesAndPrivacy(t *testing.T) {
 		{"LogShaderCompilers: Display: Compiling shaders", "shader-work"},
 		{"LogDerivedDataCache: Display: building derived data", "derived-data"},
 		{"LogAssetRegistry: Display: asset registry scan", "asset-discovery"},
+		{"LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()", "engine-ready"},
 		{"LogInit: Display: startup continues", "initializing"},
 		{"", "initializing"},
 	} {
@@ -154,7 +156,7 @@ func TestUnrealSmokeEvidenceTimeoutStagesAndPrivacy(t *testing.T) {
 	if e.failureClass() != "nonzero-exit" || !e.videoMemoryWarning {
 		t.Fatal("warning must not become process failure")
 	}
-	want := "diag=v2 zen_service_ok=false zen_local_ok=false zen_error=false quit_observed=false video_memory_warning=true oversized_line=false tail_stage=none records_after_tail_stage=-1 records_after_shader=-1"
+	want := "diag=v3 zen_service_ok=false zen_local_ok=false zen_error=false engine_initialized=false quit_observed=false video_memory_warning=true oversized_line=false tail_stage=none records_after_tail_stage=-1 records_after_shader=-1"
 	if got := e.summary(); got != want || strings.Contains(got, marker) {
 		t.Fatal("summary must contain only fixed labels and bounded integers")
 	}
@@ -177,6 +179,13 @@ func TestUnrealSmokeEvidenceReportsStageRecencyWithoutInventingGlobalStreamOrder
 	}
 }
 
+func TestUnrealSmokeEvidenceEngineReadyIsIndependentAndTailAware(t *testing.T) {
+	e := capturedUnrealSmokeEvidence("LogAssetRegistry: asset registry scan\nLogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()\nLogInit: later\n", "")
+	if !e.engineInitialized || e.timeoutClass() != "engine-ready" || e.tailStage != "engine-ready" || e.tailStageDistance != 1 {
+		t.Fatalf("engine-ready evidence lost: %s class=%s", e.summary(), e.timeoutClass())
+	}
+}
+
 func TestUnrealSmokeEvidenceShaderClassRequiresProgressRecordNotCategoryNameAlone(t *testing.T) {
 	e := capturedUnrealSmokeEvidence("LogShaderCompilers: Display: worker initialized\n", "")
 	if e.shaderWork || e.timeoutClass() == "shader-work" || e.shaderTailKnown {
@@ -189,7 +198,7 @@ func TestUnrealSmokeEvidenceShaderClassRequiresProgressRecordNotCategoryNameAlon
 }
 
 func TestUnrealSmokeEvidenceNeverConvertsFailedProcessToSuccess(t *testing.T) {
-	e := capturedUnrealSmokeEvidence("LogDerivedDataCache: ZenLocal: Status: OK!\nLogCore: Engine exit requested\n", "")
+	e := capturedUnrealSmokeEvidence("LogDerivedDataCache: ZenLocal: Status: OK!\nLogInit: Display: Engine is initialized.\nLogCore: Engine exit requested\n", "")
 	privateError := errors.New("private_test_error_do_not_return")
 	for _, contextErr := range []error{nil, context.DeadlineExceeded} {
 		output, err := unrealSmokeOutcome(privateError, contextErr, e, "Unreal Engine 5.6.1")
@@ -199,7 +208,7 @@ func TestUnrealSmokeEvidenceNeverConvertsFailedProcessToSuccess(t *testing.T) {
 		if strings.Contains(err.Error(), privateError.Error()) {
 			t.Fatal("raw process error escaped")
 		}
-		if !strings.Contains(err.Error(), "quit_observed=true") || !strings.Contains(err.Error(), "zen_local_ok=true") {
+		if !strings.Contains(err.Error(), "quit_observed=true") || !strings.Contains(err.Error(), "engine_initialized=true") || !strings.Contains(err.Error(), "zen_local_ok=true") {
 			t.Fatal("independent observations not returned")
 		}
 		if contextErr != nil && !strings.HasPrefix(err.Error(), "Unreal headless smoke timed out: class=quit-observed ") {
@@ -212,7 +221,7 @@ func TestUnrealSmokeEvidenceNeverConvertsFailedProcessToSuccess(t *testing.T) {
 }
 
 func TestUnrealSmokeEvidencePreservesSuccessfulOutput(t *testing.T) {
-	e := unrealSmokeEvidence{zenError: true, videoMemoryWarning: true}
+	e := unrealSmokeEvidence{zenError: true, engineInitialized: true, videoMemoryWarning: true}
 	output, err := unrealSmokeOutcome(nil, nil, e, "Unreal Engine 5.6.1")
 	if err != nil || output != "Unreal headless smoke complete: Unreal Engine 5.6.1" {
 		t.Fatalf("successful process result changed: %q %v", output, err)
