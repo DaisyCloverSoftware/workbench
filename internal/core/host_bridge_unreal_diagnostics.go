@@ -9,8 +9,6 @@ import (
 
 const unrealSmokeRecordLimit = 8 << 10
 
-// Each process stream owns one collector. Finish is called only after Cmd.Run
-// has joined the stream writers. No raw record is included in the result.
 type unrealSmokeCapture struct {
 	line     [unrealSmokeRecordLimit]byte
 	used     int
@@ -24,6 +22,7 @@ type unrealSmokeEvidence struct {
 	zenLocalOK         bool
 	zenError           bool
 	quitObserved       bool
+	engineInitialized  bool
 	videoMemoryWarning bool
 	shaderWork         bool
 	derivedData        bool
@@ -46,8 +45,6 @@ func (c *unrealSmokeCapture) Write(p []byte) (int, error) {
 			continue
 		}
 		if c.used == len(c.line) {
-			// Drop the entire overlong record, not just its tail. Otherwise a
-			// clipped prefix could be mistaken for a complete diagnostic.
 			clear(c.line[:c.used])
 			c.used = 0
 			c.discard = true
@@ -106,8 +103,6 @@ func (e *unrealSmokeEvidence) recordFailure(rank int) {
 }
 
 func (e *unrealSmokeEvidence) observe(line string) {
-	// Preserve the existing failure precedence, but never combine text from
-	// unrelated records or streams to manufacture a subsystem error.
 	switch {
 	case strings.Contains(line, "tnotnull"):
 		e.recordFailure(1)
@@ -126,7 +121,6 @@ func (e *unrealSmokeEvidence) observe(line string) {
 	zenLocal := ddc && strings.Contains(line, "zenlocal:")
 	zenRecord := zenService || zenLocal ||
 		(ddc && strings.Contains(line, "zen server")) || strings.HasPrefix(line, "zen server ")
-	// Optional ZenShared being unconfigured is not a local-service failure.
 	failed := strings.Contains(line, ": error:") || strings.Contains(line, " failed") ||
 		strings.HasPrefix(line, "failed ") || strings.Contains(line, "unable to ") ||
 		strings.Contains(line, "timed out") || strings.Contains(line, "unhealthy")
@@ -141,6 +135,10 @@ func (e *unrealSmokeEvidence) observe(line string) {
 	if zenLocal && strings.Contains(line, "status: ok") {
 		e.zenLocalOK = true
 		e.recordStage("zen-local")
+	}
+	if strings.Contains(line, "engine is initialized") {
+		e.engineInitialized = true
+		e.recordStage("engine-ready")
 	}
 	if strings.Contains(line, "engine exit requested") || strings.Contains(line, "requestengineexit") {
 		e.quitObserved = true
@@ -175,13 +173,12 @@ func combineUnrealSmokeEvidence(a, b unrealSmokeEvidence) unrealSmokeEvidence {
 	a.zenLocalOK = a.zenLocalOK || b.zenLocalOK
 	a.zenError = a.zenError || b.zenError
 	a.quitObserved = a.quitObserved || b.quitObserved
+	a.engineInitialized = a.engineInitialized || b.engineInitialized
 	a.videoMemoryWarning = a.videoMemoryWarning || b.videoMemoryWarning
 	a.shaderWork = a.shaderWork || b.shaderWork
 	a.derivedData = a.derivedData || b.derivedData
 	a.assetDiscovery = a.assetDiscovery || b.assetDiscovery
 	a.oversizedLine = a.oversizedLine || b.oversizedLine
-	// Stdout/stderr are copied concurrently, so do not invent a global order.
-	// Keep the recognised stage closest to the end of either individual stream.
 	if b.tailStageKnown && (!a.tailStageKnown || b.tailStageDistance < a.tailStageDistance) {
 		a.tailStage = b.tailStage
 		a.tailStageDistance = b.tailStageDistance
@@ -226,6 +223,8 @@ func (e unrealSmokeEvidence) timeoutClass() string {
 		return "derived-data"
 	case "asset-discovery":
 		return "asset-discovery"
+	case "engine-ready":
+		return "engine-ready"
 	case "quit":
 		return "quit-observed"
 	default:
@@ -246,14 +245,11 @@ func (e unrealSmokeEvidence) summary() string {
 	if e.shaderTailKnown {
 		shaderDistance = int64(e.shaderTailDistance)
 	}
-	return fmt.Sprintf("diag=v2 zen_service_ok=%t zen_local_ok=%t zen_error=%t quit_observed=%t video_memory_warning=%t oversized_line=%t tail_stage=%s records_after_tail_stage=%d records_after_shader=%d",
-		e.zenServiceOK, e.zenLocalOK, e.zenError, e.quitObserved, e.videoMemoryWarning, e.oversizedLine,
+	return fmt.Sprintf("diag=v3 zen_service_ok=%t zen_local_ok=%t zen_error=%t engine_initialized=%t quit_observed=%t video_memory_warning=%t oversized_line=%t tail_stage=%s records_after_tail_stage=%d records_after_shader=%d",
+		e.zenServiceOK, e.zenLocalOK, e.zenError, e.engineInitialized, e.quitObserved, e.videoMemoryWarning, e.oversizedLine,
 		stage, stageDistance, shaderDistance)
 }
 
-// Keep the existing portable classifier entry points for callers and tests.
-// The Windows smoke uses streaming collectors directly, retaining categorical
-// signals even in the middle omitted by the old bounded head/tail capture.
 func capturedUnrealSmokeEvidence(stdout, stderr string) unrealSmokeEvidence {
 	a, b := &unrealSmokeCapture{}, &unrealSmokeCapture{}
 	_, _ = a.Write([]byte(stdout))
@@ -261,8 +257,6 @@ func capturedUnrealSmokeEvidence(stdout, stderr string) unrealSmokeEvidence {
 	return combineUnrealSmokeEvidence(a.finish(), b.finish())
 }
 
-// Diagnostic signals never replace the actual process outcome. Return only
-// fixed error text, a numeric process exit code and categorical observations.
 func unrealSmokeOutcome(runErr, contextErr error, evidence unrealSmokeEvidence, version string) (string, error) {
 	if runErr == nil {
 		return "Unreal headless smoke complete: " + version, nil
