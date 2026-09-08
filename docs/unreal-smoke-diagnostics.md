@@ -8,6 +8,8 @@ The fixed disposable-project smoke must distinguish observations from inferred c
 
 A bounded streaming collector must retain only fixed categorical signals after each record. It reports observed Zen service readiness, local cache readiness, Zen errors, engine exit requests and video-memory warnings independently. Positive readiness and a later error may both be observed; neither may erase the other. These observations are not proof of the root cause or a successful job.
 
+Timeout-stage reporting must distinguish historical keyword presence from evidence near the end of an output stream. `shader-work` requires an actual shader-progress phrase rather than the `LogShaderCompilers` category name alone. The returned diagnostic includes the recognised stage closest to the tail of either individual stream plus the bounded number of later records in that stream, and separately the bounded number of records after the closest observed shader-progress record. Stdout and stderr are asynchronous and MUST NOT be merged into an invented global record order. These record distances are diagnostic recency evidence only; they do not prove useful progress, a deadlock, or a causal subsystem failure.
+
 No raw log line, path, hostname, address, command, credential, project data or caller-selected diagnostic text may be returned. Keep at most 8 KiB of an unfinished record per output stream. Discard an oversized record completely, report that coverage limitation, and resume at the next newline. Do not join records or streams or classify a retained prefix of an oversized record. Preserve categorical signals throughout the stream, including records in the middle omitted by the old 8 KiB head-and-rolling-tail capture. Empty or unrecognised output remains inconclusive.
 
 ## Unchanged authority and acceptance
@@ -18,6 +20,6 @@ Successful startup still requires the real smoke process to exit successfully an
 
 ## Regression and target verification
 
-Cover healthy Zen plus unrelated failures on the same and different streams, metadata substrings, disabled shared cache, genuine Zen errors, normal failure precedence, late and omitted-middle records beyond 8 KiB total output, write-chunk boundaries, CRLF, unterminated final records, oversized records, privacy and successful-output compatibility. Test the actual Windows wiring as well as the portable collector. Run the full ordinary test/build gates on the exact candidate.
+Cover healthy Zen plus unrelated failures on the same and different streams, metadata substrings, disabled shared cache, genuine Zen errors, normal failure precedence, late and omitted-middle records beyond 8 KiB total output, write-chunk boundaries, CRLF, unterminated final records, oversized records, privacy, stage-recency distances, shader-category false positives and successful-output compatibility. Test the actual Windows wiring as well as the portable collector. Run the full ordinary test/build gates on the exact candidate.
 
 Delivery is a PR/preview Windows build until separately approved through the existing release/install process. Verify the exact executable on the affected Windows host before using new diagnostic results. Do not launch another Unreal process alongside an owner-observed memory-constrained editor session or interrupt the owner's editor. A source-only fix does not close S0-006.
