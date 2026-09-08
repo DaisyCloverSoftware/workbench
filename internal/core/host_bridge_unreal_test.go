@@ -65,6 +65,7 @@ func TestUnrealSmokeInvocationUsesNormalFixedProjectQuitAndDisablesActiveScripti
 	want := []string{
 		project,
 		"-ExecCmds=Quit",
+		"-TestExit=Engine is initialized",
 		"-unattended",
 		"-stdout",
 		"-nop4",
@@ -138,6 +139,7 @@ func TestUnrealSmokeTimeoutClassifierReturnsOnlyFixedSafeLabels(t *testing.T) {
 		{name: "shader work", stdout: "LogShaderCompilers: Display: Compiling shaders", want: "shader-work"},
 		{name: "derived data", stdout: "LogDerivedDataCache: Display: building derived data", want: "derived-data"},
 		{name: "asset discovery", stdout: "LogAssetRegistry: Display: asset registry scan", want: "asset-discovery"},
+		{name: "engine ready", stdout: "LogInit: Display: Engine is initialized. Leaving FEngineLoop::Init()", want: "engine-ready"},
 		{name: "initializing", stdout: "LogInit: Display: engine startup continues", want: "initializing"},
 	}
 	for _, tt := range tests {
