@@ -154,9 +154,37 @@ func TestUnrealSmokeEvidenceTimeoutStagesAndPrivacy(t *testing.T) {
 	if e.failureClass() != "nonzero-exit" || !e.videoMemoryWarning {
 		t.Fatal("warning must not become process failure")
 	}
-	want := "diag=v1 zen_service_ok=false zen_local_ok=false zen_error=false quit_observed=false video_memory_warning=true oversized_line=false"
+	want := "diag=v2 zen_service_ok=false zen_local_ok=false zen_error=false quit_observed=false video_memory_warning=true oversized_line=false tail_stage=none records_after_tail_stage=-1 records_after_shader=-1"
 	if got := e.summary(); got != want || strings.Contains(got, marker) {
-		t.Fatal("summary must contain only fixed labels and booleans")
+		t.Fatal("summary must contain only fixed labels and bounded integers")
+	}
+}
+
+func TestUnrealSmokeEvidenceReportsStageRecencyWithoutInventingGlobalStreamOrder(t *testing.T) {
+	stdout := "LogDerivedDataCache: Display: ZenLocal: Status: OK!\n" +
+		"LogShaderCompilers: Display: Compiling shaders\n" +
+		"LogInit: later record one\nLogInit: later record two\n"
+	stderr := "LogAssetRegistry: Display: asset registry scan\nLogInit: later stderr record\n"
+	e := capturedUnrealSmokeEvidence(stdout, stderr)
+	if e.timeoutClass() != "asset-discovery" || e.tailStage != "asset-discovery" || e.tailStageDistance != 1 {
+		t.Fatalf("closest per-stream tail stage lost: %s class=%s", e.summary(), e.timeoutClass())
+	}
+	if !e.shaderTailKnown || e.shaderTailDistance != 2 {
+		t.Fatalf("shader recency lost: %s", e.summary())
+	}
+	if !strings.Contains(e.summary(), "records_after_tail_stage=1") || !strings.Contains(e.summary(), "records_after_shader=2") {
+		t.Fatalf("recency not reported: %s", e.summary())
+	}
+}
+
+func TestUnrealSmokeEvidenceShaderClassRequiresProgressRecordNotCategoryNameAlone(t *testing.T) {
+	e := capturedUnrealSmokeEvidence("LogShaderCompilers: Display: worker initialized\n", "")
+	if e.shaderWork || e.timeoutClass() == "shader-work" || e.shaderTailKnown {
+		t.Fatalf("shader category name alone became progress: %s", e.summary())
+	}
+	e = capturedUnrealSmokeEvidence("LogShaderCompilers: Display: Compiling shaders\n", "")
+	if !e.shaderWork || e.timeoutClass() != "shader-work" || e.shaderTailDistance != 0 {
+		t.Fatalf("actual shader progress record missed: %s", e.summary())
 	}
 }
 
