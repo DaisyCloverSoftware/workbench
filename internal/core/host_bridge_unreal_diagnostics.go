@@ -19,21 +19,21 @@ type unrealSmokeCapture struct {
 }
 
 type unrealSmokeEvidence struct {
-	failureRank          int
-	zenServiceOK         bool
-	zenLocalOK           bool
-	zenError             bool
-	quitObserved         bool
-	videoMemoryWarning   bool
-	shaderWork           bool
-	derivedData          bool
-	assetDiscovery       bool
-	oversizedLine        bool
-	tailStage             string
-	tailStageDistance     uint64
-	tailStageKnown        bool
-	shaderTailDistance   uint64
-	shaderTailKnown      bool
+	failureRank        int
+	zenServiceOK       bool
+	zenLocalOK         bool
+	zenError           bool
+	quitObserved       bool
+	videoMemoryWarning bool
+	shaderWork         bool
+	derivedData        bool
+	assetDiscovery     bool
+	oversizedLine      bool
+	tailStage          string
+	tailStageDistance  uint64
+	tailStageKnown     bool
+	shaderTailDistance uint64
+	shaderTailKnown    bool
 }
 
 func (c *unrealSmokeCapture) Write(p []byte) (int, error) {
