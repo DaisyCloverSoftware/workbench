@@ -127,6 +127,7 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 	return filepath.Clean(executable), []string{
 		project,
 		"-ExecCmds=Quit",
+		"-TestExit=Engine is initialized",
 		"-unattended",
 		"-stdout",
 		"-nop4",
