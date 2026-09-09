@@ -42,7 +42,7 @@ func TestValidateOverrideRinExportManifestRequiresExactIdentityAndHashes(t *test
 	fbxSHA := hex.EncodeToString(sum[:])
 	scriptSHA := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	manifest := overrideRinExportManifest{
-		SchemaVersion: 1, SourceSHA: overrideRinSourceSHA, ScriptSHA256: scriptSHA,
+		SchemaVersion: 1, SourceSHA: overrideRinSourceSHA, CreatedUTC: "2026-09-09T10:00:00+00:00", ScriptSHA256: scriptSHA,
 		EngineVersion: "5.8.1", Body: overrideRinBody, Face: overrideRinFace,
 		Groom: overrideRinGroom, Blueprint: overrideRinBlueprint,
 		InputExportCompleted: true, VisualAcceptance: "not_assessed", AnimationAcceptance: "not_assessed",
@@ -82,7 +82,7 @@ func TestValidateOverrideRinExportManifestRejectsAlteredFBX(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := overrideRinExportManifest{
-		SchemaVersion: 1, SourceSHA: overrideRinSourceSHA,
+		SchemaVersion: 1, SourceSHA: overrideRinSourceSHA, CreatedUTC: "2026-09-09T10:00:00+00:00",
 		ScriptSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		Body: overrideRinBody, Face: overrideRinFace, Groom: overrideRinGroom, Blueprint: overrideRinBlueprint,
 		InputExportCompleted: true, VisualAcceptance: "not_assessed", AnimationAcceptance: "not_assessed",
