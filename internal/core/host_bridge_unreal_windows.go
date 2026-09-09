@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -182,22 +181,11 @@ func runUnrealSmoke(ctx context.Context, executable, jobID string) (string, erro
 	cmd := exec.CommandContext(probeCtx, name, args...)
 	cmd.Dir = filepath.Dir(project)
 	configureChildProcess(cmd, false)
-	stdout := newBoundedWorkerCapture(8 << 10)
-	stderr := newBoundedWorkerCapture(8 << 10)
+	stdout := &unrealSmokeCapture{}
+	stderr := &unrealSmokeCapture{}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	if err := cmd.Run(); err != nil {
-		if probeCtx.Err() != nil {
-			class := classifyUnrealSmokeTimeout(stdout.String(), stderr.String())
-			return "", fmt.Errorf("Unreal headless smoke timed out: class=%s", class)
-		}
-		exitCode := -1
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		}
-		class := classifyUnrealSmokeFailure(stdout.String(), stderr.String())
-		return "", fmt.Errorf("Unreal headless smoke failed: class=%s process_exit=%d", class, exitCode)
-	}
-	return "Unreal headless smoke complete: " + version, nil
+	runErr := cmd.Run()
+	evidence := combineUnrealSmokeEvidence(stdout.finish(), stderr.finish())
+	return unrealSmokeOutcome(runErr, probeCtx.Err(), evidence, version)
 }

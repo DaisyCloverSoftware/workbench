@@ -127,6 +127,7 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 	return filepath.Clean(executable), []string{
 		project,
 		"-ExecCmds=Quit",
+		"-TestExit=Engine is initialized",
 		"-unattended",
 		"-stdout",
 		"-nop4",
@@ -137,51 +138,16 @@ func unrealSmokeInvocation(executable, project string) (string, []string, error)
 	}, nil
 }
 
-// classifyUnrealSmokeFailure deliberately maps bounded local process output to a
-// tiny fixed vocabulary. Raw Unreal stdout/stderr can contain local paths and
-// machine details, so it must never cross the Windows host bridge merely to
-// diagnose a startup failure.
+// classifyUnrealSmokeFailure returns only a fixed label and does not combine
+// unrelated records or streams to attribute a failure to a subsystem.
 func classifyUnrealSmokeFailure(stdout, stderr string) string {
-	text := strings.ToLower(stdout + "\n" + stderr)
-	switch {
-	case strings.Contains(text, "tnotnull"):
-		return "tnotnull-assertion"
-	case strings.Contains(text, "assertion failed") || strings.Contains(text, "assert failed"):
-		return "assertion"
-	case strings.Contains(text, "fatal error") || strings.Contains(text, "app error called"):
-		return "fatal"
-	case strings.Contains(text, "failed to open descriptor file") || strings.Contains(text, "project file not found"):
-		return "project-descriptor"
-	case strings.Contains(text, "missing global shader") || strings.Contains(text, "failed to compile global shader"):
-		return "shader-initialization"
-	case strings.Contains(text, "zen") && (strings.Contains(text, "failed") || strings.Contains(text, "unable") || strings.Contains(text, "error")):
-		return "zen"
-	case strings.Contains(text, "engine exit requested") || strings.Contains(text, "requestengineexit"):
-		return "quit-observed"
-	default:
-		return "nonzero-exit"
-	}
+	return capturedUnrealSmokeEvidence(stdout, stderr).failureClass()
 }
 
-// classifyUnrealSmokeTimeout uses the same bounded local process captures as the
-// failure classifier but returns only fixed labels. A timeout can therefore tell
-// the caller which broad startup phase Unreal had reached without exposing raw
-// logs, user profile paths, project paths or machine details.
+// classifyUnrealSmokeTimeout classifies observed startup signals, not causes.
+// The Windows process also returns the bounded independent evidence flags.
 func classifyUnrealSmokeTimeout(stdout, stderr string) string {
-	if class := classifyUnrealSmokeFailure(stdout, stderr); class != "nonzero-exit" {
-		return class
-	}
-	text := strings.ToLower(stdout + "\n" + stderr)
-	switch {
-	case strings.Contains(text, "shader") && (strings.Contains(text, "compile") || strings.Contains(text, "compiling")):
-		return "shader-work"
-	case strings.Contains(text, "derived data") || strings.Contains(text, "deriveddata") || strings.Contains(text, "ddc"):
-		return "derived-data"
-	case strings.Contains(text, "asset registry") || strings.Contains(text, "assetregistry"):
-		return "asset-discovery"
-	default:
-		return "initializing"
-	}
+	return capturedUnrealSmokeEvidence(stdout, stderr).timeoutClass()
 }
 
 // SubmitUnrealSmokeJob is deliberately separate from the generic host-job
