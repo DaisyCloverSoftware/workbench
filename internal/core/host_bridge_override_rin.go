@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,42 +39,42 @@ type overrideRinFBXManifest struct {
 }
 
 type overrideRinExportManifest struct {
-	SchemaVersion       int                    `json:"schema_version"`
-	SourceSHA           string                 `json:"source_sha"`
-	ScriptSHA256        string                 `json:"script_sha256"`
-	EngineVersion       string                 `json:"engine_version"`
-	Body                string                 `json:"body"`
-	Face                string                 `json:"face"`
-	Groom               string                 `json:"groom"`
-	Blueprint           string                 `json:"blueprint"`
-	InputExportCompleted bool                  `json:"input_export_completed"`
-	VisualAcceptance    string                 `json:"visual_acceptance"`
-	AnimationAcceptance string                 `json:"animation_acceptance"`
-	Skeleton            string                 `json:"skeleton"`
-	Materials           []map[string]any       `json:"materials"`
-	Assets              []map[string]any       `json:"assets"`
-	FBX                 overrideRinFBXManifest `json:"fbx"`
-	Error               string                 `json:"error,omitempty"`
+	SchemaVersion        int                    `json:"schema_version"`
+	SourceSHA            string                 `json:"source_sha"`
+	ScriptSHA256         string                 `json:"script_sha256"`
+	EngineVersion        string                 `json:"engine_version"`
+	Body                 string                 `json:"body"`
+	Face                 string                 `json:"face"`
+	Groom                string                 `json:"groom"`
+	Blueprint            string                 `json:"blueprint"`
+	InputExportCompleted bool                   `json:"input_export_completed"`
+	VisualAcceptance     string                 `json:"visual_acceptance"`
+	AnimationAcceptance  string                 `json:"animation_acceptance"`
+	Skeleton             string                 `json:"skeleton"`
+	Materials            []map[string]any       `json:"materials"`
+	Assets               []map[string]any       `json:"assets"`
+	FBX                  overrideRinFBXManifest `json:"fbx"`
+	Error                string                 `json:"error,omitempty"`
 }
 
 type overrideRinExportResult struct {
-	SchemaVersion       int    `json:"schema_version"`
-	ArtifactID          string `json:"artifact_id"`
-	SourceSHA           string `json:"source_sha"`
-	EngineVersion       string `json:"engine_version"`
-	Body                string `json:"body"`
-	Face                string `json:"face"`
-	Groom               string `json:"groom"`
-	Blueprint           string `json:"blueprint"`
-	Skeleton            string `json:"skeleton"`
-	IdentityAssetCount  int    `json:"identity_asset_count"`
-	MaterialSlotCount   int    `json:"material_slot_count"`
-	FBXBytes            int64  `json:"fbx_bytes"`
-	FBXSHA256           string `json:"fbx_sha256"`
-	ManifestSHA256      string `json:"manifest_sha256"`
-	InputExportCompleted bool  `json:"input_export_completed"`
-	VisualAcceptance    string `json:"visual_acceptance"`
-	AnimationAcceptance string `json:"animation_acceptance"`
+	SchemaVersion        int    `json:"schema_version"`
+	ArtifactID           string `json:"artifact_id"`
+	SourceSHA            string `json:"source_sha"`
+	EngineVersion        string `json:"engine_version"`
+	Body                 string `json:"body"`
+	Face                 string `json:"face"`
+	Groom                string `json:"groom"`
+	Blueprint            string `json:"blueprint"`
+	Skeleton             string `json:"skeleton"`
+	IdentityAssetCount   int    `json:"identity_asset_count"`
+	MaterialSlotCount    int    `json:"material_slot_count"`
+	FBXBytes             int64  `json:"fbx_bytes"`
+	FBXSHA256            string `json:"fbx_sha256"`
+	ManifestSHA256       string `json:"manifest_sha256"`
+	InputExportCompleted bool   `json:"input_export_completed"`
+	VisualAcceptance     string `json:"visual_acceptance"`
+	AnimationAcceptance  string `json:"animation_acceptance"`
 }
 
 // SubmitOverrideRinCanonicalExportJob creates one project-specific, sealed job.
@@ -105,7 +106,8 @@ func SubmitOverrideRinCanonicalExportJob(hostID string) (HostJob, error) {
 			return err
 		}
 		seen, err := time.Parse(time.RFC3339Nano, host.LastSeen)
-		if err != nil || time.Since(seen) < 0 || time.Since(seen) > 2*time.Minute || !host.Online || host.Platform != HostBridgePlatformWindows {
+		age := time.Since(seen)
+		if err != nil || age < 0 || age > 2*time.Minute || !host.Online || host.Platform != HostBridgePlatformWindows {
 			return errors.New("a fresh online Windows host heartbeat is required")
 		}
 		return writeHostBridgeJSON(filepath.Join(root, "jobs", job.ID+".json"), job)
@@ -160,21 +162,8 @@ func sha256RegularFile(path string) (string, error) {
 	}
 	defer f.Close()
 	h := sha256.New()
-	buf := make([]byte, 1024*1024)
-	for {
-		n, readErr := f.Read(buf)
-		if n > 0 {
-			_, _ = h.Write(buf[:n])
-		}
-		if errors.Is(readErr, os.ErrClosed) {
-			return "", readErr
-		}
-		if readErr != nil {
-			if readErr.Error() == "EOF" {
-				break
-			}
-			return "", readErr
-		}
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
