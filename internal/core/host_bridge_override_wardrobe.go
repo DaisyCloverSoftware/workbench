@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
