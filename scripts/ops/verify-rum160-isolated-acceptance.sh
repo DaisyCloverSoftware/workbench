@@ -17,6 +17,9 @@ PUBLIC_NS="rum-dev"
 RUM_ORIGIN="https://dev-rum.daisycloversoftware.uk"
 RAT_ORIGIN="https://dev-rum-ra.daisycloversoftware.uk"
 PUBLIC_HOST="rateurmate.online"
+SENTINEL_NAME="RUM160 Private Acceptance Sentinel ${SOURCE_SHA:0:8}"
+SENTINEL_SLUG="rum160-private-acceptance-${SOURCE_SHA:0:12}"
+workdir=""
 
 kctl() {
   if command -v k3s >/dev/null 2>&1; then
@@ -31,7 +34,20 @@ deployment_image() {
   kctl -n "$ns" get deployment "$deployment" -o "jsonpath={.spec.template.spec.containers[?(@.name==\"$container\")].image}"
 }
 
-# Acceptance is read-only. Refuse to browse until the exact isolated identities are pinned.
+cleanup() {
+  set +e
+  kctl -n "$RUM_NS" exec deployment/rum-api -c php-fpm -- \
+    env RUM160_SENTINEL_SLUG="$SENTINEL_SLUG" php -r '
+require "vendor/autoload.php";
+$app = require "bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+App\Models\Entity::query()->where("canonical_slug", getenv("RUM160_SENTINEL_SLUG"))->delete();
+' >/dev/null 2>&1
+  [[ -n "$workdir" ]] && rm -rf "$workdir"
+}
+trap cleanup EXIT HUP INT TERM
+
+# Refuse acceptance until all exact isolated candidate identities are pinned.
 [[ "$(deployment_image "$RUM_NS" rum-api php-fpm)" == "$API_IMAGE" ]]
 [[ "$(deployment_image "$RUM_NS" rum-web web)" == "$WEB_IMAGE" ]]
 [[ "$(deployment_image "$RAT_NS" rum-api php-fpm)" == "$API_IMAGE" ]]
@@ -44,24 +60,35 @@ kctl get namespace "$PUBLIC_NS" >/dev/null
 rat_version="$(kctl -n "$RAT_NS" exec deployment/rum-rate-anything -c rate-anything -- cat /usr/share/nginx/html/VERSION | tr -d '\r\n')"
 grep -Fq "$SOURCE_SHA" <<<"$rat_version"
 
-# Select one real private RUM person inside isolated DEV without emitting that identity.
-private_name="$(kctl -n "$RUM_NS" exec deployment/rum-api -c php-fpm -- php -r '
+# The current isolated dataset has no private active person. Create one deterministic
+# synthetic sentinel in isolated RUM DEV only, exercise the real RAT catalogue privacy
+# boundary against it, then delete it in the EXIT trap on both pass and failure.
+kctl -n "$RUM_NS" exec deployment/rum-api -c php-fpm -- \
+  env RUM160_SENTINEL_NAME="$SENTINEL_NAME" RUM160_SENTINEL_SLUG="$SENTINEL_SLUG" php -r '
 require "vendor/autoload.php";
 $app = require "bootstrap/app.php";
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-$name = Illuminate\Support\Facades\DB::table("entities")
-  ->join("entity_types", "entities.entity_type_id", "=", "entity_types.id")
-  ->where("entity_types.key", "person")
-  ->where("entities.visibility", "private")
-  ->where("entities.status", "active")
-  ->value("entities.canonical_name");
-if ($name !== null) echo $name;
-' | tr -d '\r\n')"
-[[ -n "$private_name" ]] || { echo "ERROR: isolated RUM DEV contains no private active person to exercise the real privacy boundary" >&2; exit 9; }
+$name = getenv("RUM160_SENTINEL_NAME");
+$slug = getenv("RUM160_SENTINEL_SLUG");
+$type = App\Models\EntityType::query()->where("key", "person")->firstOrFail();
+App\Models\Entity::query()->where("canonical_slug", $slug)->delete();
+App\Models\Entity::query()->create([
+  "entity_type_id" => $type->id,
+  "canonical_name" => $name,
+  "normalised_name" => app(App\Services\EntityNameNormalizer::class)->normalise($name),
+  "canonical_slug" => $slug,
+  "description" => "Temporary isolated RUM160 acceptance sentinel.",
+  "status" => "active",
+  "visibility" => "private",
+  "rateability" => "closed",
+  "reviewability" => "closed",
+  "sensitivity" => "normal",
+  "verification_state" => "unverified",
+  "publication_state" => "published",
+]);
+' >/dev/null
 
 workdir="$(mktemp -d)"
-cleanup(){ rm -rf "$workdir"; }
-trap cleanup EXIT HUP INT TERM
 cd "$workdir"
 npm init -y >/dev/null 2>&1
 npm install --ignore-scripts --no-audit --no-fund @playwright/test@1.57.0 >/dev/null
@@ -83,7 +110,7 @@ WEB_IMAGE="$WEB_IMAGE" \
 RAT_IMAGE="$RAT_IMAGE" \
 RUM_ORIGIN="$RUM_ORIGIN" \
 RAT_ORIGIN="$RAT_ORIGIN" \
-PRIVATE_PERSON_NAME="$private_name" \
+PRIVATE_PERSON_NAME="$SENTINEL_NAME" \
 CHROMIUM_PATH="$browser_path" \
 node --input-type=module <<'NODE'
 import assert from 'node:assert/strict'
@@ -116,7 +143,6 @@ const evidence = {
 }
 
 try {
-  // Canonical search source: real CJ must be present and exact.
   const api = await browser.newContext()
   const canonicalResponse = await api.request.get(`${rum}/api/v1/public/entities/rat-catalogue/search?q=CJ`, { maxRedirects: 0 })
   assert.equal(canonicalResponse.status(), 200, 'canonical CJ HTTP status')
@@ -126,14 +152,14 @@ try {
   const canonicalId = canonical?.data?.active?.id
   assert.ok(canonicalId, 'CJ canonical id missing')
 
-  // Real isolated-DEV private-person exclusion. Do not record the private name.
+  // Synthetic private-person sentinel must never be surfaced by the real deployed catalogue.
   const privateResponse = await api.request.get(`${rum}/api/v1/public/entities/rat-catalogue/search?${new URLSearchParams({ q: privatePersonName })}`, { maxRedirects: 0 })
   assert.equal(privateResponse.status(), 200, 'private-person canonical query HTTP status')
   const privateJson = await privateResponse.json()
   const activePrivateCandidate = privateJson?.data?.active
   assert.notEqual(activePrivateCandidate?.name, privatePersonName, 'private RUM person leaked into RAT canonical catalogue')
   evidence.privacy = {
-    check: 'real private RUM person excluded from RAT canonical catalogue',
+    check: 'synthetic private RUM person excluded from deployed RAT canonical catalogue',
     result: 'PASS',
     foundAlternativePublicResult: Boolean(activePrivateCandidate),
   }
@@ -185,7 +211,7 @@ try {
       assert.ok(djiActive, 'DJI result did not establish active state')
       const beforeHash = await snapHash()
 
-      // Delay the canonical CJ response. A new search must synchronously clear stale active=DJI.
+      // Delay CJ: explicit search must clear stale active=DJI before the new result arrives.
       let releaseSearch
       const gate = new Promise(resolve => { releaseSearch = resolve })
       const cjRoute = `${rum}/api/v1/public/entities/rat-catalogue/search?q=CJ`
@@ -205,7 +231,8 @@ try {
       assert.equal(await page.locator('.rat-active-card h1', { hasText: 'DJI' }).count(), 0, 'DJI remained the active result for CJ')
       const cjHash = await snapHash()
 
-      // UI acceptance invariants: search, active card and linked exploration remain visible and responsive.
+      // Approved UI contract: existing search/active/exploration surfaces remain visible,
+      // with no mobile/desktop horizontal overflow. PR #160 contains no RAT style/component changes.
       await expect(page.locator('#rat-search-results')).toBeVisible()
       await expect(page.getByRole('button', { name: 'Search', exact: true })).toBeVisible()
       await expect(page.locator('.rat-active-card')).toBeVisible()
@@ -218,8 +245,6 @@ try {
       assert.equal(routeState().get('active'), null, 'no-match retained active URL state')
       const noMatchHash = await snapHash()
 
-      // Existing linked-Thing behaviour: a linked result becomes active, survives reload,
-      // preserves q=DJI exploration context, then is replaced by a new explicit CJ search.
       await page.goto(`${rat}/search?q=DJI`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       await expect(heading).toHaveText('DJI', { timeout: 30_000 })
       const linked = page.locator('.rat-linked-card').first()
@@ -272,6 +297,4 @@ try {
 }
 NODE
 
-trap - EXIT HUP INT TERM
-rm -rf "$workdir"
 printf 'RUM160_ACCEPTANCE_COMPLETE source_sha=%s public_host_not_contacted=%s\n' "$SOURCE_SHA" "$PUBLIC_HOST"
