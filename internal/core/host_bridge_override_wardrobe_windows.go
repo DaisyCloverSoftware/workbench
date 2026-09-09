@@ -95,7 +95,7 @@ func inspectOverrideRinWardrobeRoot(ctx context.Context, gitExecutable, reposRoo
 		if match.bytes <= overrideRinWardrobeMaxHashBytesPerFile && hashedBytes+match.bytes <= overrideRinWardrobeMaxHashBytesTotal {
 			digest, hashErr := sha256RegularFile(match.absolute)
 			if hashErr != nil {
-				return overrideRinWardrobeInventoryResult{}, errors.New("a selected Rin wardrobe candidate changed while being hashed")
+				return overrideRinWardrobeInventoryResult{}, errors.New("a selected Rin wardrobe candidate could not be hashed as a regular file")
 			}
 			candidate.SHA256 = digest
 			candidate.HashStatus = "complete"
@@ -127,10 +127,15 @@ func validateOverrideRinWardrobeReposRoot(root string) (string, error) {
 		return "", errors.New("Rin wardrobe repository root is unavailable or aliased")
 	}
 	resolved, err := filepath.EvalSymlinks(root)
-	if err != nil || !strings.EqualFold(filepath.Clean(resolved), root) {
-		return "", errors.New("Rin wardrobe repository root resolves through an alias")
+	if err != nil {
+		return "", errors.New("Rin wardrobe repository root could not be canonicalised")
 	}
-	return root, nil
+	resolved = filepath.Clean(resolved)
+	resolvedInfo, err := os.Lstat(resolved)
+	if err != nil || resolvedInfo.Mode()&os.ModeSymlink != 0 || !resolvedInfo.IsDir() {
+		return "", errors.New("Rin wardrobe canonical repository root is unavailable or aliased")
+	}
+	return resolved, nil
 }
 
 func findOverrideRinHardlineWorktree(ctx context.Context, gitExecutable, reposRoot string) (string, string, error) {
