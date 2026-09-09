@@ -103,6 +103,20 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 	}
 
 	switch job.Spec.Tool {
+	case HostBridgeToolWorkbench:
+		switch job.Spec.Operation {
+		case HostBridgeOperationOverrideRinWardrobeInventory:
+			inventoryCtx, cancel := context.WithTimeout(ctx, overrideRinWardrobeInventoryTimeout)
+			defer cancel()
+			output, err := runOverrideRinWardrobeInventory(inventoryCtx, job.ID)
+			if err != nil {
+				return HostJobResult{ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: output, ExitCode: 0}, ""
+		default:
+			return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported Workbench operation"
+		}
+
 	case HostBridgeToolBlender:
 		executable := findBlenderExecutable()
 		if executable == "" {
