@@ -19,7 +19,7 @@ import (
 // relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "run_windows_unreal_smoke", "get_windows_host_job":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "run_windows_unreal_smoke", "run_override_rin_canonical_export", "get_windows_host_job":
 		return true
 	default:
 		return false
@@ -145,6 +145,23 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			return nil, err
 		}
 		job, err := core.SubmitUnrealSmokeJob(strings.TrimSpace(a.HostID))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"host_job": job}, nil
+	}
+
+	if env.Action == "run_override_rin_canonical_export" {
+		if env.Project != "" {
+			return nil, errors.New("run_override_rin_canonical_export does not accept a project")
+		}
+		var a struct {
+			HostID string `json:"host_id"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		job, err := core.SubmitOverrideRinCanonicalExportJob(strings.TrimSpace(a.HostID))
 		if err != nil {
 			return nil, err
 		}

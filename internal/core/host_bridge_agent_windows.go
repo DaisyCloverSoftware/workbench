@@ -145,6 +145,14 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 				return HostJobResult{ExitCode: 1}, err.Error()
 			}
 			return HostJobResult{Output: output, ExitCode: 0}, ""
+		case HostBridgeOperationOverrideRinCanonicalExport:
+			recoveryCtx, cancel := context.WithTimeout(ctx, overrideRinExportTimeout)
+			defer cancel()
+			output, err := runOverrideRinCanonicalExport(recoveryCtx, executable, job.ID)
+			if err != nil {
+				return HostJobResult{ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: output, ExitCode: 0}, ""
 		default:
 			return HostJobResult{ExitCode: 1}, "Windows host bridge rejected an unsupported Unreal operation"
 		}
