@@ -41,6 +41,7 @@ type overrideRinFBXManifest struct {
 type overrideRinExportManifest struct {
 	SchemaVersion        int                    `json:"schema_version"`
 	SourceSHA            string                 `json:"source_sha"`
+	CreatedUTC           string                 `json:"created_utc"`
 	ScriptSHA256         string                 `json:"script_sha256"`
 	EngineVersion        string                 `json:"engine_version"`
 	Body                 string                 `json:"body"`
@@ -134,7 +135,7 @@ func validateOverrideRinExportManifest(raw []byte, fbxPath, expectedScriptSHA st
 	if manifest.VisualAcceptance != "not_assessed" || manifest.AnimationAcceptance != "not_assessed" || strings.TrimSpace(manifest.Error) != "" {
 		return overrideRinExportManifest{}, errors.New("Rin export manifest crossed its acceptance boundary")
 	}
-	if manifest.ScriptSHA256 != expectedScriptSHA || len(manifest.ScriptSHA256) != 64 || manifest.Skeleton == "" || len(manifest.Assets) == 0 {
+	if manifest.ScriptSHA256 != expectedScriptSHA || len(manifest.ScriptSHA256) != 64 || manifest.Skeleton == "" || len(manifest.Assets) == 0 || strings.TrimSpace(manifest.CreatedUTC) == "" {
 		return overrideRinExportManifest{}, errors.New("Rin export manifest is missing required provenance")
 	}
 	if manifest.FBX.Path != overrideRinFBXName || manifest.FBX.Bytes < 1024 || len(manifest.FBX.SHA256) != 64 {
