@@ -33,7 +33,7 @@ kctl() {
 
 for ns in "$RUM_NS" "$RAT_NS" "$PUBLIC_NS"; do
   kctl get namespace "$ns" >/dev/null
- done
+done
 
 host_set() {
   local ns="$1"
@@ -63,10 +63,10 @@ restore_isolated() {
   local rc=$?
   trap - ERR
   echo "isolated candidate deployment failed; restoring prior isolated images" >&2
-  kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$rum_api_before" --record=false >/dev/null 2>&1 || true
-  kctl -n "$RUM_NS" set image deployment/rum-web "web=$rum_web_before" --record=false >/dev/null 2>&1 || true
-  kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$rat_api_before" --record=false >/dev/null 2>&1 || true
-  kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$rat_web_before" --record=false >/dev/null 2>&1 || true
+  kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$rum_api_before" >/dev/null 2>&1 || true
+  kctl -n "$RUM_NS" set image deployment/rum-web "web=$rum_web_before" >/dev/null 2>&1 || true
+  kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$rat_api_before" >/dev/null 2>&1 || true
+  kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$rat_web_before" >/dev/null 2>&1 || true
   kctl -n "$RUM_NS" rollout status deployment/rum-api --timeout=180s >/dev/null 2>&1 || true
   kctl -n "$RUM_NS" rollout status deployment/rum-web --timeout=180s >/dev/null 2>&1 || true
   kctl -n "$RAT_NS" rollout status deployment/rum-api --timeout=180s >/dev/null 2>&1 || true
@@ -75,10 +75,10 @@ restore_isolated() {
 }
 trap restore_isolated ERR
 
-kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" --record=false >/dev/null
-kctl -n "$RUM_NS" set image deployment/rum-web "web=$WEB_IMAGE" --record=false >/dev/null
-kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" --record=false >/dev/null
-kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$RAT_IMAGE" --record=false >/dev/null
+kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" >/dev/null
+kctl -n "$RUM_NS" set image deployment/rum-web "web=$WEB_IMAGE" >/dev/null
+kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" >/dev/null
+kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$RAT_IMAGE" >/dev/null
 
 kctl -n "$RUM_NS" rollout status deployment/rum-api --timeout=300s
 kctl -n "$RUM_NS" rollout status deployment/rum-web --timeout=300s
@@ -97,10 +97,12 @@ kctl -n "$RAT_NS" rollout status deployment/rum-rate-anything --timeout=300s
 [[ "$(deployment_image "$PUBLIC_NS" rum-api php-fpm)" == "$public_api_before" ]]
 [[ "$(deployment_image "$PUBLIC_NS" rum-worker worker)" == "$public_worker_before" ]]
 
-for origin in "https://$RUM_HOST" "https://$RAT_HOST"; do
-  version="$(curl -fsS -H 'Cache-Control: no-cache' --retry 6 --retry-delay 2 --max-time 20 "$origin/VERSION" | tr -d '\r\n')"
-  grep -Fq "$SOURCE_SHA" <<<"$version" || { echo "exact-head VERSION mismatch at $origin: $version" >&2; false; }
-done
+# The RUM web image does not contain a VERSION artifact. RAT does: its Dockerfile
+# writes APP_VERSION to /usr/share/nginx/html/VERSION. Check that file inside the
+# exact deployed RAT container instead of requesting /VERSION through the SPA
+# ingress, where nginx's history fallback can return index.html.
+rat_version="$(kctl -n "$RAT_NS" exec deployment/rum-rate-anything -c rate-anything -- cat /usr/share/nginx/html/VERSION | tr -d '\r\n')"
+grep -Fq "$SOURCE_SHA" <<<"$rat_version" || { echo "exact-head RAT VERSION mismatch: $rat_version" >&2; false; }
 
 catalogue="$(curl -fsS -H 'Cache-Control: no-cache' --retry 6 --retry-delay 2 --max-time 20 "https://$RUM_HOST/api/v1/public/entities/rat-catalogue/search?q=CJ")"
 python3 - "$catalogue" <<'PY'
