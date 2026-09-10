@@ -91,7 +91,11 @@ func inspectOverrideRinWardrobeRoot(ctx context.Context, gitExecutable, reposRoo
 			Path: filepath.ToSlash(match.relative), Extension: match.extension,
 			Bytes: match.bytes, HashStatus: "not_hashed", Score: match.score,
 		}
-		candidate.Tracked = overrideRinWardrobePathTracked(ctx, gitExecutable, worktree, match.relative)
+		tracked, trackedErr := overrideRinWardrobePathTracked(ctx, gitExecutable, worktree, match.relative)
+		if trackedErr != nil {
+			return overrideRinWardrobeInventoryResult{}, trackedErr
+		}
+		candidate.Tracked = tracked
 		if match.bytes <= overrideRinWardrobeMaxHashBytesPerFile && hashedBytes+match.bytes <= overrideRinWardrobeMaxHashBytesTotal {
 			digest, hashedSize, hashErr := FileSHA256(match.absolute, overrideRinWardrobeMaxHashBytesPerFile)
 			if hashErr != nil || hashedSize != match.bytes {
@@ -321,14 +325,25 @@ func overrideRinWardrobeSkipDir(name string) bool {
 	}
 }
 
-func overrideRinWardrobePathTracked(ctx context.Context, gitExecutable, worktree, relative string) bool {
+func overrideRinWardrobePathTracked(ctx context.Context, gitExecutable, worktree, relative string) (bool, error) {
 	cmd := exec.CommandContext(ctx, gitExecutable, "ls-files", "--error-unmatch", "--", relative)
 	cmd.Dir = worktree
 	cmd.Env = overrideRinWardrobeGitEnvironment()
 	configureChildProcess(cmd, false)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
-	return cmd.Run() == nil
+	err := cmd.Run()
+	if err == nil {
+		return true, nil
+	}
+	if ctx.Err() != nil {
+		return false, errors.New("Rin wardrobe tracked-state inspection was cancelled")
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return false, nil
+	}
+	return false, errors.New("Rin wardrobe tracked-state inspection failed")
 }
 
 func outputOverrideRinWardrobeGit(ctx context.Context, gitExecutable, dir string, args ...string) (string, error) {
