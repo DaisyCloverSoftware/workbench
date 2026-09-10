@@ -35,8 +35,8 @@ type overrideRinWardrobeCandidate struct {
 type overrideRinWardrobeInventoryResult struct {
 	SchemaVersion       int                            `json:"schema_version"`
 	ArtifactID          string                         `json:"artifact_id"`
-	ReposRoot           string                         `json:"repos_root"`
-	WorktreeRoot        string                         `json:"worktree_root"`
+	ReposRoot           string                         `json:"-"`
+	WorktreeRoot        string                         `json:"-"`
 	Branch              string                         `json:"branch"`
 	HeadSHA             string                         `json:"head_sha"`
 	ReadOnly            bool                           `json:"read_only"`
