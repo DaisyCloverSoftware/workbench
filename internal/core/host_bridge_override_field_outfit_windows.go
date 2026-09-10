@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	overrideRinFieldOutfitStatusMaxBytes       = 4 << 20
+	overrideRinFieldOutfitStatusMaxBytes      = 4 << 20
 	overrideRinFieldOutfitSubtreeMaxEntries   = 10000
 	overrideRinFieldOutfitSubtreeMaxReturned  = 512
 	overrideRinFieldOutfitBlenderJSONMaxBytes = 128 << 10
@@ -121,14 +121,18 @@ func runOverrideRinFieldOutfitInspect(ctx context.Context, jobID string) (string
 		ProtectedStatusSHA256Before: before.SHA256, ProtectedStatusSHA256After: after.SHA256,
 		ProtectedStatusRecordsBefore: before.Records, ProtectedStatusRecordsAfter: after.Records,
 		ProtectedWorktreeUnchanged: true,
-		StageID: overrideRinFieldOutfitStageID, StageCreated: stageCreated, StagedFiles: stagedFiles,
+		StageID:                    overrideRinFieldOutfitStageID, StageCreated: stageCreated, StagedFiles: stagedFiles,
 		SubtreeMatchedCount: subtreeCount, SubtreeReturnedCount: len(subtreeFiles), SubtreeTruncated: subtreeTruncated, SubtreeFiles: subtreeFiles,
-		Blender: blender,
+		Blender:          blender,
 		VisualAcceptance: "not_assessed", AnimationAcceptance: "not_assessed", AAAAcceptance: false,
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil || len(encoded) > overrideRinFieldOutfitBlenderJSONMaxBytes {
 		return "", errors.New("Rin field-outfit inspection result exceeded its privacy-safe output bound")
+	}
+	lower := strings.ToLower(string(encoded))
+	if strings.Contains(lower, strings.ToLower(filepath.Clean(worktree))) || strings.Contains(lower, strings.ToLower(filepath.Clean(stageRoot))) {
+		return "", errors.New("Rin field-outfit inspection result contained a local absolute path")
 	}
 	return string(encoded), nil
 }
@@ -396,34 +400,25 @@ def clean(v, n=160):
     s = ''.join('-' if ord(c) < 32 or ord(c) == 127 else c for c in str(v))
     return s[:n]
 
-def names(seq, n=32):
-    return [clean(x.name) for x in list(seq)[:n]]
-
-def basename(v):
-    return clean(os.path.basename(v or ''))
+def bounded(values, n=256):
+    return [clean(x) for x in list(values)[:n]]
 
 argv = sys.argv
-if '--' not in argv or len(argv[argv.index('--')+1:]) != 1:
-    raise RuntimeError('sealed inspector requires one internal result path')
-out_path = argv[argv.index('--')+1]
-objects = []
-truncated = len(bpy.data.objects) > 128
-for obj in list(bpy.data.objects)[:128]:
-    rec = {'name': clean(obj.name), 'type': clean(obj.type, 32)}
-    if obj.parent: rec['parent'] = clean(obj.parent.name)
-    rec['dimensions'] = [round(float(x), 6) for x in obj.dimensions]
-    rec['modifiers'] = [clean(x.type, 48) for x in list(obj.modifiers)[:32]]
-    rec['materials'] = [clean(x.name) for x in list(getattr(obj.data, 'materials', []) or [])[:32] if x]
-    if getattr(obj.data, 'shape_keys', None): rec['shape_keys'] = names(obj.data.shape_keys.key_blocks)
-    if obj.type == 'MESH':
-        rec['vertices'] = len(obj.data.vertices); rec['polygons'] = len(obj.data.polygons)
-    if obj.type == 'ARMATURE': rec['bones'] = len(obj.data.bones)
-    objects.append(rec)
-materials = [clean(x.name) for x in list(bpy.data.materials)[:256]]
-images = [basename(x.filepath) for x in list(bpy.data.images)[:256]]
-libraries = [basename(x.filepath) for x in list(bpy.data.libraries)[:256]]
-actions = [{'name': clean(x.name), 'frame_start': round(float(x.frame_range[0]), 3), 'frame_end': round(float(x.frame_range[1]), 3)} for x in list(bpy.data.actions)[:256]]
-search = ' '.join([x['name'] for x in objects] + materials + images + [x['name'] for x in actions]).lower()
+if '--' not in argv or len(argv[argv.index('--')+1:]) != 2:
+    raise RuntimeError('sealed inspector requires internal blend and result paths')
+blend_path, out_path = argv[argv.index('--')+1:]
+with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):
+    object_names = bounded(data_from.objects, 256)
+    material_names = bounded(data_from.materials, 256)
+    image_names = bounded(data_from.images, 256)
+    action_names = bounded(data_from.actions, 256)
+    mesh_names = bounded(data_from.meshes, 256)
+    armature_names = bounded(data_from.armatures, 256)
+    collection_names = bounded(data_from.collections, 256)
+    truncated = any(len(x) > 256 for x in (data_from.objects, data_from.materials, data_from.images, data_from.actions, data_from.meshes, data_from.armatures, data_from.collections))
+objects = [{'name': x, 'type': 'indexed'} for x in object_names]
+actions = [{'name': x, 'frame_start': 0.0, 'frame_end': 0.0} for x in action_names]
+search = ' '.join(object_names + material_names + image_names + action_names + mesh_names + armature_names + collection_names).lower()
 flags = {
  'rin': 'rin' in search, 'clash': 'clash' in search,
  'shirt': ('shirt' in search or 'tshirt' in search or 'tee' in search),
@@ -432,7 +427,7 @@ flags = {
  'boots': ('boot' in search or 'combat' in search),
  'field': 'field' in search, 'graphic': 'graphic' in search, 'tuck': 'tuck' in search,
 }
-payload = {'schema_version':1, 'blender_version':clean(bpy.app.version_string,64), 'object_count':len(bpy.data.objects), 'objects':objects, 'materials':materials, 'images':images, 'libraries':libraries, 'actions':actions, 'semantic_flags':flags, 'truncated':truncated}
+payload = {'schema_version':1, 'blender_version':clean(bpy.app.version_string,64), 'object_count':len(object_names), 'objects':objects, 'materials':material_names, 'images':image_names, 'libraries':[], 'actions':actions, 'semantic_flags':flags, 'truncated':truncated}
 with open(out_path, 'w', encoding='utf-8') as f:
     json.dump(payload, f, separators=(',', ':'), ensure_ascii=True)
 `
@@ -459,7 +454,7 @@ func overrideRinFieldOutfitInspectBlend(ctx context.Context, executable, stageRo
 	}
 	blenderCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(blenderCtx, executable, "--background", "--factory-startup", "--disable-autoexec", blendPath, "--python", scriptPath, "--", resultPath)
+	cmd := exec.CommandContext(blenderCtx, executable, "--background", "--factory-startup", "--disable-autoexec", "--python", scriptPath, "--", blendPath, resultPath)
 	configureChildProcess(cmd, false)
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
