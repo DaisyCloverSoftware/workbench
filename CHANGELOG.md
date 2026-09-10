@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.62 — 2026-09-10
+
+- Add a sealed exact-hash Rin field-outfit recovery stage that copies only five previously inventoried candidates out of the protected Hardline worktree while proving its branch, HEAD, selected bytes and before/after dirty-state digest remain unchanged.
+- Inspect the staged integrated outfit through Blender's library index from factory startup with auto-exec disabled, without opening the scene directly, resolving linked scene content, rendering, or accepting caller-selected paths, scripts, executables or arguments.
+- Return only bounded candidate-relative subtree metadata and Blender datablock names/semantic flags; local repository/cache paths stay private and visual, animation and AAA acceptance remain explicitly unassessed/false.
+- Preserve the outbound-only typed Windows host boundary with no generic Windows command or generic Unreal project execution surface.
+
 ## 0.9.61 — 2026-09-10
 
 - Promote the privacy-safe record-local Unreal startup diagnostics that already completed native Windows smoke acceptance on the reviewed preview.
