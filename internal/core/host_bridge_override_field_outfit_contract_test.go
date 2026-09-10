@@ -47,13 +47,27 @@ func TestOverrideRinFieldOutfitWindowsSourceKeepsSealedInspectionBoundary(t *tes
 		t.Fatal(err)
 	}
 	source := string(b)
-	required := []string{"FileSHA256(", `"--disable-autoexec"`, `"--background"`, "ProtectedWorktreeUnchanged: true", "MutationPerformedSource: false"}
+	required := []string{
+		"FileSHA256(",
+		`"--disable-autoexec"`,
+		`"--background"`,
+		"bpy.data.libraries.load(blend_path, link=False)",
+		"ProtectedWorktreeUnchanged: true",
+		"MutationPerformedSource: false",
+	}
 	for _, token := range required {
 		if !strings.Contains(source, token) {
 			t.Fatalf("Windows field-outfit implementation missing %q", token)
 		}
 	}
-	forbidden := []string{"bpy.data.filepath", "bpy.ops.render", "--python-expr", "cmd.exe", "powershell"}
+	forbidden := []string{
+		"bpy.data.filepath",
+		"bpy.ops.render",
+		"--python-expr",
+		"cmd.exe",
+		"powershell",
+		`"--disable-autoexec", blendPath`,
+	}
 	for _, token := range forbidden {
 		if strings.Contains(strings.ToLower(source), strings.ToLower(token)) {
 			t.Fatalf("Windows field-outfit implementation widened boundary with %q", token)
