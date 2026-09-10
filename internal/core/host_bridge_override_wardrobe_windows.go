@@ -93,13 +93,13 @@ func inspectOverrideRinWardrobeRoot(ctx context.Context, gitExecutable, reposRoo
 		}
 		candidate.Tracked = overrideRinWardrobePathTracked(ctx, gitExecutable, worktree, match.relative)
 		if match.bytes <= overrideRinWardrobeMaxHashBytesPerFile && hashedBytes+match.bytes <= overrideRinWardrobeMaxHashBytesTotal {
-			digest, hashErr := sha256RegularFile(match.absolute)
-			if hashErr != nil {
-				return overrideRinWardrobeInventoryResult{}, errors.New("a selected Rin wardrobe candidate could not be hashed as a regular file")
+			digest, hashedSize, hashErr := FileSHA256(match.absolute, overrideRinWardrobeMaxHashBytesPerFile)
+			if hashErr != nil || hashedSize != match.bytes {
+				return overrideRinWardrobeInventoryResult{}, errors.New("a selected Rin wardrobe candidate changed or exceeded its bounded hash contract")
 			}
 			candidate.SHA256 = digest
 			candidate.HashStatus = "complete"
-			hashedBytes += match.bytes
+			hashedBytes += hashedSize
 		} else {
 			candidate.HashStatus = "omitted_size_bound"
 			oversized++
