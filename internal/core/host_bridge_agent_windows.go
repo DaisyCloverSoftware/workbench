@@ -29,21 +29,34 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 	if err != nil {
 		return err
 	}
-	hostID, err := loadOrCreateWindowsHostBridgeID()
-	if err != nil {
-		return err
-	}
-	label := windowsHostBridgeLabel()
+	return RunWindowsHostBridgeAgentWithTargetSource(ctx, func() string { return sshHost })
+}
 
+// RunWindowsHostBridgeAgentWithTargetSource follows the current saved target
+// between complete poll/execute/report cycles. Invalid or empty settings pause
+// new polls. The fixed-target API above retains its original validation contract.
+func RunWindowsHostBridgeAgentWithTargetSource(ctx context.Context, hostSource func() string) error {
+	if hostSource == nil {
+		return errors.New("Windows host bridge target source is required")
+	}
+	var hostID, label string
 	capabilities := map[string]HostCapability{
 		HostBridgeToolWorkbench: {Installed: false},
 		HostBridgeToolBlender:   {Installed: false},
 		HostBridgeToolUnreal:    {Installed: false},
 	}
 	var nextCapabilityProbe time.Time
-	for {
-		if err := ctx.Err(); err != nil {
-			return nil
+	return runHostBridgeTargetLoop(ctx, func() (string, error) {
+		return validateSSHHostTarget(hostSource())
+	}, func(ctx context.Context, sshHost string) error {
+		// Do not create local bridge state until a valid target is configured.
+		if hostID == "" {
+			id, err := loadOrCreateWindowsHostBridgeID()
+			if err != nil {
+				return err
+			}
+			hostID = id
+			label = windowsHostBridgeLabel()
 		}
 		now := time.Now()
 		if nextCapabilityProbe.IsZero() || !now.Before(nextCapabilityProbe) {
@@ -52,29 +65,23 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 			cancel()
 			nextCapabilityProbe = now.Add(windowsCapabilityProbeEvery)
 		}
-
 		heartbeat := HostBridgeHeartbeat{
-			HostID:       hostID,
-			Label:        label,
-			Platform:     HostBridgePlatformWindows,
-			Arch:         runtime.GOARCH,
-			Capabilities: capabilities,
+			HostID: hostID, Label: label, Platform: HostBridgePlatformWindows,
+			Arch: runtime.GOARCH, Capabilities: capabilities,
 		}
 		pollCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		response, pollErr := RunHostBridgeRPCSSH(pollCtx, sshHost, HostBridgeRPCRequest{
-			Action:    HostBridgeRPCPoll,
-			Heartbeat: &heartbeat,
+			Action: HostBridgeRPCPoll, Heartbeat: &heartbeat,
 		})
 		cancel()
 		if pollErr == nil && response.Job != nil {
 			result, jobErr := executeWindowsHostBridgeJob(ctx, hostID, *response.Job)
 			completeCtx, completeCancel := context.WithTimeout(ctx, 20*time.Second)
+			// Keep the origin pinned even when the user saves another target
+			// while a claimed local job is executing.
 			_, _ = RunHostBridgeRPCSSH(completeCtx, sshHost, HostBridgeRPCRequest{
-				Action: HostBridgeRPCComplete,
-				HostID: hostID,
-				JobID:  response.Job.ID,
-				Result: &result,
-				Error:  jobErr,
+				Action: HostBridgeRPCComplete, HostID: hostID, JobID: response.Job.ID,
+				Result: &result, Error: jobErr,
 			})
 			completeCancel()
 			if jobErr == "" && response.Job.Spec.Operation == HostBridgeOperationVersion {
@@ -86,15 +93,8 @@ func RunWindowsHostBridgeAgent(ctx context.Context, sshHost string) error {
 				}
 			}
 		}
-
-		timer := time.NewTimer(windowsHostBridgePollInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return nil
-		case <-timer.C:
-		}
-	}
+		return nil
+	}, windowsHostBridgePollInterval)
 }
 
 func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob) (HostJobResult, string) {

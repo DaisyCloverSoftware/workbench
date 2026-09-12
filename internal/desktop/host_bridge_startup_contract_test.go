@@ -22,12 +22,15 @@ func TestOwnedWindowsStartupRunsOutboundHostBridge(t *testing.T) {
 	for _, required := range []string{
 		"context.WithCancel(context.Background())",
 		"defer stopHostBridge()",
-		"st.Preferences.OpenClawSSHHost",
-		"core.RunWindowsHostBridgeAgent(hostBridgeCtx, host)",
+		"core.NewSavedHostBridgeTarget(st.Preferences.OpenClawSSHHost)",
+		"core.RunWindowsHostBridgeAgentWithTargetSource(hostBridgeCtx, hostBridgeTarget.Current)",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("owned desktop startup is missing host bridge lifecycle contract %q", required)
 		}
+	}
+	if strings.Contains(text, "if host := strings.TrimSpace(st.Preferences.OpenClawSSHHost)") {
+		t.Fatal("bridge must not be gated on a stale startup preference snapshot")
 	}
 	if strings.Contains(text, "ListenAndServe") || strings.Contains(text, "net.Listen") {
 		t.Fatal("Windows host bridge startup unexpectedly opens an inbound listener")
