@@ -91,16 +91,22 @@ assert(ratVersion.includes(sourceSha), `RAT frontend is not exact head ${sourceS
 
 const canonical = await getJson(`${rumOrigin}/api/v1/public/entities/rat-catalogue/search?q=CJ`)
 assert(canonical?.meta?.source === 'rum-dev-canonical', `unexpected canonical source: ${JSON.stringify(canonical?.meta)}`)
+assert(canonical?.meta?.audience === 'rat-public', `unexpected canonical audience: ${JSON.stringify(canonical?.meta)}`)
+assert(canonical?.meta?.privacy === 'private-rum-people-excluded', `unexpected canonical privacy marker: ${JSON.stringify(canonical?.meta)}`)
 assert(canonical?.data?.active?.name === 'CJ Investigates', `canonical CJ active was ${JSON.stringify(canonical?.data?.active?.name)}`)
+assert(canonical?.data?.active?.ratingOwner === 'rum', `CJ is not owned by canonical RUM rating: ${JSON.stringify(canonical?.data?.active)}`)
 const canonicalId = canonical.data.active.id
 assert(typeof canonicalId === 'string' && canonicalId.length > 0, 'canonical CJ id is missing')
 
-const ratSearch = await getJson(`${ratOrigin}/api/v1/public/entities/rat/search?q=CJ`)
-assert(ratSearch?.meta?.audience === 'rat-public', `unexpected RAT audience: ${JSON.stringify(ratSearch?.meta)}`)
-assert(ratSearch?.meta?.privacy === 'private-rum-people-excluded', `unexpected RAT privacy marker: ${JSON.stringify(ratSearch?.meta)}`)
-assert(ratSearch?.data?.active?.id === canonicalId, `RAT CJ id does not match canonical RUM id: ${JSON.stringify(ratSearch?.data?.active)}`)
-assert(ratSearch?.data?.active?.name === 'CJ Investigates', `RAT CJ active was ${JSON.stringify(ratSearch?.data?.active?.name)}`)
-assert(ratSearch?.data?.active?.ratingOwner === 'rum', `CJ is not owned by canonical RUM rating: ${JSON.stringify(ratSearch?.data?.active)}`)
+// The isolated RAT namespace may intentionally have no local CJ fixture. The
+// browser contract is canonical-first: a positive RUM DEV catalogue match must
+// be used directly and must not fall through to the local fixture resolver.
+const localCj = await fetch(`${ratOrigin}/api/v1/public/entities/rat/search?q=CJ`, {
+  method: 'GET',
+  headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
+  redirect: 'manual',
+})
+assert([200, 422].includes(localCj.status), `unexpected local RAT CJ status: ${localCj.status}`)
 
 const targetsResponse = await fetch(`http://127.0.0.1:${devtoolsPort}/json/list`)
 const targets = await targetsResponse.json()
@@ -331,13 +337,30 @@ for (const request of seenRequests) {
   assert(['GET', 'HEAD', 'OPTIONS'].includes(request.method), `browser attempted non-read-only method: ${request.method} ${request.url}`)
 }
 
+const browserCjCanonical = seenRequests.filter((request) => {
+  try {
+    const url = new URL(request.url)
+    return request.method === 'GET' && url.origin === rumOrigin && url.pathname === '/api/v1/public/entities/rat-catalogue/search' && url.searchParams.get('q')?.toLowerCase() === 'cj'
+  } catch { return false }
+})
+const browserCjLocal = seenRequests.filter((request) => {
+  try {
+    const url = new URL(request.url)
+    return request.method === 'GET' && url.origin === ratOrigin && url.pathname === '/api/v1/public/entities/rat/search' && url.searchParams.get('q')?.toLowerCase() === 'cj'
+  } catch { return false }
+})
+assert(browserCjCanonical.length > 0, 'browser did not request the canonical RUM DEV CJ catalogue')
+assert(browserCjLocal.length === 0, `browser incorrectly fell through to local CJ fixture resolver: ${JSON.stringify(browserCjLocal)}`)
+
 console.log(`RUM160_SOURCE_SHA=${sourceSha}`)
 console.log(`RUM160_CJ_CANONICAL_ID=${canonicalId}`)
 console.log(`RUM160_CJ_BROWSER_URL=${cjUrl}`)
 console.log(`RUM160_CJ_RATE_HANDOFF=${rateHandoff.href}`)
 console.log(`RUM160_CJ_RATINGS_HANDOFF=${ratingsHandoff.href}`)
 console.log(`RUM160_LINKED_SELECTED=${linkedName}`)
+console.log(`RUM160_LOCAL_CJ_STATUS=${localCj.status}`)
 console.log('RUM160_PRIVACY_META_PASS=true')
+console.log('RUM160_CANONICAL_FIRST_PASS=true')
 console.log('RUM160_CJ_SEARCH_SELECT_PASS=true')
 console.log('RUM160_CJ_RATE_HANDOFF_PASS=true')
 console.log('RUM160_CJ_RATINGS_HANDOFF_PASS=true')
