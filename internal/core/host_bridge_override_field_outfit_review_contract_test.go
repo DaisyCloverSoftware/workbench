@@ -49,7 +49,7 @@ func TestOverrideRinFieldOutfitReviewWindowsSourceKeepsIsolatedRenderBoundary(t 
 		"ProtectedWorktreeUnchanged:    true",
 		`VisualAcceptance:              "not_assessed"`,
 		"bpy.ops.render.render(write_still=True)",
-		"image_base64",
+		"ImageBase64:",
 		"external_images_suppressed",
 	} {
 		if !strings.Contains(source, token) {
@@ -66,6 +66,16 @@ func TestOverrideRinFieldOutfitReviewWindowsSourceKeepsIsolatedRenderBoundary(t 
 		if strings.Contains(strings.ToLower(source), strings.ToLower(forbidden)) {
 			t.Fatalf("review implementation widened boundary with %q", forbidden)
 		}
+	}
+}
+
+func TestOverrideRinFieldOutfitReviewResultKeepsTypedImageField(t *testing.T) {
+	b, err := os.ReadFile("host_bridge_override_field_outfit_review.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "`json:\"image_base64\"`") {
+		t.Fatal("review result lost the typed image_base64 field")
 	}
 }
 
