@@ -63,10 +63,10 @@ restore_isolated() {
   local rc=$?
   trap - ERR
   echo "isolated candidate deployment failed; restoring prior isolated images" >&2
-  kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$rum_api_before" --record=false >/dev/null 2>&1 || true
-  kctl -n "$RUM_NS" set image deployment/rum-web "web=$rum_web_before" --record=false >/dev/null 2>&1 || true
-  kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$rat_api_before" --record=false >/dev/null 2>&1 || true
-  kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$rat_web_before" --record=false >/dev/null 2>&1 || true
+  kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$rum_api_before" >/dev/null 2>&1 || true
+  kctl -n "$RUM_NS" set image deployment/rum-web "web=$rum_web_before" >/dev/null 2>&1 || true
+  kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$rat_api_before" >/dev/null 2>&1 || true
+  kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$rat_web_before" >/dev/null 2>&1 || true
   kctl -n "$RUM_NS" rollout status deployment/rum-api --timeout=180s >/dev/null 2>&1 || true
   kctl -n "$RUM_NS" rollout status deployment/rum-web --timeout=180s >/dev/null 2>&1 || true
   kctl -n "$RAT_NS" rollout status deployment/rum-api --timeout=180s >/dev/null 2>&1 || true
@@ -75,10 +75,10 @@ restore_isolated() {
 }
 trap restore_isolated ERR
 
-kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" --record=false >/dev/null
-kctl -n "$RUM_NS" set image deployment/rum-web "web=$WEB_IMAGE" --record=false >/dev/null
-kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" --record=false >/dev/null
-kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$RAT_IMAGE" --record=false >/dev/null
+kctl -n "$RUM_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" >/dev/null
+kctl -n "$RUM_NS" set image deployment/rum-web "web=$WEB_IMAGE" >/dev/null
+kctl -n "$RAT_NS" set image deployment/rum-api "php-fpm=$API_IMAGE" >/dev/null
+kctl -n "$RAT_NS" set image deployment/rum-rate-anything "rate-anything=$RAT_IMAGE" >/dev/null
 
 kctl -n "$RUM_NS" rollout status deployment/rum-api --timeout=300s
 kctl -n "$RUM_NS" rollout status deployment/rum-web --timeout=300s
@@ -97,10 +97,25 @@ kctl -n "$RAT_NS" rollout status deployment/rum-rate-anything --timeout=300s
 [[ "$(deployment_image "$PUBLIC_NS" rum-api php-fpm)" == "$public_api_before" ]]
 [[ "$(deployment_image "$PUBLIC_NS" rum-worker worker)" == "$public_worker_before" ]]
 
-for origin in "https://$RUM_HOST" "https://$RAT_HOST"; do
-  version="$(curl -fsS -H 'Cache-Control: no-cache' --retry 6 --retry-delay 2 --max-time 20 "$origin/VERSION" | tr -d '\r\n')"
-  grep -Fq "$SOURCE_SHA" <<<"$version" || { echo "exact-head VERSION mismatch at $origin: $version" >&2; false; }
-done
+# The RUM web image has no /VERSION asset: its nginx SPA fallback returns index.html.
+# Exact frontend identity is therefore enforced by the immutable WEB_IMAGE equality
+# above. The exact-head API runtime is independently proven through its versioned
+# health response, and the RAT frontend exposes the candidate APP_VERSION at /VERSION.
+rum_health="$(curl -fsS -H 'Cache-Control: no-cache' --retry 6 --retry-delay 2 --max-time 20 "https://$RUM_HOST/api/v1/health")"
+python3 - "$rum_health" "$SOURCE_SHA" <<'PY'
+import json,sys
+obj=json.loads(sys.argv[1])
+source_sha=sys.argv[2]
+assert obj.get('status') == 'ok', obj
+assert obj.get('service') == 'rum-api', obj
+version=str(obj.get('version') or '')
+assert source_sha in version, (source_sha, version)
+print('rum_api_version=' + version)
+PY
+
+rat_version="$(curl -fsS -H 'Cache-Control: no-cache' --retry 6 --retry-delay 2 --max-time 20 "https://$RAT_HOST/VERSION" | tr -d '\r\n')"
+grep -Fq "$SOURCE_SHA" <<<"$rat_version" || { echo "exact-head RAT VERSION mismatch at https://$RAT_HOST: $rat_version" >&2; false; }
+printf 'rat_version=%s\n' "$rat_version"
 
 catalogue="$(curl -fsS -H 'Cache-Control: no-cache' --retry 6 --retry-delay 2 --max-time 20 "https://$RUM_HOST/api/v1/public/entities/rat-catalogue/search?q=CJ")"
 python3 - "$catalogue" <<'PY'
