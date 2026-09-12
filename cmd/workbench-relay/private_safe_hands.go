@@ -19,7 +19,7 @@ import (
 // relay/answers. Routine machine work does not need an AI worker at all.
 func isPrivateSafeHandsAction(action string) bool {
 	switch action {
-	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "run_windows_unreal_smoke", "run_override_rin_canonical_export", "run_override_rin_wardrobe_inventory", "run_override_rin_field_outfit_inspect", "get_windows_host_job":
+	case "update_status", "get_task", "list_tasks", "list_projects", "ensure_github_project", "list_files", "search_text", "read_file", "apply_patch", "run_safe_command", "inspect_machine", "inspect_machine_batch", "run_machine_command", "run_operations_script", "save_note", "list_windows_hosts", "run_windows_blender_version", "run_windows_unreal_smoke", "run_override_rin_canonical_export", "run_override_rin_wardrobe_inventory", "run_override_rin_field_outfit_inspect", "run_override_rin_field_outfit_review_capture", "get_windows_host_job":
 		return true
 	default:
 		return false
@@ -196,6 +196,23 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			return nil, err
 		}
 		job, err := core.SubmitOverrideRinFieldOutfitInspectJob(strings.TrimSpace(a.HostID))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"host_job": job}, nil
+	}
+
+	if env.Action == "run_override_rin_field_outfit_review_capture" {
+		if env.Project != "" {
+			return nil, errors.New("run_override_rin_field_outfit_review_capture does not accept a project")
+		}
+		var a struct {
+			HostID string `json:"host_id"`
+		}
+		if err := decodePrivateControlArgs(env.Args, &a); err != nil {
+			return nil, err
+		}
+		job, err := core.SubmitOverrideRinFieldOutfitReviewCaptureJob(strings.TrimSpace(a.HostID))
 		if err != nil {
 			return nil, err
 		}
