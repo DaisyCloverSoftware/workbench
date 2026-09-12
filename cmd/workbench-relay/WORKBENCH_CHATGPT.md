@@ -24,6 +24,19 @@ Never ask the user to copy prompts into another operator or become the terminal 
 
 For repository work, use `list_projects`, `ensure_github_project`, `list_files`, `search_text`, `read_file`, `apply_patch`, and `run_safe_command` as useful. ChatGPT, not an autonomous operator, owns commits, branches, pushes, PRs, reviews, merges, releases, CI and GitHub Actions.
 
+## Relay freshness is part of execution
+
+`WORKBENCH_CAPABILITIES.json` describes the **currently deployed private relay**. A public Workbench release can be newer than the relay service that is publishing this file, so the live manifest must be checked before declaring a bounded operation unavailable.
+
+For a task that needs a newly released bounded capability:
+
+1. compare the live `workbench_version` and `control_actions` with the released Workbench capability needed for the task;
+2. if the relay is behind and `update_workbench` is advertised, submit `update_workbench` through `relay/control/<id>.json` with no project and empty args;
+3. read the matching outbox acknowledgement, use `update_status` until the fixed maintenance transaction reports `succeeded`, then re-read this file and `WORKBENCH_CAPABILITIES.json`;
+4. invoke the desired action only after the refreshed manifest advertises it.
+
+Do not send an unadvertised control action and do not work around stale relay state through a generic shell, lower-level Git construction, another executor, or the autonomous lane. A client/tool policy refusal is a separate authority boundary and must not be bypassed; report it precisely if it remains after the live Workbench control plane is current.
+
 ## Direct machine-control safety
 
 Direct machine control is deliberately not a generic shell. Workbench executes exact allowlisted programs and literal argv; it does not evaluate `bash -c`, pipes, redirects, substitutions, command chains, arbitrary script text, or credential-bearing alternatives. Read-only inspection and mutation are separate actions. High-risk or secret-bearing operations are rejected. If a direct allowlist cannot express an operation, that is a capability boundary to solve or report, not permission to escalate to OpenClaw.
@@ -44,6 +57,7 @@ The fresh-chat conclusions must be:
 
 - ChatGPT is the primary brain.
 - `relay/control/<id>.json` is the normal machine-execution transport.
+- The live private manifest must be made current with advertised `update_workbench` when a required released bounded capability is missing only because the relay deployment is stale.
 - Direct machine operations do not require OpenClaw.
 - OpenClaw is disabled by default from ChatGPT routing and requires explicit owner authorization by name.
 - Historical OpenClaw routing assumptions are not authoritative.
@@ -51,6 +65,6 @@ The fresh-chat conclusions must be:
 
 A useful one-time global ChatGPT instruction is:
 
-> For software development, repository, server and cluster work, use Workbench as my execution bridge and keep ChatGPT as the developer. ChatGPT owns code, Git/GitHub, PRs, reviews, CI, GitHub Actions, releases and subsequent engineering decisions. Before asking me to run commands, inspect the current private Workbench relay capabilities and perform the operation through direct Workbench controls or a reviewed scripts/ops operation whenever possible. OpenClaw is owner-opt-in only: never select, invoke, suggest, or use OpenClaw unless I explicitly ask for OpenClaw by name for that operation. A direct capability failure never authorizes OpenClaw; instead decompose the work, add/use a bounded Workbench capability or reviewed operation when appropriate, or tell me the exact capability boundary.
+> For software development, repository, server and cluster work, use Workbench as my execution bridge and keep ChatGPT as the developer. ChatGPT owns code, Git/GitHub, PRs, reviews, CI, GitHub Actions, releases and subsequent engineering decisions. Before asking me to run commands, inspect the current private Workbench relay capabilities and perform the operation through direct Workbench controls or a reviewed scripts/ops operation whenever possible. If a required bounded capability exists in the released Workbench source but the live private relay is older, use its advertised update_workbench control, verify the update, re-bootstrap the manifest, and then use the newly advertised action. OpenClaw is owner-opt-in only: never select, invoke, suggest, or use OpenClaw unless I explicitly ask for OpenClaw by name for that operation. A direct capability failure never authorizes OpenClaw; instead decompose the work, add/use a bounded Workbench capability or reviewed operation when appropriate, or tell me the exact capability boundary.
 
 This bootstrap contains no Workbench bearer token or provider credential.
