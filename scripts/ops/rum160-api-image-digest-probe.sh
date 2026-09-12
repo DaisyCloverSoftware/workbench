@@ -35,7 +35,7 @@ kube() {
   "${KUBECTL[@]}" "$@"
 }
 
-for ns in rum-dev-isolated rum-rate-anything-preview rum-dev rum rum-rate-anything; do
+for ns in rum-dev-isolated rum-rate-anything-preview rum-dev rum-prod; do
   kube get namespace "$ns" >/dev/null
  done
 kube -n "$TARGET_NS" get deployment "$TARGET_DEPLOYMENT" >/dev/null
@@ -48,8 +48,7 @@ namespace_deployment_images() {
 isolated_rum_before="$(namespace_deployment_images rum-dev-isolated)"
 isolated_rat_before="$(namespace_deployment_images rum-rate-anything-preview)"
 public_before="$(namespace_deployment_images rum-dev)"
-live_rum_before="$(namespace_deployment_images rum)"
-live_rat_before="$(namespace_deployment_images rum-rate-anything)"
+live_before="$(namespace_deployment_images rum-prod)"
 
 created_pods=()
 cleanup() {
@@ -193,14 +192,12 @@ fi
 isolated_rum_after="$(namespace_deployment_images rum-dev-isolated)"
 isolated_rat_after="$(namespace_deployment_images rum-rate-anything-preview)"
 public_after="$(namespace_deployment_images rum-dev)"
-live_rum_after="$(namespace_deployment_images rum)"
-live_rat_after="$(namespace_deployment_images rum-rate-anything)"
+live_after="$(namespace_deployment_images rum-prod)"
 
 [ "$isolated_rum_before" = "$isolated_rum_after" ] || { echo "ERROR: isolated RUM deployment images changed during the probe" >&2; exit 9; }
 [ "$isolated_rat_before" = "$isolated_rat_after" ] || { echo "ERROR: isolated RAT deployment images changed during the probe" >&2; exit 10; }
 [ "$public_before" = "$public_after" ] || { echo "ERROR: public RUM deployment images changed during the probe" >&2; exit 11; }
-[ "$live_rum_before" = "$live_rum_after" ] || { echo "ERROR: LIVE RUM deployment images changed during the probe" >&2; exit 12; }
-[ "$live_rat_before" = "$live_rat_after" ] || { echo "ERROR: LIVE RAT deployment images changed during the probe" >&2; exit 13; }
+[ "$live_before" = "$live_after" ] || { echo "ERROR: LIVE RUM deployment images changed during the probe" >&2; exit 12; }
 
 printf 'RUM160_SOURCE_SHA=%s\n' "$SOURCE_SHA"
 printf 'RUM160_API_CANDIDATE_TAG=%s\n' "$candidate_tag"
