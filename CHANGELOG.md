@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.63 — 2026-09-13
+
+- Add a bounded Rin field-outfit review-capture operation that renders a fixed front, three-quarter and back contact sheet from an isolated exact-hash copy of the current five-file wardrobe candidate.
+- Keep the protected Hardline Override worktree immutable by revalidating exact branch, HEAD, file hashes and before/after dirty-state digest around the render.
+- Return only a deliberately small review JPEG plus bounded metadata, with no caller-selected paths, scripts, executables, cameras or acceptance values.
+- Keep visual and animation acceptance unassessed and AAA acceptance false; the review capture is evidence for iteration, not asset approval or adoption.
+
 ## 0.9.62 — 2026-09-10
 
 - Add a sealed exact-hash Rin field-outfit recovery stage that copies only five previously inventoried candidates out of the protected Hardline worktree while proving its branch, HEAD, selected bytes and before/after dirty-state digest remain unchanged.
