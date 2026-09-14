@@ -27,6 +27,7 @@ RAT_CANONICAL_EGRESS_POLICY="rum160-canonical-rating-egress"
 RUM_CANONICAL_INGRESS_POLICY="rum160-canonical-rating-ingress"
 POLICY_OWNER_LABEL="rum160-canonical-rating"
 CANONICAL_STATEFUL_DOMAINS="${RUM_HOST},${RAT_HOST}"
+CANONICAL_API_POD_PORT=8080
 
 kctl() {
   if command -v k3s >/dev/null 2>&1; then
@@ -135,9 +136,10 @@ restore_isolated() {
 trap restore_isolated ERR
 
 # The RAT owner-review host keeps its own frontend shell, but authentication and
-# rating persistence are served by the canonical isolated RUM API. Permit only
-# the exact RAT frontend -> isolated RUM API TCP/80 path; both namespaces remain
-# default-deny for every other cross-namespace application flow.
+# rating persistence are served by the canonical isolated RUM API. The Service
+# is exposed on 80 but targets the API nginx pod's named http port on 8080, so
+# NetworkPolicy must permit that exact destination pod port. Both namespaces
+# remain default-deny for every other cross-namespace application flow.
 cat <<YAML | kctl apply -f - >/dev/null
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -165,7 +167,7 @@ spec:
               app.kubernetes.io/component: api
       ports:
         - protocol: TCP
-          port: 80
+          port: ${CANONICAL_API_POD_PORT}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -193,7 +195,7 @@ spec:
               app.kubernetes.io/component: rate-anything
       ports:
         - protocol: TCP
-          port: 80
+          port: ${CANONICAL_API_POD_PORT}
 YAML
 
 # The candidate API sees the RAT hostname through Nginx. Enable only the
@@ -272,4 +274,5 @@ printf 'rum_dev=%s\nrat_dev=%s\npublic_host_unchanged=%s\n' "$RUM_HOST" "$RAT_HO
 printf 'api_image=%s\nweb_image=%s\nrat_image=%s\n' "$API_IMAGE" "$WEB_IMAGE" "$RAT_IMAGE"
 printf 'rat_canonical_policy=%s/%s\n' "$RAT_NS" "$RAT_CANONICAL_EGRESS_POLICY"
 printf 'rum_canonical_policy=%s/%s\n' "$RUM_NS" "$RUM_CANONICAL_INGRESS_POLICY"
+printf 'canonical_api_pod_port=%s\n' "$CANONICAL_API_POD_PORT"
 printf 'rum_rat_preview_accounts=true\nstateful_domains=%s\n' "$CANONICAL_STATEFUL_DOMAINS"
