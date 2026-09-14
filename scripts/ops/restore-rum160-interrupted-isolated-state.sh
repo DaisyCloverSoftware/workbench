@@ -31,11 +31,14 @@ deployment_image() {
   kube -n "$ns" get deployment "$deployment" -o "jsonpath={.spec.template.spec.containers[?(@.name==\"$container\")].image}"
 }
 ready_pod_image() {
-  local ns="$1" component="$2" container="$3"
-  kube -n "$ns" get pods -l "app.kubernetes.io/instance=rum,app.kubernetes.io/name=rum,app.kubernetes.io/component=$component" -o json | python3 - "$container" <<'PY'
+  local ns="$1" component="$2" container="$3" snapshot
+  snapshot="$(mktemp)"
+  kube -n "$ns" get pods -l "app.kubernetes.io/instance=rum,app.kubernetes.io/name=rum,app.kubernetes.io/component=$component" -o json >"$snapshot"
+  python3 - "$container" "$snapshot" <<'PY'
 import json,sys
-container=sys.argv[1]
-obj=json.load(sys.stdin)
+container,path=sys.argv[1:]
+with open(path,encoding='utf-8') as fh:
+    obj=json.load(fh)
 found=[]
 for pod in obj.get('items',[]):
     statuses={s.get('name'):s for s in (pod.get('status',{}).get('containerStatuses') or [])}
@@ -50,6 +53,7 @@ if len(unique)!=1:
     raise SystemExit(f'expected exactly one unique Ready image for {container}, found {unique}')
 print(unique[0])
 PY
+  rm -f "$snapshot"
 }
 
 [[ "$(host_set "$RUM_NS")" == "$RUM_HOST" ]] || { echo "blocked: isolated RUM host mismatch" >&2; exit 78; }
