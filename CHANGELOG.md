@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.64 — 2026-09-14
+
+- Add one sealed Override PR97 native proof operation for reviewed source bde855d7511ef45dbc9ec8aff67ebb92df25a579, using the existing authenticated host bridge and committed-ops path.
+- Preserve full LFS materialisation, runtime staging, Editor compile, RAINLINE automation, Win64 packaging and packaged ZeroDay proof under the fixed Unreal Engine 5.8.1 project association. No arbitrary executable, command, script or filesystem target is accepted.
+- Advertise the fixed handler on the Windows client, reject unsupported or conflicting hosts before queuing, and retain per-job logs and hashed evidence in isolated Workbench storage. Source tests and cross-builds do not constitute Unreal or visual acceptance.
+
 ## 0.9.63 — 2026-09-13
 
 - Add a bounded Rin field-outfit review-capture operation that renders a fixed front, three-quarter and back contact sheet from an isolated exact-hash copy of the current five-file wardrobe candidate.
