@@ -361,6 +361,9 @@ func ClaimHostBridgeJob(hostID string) (*HostJob, error) {
 			job.ClaimedBy = hostID
 			job.ClaimedAt = now.Format(time.RFC3339Nano)
 			job.ClaimExpiresAt = now.Add(10 * time.Minute).Format(time.RFC3339Nano)
+			if job.Spec.Tool == HostBridgeToolWorkbench && job.Spec.Operation == HostBridgeOperationOverridePR97Proof {
+				job.ClaimExpiresAt = now.Add(overridePR97Timeout + 5*time.Minute).Format(time.RFC3339Nano)
+			}
 			job.UpdatedAt = job.ClaimedAt
 			job.Result = nil
 			job.Error = ""

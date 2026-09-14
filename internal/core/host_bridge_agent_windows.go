@@ -105,6 +105,14 @@ func executeWindowsHostBridgeJob(ctx context.Context, hostID string, job HostJob
 	switch job.Spec.Tool {
 	case HostBridgeToolWorkbench:
 		switch job.Spec.Operation {
+		case HostBridgeOperationOverridePR97Proof:
+			proofCtx, cancel := context.WithTimeout(ctx, overridePR97Timeout)
+			defer cancel()
+			output, err := runOverridePR97Proof(proofCtx, job.ID)
+			if err != nil {
+				return HostJobResult{Output: output, ExitCode: 1}, err.Error()
+			}
+			return HostJobResult{Output: output, ExitCode: 0}, ""
 		case HostBridgeOperationOverrideRinWardrobeInventory:
 			inventoryCtx, cancel := context.WithTimeout(ctx, overrideRinWardrobeInventoryTimeout)
 			defer cancel()
@@ -199,7 +207,7 @@ func discoverWindowsHostCapabilities(ctx context.Context) map[string]HostCapabil
 		HostBridgeToolUnreal:    {Installed: false},
 	}
 	if identity, err := runningWorkbenchExecutableIdentity(); err == nil {
-		capabilities[HostBridgeToolWorkbench] = HostCapability{Installed: true, Version: identity}
+		capabilities[HostBridgeToolWorkbench] = HostCapability{Installed: true, Version: identity + " " + overridePR97Capability}
 	}
 	if executable := findBlenderExecutable(); executable != "" {
 		if version, err := runBlenderVersion(ctx, executable); err == nil {
