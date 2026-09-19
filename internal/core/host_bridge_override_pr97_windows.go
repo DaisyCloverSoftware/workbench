@@ -31,7 +31,7 @@ func runOverridePR97Proof(ctx context.Context, jobID string) (output string, res
 	if err := os.MkdirAll(base, 0700); err != nil {
 		return "", err
 	}
-	if err := overridePR97NoAlias(base); err != nil {
+	if err := overridePR97OwnedDirectory(base); err != nil {
 		return "", err
 	}
 	// A crashed build leaves a lock rather than allowing concurrent writers.
@@ -94,9 +94,6 @@ func runOverridePR97Proof(ctx context.Context, jobID string) (output string, res
 	// Fixed checked-in project association, not caller-provided UE_ROOT or PATH.
 	engine, err := resolveOverrideRinAssociatedEngine(ctx, overrideRinEngineAssociation)
 	if err != nil {
-		return "", err
-	}
-	if err := overridePR97NoAlias(engine); err != nil {
 		return "", err
 	}
 	editor := filepath.Join(engine, "Engine", "Binaries", "Win64", "UnrealEditor-Cmd.exe")
@@ -234,18 +231,28 @@ func runOverridePR97Proof(ctx context.Context, jobID string) (output string, res
 	return "", nil
 }
 
-func overridePR97NoAlias(path string) error {
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil || !filepath.IsAbs(path) || !strings.EqualFold(filepath.Clean(resolved), filepath.Clean(path)) {
-		return errors.New("PR97 path is unavailable or traverses a filesystem alias")
+// Windows commonly exposes legitimate cache, profile and installation paths through
+// ancestor reparse points. The PR97 operation has no caller-controlled filesystem
+// inputs, so reject aliases at the leaf we own/execute rather than requiring every
+// ancestor to survive EvalSymlinks textually unchanged.
+func overridePR97OwnedDirectory(path string) error {
+	if !filepath.IsAbs(path) {
+		return errors.New("PR97 workspace path is not absolute")
+	}
+	info, err := os.Lstat(path)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return errors.New("PR97 workspace directory is unavailable or aliased")
 	}
 	return nil
 }
 func overridePR97Regular(path string) error {
-	if err := overridePR97NoAlias(path); err != nil {
-		return err
+	if !filepath.IsAbs(path) {
+		return errors.New("PR97 required file path is not absolute")
 	}
-	return requireOverrideRinRegularExecutable(path)
+	if err := requireOverrideRinRegularExecutable(path); err != nil {
+		return errors.New("PR97 required file is unavailable or aliased")
+	}
+	return nil
 }
 func overridePR97ReadEvidence(path string) ([]byte, error) {
 	if err := overridePR97Regular(path); err != nil {
