@@ -5,6 +5,7 @@ package core
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -45,5 +46,64 @@ func TestOverridePR97PathGuardsAllowAliasedParent(t *testing.T) {
 	}
 	if err := overridePR97Regular(leafFileAlias); err == nil {
 		t.Fatal("leaf file alias was accepted")
+	}
+}
+
+
+func TestOverridePR97FixedToolDiscovery(t *testing.T) {
+	root := t.TempDir()
+	programFiles := filepath.Join(root, "Program Files")
+	systemRoot := filepath.Join(root, "Windows")
+	emptyPath := filepath.Join(root, "empty-path")
+	if err := os.MkdirAll(emptyPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ProgramW6432", programFiles)
+	t.Setenv("ProgramFiles", programFiles)
+	t.Setenv("SystemRoot", systemRoot)
+	t.Setenv("PATH", emptyPath)
+
+	git := filepath.Join(programFiles, "Git", "cmd", "git.exe")
+	pwsh := filepath.Join(programFiles, "PowerShell", "7", "pwsh.exe")
+	for _, file := range []string{git, pwsh} {
+		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte("test"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got := findOverrideRinGitExecutable(); !strings.EqualFold(filepath.Clean(got), filepath.Clean(git)) {
+		t.Fatalf("git=%q want %q", got, git)
+	}
+	if got := findOverridePR97PowerShellExecutable(); !strings.EqualFold(filepath.Clean(got), filepath.Clean(pwsh)) {
+		t.Fatalf("powershell=%q want %q", got, pwsh)
+	}
+}
+
+func TestOverridePR97PowerShellFallsBackToWindowsPowerShell(t *testing.T) {
+	root := t.TempDir()
+	programFiles := filepath.Join(root, "Program Files")
+	systemRoot := filepath.Join(root, "Windows")
+	emptyPath := filepath.Join(root, "empty-path")
+	if err := os.MkdirAll(emptyPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ProgramW6432", programFiles)
+	t.Setenv("ProgramFiles", programFiles)
+	t.Setenv("SystemRoot", systemRoot)
+	t.Setenv("PATH", emptyPath)
+
+	fallback := filepath.Join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+	if err := os.MkdirAll(filepath.Dir(fallback), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fallback, []byte("test"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := findOverridePR97PowerShellExecutable(); !strings.EqualFold(filepath.Clean(got), filepath.Clean(fallback)) {
+		t.Fatalf("powershell=%q want fallback %q", got, fallback)
 	}
 }
