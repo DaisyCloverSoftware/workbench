@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.66 — 2026-09-20
+
+- Harden the sealed Override PR97 native-proof preflight after the 0.9.65 Windows retry exposed a fixed dependency discovery failure before Unreal execution.
+- Reuse Workbench's established trusted Git discovery, prefer PowerShell 7 from fixed/allowlisted locations, and fall back to the standard Windows PowerShell executable when PowerShell 7 is absent; keep all caller inputs sealed.
+- Report semantic fixed-dependency failures for the project-associated Unreal editor, bundled Python, Build.bat and RunUAT.bat, with Windows regression coverage for Git/PowerShell discovery. This release does not itself constitute Override native, packaged-runtime or visual acceptance.
+
 ## 0.9.65 — 2026-09-19
 
 - Fix the sealed Override PR97 Windows proof preflight so legitimate ancestor reparse points/junctions in cache, profile, system or installation paths do not fail solely because EvalSymlinks changes the textual path.
