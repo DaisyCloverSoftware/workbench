@@ -14,7 +14,7 @@ import (
 	"github.com/DaisyCloverSoftware/workbench/internal/mcp"
 )
 
-const serverVersion = "0.9.64"
+const serverVersion = "0.9.65"
 
 func main() {
 	port := flag.Int("port", 8765, "loopback MCP port")

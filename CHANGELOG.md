@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.65 — 2026-09-19
+
+- Fix the sealed Override PR97 Windows proof preflight so legitimate ancestor reparse points/junctions in cache, profile, system or installation paths do not fail solely because EvalSymlinks changes the textual path.
+- Preserve the existing security boundary: repository, source SHA, map, Unreal association/version and recipes remain sealed; Workbench-owned workspace leaves and executable/file leaves must still be non-aliased regular objects.
+- Add Windows regression coverage for safe files/directories beneath an aliased parent. This release does not itself constitute Override Unreal, packaged-runtime or visual acceptance.
+
 ## 0.9.64 — 2026-09-14
 
 - Add one sealed Override PR97 native proof operation for reviewed source bde855d7511ef45dbc9ec8aff67ebb92df25a579, using the existing authenticated host bridge and committed-ops path.
