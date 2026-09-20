@@ -77,19 +77,13 @@ func runOverridePR97Proof(ctx context.Context, jobID string) (output string, res
 			resultErr = marshalErr
 		}
 	}()
-	programs := strings.TrimSpace(os.Getenv("ProgramW6432"))
-	if programs == "" {
-		programs = strings.TrimSpace(os.Getenv("ProgramFiles"))
+	git := findOverrideRinGitExecutable()
+	if git == "" {
+		return "", errors.New("PR97 Git executable is unavailable in allowlisted locations")
 	}
-	if !filepath.IsAbs(programs) {
-		return "", errors.New("Windows Program Files root unavailable")
-	}
-	git := filepath.Join(programs, "Git", "cmd", "git.exe")
-	pwsh := filepath.Join(programs, "PowerShell", "7", "pwsh.exe")
-	for _, file := range []string{git, pwsh} {
-		if err := overridePR97Regular(file); err != nil {
-			return "", err
-		}
+	pwsh := findOverridePR97PowerShellExecutable()
+	if pwsh == "" {
+		return "", errors.New("PR97 PowerShell executable is unavailable in allowlisted locations")
 	}
 	// Fixed checked-in project association, not caller-provided UE_ROOT or PATH.
 	engine, err := resolveOverrideRinAssociatedEngine(ctx, overrideRinEngineAssociation)
@@ -98,9 +92,19 @@ func runOverridePR97Proof(ctx context.Context, jobID string) (output string, res
 	}
 	editor := filepath.Join(engine, "Engine", "Binaries", "Win64", "UnrealEditor-Cmd.exe")
 	python := filepath.Join(engine, "Engine", "Binaries", "ThirdParty", "Python3", "Win64", "python.exe")
-	for _, file := range []string{editor, python, filepath.Join(engine, "Engine", "Build", "BatchFiles", "Build.bat"), filepath.Join(engine, "Engine", "Build", "BatchFiles", "RunUAT.bat")} {
-		if err := overridePR97Regular(file); err != nil {
-			return "", err
+	buildBat := filepath.Join(engine, "Engine", "Build", "BatchFiles", "Build.bat")
+	runUAT := filepath.Join(engine, "Engine", "Build", "BatchFiles", "RunUAT.bat")
+	for _, dependency := range []struct {
+		label string
+		path  string
+	}{
+		{"project-associated UnrealEditor-Cmd.exe", editor},
+		{"project-associated Unreal Python", python},
+		{"project-associated Build.bat", buildBat},
+		{"project-associated RunUAT.bat", runUAT},
+	} {
+		if err := overridePR97Regular(dependency.path); err != nil {
+			return "", fmt.Errorf("PR97 %s is unavailable or aliased", dependency.label)
 		}
 	}
 	version, err := runUnrealVersion(editor)
@@ -229,6 +233,36 @@ func runOverridePR97Proof(ctx context.Context, jobID string) (output string, res
 	stage = "completed"
 	completed = true
 	return "", nil
+}
+
+func findOverridePR97PowerShellExecutable() string {
+	seen := map[string]bool{}
+	var candidates []string
+	for _, root := range []string{os.Getenv("ProgramW6432"), os.Getenv("ProgramFiles")} {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			continue
+		}
+		candidates = append(candidates, filepath.Join(root, "PowerShell", "7", "pwsh.exe"))
+	}
+	if found, err := exec.LookPath("pwsh.exe"); err == nil {
+		candidates = append(candidates, found)
+	}
+	if systemRoot := strings.TrimSpace(os.Getenv("SystemRoot")); systemRoot != "" {
+		candidates = append(candidates, filepath.Join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"))
+	}
+	for _, candidate := range candidates {
+		candidate = filepath.Clean(candidate)
+		key := strings.ToLower(candidate)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		if requireOverrideRinRegularExecutable(candidate) == nil {
+			return candidate
+		}
+	}
+	return ""
 }
 
 // Windows commonly exposes legitimate cache, profile and installation paths through
