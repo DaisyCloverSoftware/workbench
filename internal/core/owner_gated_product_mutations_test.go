@@ -65,6 +65,41 @@ func TestOwnerGatedMutationDoesNotTreatAssignmentValueAsProtectedTarget(t *testi
 	}
 }
 
+
+func TestRunMachineCommandBlocksOwnerGatedSimLabKubectlMutationBeforeExecution(t *testing.T) {
+	_, err := RunMachineCommand(context.Background(), MachineCommandRequest{
+		Program: "kubectl",
+		Args: []string{
+			"set", "image", "deployment/simlab-admin-academy",
+			"web=ghcr.io/daisycloversoftware/simlab-admin-academy@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"-n", "simlab-admin-academy-dev",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "SimLab mutations") {
+		t.Fatalf("expected protected SimLab kubectl mutation to fail closed, got %v", err)
+	}
+}
+
+func TestOwnerGatedMutationDetectsSimLabResourceWithoutNamespace(t *testing.T) {
+	req := MachineCommandRequest{
+		Program: "kubectl",
+		Args:    []string{"rollout", "restart", "deployment/simlab-admin-academy"},
+	}
+	if err := validateOwnerGatedProductMutation(req); err == nil {
+		t.Fatal("expected protected SimLab resource target to be blocked")
+	}
+}
+
+func TestOwnerGatedMutationDetectsSimLabNamespace(t *testing.T) {
+	req := MachineCommandRequest{
+		Program: "kubectl",
+		Args:    []string{"scale", "deployment/example", "--replicas=1", "-n", "simlab-admin-academy-live"},
+	}
+	if err := validateOwnerGatedProductMutation(req); err == nil {
+		t.Fatal("expected protected SimLab namespace to be blocked")
+	}
+}
+
 func TestOwnerGatedMutationLeavesUnrelatedMutationsEligible(t *testing.T) {
 	requests := []MachineCommandRequest{
 		{Program: "kubectl", Args: []string{"scale", "deployment/example", "--replicas=2", "-n", "example-dev"}},
