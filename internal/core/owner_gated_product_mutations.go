@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const ownerGatedProductMutationMessage = "owner-gated RUM/Rate Anything mutations are blocked from direct machine commands; use the reviewed committed operations path"
+const ownerGatedProductMutationMessage = "owner-gated RUM/Rate Anything mutations and SimLab mutations are blocked from direct machine commands; use the reviewed committed operations path"
 
 func validateOwnerGatedProductMutation(req MachineCommandRequest) error {
 	program := strings.ToLower(strings.TrimSpace(req.Program))
@@ -117,5 +117,10 @@ func ownerGatedKubectlTarget(arg string) bool {
 
 func ownerGatedName(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(value))
-	return value == "rum" || strings.HasPrefix(value, "rum-")
+	return value == "rum" ||
+		strings.HasPrefix(value, "rum-") ||
+		value == "simlab" ||
+		strings.HasPrefix(value, "simlab-") ||
+		value == "simlab-admin-academy" ||
+		strings.HasPrefix(value, "simlab-admin-academy-")
 }
