@@ -112,6 +112,72 @@ func TestValidateOwnerGatedOperationsSourceAllowsOnlyExactRATPreviewCandidateTup
 	}
 }
 
+
+func TestValidateOwnerGatedOperationsSourceRequiresExactInfrastructureMainForSimLab(t *testing.T) {
+	root := initOperationsSourceTestRepo(t, "https://github.com/DaisyCloverSoftware/infrastructure.git")
+	mainCommit := strings.Repeat("a", 40)
+	branchCommit := strings.Repeat("b", 40)
+	path := "scripts/ops/deploy-simlab-dev.sh"
+
+	previous := ownerGatedOperationsMainHead
+	ownerGatedOperationsMainHead = func(context.Context, string) (string, error) { return mainCommit, nil }
+	t.Cleanup(func() { ownerGatedOperationsMainHead = previous })
+
+	if err := validateOwnerGatedOperationsSource(context.Background(), root, mainCommit, path, nil); err != nil {
+		t.Fatalf("expected exact infrastructure main SimLab operation to remain eligible, got %v", err)
+	}
+	if err := validateOwnerGatedOperationsSource(context.Background(), root, branchCommit, path, nil); err == nil || !strings.Contains(err.Error(), "exact current main") {
+		t.Fatalf("expected SimLab branch-head infrastructure operation to fail closed, got %v", err)
+	}
+}
+
+func TestValidateOwnerGatedOperationsSourceLeavesUnrelatedInfrastructureOperationEligible(t *testing.T) {
+	root := initOperationsSourceTestRepo(t, "https://github.com/DaisyCloverSoftware/infrastructure.git")
+	previous := ownerGatedOperationsMainHead
+	ownerGatedOperationsMainHead = func(context.Context, string) (string, error) {
+		t.Fatal("main resolver must not run for unrelated infrastructure operations")
+		return "", nil
+	}
+	t.Cleanup(func() { ownerGatedOperationsMainHead = previous })
+
+	if err := validateOwnerGatedOperationsSource(context.Background(), root, strings.Repeat("b", 40), "scripts/ops/deploy-slatefolk-dev.sh", nil); err != nil {
+		t.Fatalf("expected unrelated infrastructure operation to remain eligible, got %v", err)
+	}
+}
+
+func TestOwnerGatedSimLabInfrastructureOriginRecognisesSupportedGitHubForms(t *testing.T) {
+	for _, origin := range []string{
+		"https://github.com/DaisyCloverSoftware/infrastructure.git",
+		"git@github.com:DaisyCloverSoftware/infrastructure.git",
+		"ssh://git@github.com/DaisyCloverSoftware/infrastructure.git",
+	} {
+		if !ownerGatedSimLabInfrastructureOrigin(origin) {
+			t.Fatalf("expected infrastructure origin %q to be protected", origin)
+		}
+	}
+}
+
+func TestOwnerGatedSimLabOperationsPathIsNarrow(t *testing.T) {
+	for _, path := range []string{
+		"scripts/ops/deploy-simlab-dev.sh",
+		"scripts/ops/deploy-simlab-live.sh",
+		"scripts/ops/verify-simlab-release.sh",
+	} {
+		if !ownerGatedSimLabOperationsPath(path) {
+			t.Fatalf("expected SimLab operations path %q to be protected", path)
+		}
+	}
+	for _, path := range []string{
+		"scripts/ops/deploy-slatefolk-dev.sh",
+		"scripts/not-ops/deploy-simlab-dev.sh",
+		"scripts/ops/simlab.txt",
+	} {
+		if ownerGatedSimLabOperationsPath(path) {
+			t.Fatalf("expected non-SimLab operations path %q to remain outside this gate", path)
+		}
+	}
+}
+
 func TestValidateOwnerGatedOperationsSourceLeavesOtherRepositoriesUnchanged(t *testing.T) {
 	root := initOperationsSourceTestRepo(t, "https://github.com/DaisyCloverSoftware/workbench.git")
 	previous := ownerGatedOperationsMainHead

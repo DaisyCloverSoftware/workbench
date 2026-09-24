@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const ownerGatedOperationsSourceMessage = "owner-gated RUM operations scripts must execute the exact current main commit; branch-head overrides are blocked"
+const ownerGatedOperationsSourceMessage = "owner-gated RUM and SimLab operations scripts must execute the exact current main commit; branch-head overrides are blocked"
 
 const (
 	rateAnythingPreviewCandidateCommit = "92c3774f67322317f5f948d257105e09c2bb6faa"
@@ -42,11 +42,23 @@ var ownerGatedRUMBranchOperationExceptions = []ownerGatedBranchOperationExceptio
 
 func validateOwnerGatedOperationsSource(ctx context.Context, root, commit, scriptPath string, args []string) error {
 	origin, err := operationsGitOutput(ctx, root, "remote", "get-url", "origin")
-	if err != nil || !ownerGatedRUMOrigin(origin) {
+	if err != nil {
 		return nil
 	}
 
-	if ownerGatedRUMBranchOperationAllowed(commit, scriptPath, args) {
+	protected := false
+	if ownerGatedRUMOrigin(origin) {
+		if ownerGatedRUMBranchOperationAllowed(commit, scriptPath, args) {
+			return nil
+		}
+		protected = true
+	} else if ownerGatedSimLabInfrastructureOrigin(origin) && ownerGatedSimLabOperationsPath(scriptPath) {
+		// SimLab deployment/verification operations must come from infrastructure
+		// main. This prevents a stale deployment branch from selecting an older
+		// pre-guard script to bypass the cumulative-baseline enforcement.
+		protected = true
+	}
+	if !protected {
 		return nil
 	}
 
@@ -109,4 +121,28 @@ func ownerGatedRUMOrigin(raw string) bool {
 		}
 	}
 	return strings.EqualFold(strings.Trim(remote, "/"), "DaisyCloverSoftware/rum")
+}
+
+
+func ownerGatedSimLabInfrastructureOrigin(raw string) bool {
+	remote := strings.TrimSpace(raw)
+	remote = strings.TrimSuffix(remote, ".git")
+	for _, prefix := range []string{
+		"https://github.com/",
+		"ssh://git@github.com/",
+		"git@github.com:",
+	} {
+		if strings.HasPrefix(remote, prefix) {
+			remote = strings.TrimPrefix(remote, prefix)
+			break
+		}
+	}
+	return strings.EqualFold(strings.Trim(remote, "/"), "DaisyCloverSoftware/infrastructure")
+}
+
+func ownerGatedSimLabOperationsPath(scriptPath string) bool {
+	path := strings.ToLower(strings.TrimSpace(scriptPath))
+	return strings.HasPrefix(path, "scripts/ops/") &&
+		strings.HasSuffix(path, ".sh") &&
+		strings.Contains(path, "simlab")
 }
