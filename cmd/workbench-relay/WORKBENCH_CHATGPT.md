@@ -37,6 +37,19 @@ For a task that needs a newly released bounded capability:
 
 Do not send an unadvertised control action and do not work around stale relay state through a generic shell, lower-level Git construction, another executor, or the autonomous lane. A client/tool policy refusal is a separate authority boundary and must not be bypassed; report it precisely if it remains after the live Workbench control plane is current.
 
+## Diagnose submission, execution and result retrieval separately
+
+GitHub submission, Workbench execution and conversation result retrieval are three distinct boundaries. Use a unique, stable control ID; before submitting, inspect both `relay/control/<id>.json` and `relay/control-outbox/<id>.json` so an already accepted or completed operation is never repeated.
+
+1. **Refused before submission:** a ChatGPT tool safety refusal, approval denial or connector pre-execution block with no accepted GitHub commit is a client/provider boundary, not a Workbench execution failure. Capture the exact refusal, timestamp and tool operation for authorised support review; Workbench has no request or outbox to observe.
+2. **GitHub submission failed:** distinguish GitHub API/connector errors from Workbench. When an API response is ambiguous, re-read the exact request path before retrying the same control ID. Do not invent a new request ID to retry an uncertain operation.
+3. **Request accepted:** retain the GitHub commit SHA, branch, request path and ID, then verify the request file exists. The absence of a matching outbox means **accepted, terminal result not yet observed**, not automatically "relay down" or "operation failed".
+4. **Execution and queue state:** a separate fresh relay progress/runner observation is required to distinguish waiting from running or an unavailable consumer. Do not assert those states from outbox absence alone; use bounded checks rather than repeated request creation.
+5. **Terminal result:** read exactly `relay/control-outbox/<id>.json`. `status: completed` is success only for the reported bounded action; `status: failed` requires preserving its error. An outbox existing but not readable by the client is a retrieval problem, not grounds to rerun the operation.
+6. **Conversation delivery:** report an operation as received by ChatGPT only after the corresponding outbox contents have actually been fetched and inspected.
+
+A provider-level pre-execution safety refusal cannot be repaired by Workbench and must not be routed around by changing execution identities, disguising payloads, using low-level Git write variants, or using another AI client as a substitute. Legitimate refusals can be escalated to the provider with minimal redacted evidence. Keep the same control ID for durable correlation, never resubmit a completed operation, and preserve all existing owner and release safeguards.
+
 ## Direct machine-control safety
 
 Direct machine control is deliberately not a generic shell. Workbench executes exact allowlisted programs and literal argv; it does not evaluate `bash -c`, pipes, redirects, substitutions, command chains, arbitrary script text, or credential-bearing alternatives. Read-only inspection and mutation are separate actions. High-risk or secret-bearing operations are rejected. If a direct allowlist cannot express an operation, that is a capability boundary to solve or report, not permission to escalate to OpenClaw.
