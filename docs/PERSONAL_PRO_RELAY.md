@@ -94,6 +94,28 @@ Project discovery may span multiple authorised roots and return opaque `runner:/
 }
 ```
 
+## Diagnose control-request status without duplicate submissions
+
+The control lifecycle has separate **client submission**, **GitHub persistence**, **relay execution**, **durable outbox** and **ChatGPT retrieval** boundaries. Workbench cannot log a tool refusal that prevents GitHub from ever receiving a request. Do not treat transport absence as a Kubernetes, application or Workbench execution error.
+
+| Evidence | Supported classification | Next check |
+| --- | --- | --- |
+| ChatGPT tool reports a safety/permission refusal before GitHub accepts the write | `refused_before_submission` (client-observed only) | Record exact error, timestamp, operation and any platform request identifier; verify the intended request path is still absent; escalate to the responsible provider. Do not bypass the refusal. |
+| GitHub connector/API rejects the write | `submission_failed` | Record GitHub status/error, account scope and repository/branch/path. Resolve permissions or contract rather than switching identity or transport to evade a block. |
+| GitHub accepts the write and the exact request file exists; no outbox yet | `accepted_result_pending` | Keep the commit SHA and control ID. Check the exact outbox path with bounded reads. No outbox **does not prove** that the relay is offline or that execution never began. |
+| Independent live relay progress/runner evidence confirms processing | `running` | Inspect the matching operation only; a historical heartbeat alone is not proof of current running state. |
+| Independently established missing/stale consumer progress while a request remains pending | `consumer_suspected_unavailable` | Investigate the authorised relay service/connection. Do not create a second request with a new ID. |
+| Outbox `status: completed` or `status: failed` | `completed` or `failed` | Read the matching result/error and action-specific verification; success of the transport does not prove an application deployment succeeded. |
+| Outbox exists but cannot be fetched or inspected by ChatGPT | `result_retrieval_failed` | Diagnose read permissions/client delivery; **never** replay an operation merely because its result was not delivered to a conversation. |
+
+A request ID identifies one immutable operation. Check `relay/control/<id>.json` and `relay/control-outbox/<id>.json` **before** creation. After any ambiguous write response, re-read the same paths before retrying the **same** control ID; GitHub `create_file` refuses an existing path. Once accepted, do not create a new ID for the same operation without explicit reconciliation. The relay's existing outbox index makes completed control IDs one-shot; it does not automatically deduplicate different IDs with identical payloads.
+
+Bound status retrieval to the one expected outbox and a small number of relevant relay/progress checks. No fixed waiting interval can turn absence of an outbox into an authoritative failure. If the operation is long-running, use the advertised action's time bounds and independent service progress; do not continuously scan the full private relay history.
+
+For safe end-to-end integration evidence, use a harmless `list_projects` control request and require: GitHub accepted commit, persisted request, matching relay outbox with `status: completed`, and a successful ChatGPT read. Verify policy rejection separately with a deliberately invalid non-executable `run_operations_script` path; expect a `failed` outbox and no program execution. Neither proof authorises a LIVE deployment.
+
+Platform tool safety refusals are provider enforcement boundaries, not Workbench validation errors. Record redacted request shape, correlation ID, timestamps/time zone, error text and contrasting accepted benign requests for provider support; never move blocked requests through another identity/client, raw Git construction, or an unreviewed executor. A first-class submission interface is a separate security-reviewed architecture proposal, not an implied permission to weaken checks.
+
 ## Committed operations scripts
 
 Multi-step server/cluster operations that exceed one direct allowlisted command can use `run_operations_script` without becoming generic shell authority.
