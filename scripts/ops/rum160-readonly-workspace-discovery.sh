@@ -1,52 +1,118 @@
 #!/usr/bin/env bash
-# RUM-only, read-only worktree discovery. Execute from reviewed exact Workbench main.
+# RUM-only inventory. Runtime execution requires reviewed exact Workbench main.
+# The sole argument is the independently verified PR head, never a path or code.
 set -euo pipefail
-if [ "$#" -ne 0 ]; then echo 'error=arguments-not-accepted' >&2; exit 64; fi
-printf 'diagnostic=rum160-readonly-workspaces-v1\n'
-printf 'host=%s\n' "$(hostname)"
-printf 'execution_head=%s\n' "$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
-pr_branch=fix-rat-search-catalogue-state-20260903
-reported_pr_sha=b618c7105bfee4a47e1923a9b4b024967d5c58c9
-count=0
-# Explicitly known RUM roots, not an arbitrary filesystem search.
-for candidate in /home/matt/src/rum /Workstations/Projects/rum; do
-  if [ ! -d "$candidate" ]; then printf 'candidate_missing=%s\n' "$candidate"; continue; fi
-  root="$(cd "$candidate" && pwd -P)"
-  repo="$(git -C "$root" rev-parse --show-toplevel 2>/dev/null || true)"
-  if [ "$repo" != "$root" ]; then printf 'candidate_unverified=%s\n' "$candidate"; continue; fi
-  origin="$(git -C "$root" remote get-url origin 2>/dev/null || true)"
-  case "$origin" in
-    https://github.com/DaisyCloverSoftware/rum|https://github.com/DaisyCloverSoftware/rum.git|git@github.com:DaisyCloverSoftware/rum|git@github.com:DaisyCloverSoftware/rum.git|ssh://git@github.com/DaisyCloverSoftware/rum|ssh://git@github.com/DaisyCloverSoftware/rum.git) ;;
-    *) printf 'candidate_wrong_origin=%s\n' "$candidate"; continue ;;
+[[ $# -eq 1 && "$1" =~ ^[0-9a-f]{40}$ ]] || { echo 'error=exact-pr-head-required' >&2; exit 64; }
+pr_head="$1"
+for variable in ${!GIT_@}; do unset "$variable"; done
+export GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C
+rg() {
+  local directory="$1"; shift
+  timeout 10s git --no-optional-locks -c core.fsmonitor=false -c core.hooksPath=/dev/null \
+    -c core.quotePath=true -C "$directory" "$@"
+}
+output_bytes=0
+emit() {
+  local formatted
+  printf -v formatted '%s=%q\n' "$1" "$2"
+  output_bytes=$((output_bytes + ${#formatted}))
+  [[ "$output_bytes" -le 196608 ]] || { echo 'error=output-limit' >&2; exit 70; }
+  printf '%s' "$formatted"
+}
+origin_ok() {
+  case "$1" in
+    https://github.com/DaisyCloverSoftware/rum|https://github.com/DaisyCloverSoftware/rum.git|git@github.com:DaisyCloverSoftware/rum|git@github.com:DaisyCloverSoftware/rum.git|ssh://git@github.com/DaisyCloverSoftware/rum|ssh://git@github.com/DaisyCloverSoftware/rum.git) return 0 ;;
+    *) return 1 ;;
   esac
-  printf 'verified_root=%s\n' "$root"
-  # Parsing a Git-owned registry is deliberately confined to the verified RUM checkout.
-  while IFS= read -r path; do
-    [ -n "$path" ] || continue
-    [ "$count" -lt 32 ] || { printf 'error=worktree-limit\n'; exit 70; }
-    count=$((count+1))
-    printf 'worktree_%d_path=%s\n' "$count" "$path"
-    if [ ! -d "$path" ]; then printf 'worktree_%d_missing=1\n' "$count"; continue; fi
-    actual="$(git -C "$path" rev-parse --show-toplevel 2>/dev/null || true)"
-    if [ "$actual" != "$path" ]; then printf 'worktree_%d_unverified=1\n' "$count"; continue; fi
-    wt_origin="$(git -C "$path" remote get-url origin 2>/dev/null || true)"
-    if [ "$wt_origin" != "$origin" ]; then printf 'worktree_%d_origin_mismatch=1\n' "$count"; continue; fi
-    printf 'worktree_%d_head=%s\n' "$count" "$(git -C "$path" rev-parse HEAD)"
-    printf 'worktree_%d_branch=%s\n' "$count" "$(git -C "$path" symbolic-ref --quiet --short HEAD || echo detached)"
-    printf 'worktree_%d_staged_files=%s\n' "$count" "$(git -C "$path" diff --cached --name-only | wc -l)"
-    printf 'worktree_%d_unstaged_files=%s\n' "$count" "$(git -C "$path" diff --name-only | wc -l)"
-    printf 'worktree_%d_untracked_files=%s\n' "$count" "$(git -C "$path" ls-files --others --exclude-standard | wc -l)"
-    git -C "$path" status --porcelain=v1 --untracked-files=all | head -n 200 | sed "s/^/worktree_${count}_status=/"
-    # No network fetch, no mutation, and no claim that a cached remote ref is fresh.
-    if git -C "$path" rev-parse --verify --quiet "refs/remotes/origin/$pr_branch^{commit}" >/dev/null; then
-      printf 'worktree_%d_cached_remote_pr_sha=%s\n' "$count" "$(git -C "$path" rev-parse "refs/remotes/origin/$pr_branch")"
-      git -C "$path" log --format=%H --max-count=30 "refs/remotes/origin/$pr_branch..HEAD" | sed "s/^/worktree_${count}_local_only_commit=/"
-    else
-      printf 'worktree_%d_cached_remote_pr_ref=absent\n' "$count"
-    fi
-    if git -C "$path" cat-file -e "${reported_pr_sha}^{commit}" 2>/dev/null; then
-      printf 'worktree_%d_reported_pr_sha_available=1\n' "$count"
-    else printf 'worktree_%d_reported_pr_sha_available=0\n' "$count"; fi
-  done < <(git -C "$root" worktree list --porcelain | sed -n 's/^worktree //p')
+}
+# Match Workbench runner root precedence; do not invent workstation paths.
+explicit=0
+if [[ -n "${WORKBENCH_RUNNER_ROOTS:-}" ]]; then
+  [[ "$WORKBENCH_RUNNER_ROOTS" != *$'\n'* && "$WORKBENCH_RUNNER_ROOTS" != *$'\r'* ]] || exit 64
+  [[ "$WORKBENCH_RUNNER_ROOTS" != :* && "$WORKBENCH_RUNNER_ROOTS" != *: && "$WORKBENCH_RUNNER_ROOTS" != *::* ]] || exit 64
+  IFS=: read -r -a roots <<< "$WORKBENCH_RUNNER_ROOTS"; explicit=1
+elif [[ -n "${WORKBENCH_RUNNER_ROOT:-}" ]]; then
+  roots=("$WORKBENCH_RUNNER_ROOT"); explicit=1
+else
+  [[ -n "${HOME:-}" ]] || { echo 'error=home-unavailable' >&2; exit 65; }
+  roots=("$HOME/src" "$HOME/projects")
+fi
+[[ ${#roots[@]} -le 8 ]] || { echo 'error=root-limit' >&2; exit 65; }
+for candidate in "${roots[@]}"; do
+  [[ "$candidate" != *$'\n'* && "$candidate" != *$'\r'* ]] || exit 64
+  if [[ ! -d "$candidate" && "$explicit" -eq 1 ]]; then echo 'error=configured-root-unavailable' >&2; exit 65; fi
 done
-printf 'verified_worktrees=%d\n' "$count"
+emit diagnostic rum160-readonly-workspaces-v2
+emit host "$(hostname)"
+emit execution_head "$(rg . rev-parse HEAD)"
+emit comparison_pr_head "$pr_head"
+emit scope configured-runner-roots-rum-and-git-registered-worktrees
+emit task_ownership not_assessed
+emit artifact_contents not_read
+attempted=0; verified=0; scope_roots=0
+declare -A seen=()
+for configured in "${roots[@]}"; do
+  [[ -d "$configured" ]] || continue
+  parent="$(cd -- "$configured" && pwd -P)"; scope_roots=$((scope_roots+1))
+  candidate="$parent/rum"
+  if [[ ! -d "$candidate" || -L "$candidate" ]]; then emit candidate_unavailable "$candidate"; continue; fi
+  root="$(cd -- "$candidate" && pwd -P)"
+  [[ "$root" == "$candidate" ]] || { emit candidate_noncanonical "$candidate"; continue; }
+  if [[ "$(rg "$root" rev-parse --show-toplevel 2>/dev/null || true)" != "$root" ]]; then emit candidate_not_repository "$root"; continue; fi
+  origin="$(rg "$root" config --local --get remote.origin.url 2>/dev/null || true)"
+  if ! origin_ok "$origin"; then emit candidate_wrong_origin "$root"; continue; fi
+  common="$(rg "$root" rev-parse --path-format=absolute --git-common-dir)"
+  common="$(cd -- "$common" && pwd -P)"
+  emit verified_root "$root"
+  # Capture command failure before parsing. Never silently accept a failed list.
+  records="$(rg "$root" worktree list --porcelain)"
+  while IFS= read -r line; do
+    [[ "$line" == 'worktree '* ]] || continue
+    path="${line#worktree }"
+    attempted=$((attempted+1))
+    [[ "$attempted" -le 32 ]] || { echo 'error=worktree-limit' >&2; exit 70; }
+    [[ -d "$path" && ! -L "$path" ]] || { emit worktree_unavailable "$path"; continue; }
+    canonical="$(cd -- "$path" && pwd -P)"
+    [[ "$canonical" == "$path" ]] || { emit worktree_noncanonical "$path"; continue; }
+    [[ -z "${seen[$canonical]:-}" ]] || continue
+    seen[$canonical]=1
+    [[ "$(rg "$path" rev-parse --show-toplevel)" == "$path" ]] || { emit worktree_unverified "$path"; continue; }
+    wt_common="$(rg "$path" rev-parse --path-format=absolute --git-common-dir)"
+    wt_common="$(cd -- "$wt_common" && pwd -P)"
+    [[ "$wt_common" == "$common" ]] || { emit worktree_not_linked "$path"; continue; }
+    origin="$(rg "$path" config --local --get remote.origin.url)"
+    origin_ok "$origin" || { emit worktree_wrong_origin "$path"; continue; }
+    head_before="$(rg "$path" rev-parse HEAD)"
+    state_before="$(rg "$path" status --porcelain=v1 --untracked-files=all --ignore-submodules=all)"
+    verified=$((verified+1)); prefix="worktree_${verified}"
+    emit "${prefix}_path" "$path"
+    emit "${prefix}_head" "$head_before"
+    emit "${prefix}_branch" "$(rg "$path" symbolic-ref --quiet --short HEAD || echo detached)"
+    emit "${prefix}_submodules" not_inspected
+    entries=0; staged=0; unstaged=0; untracked=0
+    while IFS= read -r entry; do
+      [[ -n "$entry" ]] || continue
+      entries=$((entries+1))
+      if [[ "${entry:0:2}" == '??' ]]; then untracked=$((untracked+1)); else
+        if [[ "${entry:0:1}" != ' ' ]]; then staged=$((staged+1)); fi
+        if [[ "${entry:1:1}" != ' ' ]]; then unstaged=$((unstaged+1)); fi
+      fi
+      if [[ "$entries" -le 200 ]]; then emit "${prefix}_status_${entries}" "$entry"; fi
+    done <<< "$state_before"
+    emit "${prefix}_staged_entries" "$staged"
+    emit "${prefix}_unstaged_entries" "$unstaged"
+    emit "${prefix}_untracked_entries" "$untracked"
+    emit "${prefix}_status_total" "$entries"
+    if [[ "$entries" -gt 200 ]]; then emit "${prefix}_status_truncated" true; else emit "${prefix}_status_truncated" false; fi
+    if rg "$path" cat-file -e "${pr_head}^{commit}" 2>/dev/null; then
+      emit "${prefix}_commits_not_in_pr_total" "$(rg "$path" rev-list --count "${pr_head}..HEAD")"
+      commits="$(rg "$path" log --format=%H --max-count=30 "${pr_head}..HEAD")"
+      emit "${prefix}_commits_not_in_pr_first_30" "$commits"
+    else emit "${prefix}_comparison" pr_head_object_unavailable; fi
+    [[ "$(rg "$path" rev-parse HEAD)" == "$head_before" && "$(rg "$path" status --porcelain=v1 --untracked-files=all --ignore-submodules=all)" == "$state_before" ]] || { echo 'error=concurrent-workspace-change' >&2; exit 75; }
+  done <<< "$records"
+done
+[[ "$scope_roots" -gt 0 ]] || { echo 'error=no-configured-root-available' >&2; exit 65; }
+emit verified_worktrees "$verified"
+emit inventory_returned true
+emit workspace_ready false
