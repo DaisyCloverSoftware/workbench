@@ -315,7 +315,7 @@ func resolveProject(name string) (string, error) {
 		}
 		return core.ResolveRunnerProject(name)
 	}
-	if filepath.Base(name) != name || strings.ContainsAny(name, `/\:`) || name == "." || name == ".." {
+	if filepath.Base(name) != name || strings.ContainsAny(name, `/\\:`) || name == "." || name == ".." {
 		return "", errors.New("project must be one repository directory name or a scoped runner project reference")
 	}
 	return core.ResolveRunnerProject(name)
