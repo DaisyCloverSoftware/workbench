@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.67 — 2026-10-21
+
+- Preserve bounded, sanitized MCP failure messages and command output in private control results while retaining failed status and request correlation.
+- Report unavailable process-start, exit-code and timeout evidence as unknown; distinguish observed validation and transport failures without reconstructing discarded historical output.
+- Keep command allowlists, project authorization, authentication, output guards and deployment safeguards unchanged.
+
 ## 0.9.66 — 2026-09-20
 
 - Harden the sealed Override PR97 native-proof preflight after the 0.9.65 Windows retry exposed a fixed dependency discovery failure before Unreal execution.
