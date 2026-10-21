@@ -176,6 +176,7 @@ func executePrivateControlCandidate(ctx context.Context, candidate privateContro
 	result, execErr := executePrivateControlForRepo(ctx, candidate.env, repo, mcpURL, authFile)
 	if execErr != nil {
 		out.Error = execErr.Error()
+		retainMCPDiagnostic(&out, execErr)
 		return out
 	}
 	out.Status = "completed"
