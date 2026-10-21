@@ -9,8 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -358,43 +356,7 @@ func resolveAttentionMCP(ctx context.Context, url, authFile, taskID, answer stri
 }
 
 func callMCP(ctx context.Context, url, authFile, tool string, args map[string]any) (map[string]any, error) {
-	auth, err := os.ReadFile(authFile)
-	if err != nil {
-		return nil, fmt.Errorf("read local MCP auth: %w", err)
-	}
-	payload, _ := json.Marshal(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      tool,
-			"arguments": args,
-		},
-	})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", strings.TrimSpace(string(auth)))
-	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("local MCP returned HTTP %d", resp.StatusCode)
-	}
-	var rr rpcResponse
-	if err := json.Unmarshal(body, &rr); err != nil {
-		return nil, err
-	}
-	if rr.Error != nil || rr.Result.IsError {
-		return nil, fmt.Errorf("local MCP rejected %s", tool)
-	}
-	return rr.Result.StructuredContent, nil
+	return callMCPDiagnosed(ctx, url, authFile, tool, args)
 }
 
 func syncOutbox(ctx context.Context, repo, remote, branch, mcpURL, authFile, resultMode string, publicTransport bool) error {
