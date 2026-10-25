@@ -22,87 +22,88 @@ const (
 )
 
 const (
-	idNavWork = 3001
-	idNavSettings = 3002
-	idBrand = 3003
+	idNavWork      = 3001
+	idNavSettings  = 3002
+	idBrand        = 3003
 	idGlobalStatus = 3004
 
-	idProjectsLabel = 3100
-	idProjectList = 3101
-	idAddProject = 3102
-	idProjectName = 3103
-	idRenameProject = 3104
-	idPinProject = 3105
-	idRemoveProject = 3106
-	idActiveProject = 3107
-	idActivePath = 3108
-	idSummary = 3109
-	idIntentLabel = 3110
-	idIntent = 3111
-	idDelegate = 3112
-	idTasksLabel = 3113
-	idTaskList = 3114
-	idTaskStatus = 3115
-	idNextAction = 3116
-	idReportLabel = 3117
-	idReport = 3118
-	idCancelTask = 3119
+	idProjectsLabel  = 3100
+	idProjectList    = 3101
+	idAddProject     = 3102
+	idProjectName    = 3103
+	idRenameProject  = 3104
+	idPinProject     = 3105
+	idRemoveProject  = 3106
+	idActiveProject  = 3107
+	idActivePath     = 3108
+	idSummary        = 3109
+	idIntentLabel    = 3110
+	idIntent         = 3111
+	idDelegate       = 3112
+	idTasksLabel     = 3113
+	idTaskList       = 3114
+	idTaskStatus     = 3115
+	idNextAction     = 3116
+	idReportLabel    = 3117
+	idReport         = 3118
+	idCancelTask     = 3119
 	idAttentionLabel = 3120
-	idAnswer = 3121
-	idResumeTask = 3122
-	idOpenReview = 3123
-	idRetryReview = 3124
-	idCopyBranch = 3125
-	idNotesLabel = 3126
-	idNotes = 3127
-	idSaveNotes = 3128
+	idAnswer         = 3121
+	idResumeTask     = 3122
+	idOpenReview     = 3123
+	idRetryReview    = 3124
+	idCopyBranch     = 3125
+	idNotesLabel     = 3126
+	idNotes          = 3127
+	idSaveNotes      = 3128
 
-	idSettingsTitle = 3200
-	idProvidersLabel = 3201
-	idProviderList = 3202
-	idConnectProvider = 3203
-	idRescanProviders = 3204
-	idProtectWork = 3205
-	idAllowMetered = 3206
-	idMCPLabel = 3207
-	idMCPStatus = 3208
-	idCopyMCP = 3209
-	idRunnerLabel = 3210
-	idRunnerHost = 3211
-	idHarnessLabel = 3212
-	idHarnessCommand = 3213
-	idNotifyLabel = 3214
-	idNotifyCommand = 3215
-	idSaveRouting = 3216
-	idReviewLabel = 3217
-	idPublishReviews = 3218
-	idReviewRemote = 3219
+	idSettingsTitle    = 3200
+	idProvidersLabel   = 3201
+	idProviderList     = 3202
+	idConnectProvider  = 3203
+	idRescanProviders  = 3204
+	idProtectWork      = 3205
+	idAllowMetered     = 3206
+	idMCPLabel         = 3207
+	idMCPStatus        = 3208
+	idCopyMCP          = 3209
+	idRunnerLabel      = 3210
+	idRunnerHost       = 3211
+	idHarnessLabel     = 3212
+	idHarnessCommand   = 3213
+	idNotifyLabel      = 3214
+	idNotifyCommand    = 3215
+	idSaveRouting      = 3216
+	idReviewLabel      = 3217
+	idPublishReviews   = 3218
+	idReviewRemote     = 3219
 	idSaveReviewPolicy = 3220
-	idVaultLabel = 3221
-	idSecretName = 3222
-	idSecretValue = 3223
-	idSaveSecret = 3224
-	idSecretList = 3225
+	idVaultLabel       = 3221
+	idSecretName       = 3222
+	idSecretValue      = 3223
+	idSaveSecret       = 3224
+	idSecretList       = 3225
 	idMaintenanceLabel = 3226
-	idRunUpdater = 3227
+	idRunUpdater       = 3227
 )
 
 type Shell struct {
-	hwnd             uintptr
-	eng              *core.Engine
-	mcp              *mcp.Server
-	mcpURL           string
-	mcpErr           string
-	version          string
-	font             uintptr
-	backgroundBrush  uintptr
-	controls         map[int]uintptr
-	page             shellPage
-	projectIDs       []string
-	taskIDs          []string
-	providerIDs      []string
-	selectedTaskID   string
-	editorProjectID  string
+	hostBridgeTarget  *core.SavedHostBridgeTarget
+	hwnd              uintptr
+	eng               *core.Engine
+	mcp               *mcp.Server
+	mcpURL            string
+	mcpErr            string
+	version           string
+	font              uintptr
+	backgroundBrush   uintptr
+	controls          map[int]uintptr
+	page              shellPage
+	projectIDs        []string
+	taskIDs           []string
+	providerIDs       []string
+	selectedTaskID    string
+	editorProjectID   string
 	settingsProjectID string
 }
 
@@ -160,14 +161,14 @@ func (s *Shell) run() error {
 	cursor, _, _ := user32.NewProc("LoadCursorW").Call(0, 32512)
 	s.backgroundBrush, _, _ = procCreateSolidBrush.Call(uintptr(rgb(18, 21, 26)))
 	wc := wndClassEx{
-		Size:      uint32(unsafe.Sizeof(wndClassEx{})),
-		WndProc:   syscall.NewCallback(shellWndProc),
-		Instance:  instance,
-		Icon:      icon,
-		Cursor:    cursor,
+		Size:       uint32(unsafe.Sizeof(wndClassEx{})),
+		WndProc:    syscall.NewCallback(shellWndProc),
+		Instance:   instance,
+		Icon:       icon,
+		Cursor:     cursor,
 		Background: s.backgroundBrush,
-		ClassName: uintptr(unsafe.Pointer(className)),
-		IconSm:    icon,
+		ClassName:  uintptr(unsafe.Pointer(className)),
+		IconSm:     icon,
 	}
 	if r, _, e := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
 		return e

@@ -306,3 +306,15 @@ Future changes MUST NOT:
 - restore the superseded 90-second Unreal smoke or describe the removed `TNotNull` crash as the current failure;
 - assume Blender GUI preferences control factory-startup headless rendering;
 - accept no-op release retrigger commits as the permanent desired release design.
+
+
+## 2026-09-06 — Saved Runner SSH target drives the outbound bridge
+
+The desktop-owned Windows host bridge follows the current saved Runner SSH target between complete poll/execute/report cycles. Starting with no target, correcting an invalid target, clearing it, and selecting a new target must not require restarting the desktop. Startup-only target capture is superseded. Each cycle retains its origin through job reporting; saving routing must not start overlapping agents or cancel an in-flight job. Existing SSH validation, operation allowlists and outbound-only transport remain in force. No autonomous provider is selected. See `docs/windows-host-bridge-connection.md` for scope and acceptance.
+
+Do not infer a live connection from this source correction or its tests. A closed/disconnected client, unavailable credentials, native execution, and deployment remain separate boundaries.
+
+
+### Persistence boundary clarification
+
+A bridge target change is authoritative only after routing persistence succeeds. Reading tentative Engine preferences is rejected: a failed save can leave an in-memory value that was never committed. The desktop owns a synchronized saved-target holder, updated by the successful routing-save path. Failed saves and failed clearing preserve the prior connection; concurrent saves do not reorder target publication. This does not change the typed operation surface or imply installed-client recovery.
