@@ -87,13 +87,13 @@ assert sys.argv[2] in str(obj.get("version","")), obj
 PY
 
 verify_search() {
-  local query="$1" expected="$2"
+  local query="$1" expected="${2:-}"
   local headers body
   headers="$(mktemp)"
   body="$(mktemp)"
   curl -fsS --retry 6 --retry-delay 2 --max-time 20     -D "$headers"     -H "Origin: https://$RAT_HOST"     -H 'Accept: application/json'     "https://$DEV_HOST/api/v1/public/entities/rat-catalogue/search?q=$query"     -o "$body"
   grep -Eiq "^Access-Control-Allow-Origin: https://$RAT_HOST\r?$" "$headers"
-  python3 - "$body" "$expected" <<'PY'
+  python3 - "$body" "$query" "$expected" <<'PY'
 import json,sys
 with open(sys.argv[1], encoding="utf-8") as fh:
     obj=json.load(fh)
@@ -108,7 +108,7 @@ PY
   rm -f "$headers" "$body"
 }
 
-verify_search DJI DJI
+verify_search DJI
 verify_search CJ "CJ Investigates"
 
 trap - ERR
