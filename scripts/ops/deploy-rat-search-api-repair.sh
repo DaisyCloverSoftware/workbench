@@ -91,7 +91,6 @@ verify_search() {
   local headers body
   headers="$(mktemp)"
   body="$(mktemp)"
-  trap 'rm -f "$headers" "$body"' RETURN
   curl -fsS --retry 6 --retry-delay 2 --max-time 20     -D "$headers"     -H "Origin: https://$RAT_HOST"     -H 'Accept: application/json'     "https://$DEV_HOST/api/v1/public/entities/rat-catalogue/search?q=$query"     -o "$body"
   grep -Eiq "^Access-Control-Allow-Origin: https://$RAT_HOST\r?$" "$headers"
   python3 - "$body" "$expected" <<'PY'
@@ -106,6 +105,7 @@ active=(obj.get("data") or {}).get("active") or {}
 assert active.get("name") == sys.argv[2], obj
 print("verified_search=" + sys.argv[2])
 PY
+  rm -f "$headers" "$body"
 }
 
 verify_search DJI DJI
