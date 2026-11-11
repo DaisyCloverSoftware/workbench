@@ -91,8 +91,13 @@ verify_search() {
   local headers body
   headers="$(mktemp)"
   body="$(mktemp)"
-  curl -fsS --retry 6 --retry-delay 2 --max-time 20     -D "$headers"     -H "Origin: https://$RAT_HOST"     -H 'Accept: application/json'     "https://$DEV_HOST/api/v1/public/entities/rat-catalogue/search?q=$query"     -o "$body"
-  grep -Eiq "^Access-Control-Allow-Origin: https://$RAT_HOST\r?$" "$headers"
+  curl -fsS --retry 6 --retry-delay 2 --max-time 20 \
+    -D "$headers" \
+    -H "Origin: https://$RAT_HOST" \
+    -H 'Accept: application/json' \
+    "https://$DEV_HOST/api/v1/public/entities/rat-catalogue/search?q=$query" \
+    -o "$body"
+  tr -d '\r' <"$headers" | grep -Fiqx "Access-Control-Allow-Origin: https://$RAT_HOST"
   python3 - "$body" "$query" "$expected" <<'PY'
 import json,sys
 with open(sys.argv[1], encoding="utf-8") as fh:
@@ -100,10 +105,19 @@ with open(sys.argv[1], encoding="utf-8") as fh:
 meta=obj.get("meta",{})
 assert meta.get("source") == "rum-dev-canonical", obj
 assert meta.get("privacy") == "private-rum-people-excluded", obj
-assert meta.get("found") is True, obj
-active=(obj.get("data") or {}).get("active") or {}
-assert active.get("name") == sys.argv[2], obj
-print("verified_search=" + sys.argv[2])
+assert isinstance(meta.get("found"), bool), obj
+found=meta["found"]
+data=obj.get("data")
+if found:
+    active=(data or {}).get("active") or {}
+    assert active.get("id"), obj
+    if sys.argv[3]:
+        assert active.get("name") == sys.argv[3], obj
+    print("verified_search=" + sys.argv[2] + " found=true name=" + str(active.get("name")))
+else:
+    assert data is None, obj
+    assert not sys.argv[3], obj
+    print("verified_search=" + sys.argv[2] + " found=false")
 PY
   rm -f "$headers" "$body"
 }
