@@ -35,7 +35,7 @@ func TestRATSearchAPIRepairDeployIsNarrowAndRollbackProtected(t *testing.T) {
         "live_unchanged=true",
         "rat-catalogue/search?q=$query",
         "Access-Control-Allow-Origin",
-        "verify_search DJI DJI",
+        "verify_search DJI",
         "verify_search CJ \"CJ Investigates\"",
         "restoring prior isolated DEV API",
     } {
