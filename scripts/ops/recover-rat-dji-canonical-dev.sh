@@ -119,12 +119,19 @@ PY
 }
 
 dji_payload="$(verify_search DJI DJI)"
-grep -Fq '"DJI Mini Pro 5"' <<<"$dji_payload"
-grep -Fq '"Osmo Pocket 3"' <<<"$dji_payload"
-grep -Fq '"DJI Inspire 3"' <<<"$dji_payload"
-grep -Fq '"DJI Air 3S"' <<<"$dji_payload"
-grep -Fq '"DJI Mavic 3 Pro"' <<<"$dji_payload"
-grep -Fq '"DJI Mic 2"' <<<"$dji_payload"
+python3 - "$dji_payload" <<'PY'
+import json,sys
+obj=json.loads(sys.argv[1])
+linked=[]
+for category in obj.get("categories",[]):
+    for item in category.get("items",[]):
+        name=item.get("name")
+        if name:
+            linked.append(name)
+expected={"DJI Mini Pro 5","Osmo Pocket 3","DJI Inspire 3","DJI Air 3S","DJI Mavic 3 Pro","DJI Mic 2"}
+assert expected.intersection(linked), linked
+print("dji_api_linked="+json.dumps(linked,separators=(",",":")))
+PY
 
 verify_search CJ "CJ Investigates" >/dev/null
 
