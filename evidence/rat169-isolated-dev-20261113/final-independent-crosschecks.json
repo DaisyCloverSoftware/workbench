@@ -1,0 +1,35 @@
+{
+  "source": "9ea1502f4bb93a2284dc29864aeed1cb8057408c",
+  "repeatedSql": {
+    "receipt": "rat169-acceptance-20261113-db-repeat-e04",
+    "status": "completed",
+    "exit_code": 0,
+    "readback": {
+      "entity_present": true,
+      "entity_publication_state": "published",
+      "entity_visibility": "public",
+      "structural_kind_correct": true,
+      "classification_present": true,
+      "classification_structural_kind_correct": true,
+      "canonical_assignment_present": true,
+      "canonical_assignment_primary": true,
+      "canonical_assignment_state": "unverified",
+      "journey_present": true,
+      "journey_state": "active",
+      "rating_event_count": 1
+    }
+  },
+  "djiCjBrowser": {
+    "receipt": "rat169-acceptance-20261113-dji-cj-browser-f05",
+    "status": "completed",
+    "exit_code": 0,
+    "checks": [
+      "RAT_DJI_CJ_BROWSER_VERIFIED",
+      "DJI_LINKED_NAVIGATION_VERIFIED",
+      "RAT_RATE_FLOW_VERIFIED",
+      "RAT_NO_MATCH_VERIFIED",
+      "RAT_PRIVACY_MARKER_VERIFIED"
+    ]
+  },
+  "validated_in_isolated_dev": true
+}
