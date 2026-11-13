@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"runtime"
 )
 
 // OperationsStatus is executor-owned lifecycle evidence. It never contains
@@ -119,7 +120,12 @@ func readOperationsDisposition(file *os.File, identity os.FileInfo) (*Operations
 		return nil, "unavailable"
 	}
 	now, err := os.Lstat(file.Name())
-	if err != nil || !now.Mode().IsRegular() || !os.SameFile(identity, now) || now.Mode().Perm() != 0o600 {
+	if err != nil || !now.Mode().IsRegular() || !os.SameFile(identity, now) {
+		return nil, "invalid"
+	}
+	// Windows uses the user temporary-directory ACL, not POSIX permission bits.
+	// The exclusive creation, retained handle and identity tests apply everywhere.
+	if runtime.GOOS != "windows" && now.Mode().Perm() != 0o600 {
 		return nil, "invalid"
 	}
 	if now.Size() == 0 {
