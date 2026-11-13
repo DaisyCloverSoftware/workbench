@@ -27,6 +27,9 @@ frontend_image="$(kctl -n rum-rate-anything-preview get deployment rum-rate-anyt
 # Fixed, read-only Eloquent/Schema queries only. Do not emit identities, tokens,
 # connection strings, records or any classification/free-text names.
 probe='
+require "vendor/autoload.php";
+$app = require "bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $migration = "2026_11_13_000001_map_thing_classifications_to_entity_types";
 $column = Illuminate\Support\Facades\Schema::hasColumn("classifications", "entity_type_id");
 $migrated = Illuminate\Support\Facades\DB::table("migrations")->where("migration", $migration)->exists();
@@ -53,7 +56,7 @@ $result = [
 ];
 echo "RAT_CANONICAL_DEV_CATALOGUE_DB=".json_encode($result, JSON_THROW_ON_ERROR)."\n";
 '
-readback="$(kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php artisan tinker --execute="$probe")"
+readback="$(kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$probe")"
 printf '%s\n' "$readback" | grep '^RAT_CANONICAL_DEV_CATALOGUE_DB='
 echo "RAT_CANONICAL_DEV_API_IMAGE=$api_image"
 echo "RAT_ISOLATED_FRONTEND_IMAGE=$frontend_image"
