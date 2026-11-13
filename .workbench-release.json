@@ -1,9 +1,0 @@
-{
-  "version": "0.9.68",
-  "date": "2026-11-13",
-  "notes": [
-    "Preserve executor-owned start, completion, timeout/interruption and process-result evidence independently of protected stdout/stderr availability.",
-    "Retain typed operation status in private relay failure and withheld-result envelopes without relaxing existing output protection.",
-    "Add a bounded, closed-schema, forward-only maintenance disposition contract; reject arbitrary text and historical-file substitution, and distinguish incomplete evidence from successful repair."
-  ]
-}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.68 — 2026-11-13
+
+- Preserve executor-owned start, completion, timeout/interruption and process-result evidence independently of protected stdout/stderr availability.
+- Retain typed operation status in private relay failure and withheld-result envelopes without relaxing existing output protection.
+- Add a bounded, closed-schema, forward-only maintenance disposition contract; reject arbitrary text and historical-file substitution, and distinguish incomplete evidence from successful repair.
+
 ## 0.9.67 — 2026-10-21
 
 - Preserve bounded, sanitized MCP failure messages and command output in private control results while retaining failed status and request correlation.
