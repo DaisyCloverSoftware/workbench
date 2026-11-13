@@ -32,13 +32,15 @@ type privateControlEnvelope struct {
 }
 
 type privateControlOutbox struct {
-	Version   int            `json:"version"`
-	ID        string         `json:"id"`
-	Action    string         `json:"action"`
-	Status    string         `json:"status"`
-	Result    map[string]any `json:"result,omitempty"`
-	Error     string         `json:"error,omitempty"`
-	UpdatedAt string         `json:"updated_at"`
+	// Only executor-owned lifecycle and closed-schema forward reports; never raw output.
+	OperationStatus *core.OperationsStatus `json:"operation_status,omitempty"`
+	Version         int                    `json:"version"`
+	ID              string                 `json:"id"`
+	Action          string                 `json:"action"`
+	Status          string                 `json:"status"`
+	Result          map[string]any         `json:"result,omitempty"`
+	Error           string                 `json:"error,omitempty"`
+	UpdatedAt       string                 `json:"updated_at"`
 }
 
 type privateControlCandidate struct {
@@ -174,6 +176,12 @@ func executePrivateControlCandidate(ctx context.Context, candidate privateContro
 	markRelayProgress("control-execute", privateControlProgressLease(candidate.env))
 	defer markRelayProgress("control-return", relayIdleProgressLease())
 	result, execErr := executePrivateControlForRepo(ctx, candidate.env, repo, mcpURL, authFile)
+	if candidate.env.Action == "run_operations_script" {
+		if operation, ok := result["operation_script"].(core.OperationsScriptResult); ok {
+			out.Result = result
+			out.OperationStatus = operation.Status
+		}
+	}
 	if execErr != nil {
 		out.Error = execErr.Error()
 		retainMCPDiagnostic(&out, execErr)
@@ -311,13 +319,13 @@ func executePrivateControlForRepo(ctx context.Context, env privateControlEnvelop
 		}
 		return callMCP(ctx, mcpURL, authFile, "save_context", map[string]any{
 			"project_path": project,
-			"objective": strings.TrimSpace(a.Objective),
-			"state": strings.TrimSpace(a.State),
-			"decisions": a.Decisions,
-			"constraints": a.Constraints,
-			"references": a.References,
+			"objective":    strings.TrimSpace(a.Objective),
+			"state":        strings.TrimSpace(a.State),
+			"decisions":    a.Decisions,
+			"constraints":  a.Constraints,
+			"references":   a.References,
 			"open_threads": a.OpenThreads,
-			"next_action": strings.TrimSpace(a.NextAction),
+			"next_action":  strings.TrimSpace(a.NextAction),
 		})
 
 	case "get_context":
@@ -371,6 +379,7 @@ func marshalPrivateControlOutbox(out privateControlOutbox) ([]byte, error) {
 			out.Status = "failed"
 			out.Result = nil
 			out.Error = "private control result was withheld because it resembled secret material"
+			markOperationPayloadUnavailable(&out, true)
 		}
 	}
 	if len(out.Error) > maxPrivateControlErrorBytes {
@@ -385,6 +394,7 @@ func marshalPrivateControlOutbox(out privateControlOutbox) ([]byte, error) {
 		out.Status = "failed"
 		out.Result = nil
 		out.Error = "private control result exceeded 256 KiB and was withheld; request a narrower bounded result"
+		markOperationPayloadUnavailable(&out, false)
 		b, err = json.MarshalIndent(out, "", "  ")
 		if err != nil {
 			return nil, err

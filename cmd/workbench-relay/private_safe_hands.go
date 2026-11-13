@@ -338,8 +338,8 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 		}
 		return callMCP(ctx, mcpURL, authFile, "list_files", map[string]any{
 			"project_path": project,
-			"subdir":      strings.TrimSpace(a.Subdir),
-			"limit":       a.Limit,
+			"subdir":       strings.TrimSpace(a.Subdir),
+			"limit":        a.Limit,
 		})
 
 	case "search_text":
@@ -362,7 +362,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 			"project_path": project,
 			"query":        a.Query,
 			"subdir":       strings.TrimSpace(a.Subdir),
-			"limit":       a.Limit,
+			"limit":        a.Limit,
 		})
 
 	case "read_file":
@@ -443,7 +443,7 @@ func executePrivateSafeHands(ctx context.Context, env privateControlEnvelope, mc
 				}
 				message += ": " + output
 			}
-			return nil, errors.New(message)
+			return map[string]any{"operation_script": result}, errors.New(message)
 		}
 		return map[string]any{"operation_script": result}, nil
 

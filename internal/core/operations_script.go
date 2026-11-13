@@ -32,14 +32,15 @@ type OperationsScriptRequest struct {
 }
 
 type OperationsScriptResult struct {
-	Path         string   `json:"path"`
-	Args         []string `json:"args,omitempty"`
-	Commit       string   `json:"commit"`
-	ScriptSHA256 string   `json:"script_sha256"`
-	Output       string   `json:"output,omitempty"`
-	ExitCode     int      `json:"exit_code"`
-	Truncated    bool     `json:"truncated,omitempty"`
-	Transport    string   `json:"transport"`
+	Status       *OperationsStatus `json:"execution_status,omitempty"`
+	Path         string            `json:"path"`
+	Args         []string          `json:"args,omitempty"`
+	Commit       string            `json:"commit"`
+	ScriptSHA256 string            `json:"script_sha256"`
+	Output       string            `json:"output,omitempty"`
+	ExitCode     int               `json:"exit_code"`
+	Truncated    bool              `json:"truncated,omitempty"`
+	Transport    string            `json:"transport"`
 }
 
 // operationsOriginAllowed is a narrow test seam. Production accepts only a
@@ -61,16 +62,17 @@ var operationsOriginAllowed = isApprovedOperationsOrigin
 func RunOperationsScript(ctx context.Context, project string, req OperationsScriptRequest) (OperationsScriptResult, error) {
 	rel, err := validateOperationsScriptRequest(req)
 	if err != nil {
-		return OperationsScriptResult{}, err
+		return OperationsScriptResult{ExitCode: -1, Status: newOperationsStatus()}, err
 	}
 	requestedCommit, err := normalizeOperationsCommit(req.Commit)
 	if err != nil {
-		return OperationsScriptResult{}, err
+		return OperationsScriptResult{ExitCode: -1, Status: newOperationsStatus()}, err
 	}
 	result := OperationsScriptResult{
 		Path:      rel,
 		Args:      append([]string(nil), req.Args...),
-		ExitCode:  0,
+		ExitCode:  -1,
+		Status:    newOperationsStatus(),
 		Transport: "git-worktree-bash",
 	}
 
@@ -131,6 +133,8 @@ func RunOperationsScript(ctx context.Context, project string, req OperationsScri
 	}
 	digest := sha256.Sum256(body)
 	result.ScriptSHA256 = hex.EncodeToString(digest[:])
+	result.Status.SourceCommit = commit
+	result.Status.ScriptSHA256 = result.ScriptSHA256
 
 	timeout := defaultOperationsScriptTimeout
 	if req.TimeoutSeconds > 0 {
@@ -145,6 +149,17 @@ func RunOperationsScript(ctx context.Context, project string, req OperationsScri
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	// This fresh file is the only forward status channel. It is not an audit
+	// reader and its contents are accepted only under a closed enum schema.
+	statusFile, err := os.OpenFile(filepath.Join(base, "operation-status.json"), os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	if err != nil {
+		return result, errors.New("operations status initialisation failed")
+	}
+	defer statusFile.Close()
+	statusIdentity, err := statusFile.Stat()
+	if err != nil {
+		return result, errors.New("operations status initialisation failed")
+	}
 	argv := []string{"--noprofile", "--norc", scriptPath}
 	argv = append(argv, req.Args...)
 	cmd := exec.CommandContext(runCtx, "bash", argv...)
@@ -152,6 +167,8 @@ func RunOperationsScript(ctx context.Context, project string, req OperationsScri
 	cmd.Env = append(os.Environ(),
 		"WORKBENCH_OPERATION_SCRIPT=1",
 		"WORKBENCH_OPERATION_COMMIT="+commit,
+		"WORKBENCH_OPERATION_STATUS_VERSION=1",
+		"WORKBENCH_OPERATION_STATUS_FILE="+statusFile.Name(),
 		"PAGER=cat",
 		"GIT_PAGER=cat",
 		"SYSTEMD_PAGER=cat",
@@ -161,24 +178,55 @@ func RunOperationsScript(ctx context.Context, project string, req OperationsScri
 	configureChildProcess(cmd, false)
 	output := &limitedCapture{limit: maxOperationsScriptOutputBytes}
 	cmd.Stdout, cmd.Stderr = output, output
-	runErr := cmd.Run()
+	runErr := cmd.Start()
+	if runErr == nil {
+		result.Status.Started = true
+		runErr = cmd.Wait()
+		result.Status.ProcessObserved = cmd.ProcessState != nil
+		switch {
+		case cmd.ProcessState != nil && cmd.ProcessState.Exited() && runErr == nil:
+			result.Status.Completion = "exited"
+		case errors.Is(runCtx.Err(), context.DeadlineExceeded):
+			result.Status.Completion = "timed_out"
+		case errors.Is(runCtx.Err(), context.Canceled):
+			result.Status.Completion = "interrupted"
+		case cmd.ProcessState != nil && cmd.ProcessState.Exited():
+			result.Status.Completion = "exited"
+		case cmd.ProcessState != nil:
+			result.Status.Completion = "interrupted"
+		default:
+			result.Status.Completion = "unknown"
+		}
+		if cmd.ProcessState != nil && cmd.ProcessState.ExitCode() >= 0 {
+			code := cmd.ProcessState.ExitCode()
+			result.Status.ProcessExitCode = &code
+		}
+	}
+	result.Status.Report, result.Status.Reporting = readOperationsDisposition(statusFile, statusIdentity)
+	result.ExitCode = operationsExitCode(runErr)
 	out := strings.TrimSpace(output.String())
 	result.Truncated = output.exceeded
+	result.Status.OutputTruncated = output.exceeded
 	if output.exceeded {
 		out += "\n… output truncated by Workbench …"
 	}
 	if LooksSecret(out) {
+		result.Status.OutputWithheld = true
 		result.Output = "[withheld by Workbench: operations script output resembled secret material]"
 		result.ExitCode = operationsExitCode(runErr)
 		return result, errors.New("operations script output was withheld because it resembled secret material")
 	}
 	result.Output = out
+	result.Status.EvidenceComplete = result.Status.ProcessObserved && !result.Truncated && result.Status.Completion == "exited" && result.Status.Reporting == "complete"
 	result.ExitCode = operationsExitCode(runErr)
 	if runErr != nil {
 		if errors.Is(runCtx.Err(), context.DeadlineExceeded) {
 			return result, errors.New("operations script timed out")
 		}
-		return result, fmt.Errorf("operations script failed: %w", runErr)
+		return result, errors.New("operations script failed; consult execution_status")
+	}
+	if result.Status.Reporting != "not_reported" && result.Status.Reporting != "complete" {
+		return result, errors.New("operations status evidence incomplete")
 	}
 	return result, nil
 }
