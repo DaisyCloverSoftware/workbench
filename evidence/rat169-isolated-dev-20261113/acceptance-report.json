@@ -1,0 +1,275 @@
+{
+  "target": "PR #169 isolated DEV",
+  "applicationSha": "9ea1502f4bb93a2284dc29864aeed1cb8057408c",
+  "browserReceipt": "rat169-acceptance-20261113-browser-a01",
+  "browserReport": {
+    "sourceSha": "9ea1502f4bb93a2284dc29864aeed1cb8057408c",
+    "runId": "rat169-20261113-a01",
+    "thingName": "RAT169 DEV acceptance digital demo rat169-20261113-a01",
+    "typeLabel": "RAT169 DEV digital catalogue type rat169-20261113-a01",
+    "checks": [
+      {
+        "name": "served-frontend-version",
+        "detail": "rat-candidate+9ea1502f4bb93a2284dc29864aeed1cb8057408c"
+      },
+      {
+        "name": "served-api-version",
+        "detail": "rat-candidate+9ea1502f4bb93a2284dc29864aeed1cb8057408c"
+      },
+      {
+        "name": "DJI-CJ-canonical-discovery-private-person-policy",
+        "detail": ""
+      },
+      {
+        "name": "genuine-no-match-add-action",
+        "detail": "{\"background\":\"rgb(23, 19, 22)\",\"color\":\"rgb(255, 255, 255)\"}"
+      },
+      {
+        "name": "preview-account-authenticated",
+        "detail": "rat169qa920261113a01"
+      },
+      {
+        "name": "searched-name-prefilled",
+        "detail": ""
+      },
+      {
+        "name": "synonym-reused-keyboard-form-preserved",
+        "detail": ""
+      },
+      {
+        "name": "lookup-failure-retry-preserves-form",
+        "detail": ""
+      },
+      {
+        "name": "creation-failure-preserves-form",
+        "detail": ""
+      },
+      {
+        "name": "persisted-server-backed-new-type",
+        "detail": "community_757b6c4a08fb9124b79a65504f43cfca63f6f6f8cc16914c0df9"
+      },
+      {
+        "name": "thing-pending-authorised-and-associated",
+        "detail": "01m7bn1df6n4e4annf6wzwnnvw"
+      },
+      {
+        "name": "refresh-persisted-canonical-readback",
+        "detail": ""
+      },
+      {
+        "name": "fresh-form-reuse-from-http-not-local-state",
+        "detail": ""
+      },
+      {
+        "name": "initial-rating-submitted-published-readback",
+        "detail": "01m7bn1gc9ab78c495t30qrvv4"
+      }
+    ],
+    "screenshots": [
+      "01-no-match",
+      "02-synonym-preserved",
+      "03-lookup-failure-preserved",
+      "04-creation-failure-preserved",
+      "05-created-type-preserved",
+      "06-initial-rating-pending",
+      "08-fresh-form-reuse",
+      "07-initial-rating-complete"
+    ],
+    "errors": [],
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/api/v1/rate-anything/me",
+        "status": 401
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/rate-anything/me",
+        "status": 401
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/rate-anything/auth/register",
+        "status": 201
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/rate-anything/thing-types",
+        "status": 503
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/rate-anything/thing-types",
+        "status": 503
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/rate-anything/thing-types",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/rate-anything/standalone-things",
+        "status": 201
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/rate-anything/rating",
+        "status": 201
+      }
+    ],
+    "servedVersion": "rat-candidate+9ea1502f4bb93a2284dc29864aeed1cb8057408c",
+    "servedApiVersion": "rat-candidate+9ea1502f4bb93a2284dc29864aeed1cb8057408c",
+    "testUsername": "rat169qa920261113a01",
+    "classificationKey": "community_757b6c4a08fb9124b79a65504f43cfca63f6f6f8cc16914c0df9",
+    "classificationId": "01m7bn1cy4ga5b662ktbckc0cr",
+    "entityId": "01m7bn1df6n4e4annf6wzwnnvw",
+    "journeyId": "01m7bn1dgcnmxhhqssar3x2ter",
+    "pendingClassificationVerified": true,
+    "ratingEventId": "01m7bn1gc9ab78c495t30qrvv4",
+    "finalPublication": "published",
+    "result": "PASS"
+  },
+  "deepDatabaseReceipt": "rat169-acceptance-20261113-db-deep-d03",
+  "deepDatabaseProof": {
+    "actual_namespace": "rum-dev-isolated",
+    "entity_exists": true,
+    "entity_published": true,
+    "entity_structural_kind_correct": true,
+    "classification_found_by_created_id": true,
+    "classification_found_by_created_key": true,
+    "classification_id_matches_key": true,
+    "classification_key_at_id": "community_757b6c4a08fb9124b79a65504f43cfca63f6f6f8cc16914c0df9",
+    "expected_classification_key": "community_757b6c4a08fb9124b79a65504f43cfca63f6f6f8cc16914c0df9",
+    "classification_kind_correct": true,
+    "assignment_count": 1,
+    "assigned_classification_ids": [
+      "01m7bn1cy4ga5b662ktbckc0cr"
+    ],
+    "assignment_to_created_id": true,
+    "assignment_to_created_key": true,
+    "assignment_to_created_id_primary": true,
+    "joined_assignments": [
+      {
+        "key": "community_757b6c4a08fb9124b79a65504f43cfca63f6f6f8cc16914c0df9",
+        "entity_type_id": "01M095J6091BJACAPFTNE6BZ7J",
+        "is_primary": true,
+        "verification_state": "unverified"
+      }
+    ],
+    "journey_exists": true,
+    "journey_state": "active",
+    "rating_event_count": 1,
+    "business_mappings_present": 12,
+    "business_mappings_wrong": [],
+    "creator_collective_to_organisation": true,
+    "migration_recorded": true,
+    "classification_count": 28
+  },
+  "initialDiagnosticReceipt": "rat169-acceptance-20261113-db-proof-c01",
+  "initialDiagnostic": {
+    "entity_present": true,
+    "entity_publication_state": "published",
+    "entity_visibility": "public",
+    "structural_kind_correct": true,
+    "classification_present": false,
+    "classification_structural_kind_correct": false,
+    "canonical_assignment_present": false,
+    "canonical_assignment_primary": false,
+    "canonical_assignment_state": null,
+    "journey_present": true,
+    "journey_state": "active",
+    "rating_event_count": 1
+  },
+  "liveRuntimeReceipt": "rat169-acceptance-20261113-runtime-readback-b01",
+  "liveRuntime": [
+    {
+      "status": "completed",
+      "command": [
+        "get",
+        "deployment",
+        "rum-api",
+        "-n",
+        "rum-dev-isolated",
+        "-o",
+        "jsonpath={.spec.template.spec.containers[?(@.name==\"php-fpm\")].image}"
+      ],
+      "output": "ghcr.io/daisycloversoftware/rum-api@sha256:3f313da265f9b19c166073fa6642922cf8ee2e897318b22ce747826a841395f3"
+    },
+    {
+      "status": "completed",
+      "command": [
+        "get",
+        "deployment",
+        "rum-rate-anything",
+        "-n",
+        "rum-rate-anything-preview",
+        "-o",
+        "jsonpath={.spec.template.spec.containers[?(@.name==\"rate-anything\")].image}"
+      ],
+      "output": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9e9feff67611009f1f9193345754fd929cd9dd1449e6d3b30ae3a5486c085638"
+    },
+    {
+      "status": "completed",
+      "command": [
+        "get",
+        "pods",
+        "-n",
+        "rum-dev-isolated",
+        "-l",
+        "app.kubernetes.io/component=api",
+        "-o",
+        "jsonpath={range .items[*]}{.metadata.name}{\" \"}{.status.phase}{\" \"}{.status.containerStatuses[?(@.name==\"php-fpm\")].imageID}{\"\\n\"}{end}"
+      ],
+      "output": "rum-api-6b7b5b557f-wcf6d Running ghcr.io/daisycloversoftware/rum-api@sha256:3f313da265f9b19c166073fa6642922cf8ee2e897318b22ce747826a841395f3"
+    },
+    {
+      "status": "completed",
+      "command": [
+        "get",
+        "pods",
+        "-n",
+        "rum-rate-anything-preview",
+        "-l",
+        "app.kubernetes.io/component=rate-anything",
+        "-o",
+        "jsonpath={range .items[*]}{.metadata.name}{\" \"}{.status.phase}{\" \"}{.status.containerStatuses[?(@.name==\"rate-anything\")].imageID}{\"\\n\"}{end}"
+      ],
+      "output": "rum-rate-anything-7fd9cb4884-fpm6w Running ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9e9feff67611009f1f9193345754fd929cd9dd1449e6d3b30ae3a5486c085638"
+    },
+    {
+      "status": "completed",
+      "command": [
+        "get",
+        "ingress",
+        "-n",
+        "rum-rate-anything-preview",
+        "-o",
+        "wide"
+      ],
+      "output": "NAME                CLASS     HOSTS                               ADDRESS                                                   PORTS     AGE\nrum-rate-anything   traefik   dev-rum-ra.daisycloversoftware.uk   192.168.1.163,192.168.1.200,192.168.1.219,192.168.1.230   80, 443   92d"
+    },
+    {
+      "status": "completed",
+      "command": [
+        "get",
+        "ingress",
+        "-n",
+        "rum-dev-isolated",
+        "-o",
+        "wide"
+      ],
+      "output": "NAME   CLASS     HOSTS                            ADDRESS                                                   PORTS     AGE\nrum    traefik   dev-rum.daisycloversoftware.uk   192.168.1.163,192.168.1.200,192.168.1.219,192.168.1.230   80, 443   82d"
+    }
+  ],
+  "screenFiles": [
+    "01-no-match.jpg",
+    "03-lookup-failure-preserved.jpg",
+    "04-creation-failure-preserved.jpg",
+    "05-created-type-preserved.jpg",
+    "06-initial-rating-pending.jpg",
+    "08-fresh-form-reuse.jpg",
+    "07-initial-rating-complete.jpg"
+  ],
+  "result": "PASS"
+}
