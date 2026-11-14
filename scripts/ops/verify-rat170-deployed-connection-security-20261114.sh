@@ -43,6 +43,7 @@ npm ci --ignore-scripts --no-audit --no-fund >/dev/null
 chrome=""
 for c in /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium /usr/bin/chromium-browser; do if [[ -x "$c" ]]; then chrome="$c";break;fi;done
 [[ -n "$chrome" ]] || npx playwright install chromium >/dev/null
+set +e
 SOURCE="$sha" RID="$rid" ROOT="$root" TARGET="$target" PENDING="$pending" OUT="$dir" CHROME_PATH="$chrome" node --input-type=module <<'NODE'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
@@ -167,7 +168,10 @@ try{
 }
 if(report.status!=='PASS')process.exit(1)
 NODE
+browser_status=$?
+set -e
 after="$(snapshot)"
 printf 'RAT170_SECURITY_SQL_BEFORE=%s\nRAT170_SECURITY_SQL_AFTER=%s\n' "$before" "$after"
 [[ "$before" == "$after" ]] || { echo 'RAT170_SECURITY_SQL_CHANGED_UNEXPECTEDLY' >&2; exit 2; }
 echo 'RAT170_SECURITY_SQL_UNCHANGED=true'
+[[ "$browser_status" -eq 0 ]] || exit "$browser_status"
