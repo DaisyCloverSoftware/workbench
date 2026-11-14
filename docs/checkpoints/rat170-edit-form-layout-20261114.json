@@ -23,9 +23,17 @@
     "initial_run": 43631958850,
     "initial_result": "rate-anything lint warning due to missing effect dependency; superseded by exact lint-correction source commit fe235",
     "current_run": 43632535073,
-    "current_status": "rate-anything PASS (lint, typecheck, 40/40 test files, build); web PASS, specification PASS; admin, API, preview-browser queued; candidate image jobs not started",
+    "current_status": "6/6 source jobs PASS: specification, admin, RAT (lint/typecheck/40 test files/build), web, API, preview-browser; 3 image publication jobs queued/running; full 9/9 pending",
     "current_head": "fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592",
-    "last_observed_run": 43632535073
+    "last_observed_run": 43632535073,
+    "source_jobs_passed": 6,
+    "source_jobs_total": 6,
+    "publishing_job_ids": {
+      "web": 132565662291,
+      "api": 132565662307,
+      "rat": 132565662331
+    },
+    "run": 43632535073
   },
   "workbench": {
     "project": "runner://workbench",
@@ -41,7 +49,11 @@
       "frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
       "live_api": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
       "live_web": "ghcr.io/daisycloversoftware/rum-web:sha-8106675"
-    }
+    },
+    "operations_head_last_verified": "9e9264bcc4a2b515ef4d3fadd5206534525394bd",
+    "browser_script_sha": "a3a9999c34818d3867f23a53479d2bce8cad02da",
+    "deploy_script_sha": "8ce826d306a40bd13b759928161c56cc4965054d",
+    "sql_script_sha": "6e41d3030eeb22d2d2801a7e04757ae6612e446c"
   },
   "current_expected_runtime": {
     "api": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
@@ -72,7 +84,7 @@
   },
   "next": [
     "Read original predeploy outbox; verify exact running API/rat/LIVE. Do not resubmit.",
-    "Monitor exact-head CI 43632535073 in bounded checks; if failure, inspect exact log and correct only scoped files; no new deployment until successful run.",
+    "Exact-head CI run 43632535073 has all six source jobs PASS; await three immutable candidate image job receipts. Do not rerun CI or submit deploy before RAT image digest is published and full 9/9 succeed.",
     "Recover full immutable rate-anything frontend digest from candidate publishing job logs at final exact head.",
     "Execute guarded frontend-only promotion from current advertised Workbench origin head against preserved API digest, verify original outbox, running imageID and /VERSION; do not deploy API or other workloads.",
     "Execute guarded isolated browser screenshot+synthetic noncreator edit script once with unique id, verify geometry for 1440/900/390 and DB/provenance; inspect failure report before any repeat.",
@@ -86,5 +98,5 @@
     "no_owner_data_mutation": true,
     "no_unrelated_layout_edits": true
   },
-  "stage": "source_implemented_rat_component_passed_full_ci_pending"
+  "stage": "exact_head_6_of_6_source_jobs_passed_candidate_image_publication_pending"
 }
