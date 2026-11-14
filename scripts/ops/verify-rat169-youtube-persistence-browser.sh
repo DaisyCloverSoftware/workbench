@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# PR #169 acceptance verification only. No application build, deployment,
-# database mutation, fixture seeding, reset, LIVE requests, or PR merge.
+# PR #169 isolated acceptance. Only explicitly approved DEV test account,
+# type, Thing and initial rating are created via the normal UI. No build,
+# rollout, migration, seed/reset, direct SQL writes, LIVE or PR merge.
 [[ $# -ge 1 ]] || { echo 'usage: run <sha> <id> | image <id> <stage> | db <entity> <classification-key> <journey>'; exit 64; }
 mode="$1"; shift
 root='/tmp/rum-rat169-youtube-browser-20261114'
@@ -90,8 +91,8 @@ const DEV = 'https://dev-rum.daisycloversoftware.uk'
 const runId = process.env.RAT_ACCEPT_ID
 const output = process.env.RAT_ACCEPT_DIR
 const sourceSha = process.env.RAT_ACCEPT_SHA
-const thingName = 'RAT169 DEV acceptance digital demo ' + runId
-const freshName = 'RAT169 DEV fresh reuse probe ' + runId
+const thingName = 'Saffron Telescope Beacon ' + runId
+const freshName = 'Obsidian Kestrel Clock ' + runId
 const typeLabel = 'RAT169 DEV digital catalogue type ' + runId
 const description = 'Harmless isolated DEV acceptance item. No person, identity or relationship.'
 const report = { sourceSha, runId, thingName, typeLabel, checks: [], screenshots: [], errors: [], requests: [] }
