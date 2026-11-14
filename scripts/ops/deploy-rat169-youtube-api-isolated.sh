@@ -15,4 +15,4 @@ current="$(kctl -n rum-dev-isolated get deployment rum-api -o 'jsonpath={.spec.t
 rat_current="$(kctl -n rum-rate-anything-preview get deployment rum-rate-anything -o 'jsonpath={.spec.template.spec.containers[?(@.name=="rate-anything")].image}')"
 old_front='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9e9feff67611009f1f9193345754fd929cd9dd1449e6d3b30ae3a5486c085638'
 [[ "$rat_current" == "$old_front" ]] || { echo "Blocked: RAT frontend moved since API preflight: $rat_current" >&2; exit 78; }
-"$(dirname "$0")/deploy-rat-search-api-repair.sh" "$source_sha" "$candidate"
+bash "$(dirname "$0")/deploy-rat-search-api-repair.sh" "$source_sha" "$candidate"
