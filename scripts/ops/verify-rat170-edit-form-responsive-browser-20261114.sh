@@ -60,8 +60,12 @@ try {
  assert.equal(health.status(),200);assert.ok(String((await health.json()).version).includes('e3bb818f1825d778f5084460057ba7ea8bfb422b'))
  const rootRes=await context.request.get(DEV+'/api/v1/public/entities/rat-catalogue/nodes/'+root)
  assert.equal(rootRes.status(),200)
- const rootEntity=(await rootRes.json()).data.active
- assert.equal(rootEntity.name,rootName);assert.equal(rootEntity.visibility,'public');assert.equal(rootEntity.editPolicy,'community_governed')
+ const catalogue=await rootRes.json()
+ const rootEntity=catalogue.data.active
+ assert.equal(rootEntity.id,root)
+ assert.equal(rootEntity.name,rootName)
+ assert.equal(catalogue.meta.privacy,'private-rum-people-excluded')
+ assert.equal(catalogue.meta.audience,'rat-public')
  mark('exact-served-frontend-and-compatible-canonical-api')
  stage='register-unrelated-user'
  await page.goto(RAT+'/e/test~'+root,{waitUntil:'domcontentloaded'})
