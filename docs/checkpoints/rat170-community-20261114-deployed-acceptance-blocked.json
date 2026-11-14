@@ -307,7 +307,10 @@
       },
       "default_page_20_request": {
         "id": "rat170-owner-needs-default-page-20261114-r4",
-        "status": "submitted; original outbox not yet observed; read only, do not replay"
+        "status": "COMPLETED PASS exit 0",
+        "data": "One active, public, needs_verdict rating; read-only service evaluation confirms rating author with active/verified account sees it on first default 20-item Needs and All pages, Mates scope includes it, Others excludes it, canVote=false, hasMore=true.",
+        "actual_owner_browser_session": "not tested",
+        "no_rating_mutation": true
       },
       "no_rating_mutation": true
     }
@@ -328,7 +331,7 @@
   },
   "next_operations": [
     "Owner may manually review working RAT community edit and connection flows now at https://dev-rum-ra.daisycloversoftware.uk; do not block on PR #309 or claimed synthetic fixture.",
-    "Recover read-only original outbox rat170-owner-needs-default-page-20261114-r4 before interpreting 20-result canonical RUM Judge page; never resubmit or mutate the rating.",
+    "Default 20-item Judge read-only receipt rat170-owner-needs-default-page-20261114-r4 completed PASS; focus next on owner-observed RAT Needs Attention placeholder issue #171 without mutating rating.",
     "Develop separately scoped issue #171: RAT Needs Attention placeholder currently cannot show per-rating admission, while canonical RUM Judge service has an eligible author-visible rating; preserve audience, read-only involved-party and account checks.",
     "Develop separately scoped issue #172 later: safe Thing image upload support is not implemented by moderated image URL suggestions.",
     "Claimed browser scenario remains documented as outstanding, not a demonstrated failure or owner acceptance gate; preserve all prior passing acceptance and leave PRs #169/#170/#309 unmerged, no LIVE changes."
