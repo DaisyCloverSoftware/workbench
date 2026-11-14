@@ -24,8 +24,8 @@
   "ci": {
     "initial_run": 43631958850,
     "initial_result": "rate-anything lint warning due to missing effect dependency; superseded by exact lint-correction source commit fe235",
-    "current_run": 43632535073,
-    "current_status": "New e723 source 390px containment correction; exact-head CI pending — do not reuse fe235 success for e723",
+    "current_run": 43637669789,
+    "current_status": "non-terminal; API/web/preview-browser PASS, RAT in_progress, specification in_progress, admin queued, candidate image publication not started; do not infer image digest",
     "current_head": "e7234490ffec27e0d645911bd62a18d746d3758e",
     "last_observed_run": 43632535073,
     "source_jobs_passed": 6,
@@ -42,7 +42,10 @@
       "jobs": "9/9 PASS",
       "frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c"
     },
-    "earlier_source_run": "43637509494 at intermediate 7811, superseded by e723"
+    "earlier_source_run": "43637509494 at intermediate 7811, superseded by e723",
+    "last_checked": "2026-11-14T20:36Z",
+    "exact_head_completed": false,
+    "published_frontend_image": "NOT_YET_VERIFIED"
   },
   "workbench": {
     "project": "runner://workbench",
@@ -84,36 +87,61 @@
       "imageReceipt": "rat170-editform-20261114-2034-failure-shot-r1",
       "observed": "At 390px screenshot the nested edit section / governance quick facts and form extend beyond viewport; visible clipped at right; source has single-column 1fr grid retaining min-content width",
       "testMemberId": "01m7dvpc3dh25knyfzmfydjh40"
-    }
+    },
+    "frontend_deploy": {
+      "id": "rat170-editform-20261114-2025-frontend-f1",
+      "status": "completed exit 0",
+      "source": "fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592",
+      "image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c",
+      "served_version": "rat-candidate+fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592",
+      "protected_spec_hash_equal": true,
+      "rollback_safeguard": true
+    },
+    "independent_digest_readback": {
+      "id": "rat170-editform-20261114-2028-digest-r2",
+      "status": "6/6 PASS",
+      "frontend": "sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c",
+      "api": "sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "live_api": "rum-api:sha-54d31b8",
+      "live_web": "rum-web:sha-8106675",
+      "live_worker": "rum-api:sha-54d31b8"
+    },
+    "browser_initial": {
+      "id": "rat170-editform-20261114-2032-browser-v1",
+      "result": "FAILED 390px after 1440 and 900 PASS; no edit mutation submitted",
+      "testMemberId": "01m7dvpc3dh25knyfzmfydjh40",
+      "imageReceipt": "rat170-editform-20261114-2034-failure-shot-r1"
+    },
+    "test_script_extra_diagnostic_update": "rejected by GitHub safety checks; no commit; existing script remains available"
   },
   "current_expected_runtime": {
     "api": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
     "rat": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
     "live": "preserve unchanged"
   },
-  "candidate_frontend_digest": "UNKNOWN new e723 image pending exact-head publication; do not reuse fe235 digest as e723 candidate",
+  "candidate_frontend_digest": "UNKNOWN: new exact-head e723 candidate image job not published; previous 9a7a digest belongs to fe235",
   "acceptance": {
-    "state": "NOT_PASS (mobile failure on fe235, correction committed but not deployed)",
-    "viewports": [
-      1440,
-      900,
-      390
+    "state": "MOBILE_390_FIX_SOURCE_COMMITTED_BUT_NOT_YET_DEPLOYED",
+    "previous_deployed_source": "fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592",
+    "passed_at_previous_source": [
+      "1440px layout/no overflow",
+      "900px layout/no overflow",
+      "noncreator authenticated"
     ],
-    "prior_success": [
-      "1440 mobile prior 2-column evidence",
-      "900 evidence"
+    "failed_at_previous_source": [
+      "390px form outside viewport"
     ],
-    "prior_failure": "390 form leaves viewport",
-    "pending": "all new e723 checks + 390 screenshot + saved noncreator revision SQL",
-    "root_id": "01m7d2emwsnd0nxw6new8khbje",
-    "owner_real_entry": "The Professional Idiots — NEVER MUTATE"
+    "correction": "mobile-only editor open grid minmax(0,1fr), scoped min-width:0 containers and child fact wrapping",
+    "source": "e7234490ffec27e0d645911bd62a18d746d3758e",
+    "new_browser_and_SQL": "NOT_RUN pending exact-head CI and immutable frontend publication",
+    "owner_entry_mutations": 0
   },
   "next": [
-    "Read current PR #170 head e7234490ffec27e0d645911bd62a18d746d3758e and recover exact-head CI (do not rerun). Intermediate CI 43637509494 is for 7811 and not acceptable if new run exists.",
-    "Only after exact-head 9/9 PASS and published full frontend digest, re-read current running RAT (fe235 digest 9a7...), API (e3bb digest e0f3...), LIVE and existing requests/outboxes.",
-    "Use scripts/ops/deploy-rat170-edit-form-frontend-only-20261114.sh at the current admitted Workbench branch head with new e723 source, full immutable frontend digest, frozen API digest; verify rollout, protected spec hashes, /VERSION and independent pod digest.",
-    "Run scripts/ops/verify-rat170-edit-form-responsive-browser-20261114.sh once with a new unique run ID on separate existing synthetic DEV Thing. Screenshots 1440 900 390 focus validation, saved revision. Original run rat170-form-live-2032-v1 failed BEFORE mutation: do not repeat its ID.",
-    "Run read-only SQL script with verified editor id/revision id to confirm evidence/description/provenance. Preserve app PR #169/#170 unmerged and LIVE unchanged."
+    "First read current PR #170 head and GitHub Actions CI run 43637669789 at exact e7234490ffec27e0d645911bd62a18d746d3758e; DO NOT restart implementation, repeat CI, or treat intermediate 7811 as final. If CI remains nonterminal, continue only after terminal, respecting bounded checks.",
+    "On confirmed 9/9 PASS, obtain complete immutable RAT candidate digest from GitHub RAT candidate image publication job logs; do not infer or reuse prior 9a7a digest. Check relay requests/outboxes for any postcheckpoint promotion and current running image before submitting anything.",
+    "Then deploy only frontend using scripts/ops/deploy-rat170-edit-form-frontend-only-20261114.sh at current Workbench admissible branch head; current baseline is running fe235 image 9a7a... and frozen canonical API e0f3...; independently verify outbox, pod digest, served /VERSION, protected snapshots and LIVE unchanged.",
+    "Run the existing guarded scripts/ops/verify-rat170-edit-form-responsive-browser-20261114.sh once with new unique test ID (not rat170-form-live-2032-v1). Capture deployed 1440px/900px/390px normal, focused, validation, saved and history screenshots. The first prior run stopped before edit mutation; use synthetic Carmine Nebula Archive test Thing only, never owner's The Professional Idiots.",
+    "On browser PASS, run read-only scripts/ops/inspect-rat170-edit-form-revision-sql-20261114.sh with actual returned contributor/revision IDs to confirm noncreator, evidence and history. Leave PRs #169/#170 unmerged, LIVE untouched; report OWNER_REVIEW_READY only with all receipts."
   ],
   "restrictions": {
     "no_live": true,
@@ -123,5 +151,5 @@
     "no_owner_data_mutation": true,
     "no_unrelated_layout_edits": true
   },
-  "stage": "MOBILE_WIDTH_DEFECT_FOUND_AND_CORRECTED_SOURCE_AWAITING_EXACT_CI"
+  "stage": "MOBILE_EDITOR_WIDTH_CORRECTION_EXACT_HEAD_CI_IN_PROGRESS"
 }
