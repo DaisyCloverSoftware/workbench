@@ -56,8 +56,8 @@ try{
  assert.ok(String((await health.json()).version).includes(source))
  note('both-served-component-versions')
  stage='public-roots'
- const a=await context.request.get(RAT+'/api/v1/public/entities/rat/nodes/'+root)
- const b=await context.request.get(RAT+'/api/v1/public/entities/rat/nodes/'+target)
+ const a=await context.request.get(DEV+'/api/v1/public/entities/rat-catalogue/nodes/'+root)
+ const b=await context.request.get(DEV+'/api/v1/public/entities/rat-catalogue/nodes/'+target)
  assert.equal(a.status(),200);assert.equal(b.status(),200)
  report.rootName=(await a.json()).data.active.name
  assert.equal((await b.json()).data.active.id,target)
