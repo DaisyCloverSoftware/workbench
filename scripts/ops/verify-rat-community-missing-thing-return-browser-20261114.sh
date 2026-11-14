@@ -115,6 +115,9 @@ try {
  await expect(dialog.getByText('Selected: Product')).toBeVisible()
  await shot('02-missing-thing-create')
  const createResp=requestAt('/api/v1/rate-anything/standalone-things')
+ // The initial-rating card loads current options asynchronously after the creation redirect.
+ // Observe that real GET before interacting so its response cannot overwrite a just-selected verdict.
+ const ratingReady=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/rate-anything/rating'&&r.request().method()==='GET',{timeout:45000})
  await dialog.getByRole('button',{name:'Check and add'}).click()
  const created=await createResp
  assert.equal(created.status(),201)
@@ -132,7 +135,16 @@ try {
  assert.ok(returnTo.includes(root)&&returnTo.includes('connect='+report.newThingId))
  report.returnPath=returnTo
  await shot('03-pending-rating-context')
- await page.getByRole('radio',{name:'5: Exceptional. Strongest approval'}).click()
+ const optionResponse=await ratingReady
+ assert.equal(optionResponse.status(),200,'Canonical rating options must load before selecting a verdict')
+ await expect(page.locator('.rating-card__status').filter({hasText:'Checking your rating account'})).toHaveCount(0,{timeout:15000})
+ const thumb=page.getByRole('radio',{name:'5: Exceptional. Strongest approval'})
+ await expect(thumb).toBeEnabled()
+ await thumb.click()
+ await expect(thumb).toHaveAttribute('aria-checked','true',{timeout:6000})
+ await expect(page.locator('.rum-thumb-selector__selection')).toContainText('Thumbs up 5/5')
+ await expect(page.getByRole('button',{name:'Continue',exact:true})).toBeEnabled()
+ mark('real-rating-options-loaded-and-verdict-selected-in-DOM')
  await page.getByRole('button',{name:'Continue',exact:true}).click()
  await expect(page.locator('[data-rating-step="Category"]')).toBeVisible()
  await page.getByLabel('Search categories').fill('quality')
