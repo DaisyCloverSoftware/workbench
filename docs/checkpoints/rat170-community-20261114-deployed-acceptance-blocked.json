@@ -1,6 +1,6 @@
 {
   "workstream": "RUM RAT PR #170 — community editing and connected Things",
-  "status": "CLAIMED_ACCEPTANCE_BLOCKED_NO_APPROVED_EMAIL_VERIFICATION_CAPTURE",
+  "status": "CLAIMED_ACCEPTANCE_BLOCKED_INFRA_REVIEW_AND_AUTH_MAIL_CUSTODY",
   "timestamp_context": "2026-11-14",
   "application": {
     "repository": "DaisyCloverSoftware/rum",
@@ -180,7 +180,7 @@
       "test_script": "scripts/ops/verify-rat170-claimed-community-correction-browser.sh",
       "workbench_branch": "ops/rat170-api-featureflag-20261114",
       "branch_head_at_checkpoint": "a5fc7e548727b400b95d554eab825c81b38df3c3",
-      "final_result": "NOT RUN — cannot legitimately establish account email verification in current isolated DEV using approved delivery/capture",
+      "final_result": "Still blocked by approved DEV-only mailbox and protected verification handler; no current verified synthetic claimant",
       "approved_fixture_script": "scripts/ops/prepare-rat170-claimed-dev-test-fixture.sh",
       "fixture_script_branch": "ops/rat170-api-featureflag-20261114",
       "fixture_guard": "requires an existing rat169qa[a-z0-9]{6,24} account with hasVerifiedEmail() and preserves synthetic-only business entity scope",
@@ -226,7 +226,10 @@
       "unclaimed_control": "previously PASS, preserved",
       "no_test_or_owner_claim_mutated": true,
       "exact_blocker": "No already-verified eligible synthetic claimant and no approved isolated-DEV mailbox/capture route that demonstrates control of the email destination.",
-      "minimum_authorised_action": "Approve/provision a strictly DEV-only controllable email inbox/sink and delivery procedure, or provide a previously approved genuinely verified synthetic rat169qa claimant via the normal registration/resend and signed-link verification flow; then re-check eligibility, use guarded fixture and run claimant plus outsider browser/SQL acceptance without modifying LIVE."
+      "minimum_authorised_action": "Approve/provision a strictly DEV-only controllable email inbox/sink and delivery procedure, or provide a previously approved genuinely verified synthetic rat169qa claimant via the normal registration/resend and signed-link verification flow; then re-check eligibility, use guarded fixture and run claimant plus outsider browser/SQL acceptance without modifying LIVE.",
+      "claimed_claim_status": "Not created by current continuation; earlier fixture attempt rejected unverified account",
+      "remaining_action": "Obtain independent review/admission of Workbench PR #309 and protected notification flow; only then deploy capture, verify existing synthetic account by legitimate signed link, run guarded synthetic fixture and real-browser claimant/outsider tests",
+      "owner_review_ready": false
     },
     "requirements_not_complete": [
       "Actual claimed synthetic Thing browser acceptance of verified claimant direct management and outsider governed correction requires an email-verified approved DEV test claimant."
@@ -278,24 +281,28 @@
     }
   },
   "restrictions": {
-    "live": "READ-BACK PRESERVED — rat170-community-20261114-1705-final-safety-readback-r6 (API/web/worker and host match baseline)",
+    "live": "No LIVE mutation; all actions this continuation were read-only cluster checks and GitHub infrastructure PR/source edits",
     "app_prs": "PR #170 rechecked OPEN DRAFT UNMERGED; PR #169 not merged or touched by these operations",
     "migrations": "none",
     "reseed": "none",
     "claimant_authority": "none fabricated",
     "owner_entry_testing": "none",
     "relationship_approvals": "none forced; test edges remain unverified",
-    "auth_privacy": "no middleware changes; anonymous writes remain blocked"
+    "auth_privacy": "no middleware changes; anonymous writes remain blocked",
+    "applications": "RUM PR169/170 not updated, merged, rebuilt or redeployed",
+    "no_account_verification_override": true,
+    "no_public_mail_sink": true,
+    "no_claim_fixture_attempted_current_continuation": true
   },
   "next_operations": [
-    "First obtain approval and provision an isolated-DEV controlled mailbox or mail capture that can legitimately deliver a verification message to an approved synthetic claimant. Do not use application log access to impersonate mailbox ownership; no such approved capture was found.",
-    "Through the normal registration/resend and signed-link verification path, verify an explicitly allowed synthetic rat169qa account; independently confirm hasVerifiedEmail via canonical read model, without setting verification fields.",
-    "Only then run reviewed guarded prepare-rat170-claimed-dev-test-fixture.sh at an admissible Workbench ops branch head and verify the synthetic claim/manager receipt. The existing fixture reports synthetic test verification, not DNS proof.",
-    "Exercise claimed-direct-edit and outsider governed-correction browsers with separate DEV test contributors, verify unclaimed noncreator control and read-only SQL provenance/pending state, then mark OWNER_REVIEW_READY only if all requirements pass.",
-    "Do not rerun completed CI, deploys, RAT community/connection acceptance or alter LIVE, real accounts, real ratings or protected claims."
+    "Open Workbench PR #309 and obtain an authorised independent maintainer review of exactly the proposed two-file infrastructure change; approve recipient custody and choose an immutable official Mailpit image digest. Do not treat branch head or owner request as independent review.",
+    "Provide and review a privacy-preserving signed-link verification/account-recovery operation; earlier create_file attempt did not produce a file and must not be represented as available or bypassed. It must use normal Laravel notification and signed endpoint with no tokens/credentials in logs or relay.",
+    "After approval only: original Workbench install request/outbox, running capture imageID, internal-service/NetworkPolicy/no-public-ingress verification; register or recover one existing approved synthetic claimant; verify real signed link with canonical account readback; run guarded synthetic claimed-business fixture and claimant + outsider browser/SQL tests.",
+    "Delete isolated capture service and prove messages gone; verify LIVE and original RUM application images unchanged. Preserve previously passing connection/creation tests without rerunning.",
+    "Mark OWNER_REVIEW_READY only after actual claimed-Thing browser and SQL acceptance passes."
   ],
   "recovery_continued_at": "2026-11-14",
-  "last_continuation": "2026-11-14: isolated DEV verification-path recovery completed read-only",
+  "last_continuation": "2026-11-14 — bounded infrastructure recovery and dedicated Mailpit review PR submitted; no capture deployed",
   "pr_final_readback": {
     "pr170": "OPEN DRAFT UNMERGED",
     "source_head": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
@@ -315,5 +322,34 @@
     "no_email_verification_links_read": true,
     "no_credentials_accessed": true,
     "no_account_flags_changed": true
+  },
+  "mail_infrastructure_admission": {
+    "review_repository": "DaisyCloverSoftware/workbench",
+    "review_pr_number": 309,
+    "review_url": "https://github.com/DaisyCloverSoftware/workbench/pull/309",
+    "review_state": "OPEN DRAFT UNMERGED",
+    "review_head": "81d3d20a6f0eab2d32bfc387c75163949b385070",
+    "branch": "infra/rat170-isolated-dev-mail-capture-20261114",
+    "files": [
+      "scripts/ops/rat170-isolated-dev-mailcapture.sh",
+      "docs/operations/rat170-isolated-dev-mailcapture-review.md"
+    ],
+    "scope": "private isolated-DEV ephemeral Mailpit; SMTP only ClusterIP, pod-loopback HTTP UI, memory-only messages, restricted synthetic addresses, locked-down NetworkPolicy; no LIVE/app image/mail config change",
+    "current_state": "SOURCE PROPOSAL ONLY; NO DEPLOYMENT AND NO APPROVAL",
+    "review_readback": "2026-11-14 PR #309 has no reviews and is not merge-ready; verified changed files are only the two infrastructure-review files",
+    "expected_image_provenance": "official immutable Mailpit digest must be reviewed and supplied; no digest invented",
+    "notification_handler": "Not committed. Attempted authoring returned no GitHub commit and file absent on readback; do not claim or retry with alternate transport. Requires independent security review and supported implementation before processing links",
+    "mailbox_custody": "existing rat169qa* account with reserved @example.com test address; operator-only controlled mail capture requires explicit maintainer approval, no assertion of external mailbox ownership",
+    "admission_prerequisites": [
+      "independent maintainer security approval for capture and mailbox custody",
+      "verified immutable Mailpit digest",
+      "reviewed, permitted normal signed-link and password-broker handling that keeps secrets out of GitHub/relay/logs"
+    ],
+    "installed": false,
+    "mail_sent": false,
+    "account_verified": false,
+    "fixture_run": false,
+    "claimed_browser_test_run": false,
+    "no_credential_or_verification_link_seen": true
   }
 }
