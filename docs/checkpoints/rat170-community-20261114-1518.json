@@ -1,0 +1,27 @@
+{
+  "stage": "exact-head-CI-and-immutable-images-verified",
+  "repository": "DaisyCloverSoftware/rum",
+  "pull_request": 170,
+  "pr_state": "OPEN_DRAFT_UNMERGED",
+  "branch": "feat/rat-community-edits-connections-20261114",
+  "source_head": "e3bb818f1825d778f5084460057ba8bfb422b",
+  "ci_run_id": 43598480208,
+  "ci_jobs": "9/9 success",
+  "api_candidate": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+  "rat_candidate": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+  "predeploy_readback": "rat170-community-20261114-1518-predeploy-r1",
+  "baseline_api": "ghcr.io/daisycloversoftware/rum-api@sha256:24b789fefa9fbb12f02e4baaa14b14fcdb81afedfd9775982986a3d53d3109d2",
+  "baseline_rat": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:83c476fc811fb50a9ec1d04117e04dc9c5d319b1314ba99c349d222f9e1c12d9",
+  "prior_api_receipt": "rat170-community-20261114-1257-api-promote-a1",
+  "prior_frontend_receipt": "rat170-community-20261114-1259-frontend-promote-f1",
+  "prior_browser_failure": "rat170-community-20261114-browser-edit-connect-b01",
+  "prior_browser_failed_stage": "edit-unclaimed (404, now repaired in later source)",
+  "judge_readonly": "rat-community-20261114-judge-eligibility-readonly-a2",
+  "next": "promote exact-head API with guarded script, verify receipt and pod before exact-head RAT frontend, then real browser acceptance",
+  "restrictions": [
+    "no LIVE",
+    "no merge",
+    "no migrate",
+    "no reseed/reset"
+  ]
+}
