@@ -1,0 +1,50 @@
+{
+  "milestone": "deployed_browser_partial_acceptance_and_targeted_route_fix",
+  "running_deployed_source": "b1ce3d28900b4044b078da253467e1552a0b15ce",
+  "running_images": {
+    "api": "sha256:24b789fefa9fbb12f02e4baaa14b14fcdb81afedfd9775982986a3d53d3109d2",
+    "frontend": "sha256:83c476fc811fb50a9ec1d04117e04dc9c5d319b1314ba99c349d222f9e1c12d9"
+  },
+  "current_pr170_source": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
+  "exact_head_ci": 43598480208,
+  "ci_state_at_checkpoint": "queued",
+  "verified_browser": {
+    "test_A_receipt": "rat170-community-20261114-browser-create-a01",
+    "result": "PASS",
+    "test_thing_id": "01m7d2emwsnd0nxw6new8khbje",
+    "thing_name": "Carmine Nebula Archive rat170-community-a01",
+    "type_key": "community_aef7c94e8d14f28badd210515fd1b329bbdaa1aad01ed2afa9c5",
+    "rating_event_id": "01m7d2eqsmhmhkesg20cd2vxp1",
+    "publication_state": "published",
+    "catalogue_reuse": "PASS",
+    "dji_cj_regression": "rat170-community-20261114-browser-djicj-r01"
+  },
+  "failed_browser": {
+    "test_B_receipt": "rat170-community-20261114-browser-edit-connect-b01",
+    "failure": "authenticated GET and POST /things/{testEntity}/edits both returned 404",
+    "stage": "edit-unclaimed",
+    "account_id": "01m7d2gjf0qexj8rczbfbgf2fk",
+    "no_edit_or_connection_mutations_from_B": true
+  },
+  "read_only_diagnosis": {
+    "route_receipt": "rat170-community-20261114-1304-edit404-diag-d1",
+    "findings": "Live RAT nginx correct, Laravel edit routes registered, unauthenticated GET 401",
+    "eligibility_receipt": "rat170-community-20261114-1308-eligibility-diag-d2",
+    "test_entity_status": "active/published/public/community_governed",
+    "root_cause": "RAT-only edit/connection routes had feature.flag:universal_entities; canonical DEV intentionally has broad flag off. Existing standalone Thing and type routes are not gated by it."
+  },
+  "targeted_source_fix": {
+    "files": [
+      "apps/api/routes/rate-anything-web.php",
+      "apps/api/tests/Feature/Entity/ThingEditTest.php",
+      "apps/api/tests/Feature/Entity/RatCommunityContributionTest.php"
+    ],
+    "description": "Removed broad flag from only 5 isolated RAT routes while retaining auth/throttle, added tests with flag disabled and privacy/anonymous checks.",
+    "head": "e3bb818f1825d778f5084460057ba7ea8bfb422b"
+  },
+  "next_action": "Check exact-head CI 43598480208 once; if all required jobs pass, recover candidate images and replace only necessary isolated API/frontend artifacts, verify served versions, rerun B acceptance with separate DEV account. No rerun of A's already-persisted test Thing or rating.",
+  "owner_rating_unchanged": true,
+  "live_unchanged": true,
+  "no_reset_or_reseed": true,
+  "pr170_unmerged": true
+}
