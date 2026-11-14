@@ -1,0 +1,34 @@
+{
+  "milestone": "separate-read-only-investigations",
+  "source_sha_at_inspection": "b1ce3d28900b4044b078da253467e1552a0b15ce",
+  "rating": {
+    "entityId": "01m7bswfh0a3evf271ye4taaf0",
+    "name": "The Professional Idiots",
+    "receipts": [
+      "rat-community-20261114-existing-owner-rating-readonly-a1",
+      "rat-community-20261114-judge-eligibility-readonly-a2"
+    ],
+    "eventCount": 1,
+    "eventStatus": "active",
+    "audience": "public",
+    "admissionState": "needs_verdict",
+    "score": 0,
+    "scheme": "rum_rate_anything_general_v1",
+    "source": "rate_anything",
+    "ordinaryNeedsQueueSourceAndSchemeEligible": true,
+    "viewerEligibilityAndScopeUnverified": true,
+    "observation": "RAT public entity workspace displays a static Needs Attention placeholder because public explorer data does not expose per-rating Judge admission. A separate account-specific viewer/queue check is needed to distinguish a Judge API inclusion issue from viewer eligibility or scope. Do not mutate event, state, scheme, or score."
+  },
+  "coverImage": {
+    "status": "OUTSTANDING_CAPABILITY",
+    "reasons": [
+      "Safe media uploads accept only avatar and rate_my purposes.",
+      "The existing media_assets constraint permits only profile_avatar and rate_my attachments.",
+      "MediaVisibility does not provide public Thing-cover attachment access.",
+      "The community editing UI records HTTPS image_url as a pending correction, not an uploaded or displayed cover image."
+    ],
+    "required_separate_work": "Implement first-class moderated Thing cover/profile attachment using MediaPipeline, safety limits, attachment access, moderation and claimant/community permissions. Do not enable arbitrary URLs or relax safety constraints in PR170."
+  },
+  "rating_mutation": false,
+  "live_mutation": false
+}
