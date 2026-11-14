@@ -300,7 +300,7 @@ try {
   assert.equal(catalogResponse.status(),200)
   const catalogue = await catalogResponse.json()
   assert.ok(catalogue.data.some(o => o.classificationKey === report.classificationKey && o.label === typeLabel))
-  await expect(otherDialog.getByRole('button',{name: new RegExp('^RAT169 DEV digital catalogue type')})).toBeVisible()
+  await expect(otherDialog.getByRole('button',{name: typeLabel + ' Existing type',exact:true})).toBeVisible()
   await expect(otherDialog.getByRole('button',{name: new RegExp('^Add “RAT169 DEV digital catalogue type')})).toHaveCount(0)
   await otherPicker.press('Enter')
   await expect(otherDialog.getByText('Selected: ' + typeLabel)).toBeVisible()
