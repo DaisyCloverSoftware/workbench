@@ -50,7 +50,8 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 const context=await browser.newContext({viewport:{width:1100,height:900}})
 const page=await context.newPage()
 const report={source,runId:rid,result:'INCOMPLETE',screenshots:[],checks:[],blockedWrites:[],errors:[],typePosts:0,thingPosts:0}
-const name='The Professional Idiots',label='YouTube Channel',description='This is a read-only type-reuse acceptance form; do not create the Thing.'
+let name='The Professional Idiots'
+const label='YouTube Channel',description='This is a read-only type-reuse acceptance form; do not create the Thing.'
 const note=(name)=>{report.checks.push(name);console.log('RAT169_REUSE_PASS='+name)}
 const shot=async name=>{await page.getByRole('dialog',{name:'Add a Thing',exact:true}).screenshot({path:out+'/'+name+'.jpg',type:'jpeg',quality:45,animations:'disabled'});report.screenshots.push(name);console.log('RAT169_REUSE_SCREENSHOT='+name)}
 const normalize=s=>s.normalize('NFC').toLowerCase().replace(/\s+/g,' ').trim()
@@ -79,8 +80,18 @@ try{
   note('served-versions-match-source')
   stage='owner-no-match'
   await page.goto(rat+'/search?q='+encodeURIComponent(name),{waitUntil:'domcontentloaded'})
-  await expect(page.getByRole('button',{name:'Add a Thing',exact:true})).toBeVisible({timeout:25000})
-  await page.getByRole('button',{name:'Add a Thing',exact:true}).click()
+  const add=page.getByRole('button',{name:'Add a Thing',exact:true})
+  try {
+    await expect(add).toBeVisible({timeout:12000})
+  } catch {
+    // The owner may have created their Thing since the earlier acceptance.
+    // Never delete or overwrite it to manufacture a no-match for this test.
+    name='Violet Glacier Semaphore '+rid
+    await page.goto(rat+'/search?q='+encodeURIComponent(name),{waitUntil:'domcontentloaded'})
+    await expect(add).toBeVisible({timeout:25000})
+  }
+  report.prefilledName=name
+  await add.click()
   const dialog=page.getByRole('dialog',{name:'Add a Thing',exact:true})
   await expect(dialog).toBeVisible()
   stage='auth'
