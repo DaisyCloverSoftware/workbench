@@ -101,7 +101,16 @@
       "final_rating": "not submitted",
       "final_connection": "not created",
       "screenshot_read_request": "rat170-community-20261114-missing-rating-failure-shot-i01",
-      "screenshot_read_status_at_checkpoint": "no outbox observed; do not replay request"
+      "screenshot_read_status_at_checkpoint": "COMPLETED",
+      "screenshot_receipt": {
+        "id": "rat170-community-20261114-missing-rating-failure-shot-i01",
+        "status": "completed",
+        "exit_code": 0,
+        "screenshot_stage": "99-failure",
+        "jpeg_bytes": 80100,
+        "observation": "Step 2 Value screen shows 'Choose one of the six RUM positions', with no highlighted selected rating and disabled Continue after browser clicked '5'; diagnosis uncertain, possible state reset/race or control handling.",
+        "action": "inspect value selector / loading and draft state, preserve pending entity rather than recreating it"
+      }
     },
     "claimed_thing": {
       "fixture_attempt": "rat170-community-20261114-e3bb-claimed-fixture-c01",
