@@ -6,7 +6,7 @@
   "pr": 170,
   "pr_state": "OPEN DRAFT UNMERGED",
   "branch": "feat/rat-community-edits-connections-20261114",
-  "source_at_checkpoint": "7cd4c2b12a5e26629c51b7351c4d1997182432f0",
+  "source_at_checkpoint": "06da14c2ebf7be2fb28b83113ea6a4bf41b373e7",
   "baseline": {
     "old_source": "e7234490ffec27e0d645911bd62a18d746d3758e",
     "old_ci_run": 43637669789,
@@ -60,10 +60,22 @@
     "needs_attention": "Separate issue"
   },
   "CI": {
-    "exact_head_run": 43642386312,
-    "last_observed": "rate-anything in_progress; other source jobs queued, final new source commit 7cd4; do not reuse older CI",
-    "full_validation": "NOT COMPLETE",
-    "image_identities": "NOT PUBLISHED"
+    "exact_head_run": 43643549773,
+    "final_head": "06da14c2ebf7be2fb28b83113ea6a4bf41b373e7",
+    "status": "queued; exact-head 9/9 not yet complete",
+    "prior_run": {
+      "id": 43642386312,
+      "head": "7cd4c2b12a5e26629c51b7351c4d1997182432f0",
+      "result": "API Pint failed on four files; exact disposable formatting diff obtained and applied",
+      "format_diff_id": "rat170-issue8-pint-diff-20261114-p1",
+      "fixed_commits": [
+        "1b1f639d8c1de78dd2783b25a120dd4718e21032",
+        "a23a33668b6272b26ab250f8c54218eba99a8428",
+        "7333cd7ad11a80ee158fc0d67551bb422bd4e71d",
+        "f71f8ceeac1b68077b3276426f0499b71ce14cc2"
+      ]
+    },
+    "semantic_followup": "Dedupe must include evidence, not only proposed value; source b9480 and test 06da verify different evidence remains distinct."
   },
   "operations": {
     "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
@@ -72,14 +84,26 @@
     "workbench_head_at_readonly": "44b5f0e07a4953a1408e116f3315ef0e00671e9e",
     "deploy": "NOT REQUESTED",
     "browser": "NOT RUN",
-    "sql": "owner diagnostic only"
+    "sql": "owner diagnostic only",
+    "readonly_runtime_result": {
+      "id": "rat170-issue8-runtime-readonly-20261114-r1",
+      "status": "COMPLETED 6/6",
+      "rat_image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c",
+      "api_image": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "staff_console_deployed": false,
+      "live_api": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
+      "live_web": "ghcr.io/daisycloversoftware/rum-web:sha-8106675"
+    },
+    "browser_script": "scripts/ops/verify-rat170-issue8-pending-review-browser-20261114.sh",
+    "browser_source_guard": "7cd4c2... must be revised after final successful exact source",
+    "sql_script": "scripts/ops/inspect-rat170-issue8-revisions-sql-20261114.sh",
+    "tools_head_at_last": "1382c9d288ec74c765136a470359215bd96047c1"
   },
   "next": [
-    "Read exact-head CI run 43642386312 and inspect failed job logs (not older cancelled runs), correct only evidenced source/test issues if needed.",
-    "Recover original read-only runtime relay result; verify current RAT/API and staff console ingress/deployment availability. Never assume a moderator route is deployed.",
-    "After 9/9 CI PASS and immutable image publication, prepare reviewed guarded Workbench isolated-DEV deploy for API and RAT frontend only, preserve LIVE, databases, unrelated DEV; verify running digests and served version.",
-    "Run real-browser member pending/replacement/withdrawal and revision-history acceptance on isolated synthetic DEV Thing only. Do not mutate the owner's two pending image proposals.",
-    "Verify staff review roles and stale-change protection in API tests; if staff host unavailable, report browser moderator acceptance as separate privilege/identity prerequisite rather than faking MFA.",
-    "Perform read-only persistence/provenance/outbox checks, checkpoint exact commits/receipts and separate unresolved product tasks. Keep PR169/170 unmerged, LIVE unchanged."
+    "Read PR170 exact source 06da and CI run 43643549773. Do not rerun CI or use old canceled runs. Inspect API Pint/PHPStan/PHPUnit and RAT/admin test outcomes; fix only evidenced failures, preserving all existing app behavior.",
+    "Once 9/9 exact head PASS, recover immutable API/RAT digests from job logs and running image identities first. Use reviewed Workbench isolated-DEV API+frontend promotion scripts guarded by old images and LIVE preservation, do not deploy web/admin/LIVE by default.",
+    "Update browser verifier to final exact source SHA and verify real member pending/duplicate/supersede/withdraw states on pre-existing synthetic DEV Thing; owner Thing and its original 2 pending suggestions must not be mutated.",
+    "Complete read-only DB/outbox provenance check. Staff review unit tests use separate admin guard + MFA + purpose, but real staff UI is not currently deployed to DEV; do not bypass staff identity readiness or claim staff browser success.",
+    "Record final receipts, boundaries and unresolved staff console accessibility. Only declare full Issue8 owner-review-ready when functioning staff review is actually usable and member acceptance passes."
   ]
 }
