@@ -141,6 +141,12 @@ try {
  await evidenceUrl.fill('https://example.org/rat-qa-evidence')
  await evidenceNote.fill('Harmless supporting evidence for isolated DEV acceptance. '+rid)
  await shot('05-1440-ready-submit')
+ await desc.fill('')
+ await button.click()
+ await expect(about.getByRole('alert')).toContainText('Enter a meaningful proposed value before submitting an edit.')
+ await shot('06-1440-validation-state')
+ await desc.fill(proposal)
+ mark('empty-edit-validation-shown-without-submission')
  const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/rate-anything/things/'+root+'/edits'&&r.request().method()==='POST',{timeout:30000})
  await button.click()
  const resp=await saved;assert.equal(resp.status(),201)
@@ -153,7 +159,7 @@ try {
  report.savedDescription=proposal
  await expect(about.getByRole('status')).toContainText('Edit applied and recorded as an attributable revision.',{timeout:25000})
  await expect(about.locator('.relationship').first()).toContainText('description')
- await shot('06-1440-saved-revision')
+ await shot('07-1440-saved-revision')
  mark('unclaimed-noncreator-edit-and-attributable-revision-visible')
  stage='reload'
  await page.reload({waitUntil:'domcontentloaded'})
@@ -161,7 +167,7 @@ try {
  await expect(page.locator('.rat-workspace-description')).toHaveText(proposal,{timeout:28000})
  await page.getByRole('button',{name:'Edit or suggest a correction'}).click()
  await expect(page.locator('.rat-workspace-profile .entity-about .relationship').first()).toContainText('description',{timeout:28000})
- await shot('07-1440-persisted-history')
+ await shot('08-1440-persisted-history')
  mark('canonical-edit-persists-and-history-survives-refresh')
  report.result='PASS'
 }catch(e){
