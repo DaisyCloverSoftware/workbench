@@ -1,5 +1,5 @@
 {
-  "stage": "exact-head-CI-and-immutable-images-verified",
+  "stage": "API promotion submitted; result not observed",
   "repository": "DaisyCloverSoftware/rum",
   "pull_request": 170,
   "pr_state": "OPEN_DRAFT_UNMERGED",
@@ -29,5 +29,43 @@
     "status": "failed",
     "exit_code": 78,
     "reason": "incorrect source SHA in request argument (37 characters); script guard correctly blocked, no rollout"
-  }
+  },
+  "api_promotion": {
+    "blocked_request": "rat170-community-20261114-1522-api-e3bb-a1",
+    "blocked_exit": 78,
+    "blocked_reason": "37-character request SHA; safety guard prevented mutation",
+    "active_request": "rat170-community-20261114-1525-api-e3bb-a2",
+    "active_status": "submitted, outbox not yet observed",
+    "source": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
+    "api_image": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+    "ops_commit": "22a741a891015b4d4240edd6e1ce35c019eb6cd2"
+  },
+  "latest_ci": {
+    "run": 43598480208,
+    "conclusion": "success",
+    "jobs_passed": 9
+  },
+  "old_community_api": "ghcr.io/daisycloversoftware/rum-api@sha256:24b789fefa9fbb12f02e4baaa14b14fcdb81afedfd9775982986a3d53d3109d2",
+  "old_community_frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:83c476fc811fb50a9ec1d04117e04dc9c5d319b1314ba99c349d222f9e1c12d9",
+  "live_untouched": true,
+  "prs_unmerged": true,
+  "migration_not_repeated": true,
+  "acceptance": {
+    "prior_source": "b1ce3d28900b4044b078da253467e1552a0b15ce",
+    "prior_creation_rating_result": "PASS",
+    "prior_DJI_CJ_result": "PASS",
+    "prior_edit_connect_result": "FAIL HTTP 404",
+    "latest_source_tested_in_deployed_browser": false,
+    "claimed_dev_test_fixture_available": false
+  },
+  "rating": {
+    "entity": "01m7bswfh0a3evf271ye4taaf0",
+    "event_status": "active",
+    "audience": "public",
+    "admission_state": "needs_verdict",
+    "queue_data_eligible": true,
+    "viewer_scope_not_verified": true,
+    "read_only_receipt": "rat-community-20261114-judge-eligibility-readonly-a2"
+  },
+  "next_action": "Read outbox rat170-community-20261114-1525-api-e3bb-a2. If successful, verify running API pod digest and served API version; then submit one guarded RAT frontend promotion with current Workbench ops head; then deployed browser acceptance. If failed, inspect exact receipt before any retry."
 }
