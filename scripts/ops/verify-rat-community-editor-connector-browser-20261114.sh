@@ -98,6 +98,13 @@ try{
  assert.equal(me.status(),200)
  report.member=(await me.json()).data.id
  note('separate-member-authenticated')
+ stage='youtube-classification-regression'
+ const youtube=await context.request.get(RAT+'/api/v1/rate-anything/thing-types?q=YouTube%20Channel',{headers:{'Cache-Control':'no-cache'}})
+ assert.equal(youtube.status(),200)
+ const youtubeResult=await youtube.json()
+ assert.ok(youtubeResult.data.some(x=>x.label==='YouTube Channel'&&x.entityType==='digital_resource'&&x.source==='classification'))
+ report.youtubeClassificationReused=true
+ note('youtube-channel-canonical-classification-preserved')
  stage='edit-unclaimed'
  const desc='Unclaimed community edit for DEV only '+rid
  await editor.getByLabel('Proposed Thing description').fill(desc)
