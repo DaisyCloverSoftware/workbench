@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${1:-}" == image ]]; then
+  [[ $# -eq 3 ]] || exit 64
+  id="$2"; stage="$3"
+  [[ "$id" =~ ^[a-z0-9-]{8,42}$ && "$stage" =~ ^[0-9]{2}-[a-z0-9-]+$ ]] || exit 64
+  file="/tmp/rat-community-browser-$id/$stage.jpg"
+  [[ -f "$file" && ! -L "$file" ]] || exit 66
+  echo "RAT_COMMUNITY_SCREENSHOT_STAGE=$stage"
+  echo "RAT_COMMUNITY_SCREENSHOT_BYTES=$(wc -c < "$file")"
+  printf 'RAT_COMMUNITY_SCREENSHOT_BASE64='
+  base64 -w0 "$file"; printf '\n'
+  exit 0
+fi
 [[ $# -eq 5 ]] || { echo 'usage: <source> <run-id> <root-id> <target-id> <target-name>'; exit 64; }
 source="$1"; rid="$2"; rootId="$3"; targetId="$4"; targetName="$5"
 [[ "$source" =~ ^[0-9a-f]{40}$ && "$rid" =~ ^[a-z0-9-]{8,42}$ ]] || exit 64
