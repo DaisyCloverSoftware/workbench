@@ -53,8 +53,8 @@ if($authorBrowseEligible&&$event){
     foreach(["needs"=>"authorNeedsQueueFirstPageContainsRating","all"=>"authorAllQueueFirstPageContainsRating","others"=>"authorOthersScopeContainsRating","mates"=>"authorMatesScopeContainsRating"] as $mode=>$key){
       $scope=in_array($mode,["others","mates"],true)?$mode:"all";
       $queue=in_array($mode,["others","mates"],true)?"needs":$mode;
-      $legacy=$judge->queue($author,$queue,$scope,null,null,50);
-      $result=$canonical->mergeQueue($author,$queue,$scope,null,null,50,$legacy);
+      $legacy=$judge->queue($author,$queue,$scope,null,null,20);
+      $result=$canonical->mergeQueue($author,$queue,$scope,null,null,20,$legacy);
       $scopeResult[$key]=collect($result["data"])->contains(fn($item)=>(string)($item["id"]??"")===(string)$event->id);
       if($mode==="needs")$scopeResult["authorNeedsQueueHasMore"]=(bool)($result["meta"]["hasMore"]??false);
     }
