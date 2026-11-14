@@ -295,7 +295,7 @@
     "no_claim_fixture_attempted_current_continuation": true
   },
   "next_operations": [
-    "Open Workbench PR #309 and obtain an authorised independent maintainer review of exactly the proposed two-file infrastructure change; approve recipient custody and choose an immutable official Mailpit image digest. Do not treat branch head or owner request as independent review.",
+    "First recover original outbox relay/control-outbox/rat170-mail-infra-20261114-final-readback-a02.json (read-only check); do not resubmit. Then obtain independent maintainer security review of Workbench PR #309 (OPEN DRAFT) and immutable Mailpit image approval; do not deploy before approval.",
     "Provide and review a privacy-preserving signed-link verification/account-recovery operation; earlier create_file attempt did not produce a file and must not be represented as available or bypassed. It must use normal Laravel notification and signed endpoint with no tokens/credentials in logs or relay.",
     "After approval only: original Workbench install request/outbox, running capture imageID, internal-service/NetworkPolicy/no-public-ingress verification; register or recover one existing approved synthetic claimant; verify real signed link with canonical account readback; run guarded synthetic claimed-business fixture and claimant + outsider browser/SQL tests.",
     "Delete isolated capture service and prove messages gone; verify LIVE and original RUM application images unchanged. Preserve previously passing connection/creation tests without rerunning.",
@@ -350,6 +350,23 @@
     "account_verified": false,
     "fixture_run": false,
     "claimed_browser_test_run": false,
-    "no_credential_or_verification_link_seen": true
+    "no_credential_or_verification_link_seen": true,
+    "final_runtime_request": {
+      "id": "rat170-mail-infra-20261114-final-readback-a02",
+      "control_commit": "98544342893c8b79afb97ca8a8775e06c949485b",
+      "status": "submitted; original outbox absent after bounded checks; do not resubmit; previously verified existing runtime image identities preserved through preflight"
+    },
+    "infra_pr_validation": {
+      "pr": 309,
+      "head": "81d3d20a6f0eab2d32bfc387c75163949b385070",
+      "state": "OPEN DRAFT UNMERGED",
+      "reviewers": null,
+      "approved": false,
+      "mergeable": true,
+      "changed_files": [
+        "scripts/ops/rat170-isolated-dev-mailcapture.sh",
+        "docs/operations/rat170-isolated-dev-mailcapture-review.md"
+      ]
+    }
   }
 }
