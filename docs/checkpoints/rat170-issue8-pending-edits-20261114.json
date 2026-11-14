@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "workstream": "RUM RAT PR #170 — Issue 8 pending Thing-edit resolution journey",
+  "date": "2026-11-14",
+  "repo": "DaisyCloverSoftware/rum",
+  "pr": 170,
+  "pr_state": "OPEN DRAFT UNMERGED",
+  "branch": "feat/rat-community-edits-connections-20261114",
+  "source_at_checkpoint": "7cd4c2b12a5e26629c51b7351c4d1997182432f0",
+  "baseline": {
+    "old_source": "e7234490ffec27e0d645911bd62a18d746d3758e",
+    "old_ci_run": 43637669789,
+    "old_ci": "success",
+    "previous_browser": "mobile editor correction not owner-ready at prior checkpoint; do not misrepresent"
+  },
+  "issue8_read_only_owner_evidence": {
+    "request": "rat170-issue8-owner-revision-readonly-a1",
+    "status": "COMPLETED exit 0",
+    "thing": "The Professional Idiots",
+    "owner_entity_id": "01m7bswfh0a3evf271ye4taaf0",
+    "revision_ids": [
+      "01m7dxvjchbmnjjnatw0av6a7m",
+      "01m7dxwv5cnczfsjset8emjvap"
+    ],
+    "submitted_utc": [
+      "2026-11-14T21:01:47Z",
+      "2026-11-14T21:02:29Z"
+    ],
+    "content_compared": "The two separate revisions have the same exact normalized HTTPS URL, content SHA256 prefix 65bf10c7b074 and length 133; no evidence included; same author; both pending.",
+    "owner_changes": "NONE (read-only; values deliberately not output)"
+  },
+  "source_implementation": {
+    "files": [
+      "apps/api/app/Services/ThingEditService.php",
+      "apps/api/app/Http/Controllers/Api/V1/ThingEditController.php",
+      "apps/api/app/Http/Controllers/Api/V1/Admin/AdminThingEditReviewController.php",
+      "apps/api/routes/entity-corrections-api.php",
+      "apps/api/routes/rate-anything-web.php",
+      "apps/api/routes/rateurmate-web.php",
+      "apps/rate-anything/src/ThingEditPanel.tsx",
+      "apps/rate-anything/src/thingEditApi.ts",
+      "apps/rate-anything/src/thing-edit-form.css",
+      "apps/admin/src/ThingEditReviews.tsx",
+      "apps/admin/src/types.ts",
+      "apps/admin/src/api.ts",
+      "apps/admin/src/App.tsx",
+      "apps/admin/src/thing-edit-reviews.css",
+      "apps/api/tests/Feature/Entity/ThingEditModerationJourneyTest.php",
+      "apps/rate-anything/src/thingEditModerationJourney.test.ts",
+      "docs/development/RAT_THING_EDIT_MODERATION_ISSUE8.md"
+    ],
+    "design": "Keep canonical EntityProfileRevision state and existing audit/outbox; identical pending deduped for same author/field/value; explicit replacement preserves superseded; author may withdraw; privileged staff MFA purpose-bound review approves/rejects; name/description review compare-and-set against stale entity; image reference approval does NOT render/upload image; plain-language member history status and private evidence.",
+    "no_new_database": true,
+    "no_owner_entry_mutation": true,
+    "source_api_changes": "yes, compatible API deployment required after exact CI",
+    "trust_console": "Source tab implemented in existing Trust Console; isolated DEV admin host actual availability must be checked. Do not enable unreviewed admin ingress.",
+    "claimed_permissions": "Preserved verified management and outsider pending corrections; no self approval",
+    "community_permissions": "Preserved direct edits on unclaimed Things",
+    "cover_upload": "Separate issue; still unsupported",
+    "needs_attention": "Separate issue"
+  },
+  "CI": {
+    "exact_head_run": 43642386312,
+    "last_observed": "rate-anything in_progress; other source jobs queued, final new source commit 7cd4; do not reuse older CI",
+    "full_validation": "NOT COMPLETE",
+    "image_identities": "NOT PUBLISHED"
+  },
+  "operations": {
+    "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
+    "status": "submitted; outbox not yet read",
+    "workbench_branch": "ops/rat-community-20261114-isolated",
+    "workbench_head_at_readonly": "44b5f0e07a4953a1408e116f3315ef0e00671e9e",
+    "deploy": "NOT REQUESTED",
+    "browser": "NOT RUN",
+    "sql": "owner diagnostic only"
+  },
+  "next": [
+    "Read exact-head CI run 43642386312 and inspect failed job logs (not older cancelled runs), correct only evidenced source/test issues if needed.",
+    "Recover original read-only runtime relay result; verify current RAT/API and staff console ingress/deployment availability. Never assume a moderator route is deployed.",
+    "After 9/9 CI PASS and immutable image publication, prepare reviewed guarded Workbench isolated-DEV deploy for API and RAT frontend only, preserve LIVE, databases, unrelated DEV; verify running digests and served version.",
+    "Run real-browser member pending/replacement/withdrawal and revision-history acceptance on isolated synthetic DEV Thing only. Do not mutate the owner's two pending image proposals.",
+    "Verify staff review roles and stale-change protection in API tests; if staff host unavailable, report browser moderator acceptance as separate privilege/identity prerequisite rather than faking MFA.",
+    "Perform read-only persistence/provenance/outbox checks, checkpoint exact commits/receipts and separate unresolved product tasks. Keep PR169/170 unmerged, LIVE unchanged."
+  ]
+}
