@@ -19,3 +19,23 @@ The genuine isolated RAT owner-form browser acceptance used **The Professional I
 An independent separate DEV test journey explicitly created a new persisted classification, a pending Thing, verified a refresh and a fresh form's HTTP catalogue reuse, and completed initial rating. An independent SQL read-back found the primary canonical classification assignment and exactly one rating event for the published test Thing. DJI/CJ, linked navigation and privacy regression browser checks passed.
 
 Supporting original Workbench receipt identifiers and machine-readable outcomes are in [acceptance-report.json](acceptance-report.json). No application rerun, extra migration, reset, reseed, PR merge or LIVE deployment was done for this evidence archive.
+
+## Final independent cross-checks
+
+- Actual existing YouTube Channel (`digital_resource`) classification: `01m7bsp1hsyck3rkmpbtt5ptxx`, key `community_788e6ae3bfcd391d111e3ca31a1332ebf92906d0d0868e7cf7bb`; canonical classification and synonym read-back: **PASS**.
+- Real server-backed type reuse through the deployed browser, keyboard selection, fresh form and refresh: **PASS**. The no-match entry for this supplementary check was an isolated test fixture; the type catalogue itself was real. No type or Thing POSTs.
+- Independent SQL for separate DEV test Thing confirms a primary, unverified classification assignment, published state, and one rating event: **PASS**.
+- Current-head exact CI: all nine jobs **PASS**. API and RAT frontend image digests and /VERSION agree.
+- Live search, DJI/CJ linked navigation and private-person boundary: **PASS**.
+- The originally owner-prefilled **The Professional Idiots** entry was never submitted.
+
+### More deployed screenshots
+
+- [Real existing YouTube Channel appears as a reusable catalogue type](real-reuse-01-existing-type-choice.jpg).
+- [Existing YouTube Channel selected without creating another classification](real-reuse-02-existing-type-selected.jpg).
+- [Existing YouTube Channel remains selected after reload and server read-back](real-reuse-03-server-reuse-after-refresh.jpg).
+- [Separate DEV test Thing's initial rating page with its user-facing type](persist-06-initial-rating-pending.jpg).
+- [Separate DEV type selected from a fresh server-backed form](persist-08-fresh-form-reuse.jpg).
+- [Separate DEV test initial rating submitted](persist-07-initial-rating-complete.jpg).
+
+[Full final regression and canonical read-back data](final-crosschecks.json).

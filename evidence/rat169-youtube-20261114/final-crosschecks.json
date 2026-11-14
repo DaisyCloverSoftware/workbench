@@ -1,0 +1,77 @@
+{
+  "sourceSha": "5939cf2b5a34f74882486c857ed66b1a11f769e1",
+  "verifiedInIsolatedDev": true,
+  "realYouTubeReuse": {
+    "receipt": "rat169-youtube-20261114-existing-reuse-b07",
+    "report": {
+      "source": "5939cf2b5a34f74882486c857ed66b1a11f769e1",
+      "runId": "rat169-youtube-reuse-b07",
+      "result": "PASS",
+      "screenshots": [
+        "01-existing-type-choice",
+        "02-existing-type-selected",
+        "03-server-reuse-after-refresh"
+      ],
+      "checks": [
+        "served-versions-match-source",
+        "real-server-classification-reused-with-keyboard-without-writes",
+        "refresh-reloads-same-canonical-classification"
+      ],
+      "blockedWrites": [],
+      "errors": [],
+      "typePosts": 0,
+      "thingPosts": 0,
+      "controlledNoMatch": true,
+      "prefilledName": "Violet Glacier Semaphore rat169-youtube-reuse-b07",
+      "catalogueClassification": {
+        "id": "01m7bsp1hsyck3rkmpbtt5ptxx",
+        "key": "community_788e6ae3bfcd391d111e3ca31a1332ebf92906d0d0868e7cf7bb",
+        "kind": "digital_resource",
+        "label": "YouTube Channel"
+      }
+    },
+    "controlledNoMatchOnly": true,
+    "allTypeCatalogueReadsReal": true
+  },
+  "canonicalYouTubeClassification": {
+    "receipt": "rat169-youtube-20261114-type-collision-after-d06",
+    "readback": {
+      "target": "youtube channel",
+      "canonical_matches": [
+        {
+          "key": "community_788e6ae3bfcd391d111e3ca31a1332ebf92906d0d0868e7cf7bb",
+          "status": "active",
+          "kind": "digital_resource"
+        }
+      ],
+      "synonym_matches": [],
+      "total_classifications": 31
+    }
+  },
+  "separateTestThing": {
+    "receipt": "rat169-youtube-20261114-persistence-browser-b04",
+    "databaseReceipt": "rat169-youtube-20261114-canonical-db-b04",
+    "database": {
+      "entity_present": true,
+      "entity_publication_state": "published",
+      "entity_visibility": "public",
+      "structural_kind_correct": true,
+      "classification_present": true,
+      "classification_structural_kind_correct": true,
+      "canonical_assignment_present": true,
+      "canonical_assignment_primary": true,
+      "canonical_assignment_state": "unverified",
+      "journey_present": true,
+      "journey_state": "active",
+      "rating_event_count": 1
+    }
+  },
+  "regressionsReceipt": "rat169-youtube-20261114-dji-cj-browser-c05",
+  "notes": [
+    "The Professional Idiots was not submitted by these tests.",
+    "The live YouTube Channel classification was reused, never duplicated by visual acceptance.",
+    "The supplementary reuse test used a controlled no-match entry because later fresh names sometimes resolved similar existing catalogue Things; all type lookups and keyboard selections used the deployed server.",
+    "Earlier test-only failures b02/b03/b05/b06 were documented and did not trigger application repairs, resets or migration repeats.",
+    "The application PR remains draft/unmerged; LIVE has not been deployed."
+  ]
+}
