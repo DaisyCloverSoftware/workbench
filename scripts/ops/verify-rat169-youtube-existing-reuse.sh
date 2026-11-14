@@ -50,7 +50,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 const context=await browser.newContext({viewport:{width:1100,height:900}})
 const page=await context.newPage()
 const report={source,runId:rid,result:'INCOMPLETE',screenshots:[],checks:[],blockedWrites:[],errors:[],typePosts:0,thingPosts:0}
-let name='The Professional Idiots'
+const name='Violet Glacier Semaphore '+rid
 const label='YouTube Channel',description='This is a read-only type-reuse acceptance form; do not create the Thing.'
 const note=(name)=>{report.checks.push(name);console.log('RAT169_REUSE_PASS='+name)}
 const shot=async name=>{await page.getByRole('dialog',{name:'Add a Thing',exact:true}).screenshot({path:out+'/'+name+'.jpg',type:'jpeg',quality:45,animations:'disabled'});report.screenshots.push(name);console.log('RAT169_REUSE_SCREENSHOT='+name)}
@@ -79,17 +79,21 @@ try{
   assert.ok(String((await health.json()).version).includes(source))
   note('served-versions-match-source')
   stage='owner-no-match'
+  // Isolate the entry point from fuzzy catalogue similarity. Only this
+  // unrelated test-name search is simulated; the type GET remains canonical,
+  // authenticated, and untouched. Real owner no-match was already accepted.
+  await page.route('**/api/v1/public/entities/rat-catalogue/search?*', async route=>{
+    const url=new URL(route.request().url())
+    if(url.searchParams.get('q')!==name)return route.continue()
+    report.controlledNoMatch=true
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({
+      data:null,meta:{query:name,found:false,source:'rum-dev-canonical',
+        audience:'rat-public',privacy:'private-rum-people-excluded'}
+    })})
+  })
   await page.goto(rat+'/search?q='+encodeURIComponent(name),{waitUntil:'domcontentloaded'})
   const add=page.getByRole('button',{name:'Add a Thing',exact:true})
-  try {
-    await expect(add).toBeVisible({timeout:12000})
-  } catch {
-    // The owner may have created their Thing since the earlier acceptance.
-    // Never delete or overwrite it to manufacture a no-match for this test.
-    name='Violet Glacier Semaphore '+rid
-    await page.goto(rat+'/search?q='+encodeURIComponent(name),{waitUntil:'domcontentloaded'})
-    await expect(add).toBeVisible({timeout:25000})
-  }
+  await expect(add).toBeVisible({timeout:25000})
   report.prefilledName=name
   await add.click()
   const dialog=page.getByRole('dialog',{name:'Add a Thing',exact:true})
