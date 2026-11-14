@@ -2,6 +2,18 @@
 set -euo pipefail
 # Genuine isolated RAT creation -> initial rating -> originating connection.
 # Restricted to separate harmless DEV test data. No LIVE, reset or migration.
+if [[ "${1:-}" == image ]]; then
+  [[ $# -eq 3 ]] || exit 64
+  id="$2"; stage="$3"
+  [[ "$id" =~ ^[a-z0-9-]{8,42}$ && "$stage" =~ ^[0-9]{2}-[a-z0-9-]+$ ]] || exit 64
+  file="/tmp/rat-community-missing-$id/$stage.jpg"
+  [[ -f "$file" && ! -L "$file" ]] || exit 66
+  echo "RAT_COMMUNITY_SCREENSHOT_STAGE=$stage"
+  echo "RAT_COMMUNITY_SCREENSHOT_BYTES=$(wc -c < "$file")"
+  printf 'RAT_COMMUNITY_SCREENSHOT_BASE64='
+  base64 -w0 "$file"; printf '\n'
+  exit 0
+fi
 [[ $# -eq 3 ]] || { echo 'usage: <source-sha> <run-id> <root-entity-ulid>' >&2; exit 64; }
 sha="$1"; rid="$2"; rootId="$3"
 [[ "$sha" =~ ^[0-9a-f]{40}$ && "$rid" =~ ^[a-z0-9-]{8,42}$ && "$rootId" =~ ^[a-z0-9]{26}$ ]] || exit 64
