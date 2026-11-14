@@ -1,6 +1,6 @@
 {
   "workstream": "RUM RAT PR #170 — community editing and connected Things",
-  "status": "DEPLOYED_BROWSER_CORE_AND_SECURITY_PASS_CLAIMED_FIXTURE_PREREQUISITE",
+  "status": "CLAIMED_ACCEPTANCE_BLOCKED_NO_APPROVED_EMAIL_VERIFICATION_CAPTURE",
   "timestamp_context": "2026-11-14",
   "application": {
     "repository": "DaisyCloverSoftware/rum",
@@ -52,6 +52,18 @@
       "live_worker": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
       "live_host": "rateurmate.online",
       "source_and_deployment_unmodified": true
+    },
+    "last_read_only_identity_check": {
+      "id": "rat170-20261114-verified-claimant-final-runtime-r01",
+      "status": "completed",
+      "checks": "6/6 PASS",
+      "api": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+      "live_api": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
+      "live_web": "ghcr.io/daisycloversoftware/rum-web:sha-8106675",
+      "live_worker": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
+      "live_host": "rateurmate.online",
+      "unchanged": true
     }
   },
   "acceptance": {
@@ -167,7 +179,54 @@
       "browser": "NOT RUN — cannot establish an eligible claimed synthetic fixture through current approved test accounts",
       "test_script": "scripts/ops/verify-rat170-claimed-community-correction-browser.sh",
       "workbench_branch": "ops/rat170-api-featureflag-20261114",
-      "branch_head_at_checkpoint": "a5fc7e548727b400b95d554eab825c81b38df3c3"
+      "branch_head_at_checkpoint": "a5fc7e548727b400b95d554eab825c81b38df3c3",
+      "final_result": "NOT RUN — cannot legitimately establish account email verification in current isolated DEV using approved delivery/capture",
+      "approved_fixture_script": "scripts/ops/prepare-rat170-claimed-dev-test-fixture.sh",
+      "fixture_script_branch": "ops/rat170-api-featureflag-20261114",
+      "fixture_guard": "requires an existing rat169qa[a-z0-9]{6,24} account with hasVerifiedEmail() and preserves synthetic-only business entity scope",
+      "fixture_semantics": "synthetic approved level-2 test claim via canonical service; explicitly not proof of DNS; do not execute without independently verified synthetic claimant",
+      "read_only_receipts": [
+        "rat170-20261114-verified-claimant-mail-readonly-v01",
+        "rat170-20261114-synthetic-verified-readonly-v02"
+      ],
+      "verified_candidate_count": 0,
+      "eligible_approved_synthetic_accounts": [
+        {
+          "username": "rat169qa920261113a01",
+          "emailVerified": false
+        },
+        {
+          "username": "rat169qabepersistb03",
+          "emailVerified": false
+        },
+        {
+          "username": "rat169qabepersistb04",
+          "emailVerified": false
+        },
+        {
+          "username": "rat169qacommunitya01",
+          "emailVerified": false
+        }
+      ],
+      "additional_verified_rat_test_domain_accounts": [],
+      "isolated_mail": {
+        "mailer": "log",
+        "nonproduction_runtime": true,
+        "MailDeliveryConfiguration_configured": true,
+        "mailpit_in_rum_dev_isolated": false,
+        "mailpit_in_rat_preview": false,
+        "external_delivery": "not configured; DEV Helm intentionally prevents outbound mail",
+        "approved_capture_procedure_found": false,
+        "normal_flow": "Signed verification link delivered to controlled email, then GET /api/v1/auth/verify-email/{id}/{hash} subject to signed:relative middleware",
+        "constraint": "Log-emitted signed link is not proof of mailbox control; no log reads or signed-link synthesis performed."
+      },
+      "fixture_creation_attempted_on_continuation": false,
+      "browser_claimant_edit": "NOT RUN",
+      "browser_outsider_correction": "NOT RUN",
+      "unclaimed_control": "previously PASS, preserved",
+      "no_test_or_owner_claim_mutated": true,
+      "exact_blocker": "No already-verified eligible synthetic claimant and no approved isolated-DEV mailbox/capture route that demonstrates control of the email destination.",
+      "minimum_authorised_action": "Approve/provision a strictly DEV-only controllable email inbox/sink and delivery procedure, or provide a previously approved genuinely verified synthetic rat169qa claimant via the normal registration/resend and signed-link verification flow; then re-check eligibility, use guarded fixture and run claimant plus outsider browser/SQL acceptance without modifying LIVE."
     },
     "requirements_not_complete": [
       "Actual claimed synthetic Thing browser acceptance of verified claimant direct management and outsider governed correction requires an email-verified approved DEV test claimant."
@@ -229,10 +288,32 @@
     "auth_privacy": "no middleware changes; anonymous writes remain blocked"
   },
   "next_operations": [
-    "Claimed-Thing is the remaining mandatory browser acceptance gate. Provision or recover an authentically email-verified approved synthetic DEV tester; current rat169qa-prefix accounts all have emailVerified=false. Do not set verified flags manually or bypass existing fixtures.",
-    "Re-read Workbench ops/rat170-api-featureflag-20261114 current advertised HEAD and original outboxes before submitting any operation. Use the reviewed prepare-rat170-claimed-dev-test-fixture.sh guarded against real accounts, then verify its original receipt and actual synthetic claim.",
-    "On a successful fixture receipt, run approved verify-rat170-claimed-community-correction-browser.sh with exact deployed source, unique test ID and fixture entity ID; additionally verify claimant direct management and governed correction provenance as required, without modifying owner records.",
-    "If claimed scenario passes, update this checkpoint and only then mark OWNER_REVIEW_READY; do not repeat already passing deployments, CI, missing-Thing or security tests."
+    "First obtain approval and provision an isolated-DEV controlled mailbox or mail capture that can legitimately deliver a verification message to an approved synthetic claimant. Do not use application log access to impersonate mailbox ownership; no such approved capture was found.",
+    "Through the normal registration/resend and signed-link verification path, verify an explicitly allowed synthetic rat169qa account; independently confirm hasVerifiedEmail via canonical read model, without setting verification fields.",
+    "Only then run reviewed guarded prepare-rat170-claimed-dev-test-fixture.sh at an admissible Workbench ops branch head and verify the synthetic claim/manager receipt. The existing fixture reports synthetic test verification, not DNS proof.",
+    "Exercise claimed-direct-edit and outsider governed-correction browsers with separate DEV test contributors, verify unclaimed noncreator control and read-only SQL provenance/pending state, then mark OWNER_REVIEW_READY only if all requirements pass.",
+    "Do not rerun completed CI, deploys, RAT community/connection acceptance or alter LIVE, real accounts, real ratings or protected claims."
   ],
-  "recovery_continued_at": "2026-11-14"
+  "recovery_continued_at": "2026-11-14",
+  "last_continuation": "2026-11-14: isolated DEV verification-path recovery completed read-only",
+  "pr_final_readback": {
+    "pr170": "OPEN DRAFT UNMERGED",
+    "source_head": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
+    "pr169": "OPEN DRAFT UNMERGED",
+    "ci": "43598480208 completed success"
+  },
+  "continuity_last_actions": {
+    "workbench_readonly_script_branch": "ops/rat170-api-featureflag-20261114",
+    "script_commit": "a70f4a0d4cf02d5404c9854dc7a8f8d27f102c4c",
+    "script_path": "scripts/ops/inspect-rat170-dev-verification-path-20261114.sh",
+    "evidence_branch": "evidence/rat170-community-20261114",
+    "no_application_code_changed": true,
+    "no_ci_rerun": true,
+    "no_deploy": true,
+    "no_fixture_claim_created": true,
+    "no_mail_sent": true,
+    "no_email_verification_links_read": true,
+    "no_credentials_accessed": true,
+    "no_account_flags_changed": true
+  }
 }
