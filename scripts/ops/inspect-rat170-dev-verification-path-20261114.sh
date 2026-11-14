@@ -14,6 +14,10 @@ $state=app(App\Services\MailDeliveryConfiguration::class)->status();
 $user=App\Models\User::query()
  ->where("username","like","rat169qa%")->orderBy("username")
  ->get(["username","email_verified_at","status"]);
+$otherVerifiedSynthetic=App\Models\User::query()
+ ->where("username","like","rat%")->whereNotNull("email_verified_at")
+ ->where(function($q){$q->where("email","like","%@example.com")->orWhere("email","like","%@example.test")->orWhere("email","like","%@test.invalid");})
+ ->orderBy("username")->limit(25)->pluck("username")->all();
 $accounts=$user->map(fn($v)=>[
  "username" => $v->username,
  "emailVerified" => $v->hasVerifiedEmail(),
@@ -28,6 +32,7 @@ echo "RAT170_DEV_VERIFICATION_READ_ONLY=".json_encode([
  "mailDeliveryReason" => $state["reason"],
  "previewRegistrationEnabled" => (bool) config("features.rat_preview_accounts"),
  "eligibleSyntheticClaimants" => count(array_filter($accounts,fn($a)=>$a["eligibleForExistingFixture"])),
+ "otherVerifiedSyntheticTestDomainUsernames" => $otherVerifiedSynthetic,
  "approvedSyntheticAccountStatuses" => $accounts,
  "noCredentialOrVerificationLinkRead" => true,
  "noMutation" => true
