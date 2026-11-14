@@ -14,7 +14,7 @@ if [[ $# -gt 0 && "$1" == image ]]; then
 fi
 [[ $# -eq 2 ]] || exit 64
 sha="$1"; rid="$2"
-[[ "$sha" == 'b8f8b589485e7d26e89cc07fbb7729969ea92755' && "$rid" =~ ^[a-z0-9-]{8,42}$ ]] || exit 78
+[[ "$sha" == 'fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592' && "$rid" =~ ^[a-z0-9-]{8,42}$ ]] || exit 78
 out="/tmp/rat170-edit-form-$rid"
 [[ ! -e "$out" ]] || { echo 'Existing mutation evidence; recover instead'; exit 65; }
 mkdir -m 700 "$out"
