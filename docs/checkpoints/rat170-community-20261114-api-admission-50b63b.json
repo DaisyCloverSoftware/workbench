@@ -1,0 +1,55 @@
+{
+  "project": "RUM RAT PR170",
+  "branch": "feat/rat-community-edits-connections-20261114",
+  "pr_state": "open draft unmerged",
+  "app_sha": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
+  "ci": {
+    "run": 43598480208,
+    "conclusion": "success",
+    "jobs": "9/9"
+  },
+  "candidate_api": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+  "candidate_frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+  "script_admission": {
+    "rule": "explicit script SHA must be currently advertised by origin branch head",
+    "branch": "ops/rat-community-20261114-isolated",
+    "current_head": "50b63b7a5df9018de5c0c9bad8384f6608e7e222",
+    "script": "scripts/ops/deploy-rat-community-api-isolated-20261114.sh",
+    "script_blob": "f2afb1b0ded22b3edb05f0b657febbec56157714",
+    "old_sha": "22a741a891015b4d4240edd6e1ce35c019eb6cd2",
+    "status": "corrected reviewed script available on admitted branch head"
+  },
+  "rejected_api_requests": [
+    "rat170-community-20261114-1522-api-e3bb-a1",
+    "rat170-community-20261114-1525-api-e3bb-a2"
+  ],
+  "preflight": {
+    "id": "rat170-community-20261114-api-admission-r2-preflight",
+    "status": "completed 4/4",
+    "api": "ghcr.io/daisycloversoftware/rum-api@sha256:24b789fefa9fbb12f02e4baaa14b14fcdb81afedfd9775982986a3d53d3109d2",
+    "frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:83c476fc811fb50a9ec1d04117e04dc9c5d319b1314ba99c349d222f9e1c12d9"
+  },
+  "active_api_request": {
+    "id": "rat170-community-20261114-1535-api-admitted-50b63b-a3",
+    "github_receipt": "0d91145e9909e589329908f775e0f05331928b8f",
+    "outbox": "not observed",
+    "execution": "unknown; do not replay"
+  },
+  "existing_test_fixtures": {
+    "root": "01m7d2emwsnd0nxw6new8khbje",
+    "target": "01m7bt378nne388rnrrhtzsrgn",
+    "target_name": "Saffron Telescope Beacon rat169-youtube-persist-b04"
+  },
+  "browser": {
+    "old_run": "rat170-community-20261114-browser-edit-connect-b01",
+    "old_sha": "b1ce3d28900b4044b078da253467e1552a0b15ce",
+    "result": "404 edit; superseded code not yet deployed or tested"
+  },
+  "other_issues": {
+    "cover_photo": "upload pipeline unavailable",
+    "needs_attention": "owner rating data eligible, viewer scope unknown; no data mutations",
+    "judge_receipt": "rat-community-20261114-judge-eligibility-readonly-a2"
+  },
+  "next": "Read original outbox for active_api_request.id; only on success verify running API pod digest/version/routes and promote approved isolated frontend; then exact-head browser acceptance on separate test entities. If outbox absent, do not resubmit.",
+  "restrictions": "LIVE untouched; no merges, migrations, resets, catalogue edits or owner-entry mutations"
+}
