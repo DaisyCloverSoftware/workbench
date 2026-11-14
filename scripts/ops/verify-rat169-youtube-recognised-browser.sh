@@ -142,7 +142,9 @@ try{
  stage='controlled-missing-path'
  // A deliberately missing catalogue response tests the deployed frontend without
  // creating "YouTube Channel" ahead of its owner's walkthrough.
- forcedMissing=true
+ // Use the REAL server catalogue when the label is absent; apply the controlled
+ // missing-data fixture only if a future deployment already has this type.
+ forcedMissing=Boolean(report.existingType)
  const handler=async(route)=>{
    const req=route.request(),u=new URL(req.url())
    if(u.pathname!=='/api/v1/rate-anything/thing-types')return route.continue()
