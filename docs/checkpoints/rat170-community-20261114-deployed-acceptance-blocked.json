@@ -1,6 +1,6 @@
 {
   "workstream": "RUM RAT PR #170 — community editing and connected Things",
-  "status": "CLAIMED_ACCEPTANCE_BLOCKED_INFRA_REVIEW_AND_AUTH_MAIL_CUSTODY",
+  "status": "COMMUNITY_FEATURES_READY_FOR_OWNER_TESTING",
   "timestamp_context": "2026-11-14",
   "application": {
     "repository": "DaisyCloverSoftware/rum",
@@ -229,7 +229,11 @@
       "minimum_authorised_action": "Approve/provision a strictly DEV-only controllable email inbox/sink and delivery procedure, or provide a previously approved genuinely verified synthetic rat169qa claimant via the normal registration/resend and signed-link verification flow; then re-check eligibility, use guarded fixture and run claimant plus outsider browser/SQL acceptance without modifying LIVE.",
       "claimed_claim_status": "Not created by current continuation; earlier fixture attempt rejected unverified account",
       "remaining_action": "Obtain independent review/admission of Workbench PR #309 and protected notification flow; only then deploy capture, verify existing synthetic account by legitimate signed link, run guarded synthetic fixture and real-browser claimant/outsider tests",
-      "owner_review_ready": false
+      "owner_review_ready": false,
+      "status": "CLAIMED_THING_BROWSER_ACCEPTANCE_OUTSTANDING",
+      "not_demonstrated_as_community_edit_defect": true,
+      "owner_acceptance_gate_for_working_community_features": false,
+      "remaining": "Synthetic account lacked eligible verified claimant; retain backend security tests, do not claim claimed-Thing browser acceptance passed; independent future fixture when approved identity exists."
     },
     "requirements_not_complete": [
       "Actual claimed synthetic Thing browser acceptance of verified claimant direct management and outsider governed correction requires an email-verified approved DEV test claimant."
@@ -270,14 +274,42 @@
     }
   },
   "separate_issues": {
-    "cover_photo_upload": "Not implemented by existing safe pipeline. Moderated image-link suggestions are not uploads.",
+    "cover_photo_upload": {
+      "status": "OUTSTANDING PRODUCT IMPLEMENTATION",
+      "issue": "https://github.com/DaisyCloverSoftware/rum/issues/172",
+      "distinct_from_moderated_image_url": true,
+      "deferred_without_unsafe_shortcut": true
+    },
     "needs_attention": {
       "owner_thing": "The Professional Idiots",
       "evidence_id": "rat-community-20261114-judge-eligibility-readonly-a2",
       "rating": "active, public, needs_verdict",
       "queue_data_eligible": true,
       "viewer_scope_and_eligibility": "unverified",
-      "rating_mutated": false
+      "rating_mutated": false,
+      "public_product_issue": "https://github.com/DaisyCloverSoftware/rum/issues/171",
+      "priority": "next owner-reported RAT product correction",
+      "direct_cause": "The deployed apps/rate-anything/src/RatEntityWorkspace.tsx renders a literal 'No threshold items exposed by this endpoint' Needs Attention placeholder and does not bind per-rating Judge/admission data.",
+      "canonical_data": "Owner Thing rating active, public, needs_verdict and ordinary Judge data eligible.",
+      "service_rules": "RUM Judge requires active verified account; author/target may see involved rating read-only; all/mates scope includes rater, others excludes; no voting for rater/target.",
+      "author_modelled_readonly_evaluation": {
+        "receipt": "rat170-owner-needs-author-scope-20261114-r3",
+        "account_active": true,
+        "email_verified": true,
+        "adult_access": true,
+        "browse_eligible": true,
+        "needs_first_page_at_limit50": true,
+        "all_first_page_at_limit50": true,
+        "mates_first_page_at_limit50": true,
+        "others_scope": false,
+        "can_vote_own_rating": false,
+        "actual_owner_browser_session": "not observed"
+      },
+      "default_page_20_request": {
+        "id": "rat170-owner-needs-default-page-20261114-r4",
+        "status": "submitted; original outbox not yet observed; read only, do not replay"
+      },
+      "no_rating_mutation": true
     }
   },
   "restrictions": {
@@ -295,11 +327,11 @@
     "no_claim_fixture_attempted_current_continuation": true
   },
   "next_operations": [
-    "First recover original outbox relay/control-outbox/rat170-mail-infra-20261114-final-readback-a02.json (read-only check); do not resubmit. Then obtain independent maintainer security review of Workbench PR #309 (OPEN DRAFT) and immutable Mailpit image approval; do not deploy before approval.",
-    "Provide and review a privacy-preserving signed-link verification/account-recovery operation; earlier create_file attempt did not produce a file and must not be represented as available or bypassed. It must use normal Laravel notification and signed endpoint with no tokens/credentials in logs or relay.",
-    "After approval only: original Workbench install request/outbox, running capture imageID, internal-service/NetworkPolicy/no-public-ingress verification; register or recover one existing approved synthetic claimant; verify real signed link with canonical account readback; run guarded synthetic claimed-business fixture and claimant + outsider browser/SQL tests.",
-    "Delete isolated capture service and prove messages gone; verify LIVE and original RUM application images unchanged. Preserve previously passing connection/creation tests without rerunning.",
-    "Mark OWNER_REVIEW_READY only after actual claimed-Thing browser and SQL acceptance passes."
+    "Owner may manually review working RAT community edit and connection flows now at https://dev-rum-ra.daisycloversoftware.uk; do not block on PR #309 or claimed synthetic fixture.",
+    "Recover read-only original outbox rat170-owner-needs-default-page-20261114-r4 before interpreting 20-result canonical RUM Judge page; never resubmit or mutate the rating.",
+    "Develop separately scoped issue #171: RAT Needs Attention placeholder currently cannot show per-rating admission, while canonical RUM Judge service has an eligible author-visible rating; preserve audience, read-only involved-party and account checks.",
+    "Develop separately scoped issue #172 later: safe Thing image upload support is not implemented by moderated image URL suggestions.",
+    "Claimed browser scenario remains documented as outstanding, not a demonstrated failure or owner acceptance gate; preserve all prior passing acceptance and leave PRs #169/#170/#309 unmerged, no LIVE changes."
   ],
   "recovery_continued_at": "2026-11-14",
   "last_continuation": "2026-11-14 — bounded infrastructure recovery and dedicated Mailpit review PR submitted; no capture deployed",
@@ -367,6 +399,49 @@
         "scripts/ops/rat170-isolated-dev-mailcapture.sh",
         "docs/operations/rat170-isolated-dev-mailcapture-review.md"
       ]
+    },
+    "owner_decision_20261114": "STOP_INFRASTRUCTURE_DETOUR",
+    "owner_review_dependency": false,
+    "independent_future_use_only": true,
+    "review_pr_state": "OPEN DRAFT UNMERGED — preserve artifacts, do not close/merge/deploy, do not seek more infra approval for PR170 acceptance",
+    "no_mail_capture_installed": true,
+    "final_original_readback": {
+      "id": "rat170-mail-infra-20261114-final-readback-a02",
+      "status": "COMPLETED 8/8 PASS",
+      "running_API": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "running_RAT": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+      "live_images_preserved": true,
+      "mailcapture_service_absent": true,
+      "mailcapture_deployment_absent": true,
+      "correct_dev_host": true
     }
+  },
+  "owner_review_handoff": {
+    "status": "COMMUNITY_FEATURES_READY_FOR_OWNER_TESTING",
+    "claimed_browser_status": "CLAIMED_THING_BROWSER_ACCEPTANCE_OUTSTANDING",
+    "claimed_acceptance_complete": false,
+    "owner_facing_rat_acceptance_depends_on_mail_capture": false,
+    "effective_from": "2026-11-14",
+    "requested_scope": "Return existing deployed RAT owner testing; no synthetic email fixture or infrastructure work as delivery gate.",
+    "isolated_rat_url": "https://dev-rum-ra.daisycloversoftware.uk",
+    "manual_test": "Eligible unclaimed Thing edit, supported details and refresh; existing public Thing connection; missing Thing creation, initial rating, return-to-origin connection, persistence. No automated mutation of owner's Thing.",
+    "prior_evidence": {
+      "community_edit": "rat170-community-20261114-e3bb-browser-edit-connect-b02 (central steps passed; former 419-vs-401 strict assertion superseded by security-n01)",
+      "community_sql": "rat170-community-20261114-e3bb-sql-provenance-v1",
+      "missing_thing_browser": "rat170-community-20261114-e3bb-browser-missing-link-m04 PASS",
+      "missing_thing_sql": "rat170-community-20261114-e3bb-missing-persist-sql-r5 PASS",
+      "security_browser": "rat170-community-20261114-e3bb-browser-security-n01 PASS",
+      "regressions": "rat170-community-20261114-e3bb-browser-regress-r2 PASS"
+    },
+    "source": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
+    "exact_head_ci": "43598480208 9/9 PASS",
+    "API": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+    "RAT": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+    "currently_unmerged_PRs": [
+      "DaisyCloverSoftware/rum#169",
+      "DaisyCloverSoftware/rum#170",
+      "DaisyCloverSoftware/workbench#309"
+    ],
+    "no_build_no_deploy_no_live": true
   }
 }
