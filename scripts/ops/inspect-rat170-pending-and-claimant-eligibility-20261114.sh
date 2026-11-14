@@ -7,8 +7,8 @@ kctl() { if command -v k3s >/dev/null 2>&1; then sudo -n k3s kubectl "$@"; else 
 php='
 require "vendor/autoload.php";
 $app=require "bootstrap/app.php";
-$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
-$db=Illuminate\\Support\\Facades\\DB::class;
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$db=Illuminate\Support\Facades\DB::class;
 $entity=$db::table("entities")->where("id","01m7dbsjhn6a9j373va2yz42yx")->first();
 $journey=$db::table("rating_journeys")->where("id","01m7dbsjjbf2b94kzq4mm1cf3c")->first();
 $creator=$entity ? $db::table("users")->where("id",$entity->created_by_user_id)->first(["username","email_verified_at"]) : null;
@@ -29,6 +29,6 @@ echo "RAT170_TEST_FIXTURE_READ_ONLY=".json_encode([
  "pendingActiveSourceConnections"=>$edges,
  "previousApprovedQaAccounts"=>$qa,
  "noMutation"=>true,
-],JSON_THROW_ON_ERROR)."\\n";
+],JSON_THROW_ON_ERROR)."\n";
 ';
 kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$php"
