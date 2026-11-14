@@ -74,7 +74,19 @@ page.on('response',r=>{
 await context.route('**/*',route=>{
  const u=new URL(route.request().url())
  const method=route.request().method()
- if(u.hostname==='rateurmate.online'||(!['GET','HEAD','OPTIONS'].includes(method)&&![RAT,DEV].includes(u.origin)))return route.abort('blockedbyclient')
+ // A visual owner-form check must never send a real Thing or rating write,
+ // even if a later UI change accidentally submits the outer form.
+ if(method==='POST'&&u.pathname==='/api/v1/rate-anything/standalone-things'){
+   report.testThingWrites+=1
+   return route.abort('blockedbyclient')
+ }
+ if(method==='POST'&&u.pathname==='/api/v1/rate-anything/thing-types'){
+   // The page-scoped fixture must intercept both explicit test POSTs first.
+   report.youtubeTypeRealWrites+=1
+   return route.abort('blockedbyclient')
+ }
+ const permittedAuthWrite=method==='POST'&&u.origin===RAT&&['/api/v1/rate-anything/auth/register','/api/v1/rate-anything/auth/login'].includes(u.pathname)
+ if(u.hostname==='rateurmate.online'||(!['GET','HEAD','OPTIONS'].includes(method)&&!permittedAuthWrite))return route.abort('blockedbyclient')
  return route.continue()
 })
 try{
