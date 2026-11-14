@@ -8,7 +8,7 @@ set -euo pipefail
   exit 64
 }
 source_sha="$1"
-[[ "$source_sha" == 'b8f8b589485e7d26e89cc07fbb7729969ea92755' ]] || { echo 'Blocked: unexpected PR170 layout source SHA' >&2; exit 78; }
+[[ "$source_sha" == 'fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592' ]] || { echo 'Blocked: unexpected PR170 layout source SHA' >&2; exit 78; }
 candidate="$2"
 canonical_dev_api="$3"
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || exit 64
