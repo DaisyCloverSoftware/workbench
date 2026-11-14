@@ -1,0 +1,145 @@
+{
+  "workstream": "RUM RAT PR #170 — community editing and connected Things",
+  "status": "DEPLOYED_ACCEPTANCE_BLOCKED_NOT_OWNER_REVIEW_READY",
+  "timestamp_context": "2026-11-14",
+  "application": {
+    "repository": "DaisyCloverSoftware/rum",
+    "pr": 170,
+    "branch": "feat/rat-community-edits-connections-20261114",
+    "source_sha": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
+    "pr_state": "open draft unmerged",
+    "ci_run": 43598480208,
+    "ci_result": "9/9 PASS; completed success"
+  },
+  "operations": {
+    "workbench_version": "0.9.68",
+    "branch": "ops/rat-community-20261114-isolated",
+    "admitted_head": "50b63b7a5df9018de5c0c9bad8384f6608e7e222",
+    "admission_rule": "exact script commit must be currently advertised by an origin branch head",
+    "source_mismatch_resolved": true,
+    "refused_requests": [
+      {
+        "id": "rat170-community-20261114-1522-api-e3bb-a1",
+        "why": "37-character application source SHA, guard exit 78"
+      },
+      {
+        "id": "rat170-community-20261114-1525-api-e3bb-a2",
+        "why": "22a741a891015b4d4240edd6e1ce35c019eb6cd2 not admitted origin branch head; operation not started"
+      }
+    ],
+    "predeploy": "rat170-community-20261114-api-admission-r2-preflight",
+    "api_deploy": {
+      "id": "rat170-community-20261114-1535-api-admitted-50b63b-a3",
+      "status": "completed exited 0",
+      "image": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "independent_pod_readback": "rat170-community-20261114-api-postrollout-digest-r1"
+    },
+    "frontend_deploy": {
+      "id": "rat170-community-20261114-frontend-admitted-f2",
+      "status": "completed exited 0",
+      "image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+      "served_version": "rat-candidate+e3bb818f1825d778f5084460057ba7ea8bfb422b",
+      "independent_pod_readback": "rat170-community-20261114-frontend-postrollout-digest-r2",
+      "protected_before_after_equal": true
+    }
+  },
+  "acceptance": {
+    "root_test_thing": "01m7d2emwsnd0nxw6new8khbje",
+    "existing_target_thing": "01m7bt378nne388rnrrhtzsrgn",
+    "community_browser": {
+      "id": "rat170-community-20261114-e3bb-browser-edit-connect-b02",
+      "result": "core flows PASS, overall verifier exit 1 at anonymous 419-vs-401 assertion",
+      "verified_steps": [
+        "exact-serving-versions",
+        "actions-visible",
+        "unrelated-member-registered",
+        "YouTube Channel classification",
+        "unclaimed noncreator edit applied 201",
+        "image URL suggestion pending not published",
+        "existing target search",
+        "directed relationship created 201 by unrelated contributor",
+        "edit and relationship persisted on reload"
+      ],
+      "failed_assertion": "anonymous POST rejected with 419 CSRF; test strictly expected 401; denial confirmed, no authenticated bypass observed",
+      "contributor_id": "01m7dbnzzf195khnk240pwae7b",
+      "edge_id": "01m7dbp2tf3xzt8wj2jdcfa7tm"
+    },
+    "canonical_sql": {
+      "id": "rat170-community-20261114-e3bb-sql-provenance-v1",
+      "status": "PASS",
+      "noncreator_approved_revision": 1,
+      "pending_unpublished_image": 1,
+      "relationship_provenance": "contributor, user_submitted",
+      "direction": "root -> target",
+      "verification": "unverified",
+      "visibility": "public",
+      "active_pair_edges": 1,
+      "root_claims": 0
+    },
+    "regressions": {
+      "id": "rat170-community-20261114-e3bb-browser-regress-r2",
+      "status": "PASS",
+      "checks": [
+        "DJI",
+        "CJ Investigates",
+        "linked RAT navigation",
+        "existing rating flow",
+        "no match",
+        "privacy exclusion marker"
+      ]
+    },
+    "missing_thing": {
+      "id": "rat170-community-20261114-e3bb-browser-missing-link-m03",
+      "status": "FAIL initial-rating Continue remained disabled for 30s",
+      "passes": [
+        "missing search empty",
+        "authenticated new user",
+        "pending standalone Thing created with returned origin intent"
+      ],
+      "created_test_thing_id": "01m7dbsjhn6a9j373va2yz42yx",
+      "created_journey_id": "01m7dbsjjbf2b94kzq4mm1cf3c",
+      "final_rating": "not submitted",
+      "final_connection": "not created",
+      "screenshot_read_request": "rat170-community-20261114-missing-rating-failure-shot-i01",
+      "screenshot_read_status_at_checkpoint": "no outbox observed; do not replay request"
+    },
+    "claimed_thing": {
+      "fixture_attempt": "rat170-community-20261114-e3bb-claimed-fixture-c01",
+      "result": "FAILED CLOSED script guard requires previous specifically approved, email-verified synthetic test claimant",
+      "synthetic_claim_created": false,
+      "claimed_permission_browser": "NOT RUN, safe fixture unavailable"
+    },
+    "requirements_not_complete": [
+      "claimed correction approval and claimant authority browser check",
+      "missing Thing initial rating return to connection",
+      "resolve anonymous 419 vs 401 browser-harness expectation",
+      "comprehensive duplicate/privacy negative browser cases beyond SQL and unit tests"
+    ]
+  },
+  "separate_issues": {
+    "cover_photo_upload": "Not implemented by existing safe pipeline. Moderated image-link suggestions are not uploads.",
+    "needs_attention": {
+      "owner_thing": "The Professional Idiots",
+      "evidence_id": "rat-community-20261114-judge-eligibility-readonly-a2",
+      "rating": "active, public, needs_verdict",
+      "queue_data_eligible": true,
+      "viewer_scope_and_eligibility": "unverified",
+      "rating_mutated": false
+    }
+  },
+  "restrictions": {
+    "live": "untouched per deployment preservation snapshots and script output",
+    "other_workloads": "unchanged per frontend protected snapshot",
+    "application_prs": "unmerged",
+    "migrations": "none",
+    "reseed": "none",
+    "owner_entry_testing": "none"
+  },
+  "next_operations": [
+    "First recover pending read-only screenshot receipt rat170-community-20261114-missing-rating-failure-shot-i01; diagnose initial-rating disabled Continue using existing saved evidence; do not recreate pending Thing.",
+    "Use reviewed or appropriately admitted test correction to resume pending initial rating and verify return-to-origin connection, not an unguarded mutation.",
+    "Resolve synthetic claimed test fixture through approved verified test claimant, without bypassing claim guard; then run real claimed browser verifier.",
+    "If harness expects strict 401, distinguish valid CSRF 419 refusal from a true permission defect, and update reviewed verifier only with evidence; don't re-run mutation on already connected pair.",
+    "Re-check PR #170 remains open/draft/unmerged and independently confirm LIVE protected after any future operations. OWNER_REVIEW_READY only when missing/claimed browser journeys also pass."
+  ]
+}
