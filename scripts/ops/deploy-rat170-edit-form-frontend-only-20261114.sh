@@ -8,7 +8,7 @@ set -euo pipefail
   exit 64
 }
 source_sha="$1"
-[[ "$source_sha" == 'fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592' ]] || { echo 'Blocked: unexpected PR170 layout source SHA' >&2; exit 78; }
+[[ "$source_sha" == 'e7234490ffec27e0d645911bd62a18d746d3758e' ]] || { echo 'Blocked: unexpected PR170 layout source SHA' >&2; exit 78; }
 candidate="$2"
 canonical_dev_api="$3"
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || exit 64
@@ -17,7 +17,7 @@ canonical_dev_api="$3"
 
 namespace='rum-rate-anything-preview'
 host='dev-rum-ra.daisycloversoftware.uk'
-baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e'
+baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c'
 kctl() {
   if command -v k3s >/dev/null 2>&1; then sudo -n k3s kubectl "$@"; else kubectl "$@"; fi
 }
