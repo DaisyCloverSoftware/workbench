@@ -23,17 +23,25 @@
     "initial_run": 43631958850,
     "initial_result": "rate-anything lint warning due to missing effect dependency; superseded by exact lint-correction source commit fe235",
     "current_run": 43632535073,
-    "current_status": "queued",
-    "current_head": "fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592"
+    "current_status": "rate-anything PASS (lint, typecheck, 40/40 test files, build); web PASS, specification PASS; admin, API, preview-browser queued; candidate image jobs not started",
+    "current_head": "fe235a9f05f5a4f4cdbedd8d3ecf2097c50f4592",
+    "last_observed_run": 43632535073
   },
   "workbench": {
     "project": "runner://workbench",
     "operations_branch": "ops/rat-community-20261114-isolated",
-    "head_at_test_script_creation": "f8d1a1fe26c41a3ece1e81244ad4ffea154a56c0",
+    "head_at_test_script_creation": "6f054d2fb20933002d0fc803654cda1a7cb0e4c8",
     "deploy_script": "scripts/ops/deploy-rat170-edit-form-frontend-only-20261114.sh",
     "browser_script": "scripts/ops/verify-rat170-edit-form-responsive-browser-20261114.sh",
     "predeploy_read_only_request": "rat170-edit-form-20261114-predeploy-readonly-r1",
-    "predeploy_outbox": "not yet read"
+    "predeploy_outbox": "rat170-edit-form-20261114-predeploy-readonly-r1 COMPLETED 5/5",
+    "sql_script": "scripts/ops/inspect-rat170-edit-form-revision-sql-20261114.sh",
+    "baseline_confirmed": {
+      "api": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3860d5418e2a20929ef3d816e1cd4e783a8bf26cdcd1a59f1a6fd682e3bee63e",
+      "live_api": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
+      "live_web": "ghcr.io/daisycloversoftware/rum-web:sha-8106675"
+    }
   },
   "current_expected_runtime": {
     "api": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
@@ -77,5 +85,6 @@
     "no_db_reset": true,
     "no_owner_data_mutation": true,
     "no_unrelated_layout_edits": true
-  }
+  },
+  "stage": "source_implemented_rat_component_passed_full_ci_pending"
 }
