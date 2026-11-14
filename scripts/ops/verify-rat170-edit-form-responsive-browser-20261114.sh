@@ -121,6 +121,11 @@ try {
   report.viewports.push({width,descriptionHeight:Math.round(d.desc.height),columns:Math.abs(d.url.y-d.note.y)<9?2:1,horizontalOverflow:false})
   mark('responsive-'+width)
  }
+ stage='focused-field'
+ await desc.focus()
+ await expect(desc).toBeFocused()
+ await shot('04-390-focused-description')
+ mark('focused-description-state-visible')
  stage='draft-preservation'
  await desc.fill('Draft description '+rid)
  await tabs.getByRole('button',{name:'Name'}).click()
@@ -129,7 +134,7 @@ try {
  await tabs.getByRole('button',{name:'Image'}).click()
  await expect(form.getByText('Direct cover-photo uploading is not available here.')).toBeVisible()
  await form.getByLabel('Suggested Thing image URL').fill('https://example.org/qa-image.jpg')
- await shot('04-390-image')
+ await shot('05-390-image')
  await tabs.getByRole('button',{name:'Description'}).click()
  await expect(form.getByLabel('Proposed Thing description')).toHaveValue('Draft description '+rid)
  await tabs.getByRole('button',{name:'Name'}).click()
@@ -144,11 +149,11 @@ try {
  await desc.fill(proposal)
  await evidenceUrl.fill('https://example.org/rat-qa-evidence')
  await evidenceNote.fill('Harmless supporting evidence for isolated DEV acceptance. '+rid)
- await shot('05-1440-ready-submit')
+ await shot('06-1440-ready-submit')
  await desc.fill('')
  await button.click()
  await expect(about.getByRole('alert')).toContainText('Enter a meaningful proposed value before submitting an edit.')
- await shot('06-1440-validation-state')
+ await shot('07-1440-validation-state')
  await desc.fill(proposal)
  mark('empty-edit-validation-shown-without-submission')
  const saved=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/v1/rate-anything/things/'+root+'/edits'&&r.request().method()==='POST',{timeout:30000})
@@ -163,7 +168,7 @@ try {
  report.savedDescription=proposal
  await expect(about.getByRole('status')).toContainText('Edit applied and recorded as an attributable revision.',{timeout:25000})
  await expect(about.locator('.relationship').first()).toContainText('description')
- await shot('07-1440-saved-revision')
+ await shot('08-1440-saved-revision')
  mark('unclaimed-noncreator-edit-and-attributable-revision-visible')
  stage='reload'
  await page.reload({waitUntil:'domcontentloaded'})
@@ -171,7 +176,7 @@ try {
  await expect(page.locator('.rat-workspace-description')).toHaveText(proposal,{timeout:28000})
  await page.getByRole('button',{name:'Edit or suggest a correction'}).click()
  await expect(page.locator('.rat-workspace-profile .entity-about .relationship').first()).toContainText('description',{timeout:28000})
- await shot('08-1440-persisted-history')
+ await shot('09-1440-persisted-history')
  mark('canonical-edit-persists-and-history-survives-refresh')
  report.result='PASS'
 }catch(e){
