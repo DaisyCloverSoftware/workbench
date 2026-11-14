@@ -4,7 +4,7 @@
   "pull_request": 170,
   "pr_state": "OPEN_DRAFT_UNMERGED",
   "branch": "feat/rat-community-edits-connections-20261114",
-  "source_head": "e3bb818f1825d778f5084460057ba8bfb422b",
+  "source_head": "e3bb818f1825d778f5084460057ba7ea8bfb422b",
   "ci_run_id": 43598480208,
   "ci_jobs": "9/9 success",
   "api_candidate": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
@@ -17,11 +17,17 @@
   "prior_browser_failure": "rat170-community-20261114-browser-edit-connect-b01",
   "prior_browser_failed_stage": "edit-unclaimed (404, now repaired in later source)",
   "judge_readonly": "rat-community-20261114-judge-eligibility-readonly-a2",
-  "next": "promote exact-head API with guarded script, verify receipt and pod before exact-head RAT frontend, then real browser acceptance",
+  "next": "submit distinct guarded API request with exact 40-char PR head; after success verify running API image before RAT frontend",
   "restrictions": [
     "no LIVE",
     "no merge",
     "no migrate",
     "no reseed/reset"
-  ]
+  ],
+  "last_attempt": {
+    "id": "rat170-community-20261114-1522-api-e3bb-a1",
+    "status": "failed",
+    "exit_code": 78,
+    "reason": "incorrect source SHA in request argument (37 characters); script guard correctly blocked, no rollout"
+  }
 }
