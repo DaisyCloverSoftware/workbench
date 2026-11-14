@@ -270,11 +270,13 @@ try {
   report.entityId = root.data.id
   report.journeyId = root.meta.journey.id
   report.pendingClassificationVerified = true
+  await expect(page.locator('.rat-rating-context .eyebrow')).toHaveText(typeLabel, { timeout: 20000 })
   await expect(page.getByRole('heading', { name: 'What’s your verdict on ' + thingName + '?' })).toBeVisible({ timeout: 30000 })
   await shot('06-initial-rating-pending')
   note('thing-pending-authorised-and-associated', report.entityId)
   lastStage = 'refresh-readback'
   await page.reload({ waitUntil:'domcontentloaded' })
+  await expect(page.locator('.rat-rating-context .eyebrow')).toHaveText(typeLabel, { timeout: 20000 })
   await expect(page.getByRole('heading', { name: 'What’s your verdict on ' + thingName + '?' })).toBeVisible({ timeout: 25000 })
   const resumedResp = await context.request.get(RAT + '/api/v1/rate-anything/standalone-things/' + report.journeyId)
   assert.equal(resumedResp.status(),200)
