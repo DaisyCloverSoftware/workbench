@@ -1,0 +1,25 @@
+{
+  "milestone": "isolated-deployment",
+  "source": "b1ce3d28900b4044b078da253467e1552a0b15ce",
+  "ci": 43593961611,
+  "site": "https://dev-rum-ra.daisycloversoftware.uk",
+  "canonical_dev_api": "https://dev-rum.daisycloversoftware.uk",
+  "api": {
+    "image": "ghcr.io/daisycloversoftware/rum-api@sha256:24b789fefa9fbb12f02e4baaa14b14fcdb81afedfd9775982986a3d53d3109d2",
+    "promotion": "rat170-community-20261114-1257-api-promote-a1",
+    "independent_readback": "rat170-community-20261114-1259-api-readback-i2"
+  },
+  "frontend": {
+    "image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:83c476fc811fb50a9ec1d04117e04dc9c5d319b1314ba99c349d222f9e1c12d9",
+    "promotion": "rat170-community-20261114-1259-frontend-promote-f1",
+    "served_version": "rat-candidate+b1ce3d28900b4044b078da253467e1552a0b15ce"
+  },
+  "independent_running_pod_check": "rat170-community-20261114-1300-postdeploy-i3",
+  "protected_before_after": "8a6893d4baeb3866bb1a6e47aced29aed47b6d03891d68e6fcb0ab9e2f373fd0",
+  "live_unchanged": true,
+  "migrations_run": false,
+  "reseed_reset": false,
+  "pr_merged": false,
+  "operations_status": "completed_successfully",
+  "next_action": "Real browser acceptance with separate DEV test Things, community editor, claimed correction, existing and missing connections, DJI/CJ privacy regression."
+}
