@@ -30,6 +30,36 @@ foreach($rows as $r) {
    "needsQueueDataEligibleWithoutViewerScope"=>$eligible,
    "hasRatingContext"=>$r->rating_context_id!==null];
 }
+$event=App\Models\RatingEvent::query()->where("target_entity_id",$eid)->orderByDesc("submitted_at")->first();
+$author=$event?->rater_account_id ? App\Models\User::query()->find($event->rater_account_id) : null;
+$authorBrowseEligible=(bool)($author&&$author->status==="active"&&$author->hasVerifiedEmail()&&$author->hasCurrentAdultAssurance());
+$scopeResult=["authorAccountPresent"=>(bool)$author,
+ "authorStatusActive"=>(bool)($author&&$author->status==="active"),
+ "authorEmailVerified"=>(bool)($author&&$author->hasVerifiedEmail()),
+ "authorAdultAccess"=>(bool)($author&&$author->hasCurrentAdultAssurance()),
+ "authorCanBrowseJudge"=>$authorBrowseEligible,
+ "authorCanVoteOwnRating"=>false,
+ "authorAllQueueFirstPageContainsRating"=>null,
+ "authorNeedsQueueFirstPageContainsRating"=>null,
+ "authorNeedsQueueHasMore"=>null,
+ "authorOthersScopeContainsRating"=>null,
+ "authorMatesScopeContainsRating"=>null,
+ "readOnlyServiceEvaluation"=>true,
+ "notActualBrowserSession"=>true];
+if($authorBrowseEligible&&$event){
+  $judge=app(App\Services\JudgeService::class);
+  $canonical=app(App\Services\CanonicalJudgeService::class);
+  try{
+    foreach(["needs"=>"authorNeedsQueueFirstPageContainsRating","all"=>"authorAllQueueFirstPageContainsRating","others"=>"authorOthersScopeContainsRating","mates"=>"authorMatesScopeContainsRating"] as $mode=>$key){
+      $scope=in_array($mode,["others","mates"],true)?$mode:"all";
+      $queue=in_array($mode,["others","mates"],true)?"needs":$mode;
+      $legacy=$judge->queue($author,$queue,$scope,null,null,50);
+      $result=$canonical->mergeQueue($author,$queue,$scope,null,null,50,$legacy);
+      $scopeResult[$key]=collect($result["data"])->contains(fn($item)=>(string)($item["id"]??"")===(string)$event->id);
+      if($mode==="needs")$scopeResult["authorNeedsQueueHasMore"]=(bool)($result["meta"]["hasMore"]??false);
+    }
+  }catch(Throwable $error){$scopeResult["safeEvaluationErrorClass"]=$error::class;}
+}
 echo "RAT_JUDGE_READ_ONLY=".json_encode([
  "canonicalEntityPresent"=>$e!==null,
  "entityName"=>$e?->canonical_name,
@@ -38,6 +68,7 @@ echo "RAT_JUDGE_READ_ONLY=".json_encode([
  "ratingCount"=>$rows->count(),
  "ratingRows"=>$list,
  "viewerEligibilityAndScopeNotAssumed"=>true,
+ "ratingAuthorReadOnlyEligibilityAndQueueScope"=>$scopeResult,
  "noRatingOrAdmissionMutation"=>true
 ],JSON_THROW_ON_ERROR)."\n";
 '
