@@ -1,0 +1,43 @@
+{
+  "milestone": "source-ci-and-predeployment",
+  "recorded_at": "2026-11-14T12:56:05Z",
+  "repository": "DaisyCloverSoftware/rum",
+  "pr": 170,
+  "pr_state": "open draft unmerged",
+  "pr_base": "fix/rat-no-match-add-thing-20261113",
+  "branch": "feat/rat-community-edits-connections-20261114",
+  "source_commit": "b1ce3d28900b4044b078da253467e1552a0b15ce",
+  "previous_checkpoint_commit": "d9b5c233f3fbdc7d64cada3e67d356ef30cc71f9",
+  "commits_recovered": [
+    "1501ec6e3cdff50b17e5205aecccbd50daa1ff99",
+    "66d1a19932dae7c2d3254dbab7404ae49efcf513",
+    "380f01a1aecb2cc4d65eb518ba37a10667a85b49",
+    "b1ce3d28900b4044b078da253467e1552a0b15ce"
+  ],
+  "ci_run": 43593961611,
+  "ci_conclusions": {
+    "api": "success",
+    "rate-anything": "success",
+    "admin": "success",
+    "web": "success",
+    "specification": "success",
+    "preview-browser": "success",
+    "api-image": "success",
+    "rate-anything-image": "success",
+    "web-image": "success"
+  },
+  "candidate_images": {
+    "api": "ghcr.io/daisycloversoftware/rum-api@sha256:24b789fefa9fbb12f02e4baaa14b14fcdb81afedfd9775982986a3d53d3109d2",
+    "frontend": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:83c476fc811fb50a9ec1d04117e04dc9c5d319b1314ba99c349d222f9e1c12d9"
+  },
+  "workbench_ops_branch_head": "d16eaf3600770e53dc9231d43e2b6e156bdd54db",
+  "predeployment_receipt": "rat170-community-20261114-1252-predeploy-i1",
+  "predeployment_result": "completed: running canonical DEV API 71ec4ce2..., isolated RAT frontend 9d067ce6..., ingress hosts unchanged, LIVE deployments remain unchanged",
+  "community_deployment_receipts_at_checkpoint": [],
+  "rating_investigation_receipts": [
+    "rat-community-20261114-existing-owner-rating-readonly-a1",
+    "rat-community-20261114-judge-eligibility-readonly-a2"
+  ],
+  "rating_unchanged": true,
+  "next_action": "Submit the guarded API-only isolated DEV promotion exactly once, verify its outbox and running pod before frontend."
+}
