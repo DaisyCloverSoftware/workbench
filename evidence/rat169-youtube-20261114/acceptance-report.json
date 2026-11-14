@@ -1,0 +1,338 @@
+{
+  "sourceSha": "5939cf2b5a34f74882486c857ed66b1a11f769e1",
+  "pr": 169,
+  "prRemainsDraft": true,
+  "exactHeadCiRun": 43536179781,
+  "ci": [
+    {
+      "name": "admin",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "specification",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "rate-anything",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "preview-browser",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "web",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "api",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "RAT candidate image (api)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "RAT candidate image (web)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "RAT candidate image (rate-anything)",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "deployment": {
+    "apiReceipt": "rat169-youtube-20261114-api-promote-5939-a1",
+    "frontendReceipt": "rat169-youtube-20261114-frontend-promote-5939-b1",
+    "apiImage": "ghcr.io/daisycloversoftware/rum-api@sha256:71ec4ce2fa083270275f475e9a6c7c427088c0ed568263f6abbe5670ca9ba443",
+    "ratImage": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9d067ce6244ef9504e67c478d06975c2bf22a1f3c41c1c240c7134b011c15778",
+    "servedVersion": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1",
+    "protectedResourcesUnchanged": true
+  },
+  "deployedOwnerBrowser": {
+    "receipt": "rat169-youtube-20261114-owner-browser-b01",
+    "report": {
+      "sourceSha": "5939cf2b5a34f74882486c857ed66b1a11f769e1",
+      "runId": "rat169-youtube-owner-b01",
+      "checks": [
+        {
+          "name": "served-exact-candidate",
+          "detail": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1"
+        },
+        {
+          "name": "authenticated-test-only-form",
+          "detail": "The Professional Idiots"
+        },
+        {
+          "name": "canonical-server-normalised-recognition-and-no-channel-wildcard",
+          "detail": "existing-type-reuse-available"
+        },
+        {
+          "name": "recognised-type-save-enabled-without-general-kind",
+          "detail": ""
+        },
+        {
+          "name": "field-level-creation-failure-retains-all-input",
+          "detail": ""
+        },
+        {
+          "name": "explicit-fixture-type-save-selects-facing-label-no-canonical-youtube-write",
+          "detail": ""
+        },
+        {
+          "name": "ambiguous-channel-clarified-not-defaulted",
+          "detail": ""
+        }
+      ],
+      "screenshots": [
+        "01-youtube-save-enabled",
+        "02-youtube-failure-preserves",
+        "03-youtube-selected-label",
+        "04-ambiguous-channel-question"
+      ],
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/rate-anything/me",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/rate-anything/me",
+          "status": 401
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/auth/register",
+          "status": 201
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/thing-types",
+          "status": 503
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/thing-types",
+          "status": 201
+        }
+      ],
+      "errors": [],
+      "testThingWrites": 0,
+      "youtubeTypeRealWrites": 0,
+      "ratVersion": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1",
+      "prefilledName": "The Professional Idiots",
+      "testUsername": "ratytqatubeownerb01",
+      "existingType": {
+        "id": "01m7bsp1hsyck3rkmpbtt5ptxx",
+        "label": "YouTube Channel",
+        "aliases": [],
+        "entityType": "digital_resource",
+        "classificationKey": "community_788e6ae3bfcd391d111e3ca31a1332ebf92906d0d0868e7cf7bb",
+        "source": "classification"
+      },
+      "result": "PASS"
+    },
+    "screenshots": [
+      "01-youtube-save-enabled.jpg",
+      "03-youtube-selected-label.jpg",
+      "04-ambiguous-channel-question.jpg"
+    ],
+    "note": "YouTube type POSTs were controlled fixtures only; the owner's Thing was never created."
+  },
+  "realCanonicalPersistence": {
+    "receipt": "rat169-youtube-20261114-persistence-browser-b04",
+    "report": {
+      "sourceSha": "5939cf2b5a34f74882486c857ed66b1a11f769e1",
+      "runId": "rat169-youtube-persist-b04",
+      "thingName": "Saffron Telescope Beacon rat169-youtube-persist-b04",
+      "typeLabel": "RAT169 DEV digital catalogue type rat169-youtube-persist-b04",
+      "checks": [
+        {
+          "name": "served-frontend-version",
+          "detail": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1"
+        },
+        {
+          "name": "served-api-version",
+          "detail": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1"
+        },
+        {
+          "name": "DJI-CJ-canonical-discovery-private-person-policy",
+          "detail": ""
+        },
+        {
+          "name": "genuine-no-match-add-action",
+          "detail": "{\"background\":\"rgb(23, 19, 22)\",\"color\":\"rgb(255, 255, 255)\"}"
+        },
+        {
+          "name": "preview-account-authenticated",
+          "detail": "rat169qabepersistb04"
+        },
+        {
+          "name": "searched-name-prefilled",
+          "detail": ""
+        },
+        {
+          "name": "synonym-reused-keyboard-form-preserved",
+          "detail": ""
+        },
+        {
+          "name": "lookup-failure-retry-preserves-form",
+          "detail": ""
+        },
+        {
+          "name": "creation-failure-preserves-form",
+          "detail": ""
+        },
+        {
+          "name": "persisted-server-backed-new-type",
+          "detail": "community_6f6bb4ee3ee9bf9da5c8736a04842adef3a64811d61a3177eac4"
+        },
+        {
+          "name": "thing-pending-authorised-and-associated",
+          "detail": "01m7bt378nne388rnrrhtzsrgn"
+        },
+        {
+          "name": "refresh-persisted-canonical-readback",
+          "detail": ""
+        },
+        {
+          "name": "fresh-form-reuse-from-http-not-local-state",
+          "detail": ""
+        },
+        {
+          "name": "initial-rating-submitted-published-readback",
+          "detail": "01m7bt39ttfh3g7qybj939t406"
+        }
+      ],
+      "screenshots": [
+        "01-no-match",
+        "02-synonym-preserved",
+        "03-lookup-failure-preserved",
+        "04-creation-failure-preserved",
+        "05-created-type-preserved",
+        "06-initial-rating-pending",
+        "08-fresh-form-reuse",
+        "07-initial-rating-complete"
+      ],
+      "errors": [],
+      "requests": [
+        {
+          "method": "GET",
+          "path": "/api/v1/rate-anything/me",
+          "status": 401
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/rate-anything/me",
+          "status": 401
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/auth/register",
+          "status": 201
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/rate-anything/thing-types",
+          "status": 503
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/thing-types",
+          "status": 503
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/thing-types",
+          "status": 201
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/standalone-things",
+          "status": 201
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/rate-anything/rating",
+          "status": 201
+        }
+      ],
+      "servedVersion": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1",
+      "servedApiVersion": "rat-candidate+5939cf2b5a34f74882486c857ed66b1a11f769e1",
+      "testUsername": "rat169qabepersistb04",
+      "classificationKey": "community_6f6bb4ee3ee9bf9da5c8736a04842adef3a64811d61a3177eac4",
+      "classificationId": "01m7bt36mh6s8cdzj7gc8jhc3v",
+      "entityId": "01m7bt378nne388rnrrhtzsrgn",
+      "journeyId": "01m7bt37ak8hqpksnysn4r6wk7",
+      "pendingClassificationVerified": true,
+      "ratingEventId": "01m7bt39ttfh3g7qybj939t406",
+      "finalPublication": "published",
+      "result": "PASS"
+    },
+    "sqlReceipt": "rat169-youtube-20261114-canonical-db-b04",
+    "sqlReadback": {
+      "entity_present": true,
+      "entity_publication_state": "published",
+      "entity_visibility": "public",
+      "structural_kind_correct": true,
+      "classification_present": true,
+      "classification_structural_kind_correct": true,
+      "canonical_assignment_present": true,
+      "canonical_assignment_primary": true,
+      "canonical_assignment_state": "unverified",
+      "journey_present": true,
+      "journey_state": "active",
+      "rating_event_count": 1
+    }
+  },
+  "regressions": {
+    "receipt": "rat169-youtube-20261114-dji-cj-browser-c05",
+    "markers": [
+      "RAT_DJI_CJ_BROWSER_VERIFIED",
+      "DJI_LINKED_NAVIGATION_VERIFIED",
+      "RAT_RATE_FLOW_VERIFIED",
+      "RAT_NO_MATCH_VERIFIED",
+      "RAT_PRIVACY_MARKER_VERIFIED"
+    ]
+  },
+  "runningPods": {
+    "receipt": "rat169-youtube-20261114-postdeploy-runtime-r03",
+    "commands": [
+      {
+        "status": "completed",
+        "output": "ghcr.io/daisycloversoftware/rum-api@sha256:71ec4ce2fa083270275f475e9a6c7c427088c0ed568263f6abbe5670ca9ba443"
+      },
+      {
+        "status": "completed",
+        "output": "rum-api-6cf99d6df9-zxs9x Running ghcr.io/daisycloversoftware/rum-api@sha256:71ec4ce2fa083270275f475e9a6c7c427088c0ed568263f6abbe5670ca9ba443"
+      },
+      {
+        "status": "completed",
+        "output": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9d067ce6244ef9504e67c478d06975c2bf22a1f3c41c1c240c7134b011c15778"
+      },
+      {
+        "status": "completed",
+        "output": "rum-rate-anything-68999c784d-k9djw Running ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9d067ce6244ef9504e67c478d06975c2bf22a1f3c41c1c240c7134b011c15778"
+      },
+      {
+        "status": "completed",
+        "output": "NAME         READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS      IMAGES                                                              SELECTOR\nrum-api      1/1     1            1           98d   php-fpm,nginx   ghcr.io/daisycloversoftware/rum-api:sha-54d31b8,nginx:1.29-alpine   app.kubernetes.io/component=api,app.kubernetes.io/instance=rum,app.kubernetes.io/name=rum\nrum-web      1/1     1            1           98d   web             ghcr.io/daisycloversoftware/rum-web:sha-8106675                     app.kubernetes.io/component=web,app.kubernetes.io/instance=rum,app.kubernetes.io/name=rum\nrum-worker   1/1     1            1           98d   worker          ghcr.io/daisycloversoftware/rum-api:sha-54d31b8                     app.kubernetes.io/component=worker,app.kubernetes.io/instance=rum,app.kubernetes.io/name=rum"
+      },
+      {
+        "status": "completed",
+        "output": "NAME                CLASS     HOSTS                               ADDRESS                                                   PORTS     AGE\nrum-rate-anything   traefik   dev-rum-ra.daisycloversoftware.uk   192.168.1.163,192.168.1.200,192.168.1.219,192.168.1.230   80, 443   92d"
+      }
+    ]
+  },
+  "pendingSupplementary": "Independent live existing-type reuse browser verification and additional catalogue readback are separate follow-ups; owner browser, real type/Thing/rating, SQL and DJI/CJ have passed."
+}
