@@ -1,0 +1,32 @@
+{
+  "source": "5939cf2b5a34f74882486c857ed66b1a11f769e1",
+  "receipt": "rat169-youtube-20261114-owner-search-current-d08",
+  "read_only": true,
+  "queries": [
+    {
+      "query": "The Professional Idiots",
+      "http_status": 200,
+      "found": true,
+      "source": "rum-dev-canonical",
+      "privacy": "private-rum-people-excluded",
+      "active_name": "The Professional Idiots"
+    },
+    {
+      "query": "Violet Glacier Semaphore rat169-youtube-reuse-b06",
+      "http_status": 200,
+      "found": true,
+      "source": "rum-dev-canonical",
+      "privacy": "private-rum-people-excluded",
+      "active_name": "Saffron Telescope Beacon rat169-youtube-persist-b04"
+    },
+    {
+      "query": "zzzz-no-such-rat-entity-zzzz",
+      "http_status": 200,
+      "found": false,
+      "source": "rum-dev-canonical",
+      "privacy": "private-rum-people-excluded",
+      "active_name": null
+    }
+  ],
+  "interpretation": "At this later readback, 'The Professional Idiots' is already found by canonical DEV; Add a Thing is therefore not offered. The engineering acceptance scripts did not create it. A standard unrelated no-match still returns found:false. The earlier extra reuse browser fixture collided with existing test entities; final controlled entry fixture verified real server-backed YouTube type reuse without writes."
+}
