@@ -4,7 +4,7 @@ set -euo pipefail
 # Carmine Nebula Archive; NEVER The Professional Idiots or any real entity.
 [[ $# -eq 2 ]] || exit 64
 sha="$1"; runid="$2"
-[[ "$sha" == "ddf5b7fe0bb4bdff7d566b5f2ecf185ec4d1820f" && "$runid" =~ ^[a-z0-9-]{8,42}$ ]] || exit 78
+[[ "$sha" == "56a2fdfe9ae885f2e8889b5251f0b3c598eab27f" && "$runid" =~ ^[a-z0-9-]{8,42}$ ]] || exit 78
 out="/tmp/rat170-media-$runid"
 [[ ! -e "$out" ]] || { echo 'Previous test evidence exists; do not repeat mutations'; exit 65; }
 mkdir -m 700 "$out"
