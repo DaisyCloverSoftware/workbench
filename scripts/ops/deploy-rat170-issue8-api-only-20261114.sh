@@ -4,7 +4,7 @@ set -euo pipefail
 # RAT frontend, admin, worker, datastore, production or unrelated DEV updates.
 [[ $# -eq 2 ]] || exit 64
 sha="$1"; candidate="$2"
-[[ "$sha" == '06da14c2ebf7be2fb28b83113ea6a4bf41b373e7' ]] || exit 78
+[[ "$sha" == '6ef4251fa6851625a9c7693d3274ad1b29760fd6' ]] || exit 78
 [[ "$candidate" =~ ^ghcr[.]io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 current_expected='ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983'
 rat_expected='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c'
