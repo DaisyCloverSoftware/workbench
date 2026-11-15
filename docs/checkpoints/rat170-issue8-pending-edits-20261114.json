@@ -60,23 +60,18 @@
     "needs_attention": "Separate issue"
   },
   "CI": {
-    "exact_head_run": "PENDING automatic CI created by final test-only source commit, recover via GitHub before dispatching or rerunning",
     "exact_head": "4153c5be7268a95a94fb038b3e58a02e2375d273",
-    "state": "queued/in-progress after focused PHPStan metadata fix; do not claim passing",
-    "prior_run": 43643549773,
-    "prior_failures": [
-      "API: five PHPStan offset-nullCoalesce metadata typing errors; Pint passed",
-      "RAT: one existing standaloneJourney browser test timed out at 5000ms; new Issue8 front-end tests passed"
-    ],
-    "source_corrections": [
-      "a9f0350417e4727ad0483237e40a129b92f729c3",
-      "6ef4251fa6851625a9c7693d3274ad1b29760fd6"
-    ],
-    "image_publish_state": "NOT VERIFIED; do not infer candidate images",
-    "prior_failed_run": 43695224924,
-    "prior_failed_reason": "One PHPunit test sent six writes in one throttle window; HTTP429 expected protection prevented final 422 assertion. No production throttles changed.",
-    "verified_PHPStan": true,
-    "owner_image_revisions_unchanged": true
+    "exact_head_run": 43696074527,
+    "status": "queued/in_progress after test-only throttle-safe split; at latest bounded read specification PASS, web and preview in progress, API/RAT/admin queued",
+    "final_result": "NOT COMPLETE; no immutable images yet verified",
+    "previously_verified": {
+      "run": 43695224924,
+      "source": "6ef4251fa6851625a9c7693d3274ad1b29760fd6",
+      "api": "Pint PHPStan PASS, PHPUnit 577/578 PASS, one 429 on sixth per-user request in a test",
+      "rat": "not definitive"
+    },
+    "newly_added_test": "test_repeated_withdrawal_is_rejected_without_changing_revision_history; separated same-user sixth request to respect RateLimiter entity-create 5/min; no throttle/middleware alteration",
+    "exact_head_publication": "NOT CONFIRMED"
   },
   "operations": {
     "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
@@ -98,14 +93,27 @@
     "browser_script": "scripts/ops/verify-rat170-issue8-pending-review-browser-20261114.sh",
     "browser_source_guard": "7cd4c2... must be revised after final successful exact source",
     "sql_script": "scripts/ops/inspect-rat170-issue8-revisions-sql-20261114.sh",
-    "tools_head_at_last": "1382c9d288ec74c765136a470359215bd96047c1"
+    "tools_head_at_last": "1382c9d288ec74c765136a470359215bd96047c1",
+    "workbench_head_at_checkpoint": "264d322c991c8fe65545f86e981712129ea559db",
+    "api_deploy_script": "scripts/ops/deploy-rat170-issue8-api-only-20261114.sh",
+    "frontend_deploy_script": "scripts/ops/deploy-rat170-issue8-frontend-only-20261114.sh",
+    "source_guard": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+    "owner_inspection": "rat170-issue8-20261115-owner-baseline-r1 COMPLETED 0; both known pending owner revisions hash/time unchanged",
+    "dev_topology": "rat170-issue8-20261115-admin-topology-r1 COMPLETED 5/5; configured admin-dev-rum hostname but no admin deployment/ingress; cannot claim staff browser acceptance",
+    "api_running_baseline": "sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+    "rat_running_baseline": "sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c",
+    "LIVE_baseline": "rum-api:sha-54d31b8 rum-web:sha-8106675",
+    "api_promotion": "NOT SUBMITTED",
+    "frontend_promotion": "NOT SUBMITTED",
+    "browser_acceptance": "NOT RUN"
   },
   "next": [
-    "Recover current PR #170 head and existing exact-head CI triggered by 4153c5be7268a95a94fb038b3e58a02e2375d273; do NOT rerun earlier completed/failed jobs. Inspect only any new actual failures; PHPUnit test is now split to stay within the five-per-minute limit.",
-    "Only after 9/9 exact-head CI PASS and immutable API/RAT publication: repin existing Workbench guarded API frontend and browser scripts from old 6ef SHA to final 4153 exact head and check admitted origin branch HEAD.",
-    "Read existing relayed deployment requests/outboxes and current live DEV image/pods. Deploy only compatible canonical DEV API and RAT frontend; no web/admin unless existing authorised protected deployment/ingress exists. Preserve LIVE, DB, owner entries.",
-    "Execute browser once on synthetic Carmine Nebula Archive: pending, dedupe, revise, withdraw, privacy, 390px; then read-only SQL/outbox; re-read two owner image revisions unchanged.",
-    "Staff interface is not deployed or exposed in isolated DEV (ADMIN_HOST configured, no admin ingress/deployment); preserve staff API tests and report staff-browser MFA prerequisite without bypass."
+    "FIRST: recover exact-head existing CI 43696074527 for 4153c5be7268a95a94fb038b3e58a02e2375d273; do not dispatch duplicate CI or reuse failed 43695224924. Inspect specific failed jobs, if any. Publisher jobs only after required sources pass.",
+    "After full exact-head pass, recover immutable API and RAT frontend digests from successful candidate publish logs and verify current runtime /VERSION and image IDs before changing anything; check prior relay requests/outboxes.",
+    "Run existing guarded Workbench API-only then frontend-only scripts from CURRENT admitted Workbench origin head, with new immutable images and exact source guard, preserve LIVE and protected workloads, no datastore migrations/resets.",
+    "Run one-time member lifecycle browser on disposable Carmine Nebula Archive only, including duplicate/pending/replace/withdraw/privacy/390px screenshot; SQL prove audit/outbox and the two owner pending image revisions unchanged.",
+    "Independent verified staff-reviewer browser remains blocked by unavailable isolated DEV admin ingress/workload/approved MFA staff session. Preserve backend staff test results and do not make an unauthorized staff host or fake approval.",
+    "Record final checks/receipts. PR #169/#170 OPEN DRAFT UNMERGED; LIVE untouched."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
