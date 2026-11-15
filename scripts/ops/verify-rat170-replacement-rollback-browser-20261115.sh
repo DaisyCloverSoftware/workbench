@@ -32,7 +32,7 @@ git -C "$tmp" checkout -q --detach FETCH_HEAD
 cd "$tmp/apps/rate-anything"
 npm ci --ignore-scripts --no-audit --no-fund >/dev/null
 chrome=''
-for b in /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium /usr/bin/chromium-browser;do [[ ! -x "$b" ]] || {chrome="$b";break;};done
+for b in /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium /usr/bin/chromium-browser; do [[ ! -x "$b" ]] || { chrome="$b"; break; }; done
 [[ -n "$chrome" ]] || npx playwright install chromium >/dev/null
 RAT170_RID="$rid" RAT170_OUT="$out" CHROME="$chrome" node --input-type=module <<'NODE'
 import assert from 'node:assert/strict'
