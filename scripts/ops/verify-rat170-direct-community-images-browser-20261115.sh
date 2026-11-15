@@ -24,6 +24,30 @@ import json,sys
 j=json.loads(sys.argv[1])
 assert j["status"]=="ok" and j["service"]=="rum-api" and sys.argv[2] in str(j["version"])
 PY
+# Refuse any mutation unless all four *named disposable* Things are
+# still public, discoverable, unclaimed, unlocked product fixtures.
+read_only_fixture_guard='
+require "vendor/autoload.php";
+$app=require "bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$db=Illuminate\Support\Facades\DB::class;
+$ids=[
+"01m7fvzcen292rvqeqj03evtxe",
+"01m7fw9xhpfmdw0cmpaf3zngkm",
+"01m7fw9yb4684hygrm14tmm3jr",
+"01m7fw9z1b6n969xbmgdwew45t"
+];
+foreach($ids as $id){
+ $e=$db::table("entities")->where("id",$id)->first();
+ if(!$e || $e->status!=="active" || $e->visibility!=="public" || $e->publication_state!=="published" || $e->edit_policy!=="community_governed" || $e->edit_locked_at!==null || $e->sensitivity!=="normal")exit(78);
+ $type=$db::table("entity_types")->where("id",$e->entity_type_id)->value("key");
+ if($type!=="product")exit(78);
+ if($db::table("entity_claims")->where("entity_id",$id)->where("status","approved")->whereNull("revoked_at")->where("verification_level",">=",1)->exists())exit(78);
+ if($db::table("entity_managers")->where("entity_id",$id)->where("status","active")->whereNull("revoked_at")->exists())exit(78);
+}
+echo "RAT170_DISPOSABLE_UNCLAIMED_GUARDS_PASS=true\n";
+'
+kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$read_only_fixture_guard"
 echo RAT170_DIRECT_DEPLOYMENT_PROVENANCE_OK=true
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
