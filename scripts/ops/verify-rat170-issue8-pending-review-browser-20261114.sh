@@ -98,13 +98,15 @@ try{
  assert.equal(history.status(),200)
  const revisions=(await history.json()).data
  assert.equal(revisions.filter(x=>x.editorUserId===report.memberId&&x.field==='image_url'&&x.outcome==='pending').length,1)
- assert.ok(!revisions.some(x=>['01m7dxvjchbmnjjnatw0av6a7m','01m7dxwv5cnczfsjset8emjvap'].includes(x.id)))
+ assert.ok(revisions.every(x=>x.outcome==='applied'||x.editorUserId===report.memberId),'another member pending content was exposed')
  pass('duplicate-idempotent-and-others-private-suggestions-hidden')
  stage='replace'
  await item.first().getByRole('button',{name:'Revise suggestion'}).click()
  await expect(form.getByRole('button',{name:'Record replacement'})).toBeVisible()
  await input.fill('https://example.org/rat170-issue8-revised-'+id+'.jpg')
  await page.setViewportSize({width:390,height:880})
+ const sizing=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,view:window.innerWidth}))
+ assert.ok(sizing.scroll<=sizing.view+2,'mobile page must not scroll horizontally')
  await shot('03-mobile-replacement')
  wait=responseAt(url)
  await form.getByRole('button',{name:'Record replacement'}).click()
