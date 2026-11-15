@@ -71,7 +71,11 @@
       "rat": "not definitive"
     },
     "newly_added_test": "test_repeated_withdrawal_is_rejected_without_changing_revision_history; separated same-user sixth request to respect RateLimiter entity-create 5/min; no throttle/middleware alteration",
-    "exact_head_publication": "NOT CONFIRMED"
+    "exact_head_publication": "NOT CONFIRMED",
+    "last_readback": "IN_PROGRESS; 5/6 source jobs completed PASS (Specification, Web, Preview-browser, API, Admin). RAT job 132756844824 installing pinned Chromium headless shell, npm lint/typecheck passed; npm test/build not yet run.",
+    "exact_head_complete": false,
+    "immutable_images_published": false,
+    "do_not_repeat": "Do not rerun existing CI 43696074527 or restart finished jobs while pending; recover this job and its candidate publication successors"
   },
   "operations": {
     "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
@@ -108,12 +112,11 @@
     "browser_acceptance": "NOT RUN"
   },
   "next": [
-    "FIRST: recover exact-head existing CI 43696074527 for 4153c5be7268a95a94fb038b3e58a02e2375d273; do not dispatch duplicate CI or reuse failed 43695224924. Inspect specific failed jobs, if any. Publisher jobs only after required sources pass.",
-    "After full exact-head pass, recover immutable API and RAT frontend digests from successful candidate publish logs and verify current runtime /VERSION and image IDs before changing anything; check prior relay requests/outboxes.",
-    "Run existing guarded Workbench API-only then frontend-only scripts from CURRENT admitted Workbench origin head, with new immutable images and exact source guard, preserve LIVE and protected workloads, no datastore migrations/resets.",
-    "Run one-time member lifecycle browser on disposable Carmine Nebula Archive only, including duplicate/pending/replace/withdraw/privacy/390px screenshot; SQL prove audit/outbox and the two owner pending image revisions unchanged.",
-    "Independent verified staff-reviewer browser remains blocked by unavailable isolated DEV admin ingress/workload/approved MFA staff session. Preserve backend staff test results and do not make an unauthorized staff host or fake approval.",
-    "Record final checks/receipts. PR #169/#170 OPEN DRAFT UNMERGED; LIVE untouched."
+    "Recover exact RAT CI job 132756844824 / run 43696074527. It was still at pinned Chromium install after lint/typecheck PASS; avoid repeated polling or replacing it without a failure. Only the RAT job and candidate publisher remain unfinished.",
+    "If RAT/other exact-head checks pass 9/9, recover immutable API and RAT digests from corresponding successful publication logs, and inspect original Workbench relay control/outbox plus current runtime before submitting.",
+    "Execute already reviewed guarded API-only script followed by frontend-only script from the current admissible Workbench origin branch HEAD; preserve LIVE, unrelated DEV, no DB migrations/seeds/reset. Verify actual receipts, pod imageIDs and RAT /VERSION.",
+    "Run prepared synthetic member browser only once with unique ID, then read-only SQL/outbox provenance and owner revision reinspection. No owner edits or approval.",
+    "If staff host/MFA access is not available via existing approved path, do not create new infrastructure: record staff real-browser acceptance as unavailable, preserve backend approval/rejection/stale/self-review tests, withhold OWNER_REVIEW_READY."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
@@ -138,5 +141,48 @@
     "workbench_operations_head": "b7d6928439d9254739ca2d21d3831f2f6d9c48b6",
     "guarded_script_pins": "WorkBench deploy API/frontend and browser scripts are pinned to 6ef4251fa6851625a9c7693d3274ad1b29760fd6; must repin once final 4153 exact-head CI passes, do not execute obsolete script",
     "new_deployment": "NONE"
+  },
+  "current_recovery_20261115": {
+    "completed": "PR and Workbench script-source recovery, five exact CI passes, current isolated API/RAT & LIVE image readback",
+    "head_sha": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+    "pr170": "OPEN DRAFT UNMERGED",
+    "pr169": "OPEN DRAFT UNMERGED",
+    "ci_run": 43696074527,
+    "rat_job": 132756844824,
+    "ci_current_blocker": "Chromium headless shell install in progress, no failure or terminal receipt; 5 of 6 source jobs PASS",
+    "runtime_request": "rat170-issue8-20261115-runtime-gate-r2",
+    "runtime_result": "COMPLETED 7/7 PASS",
+    "api_running": "ghcr.io/daisycloversoftware/rum-api@sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+    "rat_running": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c",
+    "live_api_running": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
+    "live_web_running": "ghcr.io/daisycloversoftware/rum-web:sha-8106675",
+    "live_worker_running": "ghcr.io/daisycloversoftware/rum-api:sha-54d31b8",
+    "operations_branch": "ops/rat-community-20261114-isolated",
+    "admitted_head": "264d322c991c8fe65545f86e981712129ea559db",
+    "scripts": {
+      "api": {
+        "path": "scripts/ops/deploy-rat170-issue8-api-only-20261114.sh",
+        "blob": "36a3a46988f2c19a10a5e43cde272ae74ffcac8b"
+      },
+      "rat": {
+        "path": "scripts/ops/deploy-rat170-issue8-frontend-only-20261114.sh",
+        "blob": "d873d572d3676d80ad3266a08cb9b0582eca5ef0"
+      },
+      "browser": {
+        "path": "scripts/ops/verify-rat170-issue8-pending-review-browser-20261114.sh",
+        "blob": "801bc4d930d7edfd232e7e4c9ac8bab36e66309d"
+      },
+      "sql": {
+        "path": "scripts/ops/inspect-rat170-issue8-revisions-sql-20261114.sh",
+        "blob": "cf4fcb2c6056e2bff0659776b729f466d7f98c51"
+      }
+    },
+    "actual_deployment": "NONE",
+    "actual_member_browser": "NOT RUN",
+    "actual_staff_browser": "NOT RUN",
+    "staff_prerequisite": "Configured ADMIN_HOST admin-dev-rum.daisycloversoftware.uk but no deployed/ingressed staff console or approved MFA test staff session; do not bypass or fabricate",
+    "owner_two_revisions": "Preserved as independently checked in rat170-issue8-20261115-owner-baseline-r1. No further mutation.",
+    "no_db_reset": true,
+    "live_untouched": true
   }
 }
