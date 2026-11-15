@@ -111,20 +111,21 @@ const postJson=async(p,path,body,method='POST')=>p.evaluate(async ({path,body,me
 const judgePage=async(ctx)=>{const r=await ctx.request.get(RAT+'/api/v1/rate-anything/things/'+QA+'/judge?limit=10');return{status:r.status,data:await r.json().catch(()=>({}))}}
 const makeEligible=({username,id})=>{
  assert.match(id,/^[0-9a-z]{26}$/);assert.match(username,/^ratjudge[a-z0-9]{6,40}$/)
- const code=String.raw\`
- require "vendor/autoload.php";
- $app=require "bootstrap/app.php";$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
- $db=Illuminate\\Support\\Facades\\DB::class;
- $id="\${id}";$username="\${username}";
- $u=$db::table("users")->where("id",$id)->first();
- if(!$u||$u->username!==$username||$u->email!==$username."@example.com"
- ||$u->email_verified_at!==null||$u->status!=="active"||$u->created_at<now()->subHours(1))exit(78);
- if((bool)config("age_assurance.enabled",false)||(bool)config("features.nsfw",false))exit(78);
- if($db::table("entity_claims")->where("claimant_user_id",$id)->exists())exit(78);
- $n=$db::table("users")->where("id",$id)->whereNull("email_verified_at")
- ->update(["email_verified_at"=>now(),"created_at"=>now()->subDays(3)]);
- if($n!==1)exit(78);echo "RAT171_NEW_DISPOSABLE_MEMBER_JUDGE_ELIGIBILITY_SET=true\\n";
- \`
+ const code=[
+ 'require "vendor/autoload.php";',
+ '$app=require "bootstrap/app.php";$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();',
+ '$db=Illuminate\\Support\\Facades\\DB::class;',
+ '$id="'+id+'";$username="'+username+'";',
+ '$u=$db::table("users")->where("id",$id)->first();',
+ 'if(!$u||$u->username!==$username||$u->email!==$username."@example.com"',
+ '||$u->email_verified_at!==null||$u->status!=="active"',
+ '||strtotime((string)$u->created_at)<time()-3600)exit(78);',
+ 'if((bool)config("age_assurance.enabled",false)||(bool)config("features.nsfw",false))exit(78);',
+ 'if($db::table("entity_claims")->where("claimant_user_id",$id)->exists())exit(78);',
+ '$n=$db::table("users")->where("id",$id)->whereNull("email_verified_at")',
+ '->update(["email_verified_at"=>now(),"created_at"=>now()->subDays(3)]);',
+ 'if($n!==1)exit(78);echo "RAT171_NEW_DISPOSABLE_MEMBER_JUDGE_ELIGIBILITY_SET=true\n";'
+ ].join('\n')
  const out=execFileSync('sudo',['-n','k3s','kubectl','-n','rum-dev-isolated','exec','deployment/rum-api','-c','php-fpm','--','php','-r',code],{encoding:'utf8',timeout:25000})
  assert.ok(out.includes('RAT171_NEW_DISPOSABLE_MEMBER_JUDGE_ELIGIBILITY_SET=true'))
 }
