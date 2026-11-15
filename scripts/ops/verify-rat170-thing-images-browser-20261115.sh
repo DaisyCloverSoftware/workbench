@@ -14,9 +14,9 @@ if [[ $# -gt 0 && "$1" == image ]]; then
   printf 'RAT170_THING_IMAGES_SCREENSHOT_BASE64='; base64 -w0 "$file"; printf '\n'
   exit 0
 fi
-[[ $# -eq 2 ]] || { echo 'usage: <exact-40-source-sha> <unique-run-id>' >&2; exit 64; }
-source_sha="$1"; run_id="$2"
-[[ "$source_sha" =~ ^[0-9a-f]{40}$ && "$run_id" =~ ^[a-z0-9-]{8,42}$ ]] || exit 64
+[[ $# -eq 3 ]] || { echo 'usage: <exact-40-source-sha> <unique-run-id> <already-published-disposable-Thing-id>' >&2; exit 64; }
+source_sha="$1"; run_id="$2"; first_id="$3"
+[[ "$source_sha" =~ ^[0-9a-f]{40}$ && "$run_id" =~ ^[a-z0-9-]{8,42}$ && "$first_id" =~ ^[0-9a-z]{26}$ ]] || exit 64
 out="/tmp/rat170-thing-images-$run_id"
 [[ ! -e "$out" ]] || { echo 'Browser run ID already exists; inspect prior result instead of repeating mutations'; exit 65; }
 mkdir -m 700 "$out"
@@ -33,7 +33,7 @@ for b in /usr/bin/google-chrome /usr/bin/google-chrome-stable /usr/bin/chromium 
   if [[ -x "$b" ]]; then chrome="$b";break;fi
 done
 [[ -n "$chrome" ]] || npx playwright install chromium >/dev/null
-RAT170_SOURCE="$source_sha" RAT170_RUN="$run_id" RAT170_OUTPUT="$out" CHROME="$chrome" node --input-type=module <<'NODE'
+RAT170_SOURCE="$source_sha" RAT170_RUN="$run_id" RAT170_OUTPUT="$out" RAT170_EXISTING_FIRST="$first_id" CHROME="$chrome" node --input-type=module <<'NODE'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { deflateSync } from 'node:zlib'
@@ -42,6 +42,7 @@ import { chromium, expect } from '@playwright/test'
 
 const RAT='https://dev-rum-ra.daisycloversoftware.uk', DEV='https://dev-rum.daisycloversoftware.uk'
 const src=process.env.RAT170_SOURCE, rid=process.env.RAT170_RUN, dir=process.env.RAT170_OUTPUT
+const existingFirst=process.env.RAT170_EXISTING_FIRST
 const anchor='01m7d2emwsnd0nxw6new8khbje' // Previously verified disposable synthetic Thing; authentication only, no edits.
 const testUrl='https://upload.wikimedia.org/wikipedia/commons/a/a9/Example.jpg'
 const report={source:src,runId:rid,createdThings:[],testAccounts:[],checks:[],screenshots:[],status:'UNVERIFIED',errors:[],publication:'NOT_TESTED_NO_AUTHORISED_MFA_SESSION'}
@@ -114,7 +115,7 @@ const publicNode=async(id)=>{
 const appendCase=async (caseInfo)=>{
  stage='image-'+caseInfo.kind
  await page.goto(RAT+'/e/qa~'+caseInfo.id,{waitUntil:'domcontentloaded'})
- await expect(page.locator('.rat-workspace-header h1')).toContainText('RAT170 Image QA',{timeout:25000})
+ await expect(page.locator('.rat-workspace-header h1')).toContainText(caseInfo.name,{timeout:25000})
  await expect(page.locator('.rat-workspace-facts dt',{hasText:'Type of Thing'})).toHaveCount(1)
  await expect(page.locator('.rat-workspace-facts dt',{hasText:'Other classifications'})).toHaveCount(0)
  record(caseInfo.kind+'-profile-type-single-and-no-duplicate')
@@ -214,18 +215,30 @@ try {
  record('exact-deployed-api-and-frontend-and-existing-disposable-anchor')
  stage='create-disposable-things'
  const creatorId=await register(owner,'creator',anchor)
+ // Recover the first published disposable Thing from the interrupted run;
+ // do not repeat its creation/rating or change any existing owner record.
+ const first=await publicNode(existingFirst)
+ assert.equal(first.name,'RAT170 Image QA profile-url rat170img4way-20261115-r13')
+ assert.equal(first.images?.profile??null,null,'Recovered Thing already has an active profile image')
  const plans=[
-  {kind:'profile-url',slot:'profile',mode:'url'},
+  {kind:'profile-url',slot:'profile',mode:'url',id:existingFirst,name:first.name},
   {kind:'profile-upload',slot:'profile',mode:'upload'},
   {kind:'cover-url',slot:'cover',mode:'url'},
   {kind:'cover-upload',slot:'cover',mode:'upload'},
  ]
- for(const item of plans){
-  // Canonical Add a Thing uses standalone creation then the first rating.
-  // The /entities route targets the preview-local database, not canonical DEV.
-  const name='RAT170 Image QA '+item.kind+' '+rid
+ report.createdThings.push({id:existingFirst,name:first.name,kind:'profile-url',reused:true,published:true})
+ const differentNames={
+  'profile-upload':'Purple Lantern Product Fixture',
+  'cover-url':'Green Tempest Artwork Catalogue',
+  'cover-upload':'Amber Prairie Display Collection',
+ }
+ for(const item of plans.slice(1)){
+  // Canonical standalone creation, then initial rating and publication.
+  // Different subjects/descriptions prevent a misleading fixture duplicate match.
+  const name=differentNames[item.kind]+' '+rid
   const created=await xsrfFetch(owner,{path:'/api/v1/rate-anything/standalone-things',
-   body:{entityType:'product',name,description:'Disposable media processing and moderation verification record '+rid,
+   body:{entityType:'product',name,
+    description:'Disposable '+differentNames[item.kind]+' for isolated media processing verification '+rid,
     idempotencyKey:randomUUID()}})
   assert.equal(created.status,201,'Failed to create '+item.kind+': '+JSON.stringify(created.body).slice(0,400))
   const id=created.body.data?.id, journeyId=created.body.meta?.journey?.id
@@ -244,7 +257,7 @@ try {
   assert.equal(node.name,name)
   report.createdThings[report.createdThings.length-1].published=true
  }
- record('four-new-independent-public-disposable-things-via-canonical-initial-rating')
+ record('four-independent-public-disposable-things-first-reused-other-three-canonical-rating')
  stage='register-noncreator'
  const editorId=await register(page,'editor',plans[0].id)
  assert.notEqual(creatorId,editorId)
