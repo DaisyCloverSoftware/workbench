@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "workstream": "RAT PR #170 — canonical Thing imagery + simplified profile presentation (Issue #172)",
+  "repository": "DaisyCloverSoftware/rum",
+  "pr": 170,
+  "pr_state": "OPEN DRAFT UNMERGED",
+  "branch": "feat/rat-community-edits-connections-20261114",
+  "recovered_baseline": {
+    "source": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
+    "API": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "RAT": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:2cd07b529eca5cfbfcf89a0cd0329c3f8f214079032b211ec80370b2c232e436",
+    "CI": "43701234357 PASS 9/9",
+    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING"
+  },
+  "current_source": "6689d7d9417178bb831734bcff70e6672ecfebc8",
+  "current_CI": {
+    "id": 43711850535,
+    "sha": "6689d7d9417178bb831734bcff70e6672ecfebc8",
+    "status": "IN PROGRESS: first API Pint failure on 9b2 prior head was repaired using exact disposable-source Pint diff rat170-20261115-image-pint-diff-p1, six source files corrected, new CI queued/running",
+    "full_success": false,
+    "publish": "NOT VERIFIED"
+  },
+  "source_changed": {
+    "frontend": [
+      "apps/rate-anything/src/RatEntityWorkspace.tsx",
+      "apps/rate-anything/src/ratTypePresentation.ts",
+      "apps/rate-anything/src/ratTypePresentation.test.ts",
+      "apps/rate-anything/src/ThingEditPanel.tsx",
+      "apps/rate-anything/src/ratExplorerApi.ts",
+      "apps/rate-anything/src/thingImageApi.ts",
+      "apps/rate-anything/src/thingEditApi.ts",
+      "apps/rate-anything/src/sessionRequest.ts",
+      "apps/rate-anything/src/thing-edit-form.css",
+      "apps/rate-anything/src/rat-explorer.css",
+      "apps/rate-anything/src/ratThingEditProxy.test.ts",
+      "apps/rate-anything/nginx.conf"
+    ],
+    "api": [
+      "apps/api/app/Services/SafeThingImageFetcher.php",
+      "apps/api/app/Services/ThingImageService.php",
+      "apps/api/app/Services/ThingEditService.php",
+      "apps/api/app/Http/Controllers/Api/V1/ThingImageController.php",
+      "apps/api/app/Http/Controllers/Api/V1/ThingEditController.php",
+      "apps/api/app/Http/Controllers/Api/V1/Admin/AdminThingEditReviewController.php",
+      "apps/api/app/Http/Resources/UniversalEntityResource.php",
+      "apps/api/routes/rate-anything-web.php",
+      "apps/api/routes/rat-public-api.php",
+      "apps/api/routes/entity-corrections-api.php",
+      "apps/api/tests/Feature/Entity/ThingImagePublishingTest.php"
+    ],
+    "admin": [
+      "apps/admin/src/ThingEditReviews.tsx",
+      "apps/admin/src/types.ts",
+      "apps/admin/src/api.ts",
+      "apps/admin/src/thing-edit-reviews.css"
+    ]
+  },
+  "design_verified_in_source": [
+    "One primary Type of Thing label and only truly extra classifications; canonical structural classifications untouched",
+    "Profile and cover image edit buttons in normal workspace and image editor; URL and Upload source choices",
+    "Collapsed optional evidence; Evidence URL distinct from image source URL",
+    "RUM existing MediaPipeline ingests files or public HTTPS URLs into private storage as sanitised WebP, strips source metadata; 12MB and max pixels",
+    "SSRF-conscious public HTTPS fetch with pinned DNS resolved IPv4, redirect/proxy disabled and size/time bounded",
+    "Image changes as pending attributable canonical EntityProfileRevision; staff approval of vetted derivative required before public projection",
+    "Published image references gated by RAT discovery, current approved revision, ready unflagged media, protected source path",
+    "Legacy generic image_url suggestion remains reference only; does not publish untrusted URL",
+    "Linked images are imported snapshots; sourceSynchronised explicitly false",
+    "Existing immediate Name/Description community edits and claimed restrictions remain unchanged"
+  ],
+  "unknown_or_blocked": [
+    "Exact-head CI source and tests not yet terminal; API PHPStan/PHPUnit new tests not proven successful",
+    "Full immutable API/RAT image publication and deployed end-to-end browser acceptance NOT STARTED",
+    "Approved staff DEV UI/MFA test session absent; actual moderation/publication browser journey cannot be claimed without authorised reviewer",
+    "No approved YouTube/source artwork sync service identified. No automatic refresh implemented; dynamic source-follow separately outstanding",
+    "URL preview currently returned after safe capture and pending submission; a distinct pre-submit vetted URL preview step has not been proven",
+    "No owner data modified in this turn; last original two Professional Idiots pending image revisions preserved; fresh postdeployment readback still required"
+  ],
+  "isolation": {
+    "media_disk": "S3-compatible DEV storage (preflight rat170-thing-images-20261115-media-preflight-r1 COMPLETED 4/4; rum-data-garage service present)",
+    "database": "no new migrations or reseeds submitted",
+    "live": "no changes",
+    "application_pr_merges": "none"
+  },
+  "next": [
+    "Recover PR170 exact head and terminal run 43711850535. Fix only evidenced failures, no security/test weakening; avoid duplicating CI already dispatched.",
+    "On full exact-head CI 9/9 PASS, recover immutable API and RAT digest published for same source from job logs, never invent digests. Inspect existing Workbench requests/outboxes and running images first.",
+    "Review a guarded Workbench API-only and RAT-only promotion for new compatible images with prior running image and LIVE guards; do not deploy admin/web/worker or run database migrations.",
+    "Run real deployed browser on disposable DEV test Thing and noncreator: profile/cover URL and upload pending/private previews, collapsed evidence, classification one primary/multiple extras, 1440/900/390 screenshots, DJI/CJ/rating/connections; ensure actual source/pod IDs and HTTPS cross-origin media.",
+    "Prove public processed image publication only through legitimate moderator MFA if an approved staff path exists; otherwise preserve pending-only acceptance, report staff/published image gate, never forge approval.",
+    "Read-only persistence SQL verify image attachments, provenance and owner two original image revisions unchanged; retain LIVE/PR status."
+  ],
+  "safety": {
+    "no_live": true,
+    "no_owner_entity_mutation": true,
+    "no_staff_mfa_bypass": true,
+    "no_database_reset": true,
+    "no_pr_merge": true
+  }
+}
