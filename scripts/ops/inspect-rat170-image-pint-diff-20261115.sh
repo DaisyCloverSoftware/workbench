@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Exact-source read-only formatting diagnostic in disposable clone.
-[[ $# -eq 1 && "$1" == '9b2add5ce9ce39567fc097a5b3281d2446e1dc49' ]] || exit 78
+[[ $# -eq 1 && "$1" == '6689d7d9417178bb831734bcff70e6672ecfebc8' ]] || exit 78
 command -v composer >/dev/null || exit 69
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 git -C "$tmp" init -q
