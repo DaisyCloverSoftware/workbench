@@ -246,7 +246,7 @@ try {
  await page.goto(RAT+'/e/qa~'+plans[0].id,{waitUntil:'domcontentloaded'})
  await expect(page.getByRole('button',{name:'Add a connection'})).toBeVisible({timeout:22000})
  await page.getByRole('button',{name:'Add a connection'}).click()
- const panel=page.locator('.rat-community-connection-panel')
+ const panel=page.locator('.rat-community-panel')
  await expect(panel.getByLabel('Search Things to connect')).toBeVisible({timeout:14000})
  await panel.getByLabel('Search Things to connect').fill(plans[1].name)
  await panel.getByRole('button',{name:'Search existing Things'}).click()
