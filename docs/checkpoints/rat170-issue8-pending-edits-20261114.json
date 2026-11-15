@@ -147,12 +147,12 @@
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; configured ADMIN_HOST, no deployed approved staff console/MFA operator, no bypass"
   },
   "next": [
-    "Read exact-head CI run 43700242242 at 56d6245d35f94952e952114af5b2f32b9516155a; only after full 9/9 PASS recover immutable RAT frontend digest from its corresponding candidate publication job. Do not rerun old CI.",
-    "Before submitting confirm no existing Workbench frontend promotion for 56d; re-read current running frontend 4a2... and API 13f... and current Workbench origin branch HEAD.",
-    "Execute guarded scripts/ops/deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh with source 56d, new immutable RAT digest and frozen API 13f; no API, web, worker or LIVE deployments. Verify outbox/pod and /VERSION.",
-    "Run scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh once with new unique run ID and disposable synthetic root; previous test account credentials ephemeral and cannot be reused. It checks pending dedupe, supersession, withdrawal and direct unclaimed description edit.",
-    "Verify read-only SQL with scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh and exact browser member/revision IDs, then independent owner image-revision unchanged readback.",
-    "Staff-browser acceptance separately outstanding due absent approved admin ingress/MFA; do not create new infra. If contributor browser and SQL pass, report CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only."
+    "Read latest exact-head CI run 43701234357 for f4e05b91df0f9b6a3d9c665db851446c6d77dccf; do not rerun previous failure 43700242242. New test uses full Nginx location block and must pass before image publication.",
+    "If exact CI 9/9 PASS, recover immutable RAT frontend digest from candidate publisher logs; API remains on existing 4153 candidate sha256:13f71c...; do not deploy newly published API/WEB.",
+    "Read Workbench request/outbox + current frontend/API/pods; submit only guarded scripts/ops/deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh from current admitted origin HEAD, preserving LIVE and canonical DEV.",
+    "Run scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh once with unique run ID on synthetic Carmine Nebula Archive. Two test members prove author vs unrelated member; status dedupe/revise/withdraw and direct description applied. Earlier b01 account credentials not persisted; new fixture is necessary.",
+    "Execute read-only scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh using browser contributor/original/replacement/direct revision IDs and run ID. Re-read both owner pending image revisions unchanged and independent runtime/LIVE digests.",
+    "Report CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only after browser+SQL PASS; STAFF_BROWSER_ACCEPTANCE_OUTSTANDING still requires an approved separate admin+MFA surface and cannot be faked."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
@@ -273,10 +273,10 @@
       "ca5da822032ed73bd4c3a4bfd3ddc313f256ee3e (Nginx only)",
       "56d6245d35f94952e952114af5b2f32b9516155a (Nginx regression test)"
     ],
-    "current_app_head": "56d6245d35f94952e952114af5b2f32b9516155a",
-    "ci_run": 43700242242,
-    "ci_last_status": "3 source jobs PASS (specification/admin/preview-browser), web+api in progress, RAT queued; no final 9/9 or candidate digest yet",
-    "workbench_ops_head": "5b0ef859a389c2710518b7721a4a54a2d34a6a8e",
+    "current_app_head": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
+    "ci_run": 43701234357,
+    "ci_last_status": "queued; do not assert publication until completed 9/9",
+    "workbench_ops_head": "3393c01045d1deaf1d2db82366f44e581eb9c08b",
     "frontend_only_script": "scripts/ops/deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh",
     "browser_script": "scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh",
     "sql_script": "scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh",
@@ -284,6 +284,20 @@
     "current_frontend_new_deployed": false,
     "owner_two_pending_suggestions_modified": false,
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; no approved deployed staff UI or verified MFA test session",
-    "live_untouched": true
+    "live_untouched": true,
+    "prior_proxy_source": "56d6245d35f94952e952114af5b2f32b9516155a",
+    "prior_ci_run": 43700242242,
+    "prior_ci_result": "Completed failure: 5/6 source jobs PASS; RAT source job failed only one new test assertion. Regression test prematurely sliced Nginx location at nested limit_except closing brace; routing cases passed and no Nginx functional failure observed.",
+    "focused_ci_test_fix": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
+    "new_RAT_digest": "NOT PUBLISHED",
+    "frontend_script_blob": "48649df534331eda6076d3a5125a7174bd14ae2d",
+    "browser_script_blob": "51c0f59f302a2d94013008f081f7a3ba04fd7b21",
+    "test_additions": "Guarded browser will register 2 synthetic test members (author/outsider) to verify author-only pending visibility/withdrawal/supersession; then one direct description edit. Owner real Things untouched.",
+    "immutable_API_digest_unchanged": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "api_source_unchanged": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+    "RAT_current_digest": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
+    "new_frontend_deploy": "NOT SUBMITTED",
+    "no_API_or_WEB_deploy": true,
+    "owner_two_image_suggestions_intact": true
   }
 }
