@@ -6,7 +6,7 @@
   "pr": 170,
   "pr_state": "OPEN DRAFT UNMERGED",
   "branch": "feat/rat-community-edits-connections-20261114",
-  "source_at_checkpoint": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+  "source_at_checkpoint": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
   "baseline": {
     "old_source": "e7234490ffec27e0d645911bd62a18d746d3758e",
     "old_ci_run": 43637669789,
@@ -60,10 +60,10 @@
     "needs_attention": "Separate issue"
   },
   "CI": {
-    "exact_head": "4153c5be7268a95a94fb038b3e58a02e2375d273",
-    "exact_head_run": 43696074527,
+    "exact_head": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
+    "exact_head_run": 43701234357,
     "status": "COMPLETED SUCCESS 9/9",
-    "final_result": "PASS",
+    "final_result": "9/9 PASS including source validation and immutable candidate-image publications",
     "previously_verified": {
       "run": 43695224924,
       "source": "6ef4251fa6851625a9c7693d3274ad1b29760fd6",
@@ -88,7 +88,11 @@
       "web_publisher": 132760558820
     },
     "rat_image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
-    "api_image": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d"
+    "api_image": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "candidate_api_not_deployed": "CI produced API candidate for f4e but previous already-compatible canonical DEV API at source 4153 retained",
+    "deployed_frontend_image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:2cd07b529eca5cfbfcf89a0cd0329c3f8f214079032b211ec80370b2c232e436",
+    "original_api_image": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "rat_publisher_job": 132775904613
   },
   "operations": {
     "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
@@ -147,11 +151,11 @@
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; configured ADMIN_HOST, no deployed approved staff console/MFA operator, no bypass"
   },
   "next": [
-    "Recover original control-outbox/rat170-issue8-20261115-withdraw-proxy-frontend-f2.json; if still running, preserve request and do not submit duplicate. Confirm Workbench exit0 and protected snapshot hashes.",
-    "Independently verify running RAT deployment+pod digest sha256:2cd07... and canonical DEV API sha256:13f71..., LIVE image baseline; read served /VERSION rat-candidate+f4e05b91df0f9b6a3d9c665db851446c6d77dccf.",
-    "After deployment PASS, run approved scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh once on existing synthetic Carmine Nebula Archive, new unique run ID. It tests two contributor accounts, pending, duplicate, supersede, cross-user denial, withdraw and direct Description edit.",
-    "Read-only SQL scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh with verified browser ids and run id; verify owner two image revisions via read-only owner fixture and ensure no mutation.",
-    "If contributor browser + SQL PASS, report CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING, but STAFF_BROWSER_ACCEPTANCE_OUTSTANDING still prevents FULL_MODERATION_ACCEPTANCE_COMPLETE. No new admin infrastructure, no LIVE, no merge."
+    "Owner can now inspect and test deployed contributor revision controls at https://dev-rum-ra.daisycloversoftware.uk; no additional CI, deployment or synthetic fixture required for contributor readiness.",
+    "Privileged staff-review browser acceptance remains separately outstanding (STAFF_BROWSER_ACCEPTANCE_OUTSTANDING). Do not deploy new admin infrastructure or manufacture verified MFA staff identity to satisfy this check. Full moderation acceptance is not claimed.",
+    "Owner's original two The Professional Idiots Image revisions are still pending, unchanged and not decided by this task. Their normal authorised reviewer decision remains future work.",
+    "Safe cover-photo uploads (RUM issue #172) and RAT Needs Attention integration (RUM issue #171) remain separate product requirements.",
+    "Keep PRs #169/#170 open draft unmerged, LIVE unchanged and canonical ratings/relationships intact."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
@@ -274,7 +278,7 @@
     ],
     "current_app_head": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
     "ci_run": 43701234357,
-    "ci_last_status": "exact f4e CI nonterminal: web/specification/preview-browser 3/6 PASS, API/admin/RAT queued; no candidate publication",
+    "ci_last_status": "COMPLETED SUCCESS 9/9",
     "workbench_ops_head": "a04532997110c24c87c2157e365c4dedff6bfe63",
     "frontend_only_script": "scripts/ops/deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh",
     "browser_script": "scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh",
@@ -282,20 +286,20 @@
     "source_compatibility": "Frontend new 56d source; canonical DEV API remains deployed 4153 source 13f digest unchanged, not another API deployment",
     "current_frontend_new_deployed": false,
     "owner_two_pending_suggestions_modified": false,
-    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING",
+    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; existing Trust Console source and API tests validated by CI; no approved isolated admin workload/ingress or verified MFA staff session, no bypass",
     "live_untouched": true,
     "prior_proxy_source": "56d6245d35f94952e952114af5b2f32b9516155a",
     "prior_ci_run": 43700242242,
     "prior_ci_result": "Completed failure: 5/6 source jobs PASS; RAT source job failed only one new test assertion. Regression test prematurely sliced Nginx location at nested limit_except closing brace; routing cases passed and no Nginx functional failure observed.",
     "focused_ci_test_fix": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
-    "new_RAT_digest": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:2cd07b529eca5cfbfcf89a0cd0329c3f8f214079032b211ec80370b2c232e436",
+    "new_RAT_digest": "sha256:2cd07b529eca5cfbfcf89a0cd0329c3f8f214079032b211ec80370b2c232e436",
     "frontend_script_blob": "48649df534331eda6076d3a5125a7174bd14ae2d",
     "browser_script_blob": "24f438fa9386cc107dae4cc5d1eef0ba925b4f2e",
     "test_additions": "Guarded browser will register 2 synthetic test members (author/outsider) to verify author-only pending visibility/withdrawal/supersession; then one direct description edit. Owner real Things untouched.",
     "immutable_API_digest_unchanged": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
     "api_source_unchanged": "4153c5be7268a95a94fb038b3e58a02e2375d273",
     "RAT_current_digest": "sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
-    "new_frontend_deploy": "NOT SUBMITTED",
+    "new_frontend_deploy": "rat170-issue8-20261115-withdraw-proxy-frontend-f2 COMPLETED exit 0",
     "no_API_or_WEB_deploy": true,
     "owner_two_image_suggestions_intact": true,
     "reason_prior_CI_failed": "new proxy Vitest itself sliced nested limit_except and omitted proxy_pass; actual withdrawal + rollback route match assertions passed",
@@ -314,6 +318,107 @@
     "rollout_workbench_ops_head": "a04532997110c24c87c2157e365c4dedff6bfe63",
     "rollout_script_blob": "48649df534331eda6076d3a5125a7174bd14ae2d",
     "browser_acceptance": "NOT RUN; gated by rollout receipt, pod digest and served source",
-    "owner_pending_revisions_intact": "last confirmed by SQL from previous browser b01; final readback pending"
-  }
+    "owner_pending_revisions_intact": "last confirmed by SQL from previous browser b01; final readback pending",
+    "frontend_workbench_head": "a04532997110c24c87c2157e365c4dedff6bfe63",
+    "frontend_original_control_commit": "ca1e43281870db4836d87662a1dea50cf27eb35b",
+    "protected_before_after_hash": "add8874dc8063dbdc8d61280d94af11692e2125be4ad8b4bdb7a8e75d7b4580c",
+    "served_version": "rat-candidate+f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
+    "compatible_api_retained": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "independent_pod_check": "rat170-issue8-20261115-withdraw-pods-r2 COMPLETED 7/7 PASS: RAT/API deployment+pods on exact expected digests; LIVE API/web/worker old images",
+    "browser_check": {
+      "id": "rat170-issue8-20261115-withdraw-browser-b02",
+      "status": "COMPLETED exit 0",
+      "run_id": "rat170-issue8-live-20261115-b02",
+      "root": "01m7d2emwsnd0nxw6new8khbje",
+      "synthetic_member": "01m7fbnr424q4924w4g2m89sae",
+      "first_revision": "01m7fbnrvq0v5k0y60mxyf30ed",
+      "replacement_revision": "01m7fbnw14z5fdgy456xycef5w",
+      "direct_description_revision": "01m7fbnwsbgezqbkha8fk3wf82",
+      "checks": [
+        "exact deployed frontend served and compatible API",
+        "authenticated noncreator pending Image suggestion Awaiting review",
+        "unrelated account cannot view, withdraw or replace another pending suggestion",
+        "identical suggestion reused with HTTP200 and same revision ID",
+        "explicit replacement retained original revision as superseded and current revision pending",
+        "withdraw POST reached API with HTTP200; replacement revision Withdrawn",
+        "allowed direct Description edit applied on unclaimed synthetic Thing",
+        "revisions and Description persisted after refresh",
+        "390px image replacement page had no horizontal overflow"
+      ],
+      "screenshots": [
+        "02-pending-revision.jpg",
+        "03-mobile-replacement.jpg",
+        "05-withdrawn.jpg",
+        "06-description-applied.jpg",
+        "07-after-refresh.jpg"
+      ]
+    },
+    "persistence_check": {
+      "id": "rat170-issue8-20261115-withdraw-sql-r3",
+      "status": "COMPLETED exit 0",
+      "all_tests": true,
+      "verified": [
+        "differentFromThingCreator",
+        "originalAuthorMatches",
+        "replacementAuthorMatches",
+        "bothImageReferences",
+        "originalSuperseded",
+        "replacementLinkRecorded",
+        "replacementWithdrawn",
+        "withdrawnTimestampPresent",
+        "submittedOriginalEvent",
+        "submittedRevisedEvent",
+        "supersedeEvent",
+        "withdrawEvent",
+        "directDescriptionPersisted",
+        "directRevisionApplied",
+        "ownerImageRowsPreserved",
+        "noClaimCreatedForSyntheticThing"
+      ],
+      "read_only": true
+    },
+    "anonymous_negative": {
+      "id": "rat170-issue8-20261115-anonymous-negative-r1",
+      "status": "COMPLETED exit0",
+      "withdrawal_http": 419,
+      "edit_http": 419,
+      "synthetic_revision_and_public_entity_SQL_before_after_identical": true,
+      "read_only_negative_test": true
+    },
+    "owner_immutable_readback": {
+      "id": "rat170-issue8-20261115-owner-final-r3",
+      "status": "COMPLETED exit0",
+      "revision_ids": [
+        "01m7dxvjchbmnjjnatw0av6a7m",
+        "01m7dxwv5cnczfsjset8emjvap"
+      ],
+      "both_pending": true,
+      "source": "correction_suggestion",
+      "hash12": "65bf10c7b074",
+      "length": 133,
+      "times_utc": [
+        "2026-11-14T21:01:47Z",
+        "2026-11-14T21:02:29Z"
+      ],
+      "evidence": false,
+      "metadata_absent": true,
+      "no_mutation": true
+    },
+    "evidence": {
+      "repository": "DaisyCloverSoftware/workbench",
+      "branch": "evidence/rat170-community-20261114",
+      "images_commit": "85eb9619087288ea22308e53e0b3f577fdd561ea",
+      "path": "docs/evidence/rat170-issue8-20261115/",
+      "count": 5,
+      "readme": "docs/evidence/rat170-issue8-20261115/README.md",
+      "screenshot_original_bytes_preserved": true
+    },
+    "no_api_redeploy_for_proxy": true,
+    "no_web_worker_deploy": true,
+    "no_data_reset_or_reseed": true,
+    "owner_real_entity_untouched": true,
+    "CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING": true,
+    "FULL_MODERATION_ACCEPTANCE_COMPLETE": false
+  },
+  "status": "CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING"
 }
