@@ -13,7 +13,7 @@ if [[ $# -gt 0 && "$1" == image ]]; then
 fi
 [[ $# -eq 2 ]] || exit 64
 sha="$1"; id="$2"
-[[ "$sha" == '6ef4251fa6851625a9c7693d3274ad1b29760fd6' && "$id" =~ ^[a-z0-9-]{8,42}$ ]] || exit 78
+[[ "$sha" == '4153c5be7268a95a94fb038b3e58a02e2375d273' && "$id" =~ ^[a-z0-9-]{8,42}$ ]] || exit 78
 out="/tmp/rat170-issue8-$id"
 [[ ! -e "$out" ]] || { echo 'Prior test data exists; do not duplicate'; exit 65; }
 mkdir -m 700 "$out"
