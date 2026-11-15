@@ -40,10 +40,20 @@ $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $db=Illuminate\Support\Facades\DB::class;
 $names=$db::select("SELECT conname FROM pg_constraint WHERE conrelid = '\''media_assets'\''::regclass AND conname IN ('\''media_assets_purpose_allowed'\'','\''media_assets_attachment_type_allowed'\'')");
 if (count($names)!==2) exit(78);
-echo $db::table("media_assets")->count();
+$rows=$db::table("media_assets")->orderBy("id")->get();
+$fingerprint=hash("sha256",json_encode($rows->map(fn($row)=>(array)$row)->all(),JSON_THROW_ON_ERROR));
+echo json_encode(["count"=>$rows->count(),"fingerprint"=>$fingerprint,"migrationRan"=>$db::table("migrations")->where("migration","2026_11_15_000001_allow_thing_image_media_purpose")->exists()],JSON_THROW_ON_ERROR);
 '
-before_count="$(kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$php_before" | tr -d '\r\n')"
-[[ "$before_count" =~ ^[0-9]+$ ]] || exit 78
+before="$(kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$php_before")"
+migration_state="$(python3 - "$before" <<'PY'
+import json,sys,re
+value=json.loads(sys.argv[1])
+assert isinstance(value["count"],int) and value["count"]>=0
+assert re.fullmatch("[0-9a-f]{64}",value["fingerprint"])
+assert isinstance(value["migrationRan"],bool)
+print("already" if value["migrationRan"] else "pending")
+PY
+)"
 
 changed=false
 rollback_api(){
@@ -75,7 +85,11 @@ PY
 
 # Only the new named additive migration; never run a generic migration batch,
 # migrate:fresh, any seed, or a command in the LIVE namespace.
-kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php artisan migrate --force --no-interaction --path="database/migrations/$migration.php"
+if [[ "$migration_state" == 'pending' ]]; then
+  kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php artisan migrate --force --no-interaction --path="database/migrations/$migration.php"
+else
+  echo "Named migration already applied; verifying existing schema without re-running it"
+fi
 kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php artisan migrate:status --path="database/migrations/$migration.php" --no-ansi
 
 php_after='
@@ -94,16 +108,20 @@ foreach($required as $name=>$allowed){
   if(!str_contains($map[$name],"CHECK"))exit(78);
 }
 if($db::table("migrations")->where("migration","2026_11_15_000001_allow_thing_image_media_purpose")->count()!==1)exit(78);
-echo "RAT170_MEDIA_CHECKS_VERIFIED=".json_encode(["constraints"=>$map,"mediaRowCount"=>$db::table("media_assets")->count()],JSON_THROW_ON_ERROR)."\n";
+$rows=$db::table("media_assets")->orderBy("id")->get();
+$fingerprint=hash("sha256",json_encode($rows->map(fn($row)=>(array)$row)->all(),JSON_THROW_ON_ERROR));
+echo "RAT170_MEDIA_CHECKS_VERIFIED=".json_encode(["constraints"=>$map,"mediaRowCount"=>$rows->count(),"mediaFingerprint"=>$fingerprint],JSON_THROW_ON_ERROR)."\n";
 '
 after="$(kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$php_after")"
 grep -q 'RAT170_MEDIA_CHECKS_VERIFIED=' <<<"$after"
-after_count="$(python3 - "$after" <<'PY'
+python3 - "$before" "$after" <<'PY'
 import json,sys
-print(json.loads(sys.argv[1].split('RAT170_MEDIA_CHECKS_VERIFIED=',1)[1])['mediaRowCount'])
+pre=json.loads(sys.argv[1])
+post=json.loads(sys.argv[2].split('RAT170_MEDIA_CHECKS_VERIFIED=',1)[1])
+assert pre['count']==post['mediaRowCount'],'Media row count changed during schema-only operation'
+assert pre['fingerprint']==post['mediaFingerprint'],'Existing media row content changed during migration'
+print("RAT170_EXISTING_MEDIA_CONTENT_FINGERPRINT_PRESERVED=true")
 PY
-)"
-[[ "$before_count" == "$after_count" ]] || { echo 'Media record count changed unexpectedly'; false; }
 [[ "$(img rum-dev-isolated rum-api php-fpm)" == "$candidate" ]]
 [[ "$(img rum-dev-isolated rum-web web)" == "$dev_web" ]]
 [[ "$(img rum-dev-isolated rum-worker worker)" == "$dev_worker" ]]
