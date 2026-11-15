@@ -8,7 +8,7 @@ python3 - "$source_file" <<'PY'
 from pathlib import Path
 import re,subprocess,sys,tempfile
 s=Path(sys.argv[1]).read_text(encoding='utf-8')
-assert 'ddf5b7fe0bb4bdff7d566b5f2ecf185ec4d1820f' in s
+assert '56a2fdfe9ae885f2e8889b5251f0b3c598eab27f' in s
 m=re.search(r"node --input-type=module <<'NODE'\n(.*?)\nNODE",s,re.DOTALL)
 assert m
 with tempfile.TemporaryDirectory() as dir:
