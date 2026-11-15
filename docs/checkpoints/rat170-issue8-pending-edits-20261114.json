@@ -62,8 +62,8 @@
   "CI": {
     "exact_head": "4153c5be7268a95a94fb038b3e58a02e2375d273",
     "exact_head_run": 43696074527,
-    "status": "queued/in_progress after test-only throttle-safe split; at latest bounded read specification PASS, web and preview in progress, API/RAT/admin queued",
-    "final_result": "NOT COMPLETE; no immutable images yet verified",
+    "status": "COMPLETED SUCCESS 9/9",
+    "final_result": "PASS",
     "previously_verified": {
       "run": 43695224924,
       "source": "6ef4251fa6851625a9c7693d3274ad1b29760fd6",
@@ -73,9 +73,22 @@
     "newly_added_test": "test_repeated_withdrawal_is_rejected_without_changing_revision_history; separated same-user sixth request to respect RateLimiter entity-create 5/min; no throttle/middleware alteration",
     "exact_head_publication": "NOT CONFIRMED",
     "last_readback": "IN_PROGRESS; 5/6 source jobs completed PASS (Specification, Web, Preview-browser, API, Admin). RAT job 132756844824 installing pinned Chromium headless shell, npm lint/typecheck passed; npm test/build not yet run.",
-    "exact_head_complete": false,
-    "immutable_images_published": false,
-    "do_not_repeat": "Do not rerun existing CI 43696074527 or restart finished jobs while pending; recover this job and its candidate publication successors"
+    "exact_head_complete": true,
+    "immutable_images_published": true,
+    "do_not_repeat": "Do not rerun existing CI 43696074527 or restart finished jobs while pending; recover this job and its candidate publication successors",
+    "job_ids": {
+      "specification": 132756844557,
+      "web": 132756844732,
+      "preview-browser": 132756844753,
+      "rate-anything": 132756844824,
+      "api": 132756844828,
+      "admin": 132756844831,
+      "rat_publisher": 132760558775,
+      "api_publisher": 132760558812,
+      "web_publisher": 132760558820
+    },
+    "rat_image": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
+    "api_image": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d"
   },
   "operations": {
     "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
@@ -109,14 +122,36 @@
     "LIVE_baseline": "rum-api:sha-54d31b8 rum-web:sha-8106675",
     "api_promotion": "NOT SUBMITTED",
     "frontend_promotion": "NOT SUBMITTED",
-    "browser_acceptance": "NOT RUN"
+    "browser_acceptance": "NOT RUN",
+    "current_origin_workbench_head": "264d322c991c8fe65545f86e981712129ea559db",
+    "deploy_api": {
+      "id": "rat170-issue8-20261115-api-admitted-a1",
+      "control_commit": "9426695b6592c2072c0f2405cd508778d368a3e2",
+      "status": "submitted; original outbox not yet observed, do not duplicate",
+      "script": "scripts/ops/deploy-rat170-issue8-api-only-20261114.sh",
+      "script_blob": "36a3a46988f2c19a10a5e43cde272ae74ffcac8b",
+      "source": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+      "target": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d"
+    },
+    "deploy_frontend": {
+      "status": "NOT SUBMITTED until API success",
+      "path": "scripts/ops/deploy-rat170-issue8-frontend-only-20261114.sh",
+      "target": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5"
+    },
+    "read_only_preflight": {
+      "id": "rat170-issue8-20261115-final-deploy-preflight-r3",
+      "result": "old API, RAT, LIVE API/web/worker 5/5 successful; two supplementary ingress argument probes invalid/rejected by inspect service (not Kubernetes failures)",
+      "old_api": "sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
+      "old_rat": "sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c"
+    },
+    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; configured ADMIN_HOST, no deployed approved staff console/MFA operator, no bypass"
   },
   "next": [
-    "Recover exact RAT CI job 132756844824 / run 43696074527. It was still at pinned Chromium install after lint/typecheck PASS; avoid repeated polling or replacing it without a failure. Only the RAT job and candidate publisher remain unfinished.",
-    "If RAT/other exact-head checks pass 9/9, recover immutable API and RAT digests from corresponding successful publication logs, and inspect original Workbench relay control/outbox plus current runtime before submitting.",
-    "Execute already reviewed guarded API-only script followed by frontend-only script from the current admissible Workbench origin branch HEAD; preserve LIVE, unrelated DEV, no DB migrations/seeds/reset. Verify actual receipts, pod imageIDs and RAT /VERSION.",
-    "Run prepared synthetic member browser only once with unique ID, then read-only SQL/outbox provenance and owner revision reinspection. No owner edits or approval.",
-    "If staff host/MFA access is not available via existing approved path, do not create new infrastructure: record staff real-browser acceptance as unavailable, preserve backend approval/rejection/stale/self-review tests, withhold OWNER_REVIEW_READY."
+    "Recover ORIGINAL outbox relay/control-outbox/rat170-issue8-20261115-api-admitted-a1.json. Do not resubmit API request. If successful inspect resulting API digest and live preservation.",
+    "After confirmed API-only rollout exit 0, inspect existing frontend deploy control/outbox, then submit guarded scripts/ops/deploy-rat170-issue8-frontend-only-20261114.sh with exact source 4153, immutable RAT digest 4a2..., immutable API digest 13f... at CURRENT Workbench origin branch HEAD. Do not deploy web.",
+    "Recover frontend outbox, read exact pod image IDs and /VERSION; proceed to one-time synthetic member browser using scripts/ops/verify-rat170-issue8-pending-review-browser-20261114.sh, unique run ID, then canonical SQL read-only.",
+    "Read-only final owner revisions and protected LIVE digests. Do not mutate owner records.",
+    "Actual staff MFA browser remains separately outstanding absent authorised staff console. Preserve backend moderation tests; do not invent staff authority. Mark CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only if member browser and SQL PASS, not FULL_MODERATION_ACCEPTANCE_COMPLETE."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
