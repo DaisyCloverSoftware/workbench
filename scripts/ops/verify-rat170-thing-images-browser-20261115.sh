@@ -35,7 +35,7 @@ done
 [[ -n "$chrome" ]] || npx playwright install chromium >/dev/null
 RAT170_SOURCE="$source_sha" RAT170_RUN="$run_id" RAT170_OUTPUT="$out" CHROME="$chrome" node --input-type=module <<'NODE'
 import assert from 'node:assert/strict'
-import { randomBytes, createHash } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { deflateSync } from 'node:zlib'
 import { writeFile, stat } from 'node:fs/promises'
 import { chromium, expect } from '@playwright/test'
@@ -215,18 +215,30 @@ try {
   {kind:'cover-upload',slot:'cover',mode:'upload'},
  ]
  for(const item of plans){
+  // Canonical Add a Thing uses standalone creation then the first rating.
+  // The /entities route targets the preview-local database, not canonical DEV.
   const name='RAT170 Image QA '+item.kind+' '+rid
-  const created=await xsrfFetch(owner,{path:'/api/v1/rate-anything/entities',
-   body:{entityType:'product',name,description:'Disposable media processing and moderation verification record '+rid}})
+  const created=await xsrfFetch(owner,{path:'/api/v1/rate-anything/standalone-things',
+   body:{entityType:'product',name,description:'Disposable media processing and moderation verification record '+rid,
+    idempotencyKey:randomUUID()}})
   assert.equal(created.status,201,'Failed to create '+item.kind+': '+JSON.stringify(created.body).slice(0,400))
-  const id=created.body.data.id
-  assert.ok(/^[0-9a-z]{26}$/.test(id),'bad created Thing ID')
+  const id=created.body.data?.id, journeyId=created.body.meta?.journey?.id
+  assert.ok(/^[0-9a-z]{26}$/.test(id??''),'bad created Thing ID')
+  assert.ok(/^[0-9a-z]{26}$/.test(journeyId??''),'missing canonical creation-rating journey')
+  assert.equal(created.body.data.publicationState,'pending')
+  item.id=id;item.name=name
+  report.createdThings.push({id,name,kind:item.kind,journeyId,published:false})
+  const rating=await xsrfFetch(owner,{path:'/api/v1/rate-anything/rating',
+   body:{entityId:id,journeyId,value:5,categoryKey:'quality',reasonKeys:['quality_or_result'],
+    reasonText:'Harmless disposable isolated DEV media journey verification only.',
+    idempotencyKey:randomUUID(),audience:'public'}})
+  assert.equal(rating.status,201,'Initial rating/publish failed '+item.kind+': '+JSON.stringify(rating.body).slice(0,400))
+  assert.equal(rating.body.meta?.thingId,id)
   const node=await publicNode(id)
   assert.equal(node.name,name)
-  report.createdThings.push({id,name,kind:item.kind})
-  item.id=id;item.name=name
+  report.createdThings[report.createdThings.length-1].published=true
  }
- record('four-new-independent-public-disposable-things')
+ record('four-new-independent-public-disposable-things-via-canonical-initial-rating')
  stage='register-noncreator'
  const editorId=await register(page,'editor',plans[0].id)
  assert.notEqual(creatorId,editorId)
