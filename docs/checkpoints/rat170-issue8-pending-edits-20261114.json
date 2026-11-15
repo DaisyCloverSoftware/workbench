@@ -147,11 +147,12 @@
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; configured ADMIN_HOST, no deployed approved staff console/MFA operator, no bypass"
   },
   "next": [
-    "Recover original outbox relay/control-outbox/rat170-issue8-20261115-browser-b01.json; never resubmit the same run. If pending, do bounded checks. If failed, inspect output and saved failure screenshot using existing image mode before deciding test change.",
-    "If browser passes, use canonical read-only scripts/ops/inspect-rat170-issue8-revisions-sql-20261114.sh with test member and revision IDs from original outbox and test run ID; do not print private proposal URLs.",
-    "After browser, re-read original two owner suggestions by approved read-only fixture and verify unchanged IDs, state, fingerprint and timestamps. Independently recheck running API/RAT and LIVE if needed; retain exact receipts.",
-    "Keep staff-browser acceptance separately outstanding without approved secure admin ingress/MFA staff account. Do not deploy published WEB/admin or invent staff authority.",
-    "Update checkpoint and state CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only if browser and SQL pass; FULL_MODERATION_ACCEPTANCE_COMPLETE withheld."
+    "Read exact-head CI run 43700242242 at 56d6245d35f94952e952114af5b2f32b9516155a; only after full 9/9 PASS recover immutable RAT frontend digest from its corresponding candidate publication job. Do not rerun old CI.",
+    "Before submitting confirm no existing Workbench frontend promotion for 56d; re-read current running frontend 4a2... and API 13f... and current Workbench origin branch HEAD.",
+    "Execute guarded scripts/ops/deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh with source 56d, new immutable RAT digest and frozen API 13f; no API, web, worker or LIVE deployments. Verify outbox/pod and /VERSION.",
+    "Run scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh once with new unique run ID and disposable synthetic root; previous test account credentials ephemeral and cannot be reused. It checks pending dedupe, supersession, withdrawal and direct unclaimed description edit.",
+    "Verify read-only SQL with scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh and exact browser member/revision IDs, then independent owner image-revision unchanged readback.",
+    "Staff-browser acceptance separately outstanding due absent approved admin ingress/MFA; do not create new infra. If contributor browser and SQL pass, report CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
@@ -249,5 +250,40 @@
     "LIVE_untouched": true,
     "DB_reset_reseed": false,
     "PR_merged": false
+  },
+  "issue8_withdraw_proxy_20261115": {
+    "previous_api_and_rat_source": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+    "baseline_api": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "baseline_rat": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
+    "original_browser": {
+      "id": "rat170-issue8-20261115-browser-b01",
+      "status": "FAILED at withdraw, prior 5 stages PASS",
+      "test_id": "rat170-issue8-live-20261115-b01",
+      "member_id": "01m7f8wpktd4vrdm0jpv3sjsbe",
+      "original_id": "01m7f8wqhy4d72ncanx1mpkej8",
+      "revised_id": "01m7f8wrhb6jmjm7fg7xxk0320",
+      "evidence": "screenshots 01-image-form, 02-pending-revision,03-mobile-replacement,04-superseded,99-failure"
+    },
+    "original_readonly_sql": {
+      "id": "rat170-issue8-20261115-b01-readonly-sql-r1",
+      "status": "exit2 expected because no withdrawal; original correctly superseded, revised still pending; no withdraw event; owner revisions unchanged"
+    },
+    "actual_root_cause": "RAT nginx.conf canonical DEV proxy regex forwarded /edits and /edits/{id}/rollback but omitted /edits/{id}/withdraw, causing SPA HTML rather than API JSON; not a moderation/security rule failure",
+    "fix_source": [
+      "ca5da822032ed73bd4c3a4bfd3ddc313f256ee3e (Nginx only)",
+      "56d6245d35f94952e952114af5b2f32b9516155a (Nginx regression test)"
+    ],
+    "current_app_head": "56d6245d35f94952e952114af5b2f32b9516155a",
+    "ci_run": 43700242242,
+    "ci_last_status": "3 source jobs PASS (specification/admin/preview-browser), web+api in progress, RAT queued; no final 9/9 or candidate digest yet",
+    "workbench_ops_head": "5b0ef859a389c2710518b7721a4a54a2d34a6a8e",
+    "frontend_only_script": "scripts/ops/deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh",
+    "browser_script": "scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh",
+    "sql_script": "scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh",
+    "source_compatibility": "Frontend new 56d source; canonical DEV API remains deployed 4153 source 13f digest unchanged, not another API deployment",
+    "current_frontend_new_deployed": false,
+    "owner_two_pending_suggestions_modified": false,
+    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; no approved deployed staff UI or verified MFA test session",
+    "live_untouched": true
   }
 }
