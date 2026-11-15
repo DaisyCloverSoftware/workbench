@@ -6,7 +6,7 @@
   "pr": 170,
   "pr_state": "OPEN DRAFT UNMERGED",
   "branch": "feat/rat-community-edits-connections-20261114",
-  "source_at_checkpoint": "06da14c2ebf7be2fb28b83113ea6a4bf41b373e7",
+  "source_at_checkpoint": "6ef4251fa6851625a9c7693d3274ad1b29760fd6",
   "baseline": {
     "old_source": "e7234490ffec27e0d645911bd62a18d746d3758e",
     "old_ci_run": 43637669789,
@@ -60,22 +60,19 @@
     "needs_attention": "Separate issue"
   },
   "CI": {
-    "exact_head_run": 43643549773,
-    "final_head": "06da14c2ebf7be2fb28b83113ea6a4bf41b373e7",
-    "status": "queued; exact-head 9/9 not yet complete",
-    "prior_run": {
-      "id": 43642386312,
-      "head": "7cd4c2b12a5e26629c51b7351c4d1997182432f0",
-      "result": "API Pint failed on four files; exact disposable formatting diff obtained and applied",
-      "format_diff_id": "rat170-issue8-pint-diff-20261114-p1",
-      "fixed_commits": [
-        "1b1f639d8c1de78dd2783b25a120dd4718e21032",
-        "a23a33668b6272b26ab250f8c54218eba99a8428",
-        "7333cd7ad11a80ee158fc0d67551bb422bd4e71d",
-        "f71f8ceeac1b68077b3276426f0499b71ce14cc2"
-      ]
-    },
-    "semantic_followup": "Dedupe must include evidence, not only proposed value; source b9480 and test 06da verify different evidence remains distinct."
+    "exact_head_run": 43695224924,
+    "exact_head": "6ef4251fa6851625a9c7693d3274ad1b29760fd6",
+    "state": "queued/in-progress after focused PHPStan metadata fix; do not claim passing",
+    "prior_run": 43643549773,
+    "prior_failures": [
+      "API: five PHPStan offset-nullCoalesce metadata typing errors; Pint passed",
+      "RAT: one existing standaloneJourney browser test timed out at 5000ms; new Issue8 front-end tests passed"
+    ],
+    "source_corrections": [
+      "a9f0350417e4727ad0483237e40a129b92f729c3",
+      "6ef4251fa6851625a9c7693d3274ad1b29760fd6"
+    ],
+    "image_publish_state": "NOT VERIFIED; do not infer candidate images"
   },
   "operations": {
     "readonly_runtime_request": "rat170-issue8-runtime-readonly-20261114-r1",
@@ -100,10 +97,25 @@
     "tools_head_at_last": "1382c9d288ec74c765136a470359215bd96047c1"
   },
   "next": [
-    "Read PR170 exact source 06da and CI run 43643549773. Do not rerun CI or use old canceled runs. Inspect API Pint/PHPStan/PHPUnit and RAT/admin test outcomes; fix only evidenced failures, preserving all existing app behavior.",
-    "Once 9/9 exact head PASS, recover immutable API/RAT digests from job logs and running image identities first. Use reviewed Workbench isolated-DEV API+frontend promotion scripts guarded by old images and LIVE preservation, do not deploy web/admin/LIVE by default.",
-    "Update browser verifier to final exact source SHA and verify real member pending/duplicate/supersede/withdraw states on pre-existing synthetic DEV Thing; owner Thing and its original 2 pending suggestions must not be mutated.",
-    "Complete read-only DB/outbox provenance check. Staff review unit tests use separate admin guard + MFA + purpose, but real staff UI is not currently deployed to DEV; do not bypass staff identity readiness or claim staff browser success.",
-    "Record final receipts, boundaries and unresolved staff console accessibility. Only declare full Issue8 owner-review-ready when functioning staff review is actually usable and member acceptance passes."
-  ]
+    "Read only exact PR170 head and existing CI run 43695224924; distinguish queued, failed, passing and image publication. Do not rerun the cancelled/failed previous run.",
+    "If exact head passes, recover published full immutable API and RAT image digest from exact-source CI logs and inspect existing Workbench requests and deployment state. Never guess digests.",
+    "Update existing guarded Workbench ops scripts for the verified source and images, execute compatible isolated DEV API then RAT frontend only. Preserve old app and LIVE workloads, no migrations/seed/reset, verify receipts/running image/version.",
+    "Run member lifecycle browser only once on existing synthetic Carmine Nebula Archive, never the owner Thing. Verify pending duplicate reuse, replacement, withdrawal, refresh; SQL read-back and owner two revisions unchanged.",
+    "Staff browser acceptance cannot pass unless approved isolated DEV admin host+MFA staff tester become available via existing authorised deployment. Preserve API unit test results and report exact prerequisite rather than bypassing admin controls.",
+    "Update checkpoint with exact CI, image, outbox, browser and SQL evidence. Keep PRs #169 #170 open draft unmerged. Cover upload and Needs Attention remain separate."
+  ],
+  "recovery_20261115": {
+    "PR170": "OPEN DRAFT UNMERGED",
+    "PR169": "OPEN DRAFT UNMERGED",
+    "read_only_topology_id": "rat170-issue8-20261115-admin-topology-r1",
+    "read_only_topology_result": "5/5 PASS; canonical DEV ADMIN_HOST configured admin-dev-rum.daisycloversoftware.uk; no admin deployment/ingress serving it; RAT isolated and canonical DEV API on old immutable candidates; LIVE API image preserved",
+    "staff_review_browser_prerequisite": "No authorised, deployed isolated-DEV admin console or externally established approved MFA reviewer. Staff source and API tests alone cannot establish real staff-browser acceptance. Do not create an unauthorised ingress or staff authority.",
+    "existing_owner_revision_ids": [
+      "01m7dxvjchbmnjjnatw0av6a7m",
+      "01m7dxwv5cnczfsjset8emjvap"
+    ],
+    "owner_records_mutated": false,
+    "app_deployments_requested": false,
+    "source_under_test": "6ef4251fa6851625a9c7693d3274ad1b29760fd6"
+  }
 }
