@@ -164,6 +164,12 @@ const appendCase=async (caseInfo)=>{
  assert.ok((ownPreview.headers()['content-type']||'').includes('image/webp'))
  const publicImage=await anonymous.request.get(DEV+'/api/v1/public/entities/rat-image/'+caseInfo.assetId+'/content')
  assert.equal(publicImage.status(),404,'pending image is publicly retrievable')
+ // Generic canonical media metadata/content also must not become anonymous
+ // publication channels before staff approval.
+ const genericMeta=await anonymous.request.get(DEV+'/api/v1/media/'+caseInfo.assetId)
+ const genericContent=await anonymous.request.get(DEV+'/api/v1/media/'+caseInfo.assetId+'/content')
+ assert.ok([401,403,404].includes(genericMeta.status()),'generic media metadata leaked publicly')
+ assert.ok([401,403,404].includes(genericContent.status()),'generic media bytes leaked publicly')
  const otherMember=await ownerContext.request.get(RAT+new URL(rev.previewUrl,RAT).pathname)
  assert.equal(otherMember.status(),404,'different member can retrieve pending preview')
  const liveNode=await publicNode(caseInfo.id)
