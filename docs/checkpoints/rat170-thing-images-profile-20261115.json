@@ -12,20 +12,25 @@
     "CI": "43701234357 PASS 9/9",
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING"
   },
-  "current_source": "83cfa303f3608059b739cc3b558a0b11e7e98083",
+  "current_source": "ddf5b7fe0bb4bdff7d566b5f2ecf185ec4d1820f",
   "current_CI": {
-    "id": 43712601166,
-    "sha": "83cfa303f3608059b739cc3b558a0b11e7e98083",
-    "status": "queued/in-progress; source jobs pending",
+    "id": 43713129580,
+    "sha": "ddf5b7fe0bb4bdff7d566b5f2ecf185ec4d1820f",
+    "status": "IN PROGRESS: Specification, Web, Preview-browser PASS; API in progress; admin/RAT queued",
     "full_success": false,
     "publish": "NOT VERIFIED",
-    "prior_attempt": {
-      "run": 43711850535,
-      "source": "6689d7d9417178bb831734bcff70e6672ecfebc8",
-      "result": "API Pint one residual style issue, exact diff returned. API tests never ran.",
-      "diagnostic": "rat170-20261115-image-pint-diff-p2 exited 0",
-      "fix": "83cfa303f3608059b739cc3b558a0b11e7e98083 — restore braces on existing withdraw/rollback only"
-    }
+    "prior_attempts": [
+      {
+        "id": 43711850535,
+        "sha": "6689d7d9417178bb831734bcff70e6672ecfebc8",
+        "error": "API Pint residual braces on withdraw/rollback, corrected in 83cfa"
+      },
+      {
+        "id": 43712601166,
+        "sha": "83cfa303f3608059b739cc3b558a0b11e7e98083",
+        "error": "API PHPStan 2 issues: undefined $status and optional MediaAsset instanceof always true; corrected in eb6dab and ddf5"
+      }
+    ]
   },
   "source_changed": {
     "frontend": [
@@ -89,12 +94,12 @@
     "application_pr_merges": "none"
   },
   "next": [
-    "Read current PR #170 head and exact CI run 43712601166 at 83cfa303f3608059b739cc3b558a0b11e7e98083. Correct only proven Pint/PHPStan/PHPUnit/browser test failures; avoid CI duplicates.",
-    "On full exact-head CI 9/9 PASS, recover immutable API and RAT digest published for same source from job logs, never invent digests. Inspect existing Workbench requests/outboxes and running images first.",
-    "Review a guarded Workbench API-only and RAT-only promotion for new compatible images with prior running image and LIVE guards; do not deploy admin/web/worker or run database migrations.",
-    "Run real deployed browser on disposable DEV test Thing and noncreator: profile/cover URL and upload pending/private previews, collapsed evidence, classification one primary/multiple extras, 1440/900/390 screenshots, DJI/CJ/rating/connections; ensure actual source/pod IDs and HTTPS cross-origin media.",
-    "Prove public processed image publication only through legitimate moderator MFA if an approved staff path exists; otherwise preserve pending-only acceptance, report staff/published image gate, never forge approval.",
-    "Read-only persistence SQL verify image attachments, provenance and owner two original image revisions unchanged; retain LIVE/PR status."
+    "Recover original exact-head CI 43713129580, do not rerun. API Pint/PHPStan/PHPUnit and RAT tests mandatory before immutable publishing.",
+    "Recover browser verifier syntax outbox rat170-image-20261115-browser-syntax-r1. On syntax failure fix only Workbench test; no user data writes.",
+    "Only on full passing exact-head CI recover full immutable API/RAT image digests, check existing Workbench deploy requests/outboxes and live API/RAT/LIVE workload readbacks, create/review guarded API then frontend promotion using established ops source. No web/admin/worker.",
+    "Use one-time synthetic browser verifier on Carmine Nebula Archive for both slots, URL/upload, private preview, pending visibility, collapsed evidence, responsive screenshots; source SHA guard must match current PR head.",
+    "Verify canonical SQL media attachments, approval/public gating via unit tests; do not fake staff approval. If no approved DEV MFA staff test route, withhold full owner readiness; source-synchronised artwork remains unsupported.",
+    "Re-read owner two Professional Idiots pending image revisions unchanged and LIVE images; preserve PR169/170 draft unmerged."
   ],
   "safety": {
     "no_live": true,
@@ -102,5 +107,15 @@
     "no_staff_mfa_bypass": true,
     "no_database_reset": true,
     "no_pr_merge": true
+  },
+  "workbench": {
+    "branch": "ops/rat-community-20261114-isolated",
+    "browser_script": "scripts/ops/verify-rat170-thing-images-browser-20261115.sh",
+    "browser_script_created": "52e3123b7a054258f88f1f4277250ac562e95d7c",
+    "syntax_request": "rat170-image-20261115-browser-syntax-r1",
+    "syntax_result": "pending; do not repeat",
+    "media_preflight": "rat170-thing-images-20261115-media-preflight-r1 4/4 PASS: FILESYSTEM_DISK=s3 Garage, old exact API/RAT digests",
+    "deployment_submitted": false,
+    "test_mutations_submitted": false
   }
 }
