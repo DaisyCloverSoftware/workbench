@@ -12,25 +12,28 @@
     "CI": "43701234357 PASS 9/9",
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING"
   },
-  "current_source": "ddf5b7fe0bb4bdff7d566b5f2ecf185ec4d1820f",
+  "current_source": "56a2fdfe9ae885f2e8889b5251f0b3c598eab27f",
   "current_CI": {
-    "id": 43713129580,
-    "sha": "ddf5b7fe0bb4bdff7d566b5f2ecf185ec4d1820f",
-    "status": "IN PROGRESS: Specification, Web, Preview-browser PASS; API in progress; admin/RAT queued",
+    "id": 43714101584,
+    "sha": "56a2fdfe9ae885f2e8889b5251f0b3c598eab27f",
+    "status": "QUEUED exact-head; not terminal, do not rerun",
     "full_success": false,
     "publish": "NOT VERIFIED",
     "prior_attempts": [
       {
         "id": 43711850535,
-        "sha": "6689d7d9417178bb831734bcff70e6672ecfebc8",
-        "error": "API Pint residual braces on withdraw/rollback, corrected in 83cfa"
+        "issue": "API Pint formatting; corrected with disposable exact diff"
       },
       {
         "id": 43712601166,
-        "sha": "83cfa303f3608059b739cc3b558a0b11e7e98083",
-        "error": "API PHPStan 2 issues: undefined $status and optional MediaAsset instanceof always true; corrected in eb6dab and ddf5"
+        "issue": "API PHPStan 2 issues: uninitialised $status and redundant nullable asset check"
+      },
+      {
+        "id": 43713129580,
+        "issue": "API PHPStan 2 residual always-defined/always-nonnull conditions; corrected in 2ad0e55 and 56a2"
       }
-    ]
+    ],
+    "test_component_jobs": "Not yet started; no real-browser acceptance claimed"
   },
   "source_changed": {
     "frontend": [
@@ -80,12 +83,12 @@
     "Existing immediate Name/Description community edits and claimed restrictions remain unchanged"
   ],
   "unknown_or_blocked": [
-    "Exact-head CI source and tests not yet terminal; API PHPStan/PHPUnit new tests not proven successful",
-    "Full immutable API/RAT image publication and deployed end-to-end browser acceptance NOT STARTED",
-    "Approved staff DEV UI/MFA test session absent; actual moderation/publication browser journey cannot be claimed without authorised reviewer",
-    "No approved YouTube/source artwork sync service identified. No automatic refresh implemented; dynamic source-follow separately outstanding",
-    "URL preview currently returned after safe capture and pending submission; a distinct pre-submit vetted URL preview step has not been proven",
-    "No owner data modified in this turn; last original two Professional Idiots pending image revisions preserved; fresh postdeployment readback still required"
+    "Exact-head CI 43714101584 at 56a2 not terminal; no immutable candidate API/RAT digests verified; deployment strictly not authorised yet",
+    "New contributor image URL/upload browser test not yet run; syntax check request r2 pending Workbench outbox",
+    "Publicly displayed and persisted processed imagery requires authorised staff moderation; deployed DEV staff UI/MFA actor still not verified, no bypass authorised",
+    "No approved source-synchronisation integration found for YouTube artwork; linked URLs produce safe imported snapshots only, sourceSynchronised=false",
+    "URL preview returned after safe capture/pending submission; a distinct pre-submit validated URL preview has not been verified",
+    "Owner's Professional Idiots two historical pending revisions have not been touched. Fresh postdeployment readback needed."
   ],
   "isolation": {
     "media_disk": "S3-compatible DEV storage (preflight rat170-thing-images-20261115-media-preflight-r1 COMPLETED 4/4; rum-data-garage service present)",
@@ -94,12 +97,13 @@
     "application_pr_merges": "none"
   },
   "next": [
-    "Recover original exact-head CI 43713129580, do not rerun. API Pint/PHPStan/PHPUnit and RAT tests mandatory before immutable publishing.",
-    "Recover browser verifier syntax outbox rat170-image-20261115-browser-syntax-r1. On syntax failure fix only Workbench test; no user data writes.",
-    "Only on full passing exact-head CI recover full immutable API/RAT image digests, check existing Workbench deploy requests/outboxes and live API/RAT/LIVE workload readbacks, create/review guarded API then frontend promotion using established ops source. No web/admin/worker.",
-    "Use one-time synthetic browser verifier on Carmine Nebula Archive for both slots, URL/upload, private preview, pending visibility, collapsed evidence, responsive screenshots; source SHA guard must match current PR head.",
-    "Verify canonical SQL media attachments, approval/public gating via unit tests; do not fake staff approval. If no approved DEV MFA staff test route, withhold full owner readiness; source-synchronised artwork remains unsupported.",
-    "Re-read owner two Professional Idiots pending image revisions unchanged and LIVE images; preserve PR169/170 draft unmerged."
+    "First recover terminal exact-head CI run 43714101584 and current PR head 56a2fdfe9ae885f2e8889b5251f0b3c598eab27f; DO NOT rerun queued jobs. If failures inspect exact Pint/PHPStan/PHPUnit/RAT logs and fix only proven issues.",
+    "Recover Workbench outbox rat170-image-20261115-browser-syntax-r2; previous syntax r1 rejected admission (no execution). Do not duplicate operations.",
+    "On 9/9 exact-head PASS, get complete API/RAT image digests from successful image-publishing logs and prove same source SHA. Verify prior relay controls/outboxes, running old images and LIVE first.",
+    "Use existing reviewed guarded Workbench API and RAT frontend scripts from CURRENT admitted ops origin branch head; update exact source guards only if source moved. No web/worker/admin deployment, no database migrations/resets, no LIVE.",
+    "Run the prepared real browser script on existing synthetic Carmine Nebula Archive only, one fresh test member for profile/cover URL and upload, pending/private previews, no publication before moderation, collapsed evidence, type displayed once, 1440/900/390 screenshots; no owner changes.",
+    "Use read-only canonical SQL to confirm asset ownership, file type, pending revision/provenance/outbox, no unsolicited public content; re-read both owner pending image revisions unchanged and LIVE digests.",
+    "Do NOT claim OWNER_REVIEW_READY without actual deployed owner journey and legitimate authorised publication. Source sync remains separate and unsupported without approved platform integration."
   ],
   "safety": {
     "no_live": true,
@@ -114,8 +118,19 @@
     "browser_script_created": "52e3123b7a054258f88f1f4277250ac562e95d7c",
     "syntax_request": "rat170-image-20261115-browser-syntax-r1",
     "syntax_result": "pending; do not repeat",
-    "media_preflight": "rat170-thing-images-20261115-media-preflight-r1 4/4 PASS: FILESYSTEM_DISK=s3 Garage, old exact API/RAT digests",
+    "media_preflight": "rat170-thing-images-20261115-media-preflight-r1 4/4 PASS, FILESYSTEM_DISK=s3, Garage, stable old API/RAT",
     "deployment_submitted": false,
-    "test_mutations_submitted": false
+    "test_mutations_submitted": false,
+    "operations_head": "9d63331c8e6a82e3fa492f6e99e4629481390a63",
+    "api_deploy_script": "scripts/ops/deploy-rat170-thing-images-api-only-20261115.sh",
+    "api_deploy_script_commit": "a4557fd3760c22cdea5e959beffbc6919996f97f",
+    "rat_deploy_script": "scripts/ops/deploy-rat170-thing-images-frontend-only-20261115.sh",
+    "rat_deploy_script_commit": "51434bfa79f6becc0f5ed8c15bef025e59afb05e",
+    "source_guard": "56a2fdfe9ae885f2e8889b5251f0b3c598eab27f",
+    "browser_script_head_commit": "9787973808bbccebf7bea29bbd6e9e6643a71347",
+    "browser_syntax_attempt_1": "rat170-image-20261115-browser-syntax-r1 rejected before execution because its script commit was no longer current origin branch HEAD",
+    "browser_syntax_attempt_2": "rat170-image-20261115-browser-syntax-r2 admitted request; outbox not yet found; do not resubmit until its result recovered",
+    "source_commits_validation": "All prepared ops scripts pinned to 56a2, but DO NOT DEPLOY until CI 9/9 and matching immutable digest publication",
+    "browser_mutations_submitted": false
   }
 }
