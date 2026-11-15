@@ -12,13 +12,20 @@
     "CI": "43701234357 PASS 9/9",
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING"
   },
-  "current_source": "6689d7d9417178bb831734bcff70e6672ecfebc8",
+  "current_source": "83cfa303f3608059b739cc3b558a0b11e7e98083",
   "current_CI": {
-    "id": 43711850535,
-    "sha": "6689d7d9417178bb831734bcff70e6672ecfebc8",
-    "status": "IN PROGRESS: first API Pint failure on 9b2 prior head was repaired using exact disposable-source Pint diff rat170-20261115-image-pint-diff-p1, six source files corrected, new CI queued/running",
+    "id": 43712601166,
+    "sha": "83cfa303f3608059b739cc3b558a0b11e7e98083",
+    "status": "queued/in-progress; source jobs pending",
     "full_success": false,
-    "publish": "NOT VERIFIED"
+    "publish": "NOT VERIFIED",
+    "prior_attempt": {
+      "run": 43711850535,
+      "source": "6689d7d9417178bb831734bcff70e6672ecfebc8",
+      "result": "API Pint one residual style issue, exact diff returned. API tests never ran.",
+      "diagnostic": "rat170-20261115-image-pint-diff-p2 exited 0",
+      "fix": "83cfa303f3608059b739cc3b558a0b11e7e98083 — restore braces on existing withdraw/rollback only"
+    }
   },
   "source_changed": {
     "frontend": [
@@ -82,7 +89,7 @@
     "application_pr_merges": "none"
   },
   "next": [
-    "Recover PR170 exact head and terminal run 43711850535. Fix only evidenced failures, no security/test weakening; avoid duplicating CI already dispatched.",
+    "Read current PR #170 head and exact CI run 43712601166 at 83cfa303f3608059b739cc3b558a0b11e7e98083. Correct only proven Pint/PHPStan/PHPUnit/browser test failures; avoid CI duplicates.",
     "On full exact-head CI 9/9 PASS, recover immutable API and RAT digest published for same source from job logs, never invent digests. Inspect existing Workbench requests/outboxes and running images first.",
     "Review a guarded Workbench API-only and RAT-only promotion for new compatible images with prior running image and LIVE guards; do not deploy admin/web/worker or run database migrations.",
     "Run real deployed browser on disposable DEV test Thing and noncreator: profile/cover URL and upload pending/private previews, collapsed evidence, classification one primary/multiple extras, 1440/900/390 screenshots, DJI/CJ/rating/connections; ensure actual source/pod IDs and HTTPS cross-origin media.",
