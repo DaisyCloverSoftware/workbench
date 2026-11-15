@@ -147,12 +147,11 @@
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; configured ADMIN_HOST, no deployed approved staff console/MFA operator, no bypass"
   },
   "next": [
-    "Recover EXACT CI run 43701234357 at f4e05b91df0f9b6a3d9c665db851446c6d77dccf. Web/specification/preview-browser already PASS; do not rerun. Wait only bounded for API/admin/RAT and three image jobs; if failure inspect actual log.",
-    "On 9/9 PASS read full RAT candidate image digest from successful publication job, do not invent it. Canonical DEV API remains frozen on approved 4153 source and immutable sha256:13f71c... (do not deploy API/WEB again).",
-    "Verify current Workbench origin branch HEAD and scripts, check existing control/outbox and current frontend digest sha256:4a2..., then submit only frontend script deploy-rat170-issue8-withdraw-proxy-frontend-only-20261115.sh guarded to f4e source and frozen API.",
-    "Read deployment receipt, independent running RAT pod digest and served /VERSION; run one-time browser script verify-rat170-issue8-withdraw-proxy-browser-20261115.sh with unique test ID. Script syntax verified via rat170-issue8-20261115-proxy-browser-syntax-s1.",
-    "Read-only SQL script inspect-rat170-issue8-withdraw-direct-sql-20261115.sh using returned author/revision IDs, owner revision status/fingerprint readback, and LIVE image readback.",
-    "Only then mark CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING. STAFF_BROWSER_ACCEPTANCE_OUTSTANDING remains a separate approved staff boundary; FULL_MODERATION_ACCEPTANCE_COMPLETE withheld."
+    "Recover original control-outbox/rat170-issue8-20261115-withdraw-proxy-frontend-f2.json; if still running, preserve request and do not submit duplicate. Confirm Workbench exit0 and protected snapshot hashes.",
+    "Independently verify running RAT deployment+pod digest sha256:2cd07... and canonical DEV API sha256:13f71..., LIVE image baseline; read served /VERSION rat-candidate+f4e05b91df0f9b6a3d9c665db851446c6d77dccf.",
+    "After deployment PASS, run approved scripts/ops/verify-rat170-issue8-withdraw-proxy-browser-20261115.sh once on existing synthetic Carmine Nebula Archive, new unique run ID. It tests two contributor accounts, pending, duplicate, supersede, cross-user denial, withdraw and direct Description edit.",
+    "Read-only SQL scripts/ops/inspect-rat170-issue8-withdraw-direct-sql-20261115.sh with verified browser ids and run id; verify owner two image revisions via read-only owner fixture and ensure no mutation.",
+    "If contributor browser + SQL PASS, report CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING, but STAFF_BROWSER_ACCEPTANCE_OUTSTANDING still prevents FULL_MODERATION_ACCEPTANCE_COMPLETE. No new admin infrastructure, no LIVE, no merge."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
@@ -283,13 +282,13 @@
     "source_compatibility": "Frontend new 56d source; canonical DEV API remains deployed 4153 source 13f digest unchanged, not another API deployment",
     "current_frontend_new_deployed": false,
     "owner_two_pending_suggestions_modified": false,
-    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING, no approved isolated DEV admin interface/MFA operator",
+    "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING",
     "live_untouched": true,
     "prior_proxy_source": "56d6245d35f94952e952114af5b2f32b9516155a",
     "prior_ci_run": 43700242242,
     "prior_ci_result": "Completed failure: 5/6 source jobs PASS; RAT source job failed only one new test assertion. Regression test prematurely sliced Nginx location at nested limit_except closing brace; routing cases passed and no Nginx functional failure observed.",
     "focused_ci_test_fix": "f4e05b91df0f9b6a3d9c665db851446c6d77dccf",
-    "new_RAT_digest": "NOT VERIFIED — candidate publication gated by new exact-head CI",
+    "new_RAT_digest": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:2cd07b529eca5cfbfcf89a0cd0329c3f8f214079032b211ec80370b2c232e436",
     "frontend_script_blob": "48649df534331eda6076d3a5125a7174bd14ae2d",
     "browser_script_blob": "24f438fa9386cc107dae4cc5d1eef0ba925b4f2e",
     "test_additions": "Guarded browser will register 2 synthetic test members (author/outsider) to verify author-only pending visibility/withdrawal/supersession; then one direct description edit. Owner real Things untouched.",
@@ -304,6 +303,17 @@
     "browser_script_syntax_receipt": "rat170-issue8-20261115-proxy-browser-syntax-s1 COMPLETED exit0",
     "browser_script_scope": "Disposable synthetic root Carmine Nebula Archive, two unrelated synthetic auth accounts to prove privacy/denial, original/replacement/withdrawn states and one allowed direct Description; exactly five author-side entity-create POST attempts, original owner entries untouched",
     "sql_script_commit": "5b0ef859a389c2710518b7721a4a54a2d34a6a8e",
-    "API_current_digest": "sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d"
+    "API_current_digest": "sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "ci_status": "COMPLETED SUCCESS 9/9",
+    "ci_rat_publisher_job": 132775904613,
+    "api_unchanged": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "runtime_preflight_receipt": "rat170-issue8-20261115-withdraw-preflight-r1 COMPLETED 6/6 PASS",
+    "rollout_request": "rat170-issue8-20261115-withdraw-proxy-frontend-f2",
+    "rollout_control_commit": "ca1e43281870db4836d87662a1dea50cf27eb35b",
+    "rollout_status": "submitted, original outbox not yet present after bounded checks. Do not resubmit.",
+    "rollout_workbench_ops_head": "a04532997110c24c87c2157e365c4dedff6bfe63",
+    "rollout_script_blob": "48649df534331eda6076d3a5125a7174bd14ae2d",
+    "browser_acceptance": "NOT RUN; gated by rollout receipt, pod digest and served source",
+    "owner_pending_revisions_intact": "last confirmed by SQL from previous browser b01; final readback pending"
   }
 }
