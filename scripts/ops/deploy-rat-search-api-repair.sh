@@ -46,6 +46,13 @@ live_hosts_before="$(hosts "$LIVE_NS")"
 grep -Fxq "$LIVE_HOST" <<<"$live_hosts_before" || { echo "blocked: LIVE host missing" >&2; exit 78; }
 
 dev_api_before="$(image "$DEV_NS" rum-api php-fpm)"
+# Pin the isolated canonical DEV API baseline observed before PR #170.
+# Refuse a drifted workload rather than silently replacing unrelated changes.
+expected_dev_api_before='ghcr.io/daisycloversoftware/rum-api@sha256:0fc1525d9184bdb140bb543baae817fc54bf3237629ceec38429fd3e2301f521'
+[[ "$dev_api_before" == "$expected_dev_api_before" || "$dev_api_before" == "$API_IMAGE" ]] || {
+  echo "blocked: canonical DEV API changed since read-only PR #170 baseline" >&2
+  exit 78
+}
 dev_web_before="$(image "$DEV_NS" rum-web web)"
 dev_worker_before="$(image "$DEV_NS" rum-worker worker)"
 rat_front_before="$(image "$RAT_NS" rum-rate-anything rate-anything)"
