@@ -141,7 +141,8 @@ try{
  assert.equal(body.data.editorUserId,report.memberId)
  report.directRevisionId=body.data.id
  report.directDescription=description
- await expect(about.getByRole('status')).toContainText('Edit applied and recorded as an attributable revision.',{timeout:18000})
+ await expect(page.locator('.rat-workspace-description')).toHaveText(description,{timeout:24000})
+ await expect(about.locator('.rat-thing-revision').filter({hasText:'Description'}).first()).toContainText('Applied',{timeout:24000})
  await shot('06-description-applied')
  pass('unclaimed-noncreator-direct-description-edit-applied')
  stage='reload'
