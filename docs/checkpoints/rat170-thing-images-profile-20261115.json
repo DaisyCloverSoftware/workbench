@@ -16,7 +16,7 @@
   "current_CI": {
     "id": 43714101584,
     "sha": "56a2fdfe9ae885f2e8889b5251f0b3c598eab27f",
-    "status": "QUEUED exact-head; not terminal, do not rerun",
+    "status": "QUEUED exact-head 43714101584 at last bounded check; all six source jobs still queued, no terminal receipt",
     "full_success": false,
     "publish": "NOT VERIFIED",
     "prior_attempts": [
@@ -129,7 +129,7 @@
     "source_guard": "56a2fdfe9ae885f2e8889b5251f0b3c598eab27f",
     "browser_script_head_commit": "9787973808bbccebf7bea29bbd6e9e6643a71347",
     "browser_syntax_attempt_1": "rat170-image-20261115-browser-syntax-r1 rejected before execution because its script commit was no longer current origin branch HEAD",
-    "browser_syntax_attempt_2": "rat170-image-20261115-browser-syntax-r2 admitted request; outbox not yet found; do not resubmit until its result recovered",
+    "browser_syntax_attempt_2": "rat170-image-20261115-browser-syntax-r2 COMPLETED exit0, RAT170_THING_MEDIA_BROWSER_VERIFIER_SYNTAX_PASS=true",
     "source_commits_validation": "All prepared ops scripts pinned to 56a2, but DO NOT DEPLOY until CI 9/9 and matching immutable digest publication",
     "browser_mutations_submitted": false
   }
