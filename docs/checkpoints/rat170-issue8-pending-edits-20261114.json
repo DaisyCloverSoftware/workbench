@@ -120,9 +120,9 @@
     "api_running_baseline": "sha256:e0f3de7f64cc0e54d7a0a812b47eccfbd9f2c8c97f623ac2aa72749665be9983",
     "rat_running_baseline": "sha256:9a7a8d6b7fb2dbefef30384b9b0d6658762a8ab74001617883660229755cf68c",
     "LIVE_baseline": "rum-api:sha-54d31b8 rum-web:sha-8106675",
-    "api_promotion": "NOT SUBMITTED",
-    "frontend_promotion": "NOT SUBMITTED",
-    "browser_acceptance": "NOT RUN",
+    "api_promotion": "rat170-issue8-20261115-api-admitted-a1 COMPLETED exit 0",
+    "frontend_promotion": "rat170-issue8-20261115-frontend-admitted-f1 COMPLETED exit 0",
+    "browser_acceptance": "rat170-issue8-20261115-browser-b01 submitted; awaiting outbox",
     "current_origin_workbench_head": "264d322c991c8fe65545f86e981712129ea559db",
     "deploy_api": {
       "id": "rat170-issue8-20261115-api-admitted-a1",
@@ -147,11 +147,11 @@
     "staff_browser": "STAFF_BROWSER_ACCEPTANCE_OUTSTANDING; configured ADMIN_HOST, no deployed approved staff console/MFA operator, no bypass"
   },
   "next": [
-    "Recover ORIGINAL outbox relay/control-outbox/rat170-issue8-20261115-api-admitted-a1.json. Do not resubmit API request. If successful inspect resulting API digest and live preservation.",
-    "After confirmed API-only rollout exit 0, inspect existing frontend deploy control/outbox, then submit guarded scripts/ops/deploy-rat170-issue8-frontend-only-20261114.sh with exact source 4153, immutable RAT digest 4a2..., immutable API digest 13f... at CURRENT Workbench origin branch HEAD. Do not deploy web.",
-    "Recover frontend outbox, read exact pod image IDs and /VERSION; proceed to one-time synthetic member browser using scripts/ops/verify-rat170-issue8-pending-review-browser-20261114.sh, unique run ID, then canonical SQL read-only.",
-    "Read-only final owner revisions and protected LIVE digests. Do not mutate owner records.",
-    "Actual staff MFA browser remains separately outstanding absent authorised staff console. Preserve backend moderation tests; do not invent staff authority. Mark CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only if member browser and SQL PASS, not FULL_MODERATION_ACCEPTANCE_COMPLETE."
+    "Recover original outbox relay/control-outbox/rat170-issue8-20261115-browser-b01.json; never resubmit the same run. If pending, do bounded checks. If failed, inspect output and saved failure screenshot using existing image mode before deciding test change.",
+    "If browser passes, use canonical read-only scripts/ops/inspect-rat170-issue8-revisions-sql-20261114.sh with test member and revision IDs from original outbox and test run ID; do not print private proposal URLs.",
+    "After browser, re-read original two owner suggestions by approved read-only fixture and verify unchanged IDs, state, fingerprint and timestamps. Independently recheck running API/RAT and LIVE if needed; retain exact receipts.",
+    "Keep staff-browser acceptance separately outstanding without approved secure admin ingress/MFA staff account. Do not deploy published WEB/admin or invent staff authority.",
+    "Update checkpoint and state CONTRIBUTOR_FEATURES_READY_FOR_OWNER_TESTING only if browser and SQL pass; FULL_MODERATION_ACCEPTANCE_COMPLETE withheld."
   ],
   "recovery_20261115": {
     "PR170": "OPEN DRAFT UNMERGED",
@@ -219,5 +219,35 @@
     "owner_two_revisions": "Preserved as independently checked in rat170-issue8-20261115-owner-baseline-r1. No further mutation.",
     "no_db_reset": true,
     "live_untouched": true
+  },
+  "delivery_20261115": {
+    "exact_source": "4153c5be7268a95a94fb038b3e58a02e2375d273",
+    "exact_CI": "43696074527 COMPLETED SUCCESS 9/9",
+    "candidate_api": "ghcr.io/daisycloversoftware/rum-api@sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+    "candidate_rat": "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
+    "api_request": "rat170-issue8-20261115-api-admitted-a1",
+    "api_receipt": "COMPLETED exit 0; DJI/CJ searches pass, source exact, prior RAT/LIVE preserved, no migrations/seed",
+    "rat_request": "rat170-issue8-20261115-frontend-admitted-f1",
+    "rat_receipt": "COMPLETED exit 0; served /VERSION rat-candidate+4153c5be7268a95a94fb038b3e58a02e2375d273, protected snapshots identical",
+    "pod_readback": {
+      "id": "rat170-issue8-20261115-running-digest-r4",
+      "result": "7/7 PASS",
+      "api": "sha256:13f71c669c003c6458a378dd5c6f24a53c77ad4955e9c804afd041cf8a3f879d",
+      "rat": "sha256:4a2af1ed6e4285b9491ac9cbcc23e1c6acb9062020e450e53dc2ea8a93a48aa5",
+      "live": "API :sha-54d31b8; WEB :sha-8106675; WORKER :sha-54d31b8"
+    },
+    "browser_request": {
+      "id": "rat170-issue8-20261115-browser-b01",
+      "script": "scripts/ops/verify-rat170-issue8-pending-review-browser-20261114.sh",
+      "script_blob": "801bc4d930d7edfd232e7e4c9ac8bab36e66309d",
+      "workbench_head": "264d322c991c8fe65545f86e981712129ea559db",
+      "run_id": "rat170-issue8-live-20261115-b01",
+      "status": "submitted; original outbox pending; do not repeat and do not create replacement test account until failure reason established"
+    },
+    "staff_moderation": "NOT DEPLOYED: staff console lacks approved isolated ingress/MFA reviewer, backend tests PASS; STAFF_BROWSER_ACCEPTANCE_OUTSTANDING",
+    "owner_suggestions": "Both previously inspected revisions 01m7dxvjchbmnjjnatw0av6a7m and 01m7dxwv5cnczfsjset8emjvap still pending at predeploy, must recheck read-only after browser",
+    "LIVE_untouched": true,
+    "DB_reset_reseed": false,
+    "PR_merged": false
   }
 }
