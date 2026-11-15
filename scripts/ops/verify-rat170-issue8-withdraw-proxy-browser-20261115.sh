@@ -89,6 +89,48 @@ try{
  await expect(item.first().getByRole('button',{name:'Withdraw'})).toBeVisible()
  await shot('02-pending-revision')
  pass('pending-image-with-status-and-author-controls')
+ stage='unrelated-contributor-denial'
+ const otherContext=await browser.newContext({viewport:{width:1280,height:900}})
+ try {
+   const otherPage=await otherContext.newPage()
+   await otherPage.goto(RAT+'/e/qa~'+root,{waitUntil:'domcontentloaded'})
+   await expect(otherPage.locator('.rat-workspace-header h1')).toContainText('Carmine Nebula Archive',{timeout:25000})
+   await otherPage.getByRole('button',{name:'Edit or suggest a correction'}).click()
+   const otherAbout=otherPage.locator('.rat-workspace-profile .entity-about')
+   await otherAbout.getByRole('button',{name:'Create account',exact:true}).click()
+   const otherUsername='ratother'+id.replace(/[^a-z0-9]/g,'').slice(-12)
+   const otherPw=randomBytes(20).toString('base64url')+'Aa1!'
+   await otherAbout.getByLabel('Email',{exact:true}).fill(otherUsername+'@example.com')
+   await otherAbout.getByLabel('Username',{exact:true}).fill(otherUsername)
+   await otherAbout.getByLabel('Password',{exact:true}).fill(otherPw)
+   await otherAbout.getByLabel('Confirm password').fill(otherPw)
+   await otherAbout.getByRole('checkbox',{name:/Terms and Community Rules/}).check()
+   await otherAbout.getByRole('checkbox',{name:/Privacy Notice/}).check()
+   await otherAbout.getByRole('button',{name:'Create RAT account and continue'}).click()
+   await expect(otherAbout.locator('.rat-thing-edit-form')).toBeVisible({timeout:24000})
+   const otherHistory=await otherContext.request.get(RAT+url)
+   assert.equal(otherHistory.status(),200)
+   assert.ok(!(await otherHistory.json()).data.some(x=>x.id===report.firstId),'other member sees private pending revision')
+   const restricted=await otherPage.evaluate(async ({root,revision,id})=>{
+     const xsrf=document.cookie.split('; ').find(x=>x.startsWith('XSRF-TOKEN='))
+     const headers={'Accept':'application/json','Content-Type':'application/json'}
+     if(xsrf) headers['X-XSRF-TOKEN']=decodeURIComponent(xsrf.slice('XSRF-TOKEN='.length))
+     const base='/api/v1/rate-anything/things/'+root+'/edits'
+     const send=async (path,body)=>{
+       const response=await fetch(path,{method:'POST',credentials:'same-origin',headers,body:JSON.stringify(body)})
+       return response.status
+     }
+     const withdrawal=await send(base+'/'+revision+'/withdraw',{})
+     const replacement=await send(base,{field:'image_url',value:'https://example.org/rat170-unauthorised-'+id+'.jpg',supersedesRevisionId:revision})
+     return {withdrawal,replacement}
+   },{root,revision:report.firstId,id})
+   assert.equal(restricted.withdrawal,422,'other contributor must not withdraw someone else\'s pending revision')
+   assert.equal(restricted.replacement,422,'other contributor must not replace someone else\'s pending revision')
+   report.otherContributorDenied=true
+   pass('other-contributor-withdrawal-replacement-and-private-history-denied')
+ } finally {
+   await otherContext.close()
+ }
  stage='duplicate'
  wait=responseAt(url)
  await form.getByRole('button',{name:'Record edit'}).click()
