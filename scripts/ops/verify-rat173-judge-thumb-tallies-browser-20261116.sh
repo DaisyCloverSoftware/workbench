@@ -27,7 +27,7 @@ python3 - "$health" "$src" <<'PY'
 import json,sys
 j=json.loads(sys.argv[1])
 assert j.get("status")=="ok" and j.get("service")=="rum-api"
-assert sys.argv[2] == "f436825197f18dc2a87750ba5250892917ca1128"
+assert sys.argv[2] == "106c1529950c39fa9f02d4d9ec6ff2913b6f58a8"
 assert "93f15359a73042453697912fcc05b3aebc77e172" in str(j.get("version",""))
 PY
 # Refuse unless QA Thing still matches known disposable identity and eligibility.
@@ -285,7 +285,7 @@ try{
  await expect(ownerRow.locator('.rat-judge-vote-row > img')).toHaveAttribute('src','/brand/judge-voting-thumbs.png')
  const tallies=ownerRow.locator('.rat-community-judge__tallies')
  await expect(tallies.locator(':scope > .rat-community-judge__tally')).toHaveCount(2)
- await expect(tallies.locator('.rat-community-judge__tally[aria-label="Keep votes: 0"]')).toBeVisible()
+ await expect(tallies.locator('.rat-community-judge__tally[role="img"][aria-label="Keep votes: 0"]')).toBeVisible()
  await expect(tallies.locator('.rat-community-judge__tally[aria-label="Sin Bin votes: 0"]')).toBeVisible()
  assert.ok(!(await tallies.innerText()).includes('Keep') && !(await tallies.innerText()).includes('Sin Bin'),'Tally must show only official thumb artwork and counts')
  const icons=await tallies.locator('.rat-community-judge__tally-icon').evaluateAll(els=>els.map(el=>{
