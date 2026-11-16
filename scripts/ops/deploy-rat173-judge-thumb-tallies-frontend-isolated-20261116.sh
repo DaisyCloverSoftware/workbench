@@ -51,7 +51,7 @@ python3 - "$health" "$source_sha" <<'PY'
 import json,sys
 obj=json.loads(sys.argv[1])
 assert obj.get('status') == 'ok' and obj.get('service') == 'rum-api'
-assert sys.argv[2] == '106c1529950c39fa9f02d4d9ec6ff2913b6f58a8', 'Unexpected frontend/source contract'
+assert sys.argv[2] == 'd129eb4dbfdb4a8a079e379f7475f815f6b9177a', 'Unexpected frontend/source contract'
 assert '93f15359a73042453697912fcc05b3aebc77e172' in str(obj.get('version','')), obj
 PY
 
