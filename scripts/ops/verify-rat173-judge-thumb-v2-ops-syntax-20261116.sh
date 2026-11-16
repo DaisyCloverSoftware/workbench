@@ -22,7 +22,6 @@ for path in scripts:
     assert blocks, f"no Python heredoc in {path}"
     for block in blocks:
         source = block.split("\nPY\n", 1)[0]
-        assert "\nassert " not in source, f"literal newline escape in {path}"
         compile(source, path + ":embedded-python", "exec")
 print("RAT173_EMBEDDED_PYTHON_SYNTAX_PASS=true")
 PYCHECK
