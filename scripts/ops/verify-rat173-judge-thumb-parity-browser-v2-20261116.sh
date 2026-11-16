@@ -27,7 +27,8 @@ python3 - "$health" "$src" <<'PY'
 import json,sys
 j=json.loads(sys.argv[1])
 assert j.get("status")=="ok" and j.get("service")=="rum-api"
-assert sys.argv[2] == "92d190d02e72595523fff7bb35438eefbb781903"\nassert "93f15359a73042453697912fcc05b3aebc77e172" in str(j.get("version",""))
+assert sys.argv[2] == "92d190d02e72595523fff7bb35438eefbb781903"
+assert "93f15359a73042453697912fcc05b3aebc77e172" in str(j.get("version",""))
 PY
 # Refuse unless QA Thing still matches known disposable identity and eligibility.
 read_only_guard='
