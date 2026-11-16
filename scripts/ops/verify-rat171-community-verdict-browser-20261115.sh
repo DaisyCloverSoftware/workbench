@@ -108,7 +108,7 @@ const postJson=async(p,path,body,method='POST')=>p.evaluate(async ({path,body,me
  const r=await fetch(path,{method,credentials:'same-origin',headers:{Accept:'application/json','Content-Type':'application/json',...(token?{'X-XSRF-TOKEN':token}:{})},body:JSON.stringify(body)})
  return {status:r.status,body:await r.json().catch(()=>({}))}
 },{path,body,method})
-const judgePage=async(ctx)=>{const r=await ctx.request.get(RAT+'/api/v1/rate-anything/things/'+QA+'/judge?limit=10');return{status:r.status,data:await r.json().catch(()=>({}))}}
+const judgePage=async(ctx)=>{const r=await ctx.request.get(RAT+'/api/v1/rate-anything/things/'+QA+'/judge?limit=10');return{status:r.status(),data:await r.json().catch(()=>({}))}}
 const makeEligible=({username,id})=>{
  assert.match(id,/^[0-9a-z]{26}$/);assert.match(username,/^ratjudge[a-z0-9]{6,40}$/)
  const code=[
