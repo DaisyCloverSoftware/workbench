@@ -20,7 +20,7 @@ canonical_dev_api="$3"
 namespace='rum-rate-anything-preview'
 host='dev-rum-ra.daisycloversoftware.uk'
 # Observed by read-only Workbench runtime inspection before PR #170 rollout.
-baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:f6f08663b2cd1e27743260fc1c81932dacc0dff66b6b7d8d594e3830ec6733df'
+baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:11d2f56b90022ada82767febb6044bc4e3f3c7ad53af0c0a256a3b1ce0eaff3f'
 kctl() {
   if command -v k3s >/dev/null 2>&1; then sudo -n k3s kubectl "$@"; else kubectl "$@"; fi
 }
