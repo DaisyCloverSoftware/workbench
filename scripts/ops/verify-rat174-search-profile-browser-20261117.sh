@@ -132,3 +132,5 @@ try{
 }finally{await browser.close()}
 NODE
 echo RAT174_SEARCH_PROFILE_BROWSER_ACCEPTANCE_PASS=true
+printf 'source=%s\napi=%s\nrat=%s\nstatus=PASS\n' "$src" "$api" "$rat" > "$out/accepted.txt"
+echo "RAT174_ACCEPTED_BROWSER_SCREENSHOTS=$out"
