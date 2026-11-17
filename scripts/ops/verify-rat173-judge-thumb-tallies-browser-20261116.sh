@@ -27,7 +27,7 @@ python3 - "$health" "$src" <<'PY'
 import json,sys
 j=json.loads(sys.argv[1])
 assert j.get("status")=="ok" and j.get("service")=="rum-api"
-assert sys.argv[2] == "106c1529950c39fa9f02d4d9ec6ff2913b6f58a8"
+assert sys.argv[2] == "d6e24192ca957d1cbac6c52f3ab607c4dbb3c529"
 assert "93f15359a73042453697912fcc05b3aebc77e172" in str(j.get("version",""))
 PY
 # Refuse unless QA Thing still matches known disposable identity and eligibility.
@@ -62,7 +62,7 @@ RAT171_RUN="$rid" RAT171_OUT="$out" CHROME="$chrome" node --input-type=module <<
 import assert from 'node:assert/strict'
 import { randomUUID,randomBytes } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { writeFile,stat } from 'node:fs/promises'
+import { writeFile,readFile,stat } from 'node:fs/promises'
 import { chromium,expect } from '@playwright/test'
 const RAT='https://dev-rum-ra.daisycloversoftware.uk',DEV='https://dev-rum.daisycloversoftware.uk'
 const QA='01m7fw9yb4684hygrm14tmm3jr',OWNER='01m7bswfh0a3evf271ye4taaf0'
@@ -76,6 +76,7 @@ const anonCtx=await browser.newContext({viewport:{width:390,height:844}})
 const author=await authorCtx.newPage(),voter=await voterCtx.newPage()
 let stage='initial'
 const screenshot=async(p,name)=>{const path=dir+'/'+name+'.jpg';await p.screenshot({path,type:'jpeg',quality:45,animations:'disabled',fullPage:true});const f=await stat(path);report.screenshots.push({name,bytes:f.size});console.log('RAT171_JUDGE_SCREENSHOT='+name+' bytes='+f.size)}
+const screenshotTally=async(locator,name)=>{const path=dir+'/'+name+'.png';await locator.screenshot({path,animations:'disabled'});const bytes=await readFile(path);report.screenshots.push({name,bytes:bytes.length});console.log('RAT173_TALLY_CROP='+name+' bytes='+bytes.length);console.log('RAT173_TALLY_B64_'+name+'='+bytes.toString('base64'))}
 const isApproved=(r)=>{const u=new URL(r.url()),m=r.method();if(u.hostname==='rateurmate.online')return false
  if(['GET','HEAD','OPTIONS'].includes(m))return true
  return u.origin===RAT && m==='POST'&&u.pathname==='/api/v1/rate-anything/auth/register'
@@ -165,7 +166,7 @@ try{
  await expect(author.locator('.rat-community-judge')).toContainText('cannot vote on your own submission')
  pass('unverified-author-can-see-own-pending-rating-but-not-vote')
  const authorTally=author.locator('.rat-community-judge__item').filter({hasText:'Your rating'}).first().locator('.rat-community-judge__tallies')
- await expect(authorTally.locator('.rat-community-judge__tally-icon')).toHaveCount(2)
+ await expect(authorTally.locator('img.rat-community-judge__tally-icon')).toHaveCount(2)
  await expect(authorTally.locator('.rat-community-judge__tally[aria-label="Keep votes: 0"]')).toBeVisible()
  await expect(authorTally.locator('.rat-community-judge__tally[aria-label="Sin Bin votes: 0"]')).toBeVisible()
  pass('rating-author-can-see-official-thumb-tallies-without-voting')
@@ -276,6 +277,7 @@ try{
  assert.equal(before.status(),200,'owner Thing Judge view not accessible to eligible viewer')
  const rows=(await before.json()).data
  assert.ok(rows.some(x=>x.state==='needs_verdict'&&x.countsTowardAggregate===false),'owner pending rating absent')
+ const ownerCountsBefore=rows.map(x=>({id:x.id,keepVotes:x.keepVotes,sinBinVotes:x.sinBinVotes,score:x.score}))
  await voter.goto(RAT+'/e/the-professional-idiots~'+OWNER,{waitUntil:'domcontentloaded'})
  await expect(voter.locator('.rat-workspace-header h1')).toContainText('The Professional Idiots',{timeout:30000})
  const ownerRow=voter.locator('.rat-community-judge__item').filter({hasText:'Awaiting community verdict'}).first()
@@ -288,15 +290,22 @@ try{
  await expect(tallies.locator('.rat-community-judge__tally[role="img"][aria-label="Keep votes: 0"]')).toBeVisible()
  await expect(tallies.locator('.rat-community-judge__tally[aria-label="Sin Bin votes: 0"]')).toBeVisible()
  assert.ok(!(await tallies.innerText()).includes('Keep') && !(await tallies.innerText()).includes('Sin Bin'),'Tally must show only official thumb artwork and counts')
- const icons=await tallies.locator('.rat-community-judge__tally-icon').evaluateAll(els=>els.map(el=>{
-  const s=getComputedStyle(el)
-  const rect=el.getBoundingClientRect()
-  return {background:s.backgroundImage,position:s.backgroundPosition,width:rect.width,height:rect.height}
+ const icons=await tallies.locator('img.rat-community-judge__tally-icon').evaluateAll(els=>els.map(el=>{
+  const style=getComputedStyle(el),rect=el.getBoundingClientRect()
+  return {src:el.getAttribute('src'),complete:el instanceof HTMLImageElement && el.complete,
+   naturalWidth:el.naturalWidth,naturalHeight:el.naturalHeight,width:rect.width,height:rect.height,
+   background:style.backgroundImage,objectFit:style.objectFit}
  }))
  assert.equal(icons.length,2)
- assert.ok(icons.every(x=>x.background.includes('/brand/judge-voting-thumbs.png') && x.width>=24 && x.height>=24),JSON.stringify(icons))
- assert.ok(icons[0].position.includes('right') || icons[0].position.includes('100%'),'Keep must use the right-hand RUM thumb')
- assert.ok(icons[1].position.includes('left') || icons[1].position.includes('0%'),'Sin Bin must use the left-hand RUM thumb')
+ assert.deepEqual(icons.map(x=>x.src),['/brand/rum-judge-thumb-up.svg','/brand/rum-judge-thumb-down.svg'])
+ assert.ok(icons.every(x=>x.complete && x.naturalWidth>100 && x.naturalHeight>100 &&
+  x.width>=20 && x.width<=24 && x.height>=20 && x.height<=24 && x.background==='none' && x.objectFit==='contain'),JSON.stringify(icons))
+ for(const [src,fill] of [['/brand/rum-judge-thumb-up.svg','#171316'],['/brand/rum-judge-thumb-down.svg','#e63e32']]){
+  const response=await voterCtx.request.get(RAT+src)
+  assert.equal(response.status(),200)
+  const svg=await response.text()
+  assert.ok(svg.includes('<svg xmlns="http://www.w3.org/2000/svg"')&&svg.includes('<path fill="'+fill+'"')&&!svg.includes('<rect')&&!svg.includes('<image')&&!svg.includes('background'),'Tally icon must be standalone transparent RUM silhouette '+src)
+ }
  pass('owner-vote-tallies-have-official-rum-thumbs-and-accessible-count-labels')
  pass('eligible-independent-member-sees-official-voting-thumbs-on-owner-rating-without-casting-vote')
  const facts=voter.locator('.rat-workspace-profile > .rat-workspace-facts')
@@ -305,6 +314,7 @@ try{
  assert.equal(columns,3,'Expected three balanced desktop columns')
  pass('owner-public-rating-visible-as-pending-and-profile-three-facts-desktop')
  await screenshot(voter,'06-owner-eligible-voter-desktop-readonly')
+ await screenshotTally(tallies,'09-owner-tally-desktop')
  await voter.setViewportSize({width:390,height:844})
  const mobile=await facts.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length)
  assert.equal(mobile,1,'Expected one-column facts on mobile')
@@ -312,11 +322,22 @@ try{
  assert.ok(overflow<=2,'Mobile horizontal overflow '+overflow)
  pass('three-fact-profile-mobile-no-extra-cell')
  await screenshot(voter,'07-owner-eligible-voter-mobile-readonly')
+ await screenshotTally(tallies,'10-owner-tally-mobile')
  await voter.setViewportSize({width:768,height:920})
  await expect(ownerRow.getByRole('button',{name:'Keep'})).toBeVisible()
  const tabletOverflow=await voter.evaluate(()=>document.documentElement.scrollWidth-innerWidth)
  assert.ok(tabletOverflow<=2,'Tablet horizontal overflow '+tabletOverflow)
  await screenshot(voter,'08-owner-eligible-voter-tablet-readonly')
+ await screenshotTally(tallies,'11-owner-tally-tablet')
+ const after=await voterCtx.request.get(RAT+'/api/v1/rate-anything/things/'+OWNER+'/judge?limit=10')
+ assert.equal(after.status(),200)
+ const afterRows=(await after.json()).data
+ for(const previous of ownerCountsBefore){
+  const current=afterRows.find(x=>x.id===previous.id)
+  assert.ok(current,'Owner rating disappeared from canonical viewer scope')
+  assert.deepEqual({id:current.id,keepVotes:current.keepVotes,sinBinVotes:current.sinBinVotes,score:current.score},previous,'Owner canonical tally changed during read-only visual check')
+ }
+ pass('owner-canonical-vote-totals-unchanged-across-desktop-mobile-tablet')
  pass('branded-vote-controls-fit-tablet')
  report.status='PASS'
  console.log('RAT171_CANONICAL_JUDGE_BROWSER_PASS=true')
