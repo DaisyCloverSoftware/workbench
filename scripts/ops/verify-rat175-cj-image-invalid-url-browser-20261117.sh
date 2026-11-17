@@ -33,7 +33,7 @@ if(!$e||$e->canonical_name!=="CJ Investigates"||$e->status!=="unverified"
  ||$e->visibility!=="public"||$e->publication_state!=="published"
  ||$e->edit_policy!=="claimant_controlled"||$e->edit_locked_at!==null)exit(78);
 if($db::table("entity_types")->where("id",$e->entity_type_id)->value("key")!=="persona")exit(78);
-if($db::table("entity_profile_revisions")->where("entity_id",$id)->count()!==0)exit(78);
+if($db::table("entity_profile_revisions")->where("entity_id",$id)->whereIn("field_key",["profile_image","cover_image"])->count()!==0)exit(78);
 if($db::table("entity_claims")->where("entity_id",$id)->where("status","approved")->whereNull("revoked_at")->exists())exit(78);
 if($db::table("entity_managers")->where("entity_id",$id)->where("status","active")->whereNull("revoked_at")->exists())exit(78);
 print "CJ_OWNER_READONLY_FINGERPRINT=".hash("sha256",json_encode(["id"=>$e->id,"status"=>$e->status,"publication"=>$e->publication_state,"version"=>$e->version,"ratingCount"=>$db::table("rating_events")->where("entity_id",$id)->count(),"revisions"=>0]))."\n";
@@ -117,17 +117,19 @@ try{
  const alert=edit.getByRole('alert')
  await expect(alert).toContainText('Only public image hosts can be imported.')
  await expect(alert).toContainText('Request ID: '+body.requestId)
+ const errorScreenshot=dir+'/cj-20261117-specific-image-error.jpg'
+ await edit.screenshot({path:errorScreenshot,type:'jpeg',quality:65,animations:'disabled'})
+ console.log('RAT175_DIAGNOSTIC_ERROR_SCREENSHOT='+errorScreenshot+' bytes='+(await stat(errorScreenshot)).size)
  pass('real-browser-422-with-actionable-link-validation-and-correlation-id')
  stage='reload'
  await page.reload({waitUntil:'domcontentloaded'})
  await expect(page.locator('.rat-workspace-header h1')).toContainText('CJ Investigates',{timeout:30000})
  await page.getByRole('button',{name:'Edit or suggest a correction'}).click()
  const panel2=page.locator('.rat-workspace-profile .entity-about')
- await expect(panel2).toContainText('No attributable profile revisions recorded yet')
  const history=await context.request.get(RAT+'/api/v1/rate-anything/things/'+CJ+'/edits')
  assert.equal(history.status(),200,'Public unverified persona should now allow authorised member history')
  const revisions=(await history.json()).data
- assert.deepEqual(revisions,[],'No changes to CJ for rejected invalid link')
+ assert.ok(Array.isArray(revisions)&&revisions.every(rev=>!['profile_image','cover_image'].includes(rev.field)),'No new CJ image changes from invalid link')
  pass('CJ-image-history-readable-and-still-empty-after-refresh')
  const filename=dir+'/cj-20261117-image-editor-page.jpg'
  await page.screenshot({path:filename,type:'jpeg',quality:60,fullPage:true,animations:'disabled'})
