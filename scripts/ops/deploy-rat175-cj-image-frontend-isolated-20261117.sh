@@ -15,7 +15,7 @@ candidate="$2"
 canonical_dev_api="$3"
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || exit 64
 [[ "$candidate" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$candidate" == '__RAT175_RAT_IMAGE_PIN_AFTER_CI__' ]] || { echo 'Blocked: RAT175 image digest not attested' >&2; exit 78; }
+[[ "$candidate" == 'ghcr.io/daisycloversoftware/rum-rate-anything@sha256:6b9d8d0e5f31a94800c48ead1b66f06fba451c3458f436a54d857a173a152f7d' ]] || { echo 'Blocked: RAT175 image digest not attested' >&2; exit 78; }
 [[ "$canonical_dev_api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 
 namespace='rum-rate-anything-preview'
