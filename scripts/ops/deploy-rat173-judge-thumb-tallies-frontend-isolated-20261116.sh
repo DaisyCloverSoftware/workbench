@@ -20,7 +20,7 @@ canonical_dev_api="$3"
 namespace='rum-rate-anything-preview'
 host='dev-rum-ra.daisycloversoftware.uk'
 # Observed by read-only Workbench runtime inspection before PR #170 rollout.
-baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:0c0dffcd5405138a29439ea67ff5e611621d9216756812b609c3bd2e5447326c'
+baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:f6f08663b2cd1e27743260fc1c81932dacc0dff66b6b7d8d594e3830ec6733df'
 kctl() {
   if command -v k3s >/dev/null 2>&1; then sudo -n k3s kubectl "$@"; else kubectl "$@"; fi
 }
@@ -51,7 +51,7 @@ python3 - "$health" "$source_sha" <<'PY'
 import json,sys
 obj=json.loads(sys.argv[1])
 assert obj.get('status') == 'ok' and obj.get('service') == 'rum-api'
-assert sys.argv[2] == 'd129eb4dbfdb4a8a079e379f7475f815f6b9177a', 'Unexpected frontend/source contract'
+assert sys.argv[2] == 'd6e24192ca957d1cbac6c52f3ab607c4dbb3c529', 'Unexpected frontend/source contract'
 assert '93f15359a73042453697912fcc05b3aebc77e172' in str(obj.get('version','')), obj
 PY
 
