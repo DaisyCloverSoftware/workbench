@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 [[ $# -eq 0 ]] || exit 64
-for script in scripts/ops/deploy-rat174-search-profile-api-isolated-20261117.sh scripts/ops/verify-rat174-search-profile-browser-20261117.sh; do
+for script in scripts/ops/deploy-rat174-search-profile-api-isolated-20261117.sh scripts/ops/deploy-rat174-search-profile-frontend-isolated-20261117.sh scripts/ops/verify-rat174-search-profile-browser-20261117.sh; do
   [[ -f "$script" && ! -L "$script" ]] || exit 66
   bash -n "$script"
 done
