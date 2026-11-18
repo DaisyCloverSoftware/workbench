@@ -3,7 +3,7 @@ set -Eeuo pipefail
 # Guarded ONE-API-only PR178 promotion. Never touches LIVE/RAT frontend/data.
 [[ $# -eq 2 ]] || exit 64
 src="$1"; candidate="$2"
-[[ "$src" == 'e54abfaabde5bbd69b0b97e55e8770754fea3401' ]] || exit 78
+[[ "$src" == '7a42780bb64d75de041f2ec96cce9a01e238f46f' ]] || exit 78
 [[ "$candidate" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$candidate" == '__RAT178_API_IMAGE_PENDING__' ]] || exit 78
 baseline='ghcr.io/daisycloversoftware/rum-api@sha256:c68f9e4902b7ab71abab2cf0ea50244bf80dd93809385add84b764ff1fc34d0c'

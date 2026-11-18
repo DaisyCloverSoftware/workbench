@@ -3,7 +3,7 @@ set -Eeuo pipefail
 # Read-only real Chromium acceptance at 1440/768/390, no signups/votes/edits.
 [[ $# -eq 3 ]] || exit 64
 src="$1"; api="$2"; rid="$3"
-[[ "$src" == 'e54abfaabde5bbd69b0b97e55e8770754fea3401' ]] || exit 78
+[[ "$src" == '7a42780bb64d75de041f2ec96cce9a01e238f46f' ]] || exit 78
 [[ "$api" == '__RAT178_API_DIGEST_PENDING__' ]] || exit 78
 [[ "$rid" =~ ^rat178-[a-z0-9-]{12,34}$ ]] || exit 64
 out="/tmp/rat178-linked-category-browser-$rid"
@@ -40,7 +40,7 @@ const DEV='https://dev-rum.daisycloversoftware.uk', RAT='https://dev-rum-ra.dais
 const SOURCE='01m7bswfh0a3evf271ye4taaf0', TARGET='01m7jss48cpff8c59j6mdbbb7f'
 const REL='01m7jswzw09b94n00am5003dej',KEY='community_788e6ae3bfcd391d111e3ca31a1332ebf92906d0d0868e7cf7bb'
 const dir=process.env.REPORT_DIR
-const report={status:'NOT_ASSESSED',run:process.env.REPORT_RUN,source:'e54abfaabde5bbd69b0b97e55e8770754fea3401',checks:[],screenshots:[],errors:[]}
+const report={status:'NOT_ASSESSED',run:process.env.REPORT_RUN,source:'7a42780bb64d75de041f2ec96cce9a01e238f46f',checks:[],screenshots:[],errors:[]}
 const pass=x=>{report.checks.push(x);console.log('RAT178_BROWSER_PASS='+x)}
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME||undefined,args:['--no-sandbox','--disable-dev-shm-usage']})
 const ctx=await browser.newContext({viewport:{width:1440,height:940}})
