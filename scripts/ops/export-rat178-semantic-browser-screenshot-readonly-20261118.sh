@@ -12,7 +12,7 @@ python3 - "$dir/report.json" "$1" "$2" <<'PY'
 import sys,json
 r=json.load(open(sys.argv[1],encoding='utf-8'))
 assert r['status']=='PASS' and not r.get('errors') and r['run']==sys.argv[2]
-assert r['source']=='7a42780bb64d75de041f2ec96cce9a01e238f46f'
+assert r['source']=='bf98b859e628cda73631916c1f730333867000e4'
 assert 'canonical-api-primary-youtube-channel-categorised-once-with-unchanged-relationship-and-top-linked' in r['checks']
 for width in ('1440','768','390'):
  assert 'search-'+width+'-Channels-not-Projects-Thumbnails-Thumb-TopLinked-and-no-overflow' in r['checks']
