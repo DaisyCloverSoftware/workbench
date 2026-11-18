@@ -47,6 +47,13 @@ const ctx=await browser.newContext({viewport:{width:1440,height:940}})
 const page=await ctx.newPage()
 await page.route('**/*',r=>['GET','HEAD','OPTIONS'].includes(r.request().method())?r.continue():r.abort('blockedbyclient'))
 let stage='api-baseline'
+const requirePublishedPhoto=async (selector,url)=>{
+ if(!url)return
+ const img=page.locator(selector+' img').first()
+ await expect(img).toHaveAttribute('src',url,{timeout:25000})
+ await expect.poll(()=>img.evaluate(el=>el.complete&&el.naturalWidth>0&&el.naturalHeight>0),{timeout:30000}).toBe(true)
+ await img.evaluate(el=>el.decode())
+}
 const capture=async (width,kind)=>{
  const filename='professional-idiots-'+width+'-'+kind+'.jpg'
  const path=dir+'/'+filename
@@ -97,6 +104,7 @@ try{
   await page.goto(RAT+'/search?q=The%20Professional%20Idiots&active='+SOURCE,{waitUntil:'domcontentloaded',timeout:45000})
   await expect(page.locator('.rat-active-card h1')).toHaveText('The Professional Idiots',{timeout:30000})
   await expect(page.locator('.rat-active-card__type')).toHaveText('YouTube Channel')
+  await requirePublishedPhoto('.rat-active-card__avatar',payload.data.active.images?.profile?.url)
   const channel=page.locator('section.rat-category').filter({has:page.getByRole('heading',{name:'Channels',exact:true})})
   await expect(channel).toHaveCount(1)
   await expect(channel.getByRole('heading',{name:'Channels',exact:true})).toBeVisible()
@@ -116,6 +124,7 @@ try{
   const projectSection=page.locator('section.rat-category').filter({has:page.getByRole('heading',{name:'Projects & tools',exact:true})})
   if(await projectSection.count()>0)await expect(projectSection.locator('button.rat-linked-card').filter({hasText:'The Unprofessional Idiots'})).toHaveCount(0)
   await expect(page.locator('.rat-top-linked')).toContainText('The Unprofessional Idiots')
+  await requirePublishedPhoto('.rat-top-linked .rat-linked-card__media',published)
   await expect(page.locator('.rat-active-card__actions').getByRole('button',{name:'Rate'})).toBeVisible()
   await expect(page.locator('.rat-active-card__actions').getByRole('button',{name:'See ratings'})).toBeVisible()
   assert.ok((await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth))<=2,'Search horizontal overflow '+width)
@@ -125,11 +134,15 @@ try{
   await card.click()
   await expect(page.locator('.rat-active-card h1')).toHaveText('The Unprofessional Idiots',{timeout:30000})
   await expect(page.locator('.rat-active-card__type')).toHaveText('YouTube Channel')
+  await requirePublishedPhoto('.rat-active-card__avatar',targetNode.images?.profile?.url)
   assert.equal(new URL(page.url()).searchParams.get('active'),TARGET)
   const reverse=page.locator('section.rat-category').filter({has:page.getByRole('heading',{name:'Channels',exact:true})})
   await expect(reverse).toContainText('The Professional Idiots')
   await page.reload({waitUntil:'domcontentloaded'})
   await expect(page.locator('.rat-active-card h1')).toHaveText('The Unprofessional Idiots',{timeout:30000})
+  await requirePublishedPhoto('.rat-active-card__avatar',targetNode.images?.profile?.url)
+  await requirePublishedPhoto('.rat-top-linked .rat-linked-card__media',payload.data.active.images?.profile?.url)
+  await requirePublishedPhoto('section.rat-category .rat-linked-card__media',payload.data.active.images?.profile?.url)
   assert.ok((await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth))<=2,'Rebase overflow '+width)
   await capture(width,'linked-active')
   pass('rebase-'+width+'-click-promotes-existing-target-and-persists-after-refresh')
