@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # Real read-only Chromium acceptance for exact-ID CJ rating restoration, 1440/390, search/workspace/ratings.
 [[ $# -eq 0 ]] || exit 64
-run='ratcj-owner-rating-final-browser-20261118-r1'
+run='ratcj-owner-rating-final-browser-20261118-r2'
 out="/tmp/$run"
 [[ ! -e "$out" ]] || exit 65
 mkdir -m 700 "$out"
@@ -51,7 +51,7 @@ try{
  assert.equal(node.active.classifications.find(x=>x.primary)?.name,'YouTube Channel')
  assert.deepEqual(node.categories,[]);assert.deepEqual(node.topLinked,[])
  assert.ok(node.active.images?.profile?.url && node.active.images?.cover?.url,'CJ published photos')
- const repRes=await ctx.request.get(DEV+'/api/v1/public/entities/'+CJ+'/reputation',{headers:{'Cache-Control':'no-cache'}})
+ const repRes=await ctx.request.get(RAT+'/api/v1/public/entities/'+CJ+'/reputation',{headers:{'Cache-Control':'no-cache'}})
  assert.equal(repRes.status(),200)
  const rep=await repRes.json()
  assert.equal(rep.meta.entityId,CJ)
