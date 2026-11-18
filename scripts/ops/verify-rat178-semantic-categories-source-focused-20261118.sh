@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Exact-head source-only checks. Does not run application tests against DEV data.
-[[ $# -eq 1 && "$1" == 'bf98b859e628cda73631916c1f730333867000e4' ]] || exit 64
+[[ $# -eq 1 && "$1" == 'acebcc208f19348ab9eb01d05434b0e20a5e256c' ]] || exit 64
 source_sha="$1"
 work="$(mktemp -d)";trap 'rm -rf "$work"' EXIT
 git -C "$work" init -q
