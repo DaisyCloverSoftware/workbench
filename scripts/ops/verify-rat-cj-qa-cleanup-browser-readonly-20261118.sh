@@ -45,7 +45,9 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 try{
  const ctx=await browser.newContext({viewport:{width:1440,height:940}})
  const errors=[]
+ const http401=[]
  const page=await ctx.newPage()
+ page.on('response',response=>{if(response.status()===401)http401.push({method:response.request().method(),url:response.url()})})
  page.on('pageerror',error=>errors.push(error.message))
  page.on('console',message=>{if(message.type()==='error')errors.push(message.text())})
  await page.route('**/*',r=>['GET','HEAD','OPTIONS'].includes(r.request().method())?r.continue():r.abort('blockedbyclient'))
@@ -70,6 +72,8 @@ try{
   assert.ok((await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth))<=2,'Horizontal overflow')
   console.log('CJ_QA_RAT_BROWSER_PASS='+JSON.stringify({width,active:'CJ Investigates',linkedCards:0,topLinkedSection:false,productsSection:false,emptyState:true}))
  }
+ console.log('CJ_QA_HTTP_401_DIAGNOSTIC='+JSON.stringify(http401))
+ console.log('CJ_QA_CONSOLE_DIAGNOSTIC='+JSON.stringify(errors))
  assert.deepEqual(errors,[],'Browser console/page errors')
  await ctx.close()
  console.log('CJ_QA_BROWSER_ACCEPTANCE_COMPLETE=true')
