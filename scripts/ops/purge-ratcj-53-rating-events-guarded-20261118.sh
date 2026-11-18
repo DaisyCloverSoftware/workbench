@@ -35,7 +35,7 @@ $out=$db::transaction(function()use($db,$cj,$keep,$operationId,$deleteIds,$expec
     (int)$original->value!==5||$original->audience!=="public"||
     hash("sha256",(string)$original->review?->body)!==$expectedReview||
     $original->review?->status!=="visible"||$original->review?->author_account_id!==$original->rater_account_id||
-    $original->admissionState?->state!=="not_eligible"||
+    !in_array($original->admissionState?->state,["not_eligible","needs_verdict"],true)||
     $original->admissionVotes->count()!==0||
     (int)($original->admissionState?->keep_votes??-1)!==0||
     (int)($original->admissionState?->sin_bin_votes??-1)!==0||
@@ -52,6 +52,7 @@ $out=$db::transaction(function()use($db,$cj,$keep,$operationId,$deleteIds,$expec
  $marker=$db::table("outbox_events")->where("aggregate_type","entity")->where("aggregate_id",$cj)
   ->where("event_type","rating.dev_permanent_cleanup_completed.v1")->where("payload->operationId",$operationId)->count();
  if($marker>1)throw new RuntimeException("Duplicate purge marker");
+ if($marker===0 && $original->admissionState?->state!=="not_eligible")throw new RuntimeException("Protected original admission baseline changed");
  $current=$db::table("rating_events")->where("target_entity_id",$cj)->lockForUpdate()->orderBy("id")->get(["id","status","source","rater_account_id","legacy_rating_id"]);
  if($marker===1){
    if($current->count()!==1||$current[0]->id!==$keep||
