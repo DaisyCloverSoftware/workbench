@@ -10,7 +10,7 @@ src="$1";api="$2";rat="$3";rid="$4"
 [[ "$src" =~ ^[0-9a-f]{40}$ ]] || exit 64
 [[ "$api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$rat" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$rat" == "__RAT176_IMMUTABLE_IMAGE_PENDING__" ]] || exit 78
+[[ "$rat" == "ghcr.io/daisycloversoftware/rum-rate-anything@sha256:448807a70db93b91bb0fd714b854253c93157ad4d89d96255a385b94bf1258bc" ]] || exit 78
 [[ "$api" == "ghcr.io/daisycloversoftware/rum-api@sha256:76731a87574a11547938a398dc15ecf87ced56d63b6622cd50bab5836dfeee71" ]] || exit 78
 [[ "$rid" =~ ^[a-z0-9-]{10,44}$ ]] || exit 64
 out="/tmp/rat176-compact-vote-browser-$rid"
