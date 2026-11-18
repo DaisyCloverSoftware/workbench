@@ -137,7 +137,7 @@ $success=$db::transaction(function()use($db,$id,$keep,$owner,$operation,$mode,$e
       $u=$event->rater;
       if(!$u||!str_ends_with(mb_strtolower(trim((string)$u->email)),"@example.com")||
          !preg_match("/^(rumcheck|rumowner|rumrate|rumcj|rumagain|ratowner)[0-9]/",(string)$u->username)||
-         $event->source!=="rate_anything"||$event->revisions->count()!==0||
+         $event->source!=="rate_anything"||($markers===0 && $event->revisions->count()!==0)||
          $db::table("rating_journey_entries")->where("rating_event_id",$event->id)->count()===0)
         throw new RuntimeException("Unrecognised synthetic account or journey: ".$event->id);
       $qa[]=(string)$event->id;
