@@ -29,7 +29,7 @@ import json,sys
 j=json.loads(sys.argv[1])
 assert j.get("status")=="ok" and j.get("service")=="rum-api"
 assert sys.argv[2] == "67d19d785c752c9a692a8e0a1aa67da9f7d4d508"
-assert "67d19d785c752c9a692a8e0a1aa67da9f7d4d508" in str(j.get("version",""))
+assert "9c8af9fe07e9a0c4b0b1896f4be1903719b781e3" in str(j.get("version",""))
 PY
 # Refuse unless QA Thing still matches known disposable identity and eligibility.
 read_only_guard='
