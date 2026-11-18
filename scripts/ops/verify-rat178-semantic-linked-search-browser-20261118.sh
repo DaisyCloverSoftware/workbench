@@ -134,6 +134,27 @@ try{
   await capture(width,'linked-active')
   pass('rebase-'+width+'-click-promotes-existing-target-and-persists-after-refresh')
  }
+ stage='wider-canonical-fallback'
+ const djiId='01m784s4xmkdbfxxd3mzwhp991'
+ const djiRes=await ctx.request.get(DEV+'/api/v1/public/entities/rat-catalogue/nodes/'+djiId)
+ assert.equal(djiRes.status(),200)
+ const dji=(await djiRes.json()).data
+ assert.equal(dji.active.name,'DJI')
+ const otherDigital=dji.categories.filter(c=>c.key==='other-digital-resources')
+ assert.equal(otherDigital.length,1)
+ assert.equal(otherDigital[0].label,'Other digital resources')
+ const otherIds=otherDigital[0].items.map(i=>i.id)
+ assert.ok(otherIds.includes('01m784s53872kny018gv7pjav2'),'DJI Fly App missing from truthful fallback')
+ assert.ok(otherIds.includes('01m784s53jq0yypvdzr8jxn4m1'),'DJI LightCut missing from truthful fallback')
+ assert.ok(!dji.categories.some(c=>c.key==='projects-tools'&&c.items.some(i=>otherIds.includes(i.id))))
+ await page.setViewportSize({width:1440,height:940})
+ await page.goto(RAT+'/search?q=DJI&active='+djiId,{waitUntil:'domcontentloaded',timeout:45000})
+ await expect(page.locator('.rat-active-card h1')).toHaveText('DJI',{timeout:30000})
+ const otherSection=page.locator('section.rat-category').filter({has:page.getByRole('heading',{name:'Other digital resources',exact:true})})
+ await expect(otherSection).toContainText('DJI Fly App')
+ await expect(otherSection).toContainText('DJI LightCut')
+ assert.ok((await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth))<=2)
+ pass('existing-unclassified-DJI-digital-resources-appear-in-truthful-other-category-not-tools')
  stage='controls'
  await page.setViewportSize({width:1440,height:940})
  await page.goto(RAT+'/search?q=The%20Professional%20Idiots&active='+SOURCE,{waitUntil:'domcontentloaded'})
