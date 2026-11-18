@@ -9,7 +9,7 @@ bash -n "$target"
 tmp="$(mktemp -d)";trap 'rm -rf "$tmp"' EXIT
 file="$tmp/ratcj-guarded-php.php"
 printf '%s\n' '<?php' > "$file"
-awk '/^require "vendor\\/autoload.php";/{inside=1} /^RATCJ_HARD_DELETE_PHP$/{inside=0} inside{print}' "$target" >> "$file"
+awk '/^require /{inside=1} /^RATCJ_HARD_DELETE_PHP$/{inside=0} inside{print}' "$target" >> "$file"
 grep -F 'RATCJ_HARD_DELETE_TRANSACTION_PASS=' "$file" >/dev/null
 grep -F 'SET TRANSACTION ISOLATION LEVEL SERIALIZABLE' "$file" >/dev/null
 grep -F 'rating.dev_permanent_cleanup_completed.v1' "$file" >/dev/null
