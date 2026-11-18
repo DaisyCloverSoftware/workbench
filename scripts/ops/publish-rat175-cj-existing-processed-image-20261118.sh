@@ -60,7 +60,7 @@ if(!is_string($bytes)||hash("sha256",$bytes)!==$expectedWebpSha)exit(78);
 $info=getimagesizefromstring($bytes);
 if(!is_array($info)||($info["mime"]??"")!=="image/webp"||($info[0]??0)<1||($info[1]??0)<1)exit(78);
 if(app(App\Services\ThingImageService::class)->publicImages($e)["profile"]!==null)exit(78);
-$ratings=$db::table("rating_events")->where("entity_id",$id)->count();
+$ratings=$db::table("rating_events")->where("target_entity_id",$id)->count();
 echo "CJ_PUBLISH_PREFLIGHT=".json_encode(["eligible"=>true,"claimed"=>false,"revision"=>$revisionId,
 "media"=>$mediaId,"assetSha256"=>$expectedWebpSha,"sanitisedMime"=>$media->mime_type,
 "dimensions"=>[(int)$info[0],(int)$info[1]],"imageRevisions"=>1,"ratingCount"=>$ratings,
@@ -77,7 +77,7 @@ $public=app(App\Services\ThingImageService::class)->publicImages($after)["profil
 if($published->id!==$revisionId||$published->outcome!=="applied"||$published->moderation_status!=="approved"
  ||$public===null||!str_contains((string)($public["url"]??""),$mediaId)
  ||$db::table("entity_profile_revisions")->where("entity_id",$id)->whereIn("field_key",["profile_image","cover_image"])->count()!==1
- ||$db::table("rating_events")->where("entity_id",$id)->count()!==$ratings
+ ||$db::table("rating_events")->where("target_entity_id",$id)->count()!==$ratings
  ||$p->isClaimed($after)||$after->status!=="unverified")exit(78);
 echo "CJ_EXISTING_IMAGE_PUBLISHED=".json_encode(["entity"=>$id,"revision"=>$revisionId,
 "media"=>$mediaId,"revisionCount"=>1,"publicUrlMediaMatches"=>true,"ratingCountUnchanged"=>true,
