@@ -7,6 +7,10 @@ case "$1" in
   dir="/tmp/rat177-public-header-$1"
   case "$2" in cj-1440-public-header.png|cj-768-public-header.png|cj-390-public-header.png) ;; *) exit 78;; esac
   ;;
+ rat177-mobile-search-loaded-20261118-r3)
+  dir="/tmp/rat177-cj-search-avatar-$1"
+  case "$2" in cj-390-search-full.jpg) ;; *) exit 78;; esac
+  ;;
  rat177-cj-postedit-20261118-r2)
   dir="/tmp/rat177-cj-postedit-$1"
   case "$2" in
@@ -23,7 +27,9 @@ r=json.load(open(sys.argv[1],encoding='utf-8'))
 assert r.get('status')=='PASS' and not r.get('errors')
 assert r.get('run')==sys.argv[2]
 assert sys.argv[3] in {x['name'] for x in r.get('screenshots',[])}
-if 'postedit' in sys.argv[2]:
+if 'mobile-search-loaded' in sys.argv[2]:
+ assert 'new-exact-head-channel-label-and-published-search-profile-picture-loaded-no-mobile-overflow' in r['checks']
+elif 'postedit' in sys.argv[2]:
  assert 'canonical-CJ-digital-resource-with-primary-YouTube-Channel' in r['checks']
  assert 'new-community-member-editor-shows-saved-type-and-attributable-revision-without-mutating-CJ' in r['checks']
  assert all('CJ-'+w+'-header-about-search-images-refresh-no-overflow' in r['checks'] for w in ('1440','768','390'))
