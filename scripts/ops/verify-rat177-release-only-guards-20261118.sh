@@ -13,7 +13,7 @@ python3 - "$api" "$rat" <<'PY'
 import pathlib,sys,re
 a=pathlib.Path(sys.argv[1]).read_text()
 r=pathlib.Path(sys.argv[2]).read_text()
-head="712cbd7ba1a77c4b723cf312e59f1265f4cf5df6"
+head="628296e5c57665814799bfedf1ab3ef8f6f163df"
 api_old="ghcr.io/daisycloversoftware/rum-api@sha256:76731a87574a11547938a398dc15ecf87ced56d63b6622cd50bab5836dfeee71"
 rat_old="ghcr.io/daisycloversoftware/rum-rate-anything@sha256:448807a70db93b91bb0fd714b854253c93157ad4d89d96255a385b94bf1258bc"
 assert head in a and head in r
