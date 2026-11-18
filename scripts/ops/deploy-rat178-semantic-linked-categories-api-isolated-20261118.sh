@@ -5,7 +5,7 @@ set -Eeuo pipefail
 src="$1"; candidate="$2"
 [[ "$src" == 'acebcc208f19348ab9eb01d05434b0e20a5e256c' ]] || exit 78
 [[ "$candidate" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$candidate" == '__RAT178_API_IMAGE_PENDING__' ]] || exit 78
+[[ "$candidate" == 'ghcr.io/daisycloversoftware/rum-api@sha256:a23e36323b55f3bce46d5b229146e2e7a9d70bdff9e16ea366380940e0629430' ]] || exit 78
 baseline='ghcr.io/daisycloversoftware/rum-api@sha256:c68f9e4902b7ab71abab2cf0ea50244bf80dd93809385add84b764ff1fc34d0c'
 frontend='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:ec11bfec432ff10d508850a0a071b3af3787bff656d2decca90eed5951cd0003'
 kctl(){ if command -v k3s >/dev/null 2>&1;then sudo -n k3s kubectl "$@";else kubectl "$@";fi; }

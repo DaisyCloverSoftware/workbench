@@ -4,7 +4,7 @@ set -Eeuo pipefail
 [[ $# -eq 3 ]] || exit 64
 src="$1"; api="$2"; rid="$3"
 [[ "$src" == 'acebcc208f19348ab9eb01d05434b0e20a5e256c' ]] || exit 78
-[[ "$api" == '__RAT178_API_DIGEST_PENDING__' ]] || exit 78
+[[ "$api" == 'ghcr.io/daisycloversoftware/rum-api@sha256:a23e36323b55f3bce46d5b229146e2e7a9d70bdff9e16ea366380940e0629430' ]] || exit 78
 [[ "$rid" =~ ^rat178-[a-z0-9-]{12,34}$ ]] || exit 64
 out="/tmp/rat178-linked-category-browser-$rid"
 [[ ! -e "$out" ]] || exit 65
