@@ -2,15 +2,17 @@
 set -Eeuo pipefail
 # Read-only syntax for the two guarded, fail-closed API/RAT-only rollout scripts.
 [[ $# -eq 0 ]] || exit 64
-for script in scripts/ops/deploy-rat175-community-api-isolated-20261118.sh scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh scripts/ops/verify-rat175-community-cj-browser-20261118.sh; do
+for script in scripts/ops/deploy-rat175-community-api-isolated-20261118.sh scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh scripts/ops/verify-rat175-community-cj-browser-20261118.sh scripts/ops/verify-rat175-community-qa-image-browser-20261118.sh; do
  [[ -f "$script" && ! -L "$script" ]] || exit 66
  bash -n "$script"
 done
 tmp="$(mktemp --suffix=.mjs)"
 trap 'rm -f "$tmp"' EXIT
-sed -n '/^import assert from /,/^NODE$/p' scripts/ops/verify-rat175-community-cj-browser-20261118.sh | sed '$d' > "$tmp"
-[[ -s "$tmp" ]] || exit 65
-node --check "$tmp"
+for browser in scripts/ops/verify-rat175-community-cj-browser-20261118.sh scripts/ops/verify-rat175-community-qa-image-browser-20261118.sh; do
+ sed -n '/^import assert from /,/^NODE$/p' "$browser" | sed '$d' > "$tmp"
+ [[ -s "$tmp" ]] || exit 65
+ node --check "$tmp"
+done
 python3 - <<'PY'
 from pathlib import Path
 for path in ("scripts/ops/deploy-rat175-community-api-isolated-20261118.sh", "scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh"):
