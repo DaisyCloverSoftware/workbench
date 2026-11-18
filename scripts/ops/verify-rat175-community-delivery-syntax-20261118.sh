@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # Read-only syntax for the two guarded, fail-closed API/RAT-only rollout scripts.
 [[ $# -eq 0 ]] || exit 64
-for script in scripts/ops/deploy-rat175-community-api-isolated-20261118.sh scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh scripts/ops/verify-rat175-community-cj-browser-20261118.sh scripts/ops/verify-rat175-community-qa-image-browser-20261118.sh; do
+for script in scripts/ops/deploy-rat175-community-api-isolated-20261118.sh scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh scripts/ops/verify-rat175-community-cj-browser-20261118.sh scripts/ops/verify-rat175-community-qa-image-browser-20261118.sh scripts/ops/export-rat175-community-qa-screenshot-readonly-20261118.sh scripts/ops/export-rat175-community-cj-error-readonly-20261118.sh; do
  [[ -f "$script" && ! -L "$script" ]] || exit 66
  bash -n "$script"
 done
@@ -15,12 +15,13 @@ for browser in scripts/ops/verify-rat175-community-cj-browser-20261118.sh script
 done
 python3 - <<'PY'
 from pathlib import Path
-for path in ("scripts/ops/deploy-rat175-community-api-isolated-20261118.sh", "scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh"):
+for path in ("scripts/ops/deploy-rat175-community-api-isolated-20261118.sh", "scripts/ops/deploy-rat175-community-frontend-isolated-20261118.sh", "scripts/ops/export-rat175-community-qa-screenshot-readonly-20261118.sh", "scripts/ops/export-rat175-community-cj-error-readonly-20261118.sh"):
   source=Path(path).read_text()
   for block in source.split("<<'PY'\n")[1:]:
     compile(block.split("\nPY\n",1)[0],path,'exec')
-  assert "9c8af9fe07e9a0c4b0b1896f4be1903719b781e3" in source
-  assert "rollback()" in source
+  if "deploy-rat175-community" in path:
+    assert "9c8af9fe07e9a0c4b0b1896f4be1903719b781e3" in source
+    assert "rollback()" in source
 print("RAT175_COMMUNITY_DELIVERY_PYTHON_SYNTAX_PASS=true")
 PY
 echo RAT175_COMMUNITY_DELIVERY_SYNTAX_PASS=true
