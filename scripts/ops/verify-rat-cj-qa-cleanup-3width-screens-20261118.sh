@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # READ ONLY: final DEV CJ cleanup acceptance at 1440 / 768 / 390, including reload and actual screenshots.
 [[ $# -eq 0 ]] || exit 64
-run='ratcj-clean-3width-20261118-r1'
+run='ratcj-clean-3width-20261118-r2'
 dir="/tmp/$run"
 [[ ! -e "$dir" ]] || { echo "Browser evidence already exists: $dir"; exit 65; }
 mkdir -m 700 "$dir"
@@ -131,7 +131,7 @@ try{
   await expect(page.locator('#connections h2')).toHaveText('Connected Things')
   await expect(page.locator('.rat-workspace-connection-group')).toHaveCount(0)
   await expect(page.locator('.rat-workspace-connection')).toHaveCount(0)
-  await expect(page.locator('.rat-workspace-empty')).toContainText('No public connections are attached to this Thing yet.')
+  await expect(page.locator('#connections .rat-workspace-empty')).toContainText('No public connections are attached to this Thing yet.')
   await expect(page.locator('.rat-workspace-profile .rat-workspace-facts')).toContainText('Rateability')
   await expect(page.locator('.rat-workspace-profile .rat-workspace-facts')).toContainText('open')
   await expect(page.locator('.rat-workspace-score .rat-primary-action')).toBeVisible()
