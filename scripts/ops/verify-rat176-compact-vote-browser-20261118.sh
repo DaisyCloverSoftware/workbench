@@ -198,29 +198,63 @@ try{
  const row=voter.locator('.rat-community-judge__item').filter({hasText:reason}).first()
  await expect(row).toBeVisible({timeout:22000})
  await expect(row).toContainText('Awaiting community verdict')
- const artwork=voter.locator('.rat-judge-vote-row > img').first()
- await expect(artwork).toBeVisible()
- assert.equal(await artwork.getAttribute('src'),'/brand/judge-voting-thumbs.png')
- assert.ok(await artwork.evaluate(img=>img instanceof HTMLImageElement && img.complete && img.naturalWidth===368 && img.naturalHeight===190),'Official 368x190 RUM Judge voting artwork not loaded')
- const actualArt=await voterCtx.request.get(RAT+'/brand/judge-voting-thumbs.png')
- const referenceArt=await voterCtx.request.get(DEV+'/brand/judge-voting-thumbs.png')
- assert.equal(actualArt.status(),200)
- assert.equal(referenceArt.status(),200)
- assert.deepEqual(await actualArt.body(),await referenceArt.body(),'RUM Judge and RAT thumb artwork differ')
  const sinButton=row.getByRole('button',{name:'Sin Bin'})
  const keepButton=row.getByRole('button',{name:'Keep'})
  await expect(sinButton).toHaveAttribute('aria-pressed','false')
  await expect(keepButton).toHaveAttribute('aria-pressed','false')
- const hitGeometry=await row.locator('.rat-judge-vote-row').evaluate(el=>{
-  const img=el.querySelector('img').getBoundingClientRect()
-  const a=el.querySelector('button').getBoundingClientRect()
-  return {artWidth:img.width,hitWidth:a.width,imgHeight:img.height}
- })
- assert.ok(Math.abs(hitGeometry.hitWidth-hitGeometry.artWidth/2)<2,'Thumb controls do not cover the full half-artwork hit area')
+ const checkCard=async(card,width)=>{
+  const group=card.locator('.rat-judge-vote-row')
+  await expect(group).toBeVisible()
+  await expect(group.locator('button')).toHaveCount(2)
+  const info=await card.evaluate(el=>{
+   const rect=e=>e.getBoundingClientRect(),group=el.querySelector('.rat-judge-vote-row')
+   const buttons=[...group.querySelectorAll('button')],box=rect(el),pad=getComputedStyle(el)
+   const tally=el.querySelector('.rat-community-judge__tallies')
+   const actions=el.querySelector('.rat-community-judge__actions')
+   return {width:innerWidth,right:box.right,bottom:box.bottom,
+    groupRight:rect(group).right,groupBottom:rect(group).bottom,
+    paddingRight:parseFloat(pad.paddingRight),paddingBottom:parseFloat(pad.paddingBottom),
+    actionsTop:rect(actions).top,talliesBottom:rect(tally).bottom,gap:parseFloat(getComputedStyle(group).gap),
+    buttons:buttons.map(b=>{const img=b.querySelector('img'),r=rect(b),i=rect(img),style=getComputedStyle(b)
+     return {src:img.getAttribute('src'),label:b.getAttribute('aria-label'),
+       w:r.width,h:r.height,iw:i.width,ih:i.height,left:r.left,right:r.right,
+       loaded:img.complete&&img.naturalWidth>100,inside:r.left>=box.left&&r.right<=box.right,
+       bg:style.backgroundColor,bgImage:style.backgroundImage}
+    }),overflow:document.documentElement.scrollWidth-innerWidth}
+  })
+  assert.equal(info.width,width)
+  assert.deepEqual(info.buttons.map(b=>b.src),['/brand/rum-judge-thumb-down.svg','/brand/rum-judge-thumb-up.svg'])
+  assert.deepEqual(info.buttons.map(b=>b.label),['Sin Bin','Keep'])
+  assert.ok(info.buttons.every(b=>b.loaded&&Math.abs(b.iw-22)<1&&Math.abs(b.ih-22)<1&&b.w>=44&&b.h>=44&&b.bg==='rgba(0, 0, 0, 0)'&&b.bgImage==='none'&&b.inside),JSON.stringify(info))
+  assert.ok(Math.abs(info.gap-4)<1&&info.buttons[0].right<info.buttons[1].left,JSON.stringify(info))
+  assert.ok(Math.abs((info.right-info.groupRight)-info.paddingRight-1)<2.5,'Not aligned to right padding '+JSON.stringify(info))
+  assert.ok(Math.abs((info.bottom-info.groupBottom)-info.paddingBottom-1)<2.5,'Not aligned to bottom padding '+JSON.stringify(info))
+  assert.ok(info.actionsTop>=info.talliesBottom-1,'Controls overlap tally '+JSON.stringify(info))
+  assert.ok(info.overflow<=2,'Card page horizontal overflow '+info.overflow)
+  return info
+ }
+ for(const [src,fill] of [['/brand/rum-judge-thumb-up.svg','#171316'],['/brand/rum-judge-thumb-down.svg','#e63e32']]){
+  const response=await voterCtx.request.get(RAT+src)
+  assert.equal(response.status(),200)
+  const svg=await response.text()
+  assert.ok(svg.includes('<path fill="'+fill+'"')&&!svg.includes('<rect')&&!svg.includes('<image'))
+ }
+ await checkCard(row,1440)
  await keepButton.focus()
- const focus=await keepButton.evaluate(el=>getComputedStyle(el,'::after').outlineStyle)
- assert.equal(focus,'solid','Keyboard focus must outline visible Keep tile')
- pass('official-rum-artwork-identical-with-accessible-keyboard-thumb-buttons')
+ assert.equal(await keepButton.evaluate(el=>getComputedStyle(el,'::after').outlineStyle),'solid')
+ pass('native-RUM-22px-thumbs-44px-hit-targets-anchored-bottom-right-desktop')
+ await screenshotCard(row,'02-voter-compact-card-1440')
+ await voter.setViewportSize({width:768,height:920})
+ await checkCard(row,768)
+ await screenshot(voter,'02b-voter-tablet-768')
+ await screenshotCard(row,'02b-voter-compact-card-768')
+ await voter.setViewportSize({width:390,height:844})
+ await checkCard(row,390)
+ await screenshot(voter,'02c-voter-mobile-390')
+ await screenshotCard(row,'02c-voter-compact-card-390')
+ await voter.setViewportSize({width:1440,height:960})
+ await checkCard(row,1440)
+ pass('rating-controls-no-overlap-and-right-bottom-alignment-at-1440-768-390')
  await screenshot(voter,'02-independent-branded-thumbs-unselected')
  const waitSin=voter.waitForResponse(x=>x.request().method()==='PUT'&&new URL(x.url()).pathname.endsWith('/judge/'+ratingId+'/vote'),{timeout:20000})
  await sinButton.click()
