@@ -7,7 +7,7 @@ case "$1" in
   dir="/tmp/rat177-public-header-$1"
   case "$2" in cj-1440-public-header.png|cj-768-public-header.png|cj-390-public-header.png) ;; *) exit 78;; esac
   ;;
- rat177-cj-postedit-20261118-r1)
+ rat177-cj-postedit-20261118-r2)
   dir="/tmp/rat177-cj-postedit-$1"
   case "$2" in
    cj-1440-public-header.png|cj-768-public-header.png|cj-390-public-header.png|cj-1440-thing-full.jpg|cj-768-thing-full.jpg|cj-390-thing-full.jpg|cj-1440-search-full.jpg|cj-768-search-full.jpg|cj-390-search-full.jpg|cj-1440-saved-type-editor.png) ;;
