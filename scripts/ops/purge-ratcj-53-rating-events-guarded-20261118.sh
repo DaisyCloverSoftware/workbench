@@ -124,6 +124,50 @@ $out=$db::transaction(function()use($db,$cj,$keep,$operationId,$deleteIds,$expec
   "deletedJourneyEntries"=>$journeyEntries->count(),"deletedSnapshots"=>count($snapshotIds),
   "protectedAdmissionFrom"=>"not_eligible","protectedAdmissionTo"=>"needs_verdict"];
  echo "RATCJ_HARD_DELETE_GUARDED_PLAN=".json_encode($plan,JSON_UNESCAPED_SLASHES)."\n";
+
+ // Temporary, transaction-private, exact-ID exception to the immutable
+ // rating evidence triggers. PostgreSQL MVCC means other sessions continue
+ // seeing the unchanged functions until commit. Original definitions are
+ // restored and hash-verified before this transaction may commit.
+ $guardHashes=[
+  "rum_rating_event_evidence_guard"=>"53fa59f03e3059cfda3f1d23da7b8053",
+  "rum_rating_review_evidence_guard"=>"6caf05605fa6d3f8664d32ea69da501e",
+  "rum_rating_event_revision_guard"=>"03d579a7aca171564e54c0b876f06cb2",
+ ];
+ $guardDefinitions=[];
+ foreach($guardHashes as $name=>$sha){
+  $row=$db::selectOne("SELECT pg_get_functiondef(p.oid) def,pg_get_userbyid(p.proowner) owner_name
+   FROM pg_proc p WHERE p.oid=to_regprocedure(?)",["public.".$name."()"]);
+  if(!$row||$row->owner_name!=="rum_app"||md5($row->def)!==$sha)
+   throw new RuntimeException("Unexpected immutable trigger definition or ownership: ".$name);
+  $guardDefinitions[$name]=$row->def;
+ }
+ $db::statement("CREATE TEMPORARY TABLE ratcj_purge_scope (rating_event_id varchar(26) PRIMARY KEY) ON COMMIT DROP");
+ $db::table("ratcj_purge_scope")->insert(array_map(fn($row)=>["rating_event_id"=>$row],$deleteIds));
+ if($db::table("ratcj_purge_scope")->count()!==53||
+    $db::table("ratcj_purge_scope")->where("rating_event_id",$keep)->exists())
+   throw new RuntimeException("Temporary deletion scope invalid");
+ $db::selectOne("SELECT set_config(?, ?, true)",["rum.ratcj_rating_purge_operation",$operationId]);
+ foreach($guardDefinitions as $name=>$definition){
+  $column=$name==="rum_rating_event_evidence_guard"?"id":"rating_event_id";
+  $allow="IF current_setting(" . "'rum.ratcj_rating_purge_operation', true)" .
+    " = " . "'".$operationId."'" .
+    " AND EXISTS (SELECT 1 FROM pg_temp.ratcj_purge_scope WHERE rating_event_id = OLD.".$column.")";
+  if($column==="id")$allow.=" AND OLD.target_entity_id = '".$cj."'";
+  $allow.=" THEN RETURN OLD; END IF;";
+  if($name==="rum_rating_event_revision_guard"){
+   $needle="RAISE EXCEPTION 'rating_event_revisions are append-only';";
+   $replacement="IF TG_OP = 'DELETE' THEN ".$allow." END IF;\n".$needle;
+  }else{
+   $needle="IF TG_OP = 'DELETE' THEN";
+   $replacement=$needle."\n".$allow;
+  }
+  if(substr_count($definition,$needle)!==1)throw new RuntimeException("Unexpected function body for ".$name);
+  $patched=str_replace($needle,$replacement,$definition);
+  $db::unprepared($patched);
+ }
+ echo "RATCJ_TRANSACTION_PRIVATE_IMMUTABILITY_SCOPE_ACTIVE=true\n";
+
  if(count($receiptIds)>0){
   $deletedReceipts=$db::table("reputation_event_receipts")->whereIn("id",$receiptIds)->delete();
   if($deletedReceipts!==count($receiptIds))throw new RuntimeException("Reputation receipt cleanup mismatch");
@@ -138,6 +182,23 @@ $out=$db::transaction(function()use($db,$cj,$keep,$operationId,$deleteIds,$expec
    throw new RuntimeException("Stale reputation snapshot purge failed");
  $removedRatings=$db::table("rating_events")->where("target_entity_id",$cj)->whereIn("id",$deleteIds)->delete();
  if($removedRatings!==53)throw new RuntimeException("Exact 53 physical DELETE affected wrong count");
+
+ // No integrity trigger may remain changed when the transaction commits.
+ foreach($guardDefinitions as $name=>$definition){
+  $db::unprepared($definition);
+  $row=$db::selectOne("SELECT md5(pg_get_functiondef(p.oid)) actual_hash
+    FROM pg_proc p WHERE p.oid=to_regprocedure(?)",["public.".$name."()"]);
+  if(!$row||$row->actual_hash!==$guardHashes[$name])
+   throw new RuntimeException("Immutable guard restoration failed: ".$name);
+ }
+ $triggers=$db::table("pg_trigger")->whereIn("tgname",[
+  "rum_rating_event_evidence_guard_trigger","rum_rating_review_evidence_guard_trigger",
+  "rum_rating_event_revision_guard_trigger","rum_rating_dimension_value_guard_trigger"
+ ])->get(["tgname","tgenabled"]);
+ if($triggers->count()!==4||$triggers->where("tgenabled","!=","O")->count()!==0)
+   throw new RuntimeException("Rating immutability triggers not fully enabled");
+ echo "RATCJ_IMMUTABILITY_GUARDS_RESTORED_IN_TRANSACTION=true\n";
+
  $eventState=App\Models\RatingEventAdmissionState::query()->whereKey($keep)->lockForUpdate()->firstOrFail();
  if($eventState->state!=="not_eligible"||(int)$eventState->keep_votes!==0||
    (int)$eventState->sin_bin_votes!==0||(int)$eventState->score!==0)
