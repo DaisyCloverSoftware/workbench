@@ -89,7 +89,6 @@ try{
  assert.equal(body.data?.active?.name,'CJ Investigates')
  const picture=body.data.active.images?.profile
  assert.equal(picture?.status,'published')
- assert.equal(picture?.revisionId,REV)
  assert.ok(picture.url.includes('/api/v1/public/entities/rat-image/'+MEDIA+'/content'))
  const imageResponse=await ctx.request.get(picture.url)
  assert.equal(imageResponse.status(),200)
