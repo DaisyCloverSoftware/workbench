@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Export only accepted real Chromium screenshots from pinned PR178 acceptance.
-[[ $# -eq 2 && "$1" == 'rat178-linked-channel-final-20261118-r2' ]] || exit 64
+[[ $# -eq 2 && "$1" == 'rat178-linked-channel-final-20261118-r3' ]] || exit 64
 case "$2" in
  professional-idiots-1440-search.jpg|professional-idiots-768-search.jpg|professional-idiots-390-search.jpg|professional-idiots-1440-linked-active.jpg|professional-idiots-768-linked-active.jpg|professional-idiots-390-linked-active.jpg) ;;
  *) exit 78;;
