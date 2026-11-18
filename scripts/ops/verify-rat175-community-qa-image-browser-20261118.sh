@@ -7,8 +7,8 @@ src="$1";api="$2";rat="$3";rid="$4"
 [[ "$src" == '9c8af9fe07e9a0c4b0b1896f4be1903719b781e3' ]] || exit 78
 [[ "$api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$rat" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$api" == '__CJ_COMMUNITY_API_DIGEST_UNPUBLISHED__' ]] || exit 78
-[[ "$rat" == '__CJ_COMMUNITY_RAT_DIGEST_UNPUBLISHED__' ]] || exit 78
+[[ "$api" == 'ghcr.io/daisycloversoftware/rum-api@sha256:76731a87574a11547938a398dc15ecf87ced56d63b6622cd50bab5836dfeee71' ]] || exit 78
+[[ "$rat" == 'ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3938ed73de97546fccc527f9025cd5b7b21fb56d69bd4eb9be3a7ebabffb3919' ]] || exit 78
 [[ "$rid" =~ ^[a-z0-9-]{15,44}$ ]] || exit 64
 dir="/tmp/rat175-community-qa-browser-$rid"
 [[ ! -e "$dir" ]] || { echo 'QA browser run already exists' >&2; exit 65; }
