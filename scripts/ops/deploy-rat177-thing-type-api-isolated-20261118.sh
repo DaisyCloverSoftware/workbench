@@ -19,9 +19,9 @@ RAT_HOST="dev-rum-ra.daisycloversoftware.uk"
 LIVE_HOST="rateurmate.online"
 
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source SHA" >&2; exit 64; }
-[[ "$SOURCE_SHA" == "6cf8f1e921e9f9b0c35369ab380d4103886a935e" ]] || { echo "blocked: unexpected RAT175 source SHA" >&2; exit 78; }
+[[ "$SOURCE_SHA" == "049c9e304823e040a087ab4760bd932a98e93217" ]] || { echo "blocked: unexpected RAT177 source SHA" >&2; exit 78; }
 [[ "$API_IMAGE" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || { echo "invalid immutable API image" >&2; exit 64; }
-[[ "$API_IMAGE" == "__RAT177_API_DIGEST_PENDING__" ]] || { echo "Blocked: unexpected RAT175 API candidate digest" >&2; exit 78; }
+[[ "$API_IMAGE" == "__RAT177_API_DIGEST_PENDING__" ]] || { echo "Blocked: unexpected RAT177 API candidate digest" >&2; exit 78; }
 
 kctl() {
   if command -v k3s >/dev/null 2>&1; then
@@ -55,7 +55,7 @@ dev_api_before="$(image "$DEV_NS" rum-api php-fpm)"
 # Refuse a drifted workload rather than silently replacing unrelated changes.
 expected_dev_api_before='ghcr.io/daisycloversoftware/rum-api@sha256:76731a87574a11547938a398dc15ecf87ced56d63b6622cd50bab5836dfeee71'
 [[ "$dev_api_before" == "$expected_dev_api_before" || "$dev_api_before" == "$API_IMAGE" ]] || {
-  echo "blocked: canonical DEV API changed since read-only PR #170 baseline" >&2
+  echo "blocked: canonical DEV API changed since PR176 isolation baseline" >&2
   exit 78
 }
 dev_web_before="$(image "$DEV_NS" rum-web web)"
