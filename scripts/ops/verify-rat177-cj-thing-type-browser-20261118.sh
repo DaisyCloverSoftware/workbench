@@ -4,11 +4,11 @@ set -Eeuo pipefail
 # Chromium acceptance. No direct DB updates, no LIVE, no unrelated new Things.
 [[ $# -eq 4 ]] || { echo 'usage: source api-image rat-image unique-run-id' >&2; exit 64; }
 src="$1";api="$2";rat="$3";rid="$4"
-[[ "$src" == '049c9e304823e040a087ab4760bd932a98e93217' ]] || exit 78
+[[ "$src" == '628296e5c57665814799bfedf1ab3ef8f6f163df' ]] || exit 78
 [[ "$api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$rat" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$api" == '__RAT177_API_DIGEST_PENDING__' ]] || exit 78
-[[ "$rat" == '__RAT177_RAT_DIGEST_PENDING__' ]] || exit 78
+[[ "$api" == 'ghcr.io/daisycloversoftware/rum-api@sha256:c68f9e4902b7ab71abab2cf0ea50244bf80dd93809385add84b764ff1fc34d0c' ]] || exit 78
+[[ "$rat" == 'ghcr.io/daisycloversoftware/rum-rate-anything@sha256:6a506b08359eea423340c467ee6f330e22556c1a29002d0351323528123c8518' ]] || exit 78
 [[ "$rid" =~ ^[a-z0-9-]{18,44}$ ]] || exit 64
 out="/tmp/rat177-cj-type-browser-$rid"
 [[ ! -e "$out" ]] || { echo 'Duplicate browser acceptance run ID'; exit 65; }
@@ -48,6 +48,16 @@ if($e->canonical_name!=="CJ Investigates"||$e->type?->key!=="persona"||$e->statu
 $photos=app(App\Services\ThingImageService::class)->publicImages($e);
 if($photos["profile"]===null||$photos["cover"]===null)exit(78);
 if($db::table("account_entity_links")->where("entity_id",$id)->exists())exit(78);
+$links=$db::table("entity_relationships as r")->join("relationship_types as t","t.id","=","r.relationship_type_id")
+ ->whereNull("r.valid_to")->where(fn($q)=>$q->where("r.source_entity_id",$id)->orWhere("r.target_entity_id",$id))
+ ->get(["r.source_entity_id","r.target_entity_id","t.key","t.source_type_constraints","t.target_type_constraints"]);
+if($links->count()!==22)exit(78);
+foreach($links as $link){
+ $constraints=$link->source_entity_id===$id?$link->source_type_constraints:$link->target_type_constraints;
+ $allowed=is_string($constraints)?json_decode($constraints,true):$constraints;
+ if(is_array($allowed)&&count($allowed)>0&&!in_array("digital_resource",$allowed,true))exit(78);
+}
+echo "RAT177_CJ_LINKS_SAFE_FOR_DIGITAL_RESOURCE=".$links->count()."\\n";
 echo "RAT177_PRE_EDIT_CJ_CANONICAL_GUARD_PASS=true\n";
 ';
 kctl -n rum-dev-isolated exec deployment/rum-api -c php-fpm -- php -r "$preflight"
