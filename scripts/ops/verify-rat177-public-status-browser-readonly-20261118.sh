@@ -25,6 +25,8 @@ assert sys.argv[2] in obj["version"]
 PY
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+# Keep Chromium user-data profiles inside this writable isolated run directory.
+export TMPDIR="$tmp"
 git -C "$tmp" init -q
 git -C "$tmp" remote add origin https://github.com/DaisyCloverSoftware/rum.git
 git -C "$tmp" fetch -q --depth=1 origin "$src"
