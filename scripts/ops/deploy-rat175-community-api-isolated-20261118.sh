@@ -21,7 +21,7 @@ LIVE_HOST="rateurmate.online"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source SHA" >&2; exit 64; }
 [[ "$SOURCE_SHA" == "9c8af9fe07e9a0c4b0b1896f4be1903719b781e3" ]] || { echo "blocked: unexpected RAT175 source SHA" >&2; exit 78; }
 [[ "$API_IMAGE" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || { echo "invalid immutable API image" >&2; exit 64; }
-[[ "$API_IMAGE" == "__CJ_COMMUNITY_API_DIGEST_UNPUBLISHED__" ]] || { echo "Blocked: unexpected RAT175 API candidate digest" >&2; exit 78; }
+[[ "$API_IMAGE" == "ghcr.io/daisycloversoftware/rum-api@sha256:76731a87574a11547938a398dc15ecf87ced56d63b6622cd50bab5836dfeee71" ]] || { echo "Blocked: unexpected RAT175 API candidate digest" >&2; exit 78; }
 
 kctl() {
   if command -v k3s >/dev/null 2>&1; then
