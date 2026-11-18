@@ -15,7 +15,7 @@ assert r["run"]=="rat176-compact-vote-20261118-r1" and r["status"]=="PASS" and n
 steps=set(r["steps"])
 required={
  "native-RUM-22px-thumbs-44px-hit-targets-anchored-bottom-right-desktop",
- "compact-vote-controls-inside-card-padding-no-overlap-no-overflow-at-1440-768-390",
+ "rating-controls-no-overlap-and-right-bottom-alignment-at-1440-768-390",
  "canonical-Judge-vote-withdrawal-and-refresh-persisted",
  "owner-canonical-vote-totals-unchanged-across-desktop-mobile-tablet"
 }
