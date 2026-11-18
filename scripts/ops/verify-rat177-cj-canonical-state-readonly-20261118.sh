@@ -6,8 +6,8 @@ source="$1";api="$2";rat="$3";expected="$4"
 [[ "$source" == '628296e5c57665814799bfedf1ab3ef8f6f163df' ]] || exit 78
 [[ "$api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$rat" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$api" == '__RAT177_API_DIGEST_PENDING__' ]] || exit 78
-[[ "$rat" == '__RAT177_RAT_DIGEST_PENDING__' ]] || exit 78
+[[ "$api" == 'ghcr.io/daisycloversoftware/rum-api@sha256:c68f9e4902b7ab71abab2cf0ea50244bf80dd93809385add84b764ff1fc34d0c' ]] || exit 78
+[[ "$rat" == 'ghcr.io/daisycloversoftware/rum-rate-anything@sha256:6a506b08359eea423340c467ee6f330e22556c1a29002d0351323528123c8518' ]] || exit 78
 [[ "$expected" == persona || "$expected" == digital_resource ]] || exit 64
 kctl(){ if command -v k3s >/dev/null 2>&1;then sudo -n k3s kubectl "$@";else kubectl "$@";fi; }
 [[ "$(kctl -n rum-dev-isolated get deployment rum-api -o 'jsonpath={.spec.template.spec.containers[?(@.name=="php-fpm")].image}')" == "$api" ]] || exit 78
