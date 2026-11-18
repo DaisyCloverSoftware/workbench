@@ -77,7 +77,7 @@ const anonCtx=await browser.newContext({viewport:{width:390,height:844}})
 const author=await authorCtx.newPage(),voter=await voterCtx.newPage()
 let stage='initial'
 const screenshot=async(p,name)=>{const path=dir+'/'+name+'.jpg';await p.screenshot({path,type:'jpeg',quality:45,animations:'disabled',fullPage:true});const f=await stat(path);report.screenshots.push({name,bytes:f.size});console.log('RAT176_COMPACT_SCREENSHOT='+name+' bytes='+f.size)}
-const screenshotCard=async(locator,name)=>{const path=dir+'/'+name+'.png';await locator.screenshot({path,animations:'disabled'});const bytes=await readFile(path);report.screenshots.push({name,bytes:bytes.length});console.log('RAT176_COMPACT_CROP='+name+' bytes='+bytes.length);console.log('RAT176_COMPACT_B64_'+name+'='+bytes.toString('base64'))}
+const screenshotCard=async(locator,name)=>{const path=dir+'/'+name+'.png';await locator.screenshot({path,animations:'disabled'});const bytes=await readFile(path);report.screenshots.push({name,bytes:bytes.length});console.log('RAT176_COMPACT_CROP='+name+' bytes='+bytes.length)}
 const isApproved=(r)=>{const u=new URL(r.url()),m=r.method();if(u.hostname==='rateurmate.online')return false
  if(['GET','HEAD','OPTIONS'].includes(m))return true
  return u.origin===RAT && m==='POST'&&u.pathname==='/api/v1/rate-anything/auth/register'
