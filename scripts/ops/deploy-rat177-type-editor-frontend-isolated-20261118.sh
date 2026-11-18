@@ -1,5 +1,5 @@
 # PR #177 canonical Thing type editing and single verdict-status line frontend-only rollout.
-# Exact PR175 RAT baseline and LIVE isolation verified by RAT176 read-only Workbench preflight.
+# PR176 isolated RAT baseline and LIVE separation verified; preserve approved voting thumbs.
 # Requires exact compatible canonical DEV API; leaves preview-local API, LIVE, Web and worker unchanged.
 #!/usr/bin/env bash
 set -euo pipefail
@@ -15,7 +15,7 @@ candidate="$2"
 canonical_dev_api="$3"
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || exit 64
 [[ "$candidate" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$candidate" == '__RAT177_RAT_DIGEST_PENDING__' ]] || { echo 'Blocked: RAT175 image digest not attested' >&2; exit 78; }
+[[ "$candidate" == '__RAT177_RAT_DIGEST_PENDING__' ]] || { echo 'Blocked: RAT177 immutable RAT image digest not yet attested' >&2; exit 78; }
 [[ "$canonical_dev_api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 
 namespace='rum-rate-anything-preview'
@@ -52,8 +52,8 @@ python3 - "$health" "$source_sha" <<'PY'
 import json,sys
 obj=json.loads(sys.argv[1])
 assert obj.get('status') == 'ok' and obj.get('service') == 'rum-api'
-assert sys.argv[2] == '6cf8f1e921e9f9b0c35369ab380d4103886a935e', 'Unexpected frontend/source contract'
-assert '6cf8f1e921e9f9b0c35369ab380d4103886a935e' in str(obj.get('version','')), obj
+assert sys.argv[2] == '049c9e304823e040a087ab4760bd932a98e93217', 'Unexpected frontend/source contract'
+assert '049c9e304823e040a087ab4760bd932a98e93217' in str(obj.get('version','')), obj
 PY
 
 # Hash every object/spec other than this one RAT frontend Deployment to prove
