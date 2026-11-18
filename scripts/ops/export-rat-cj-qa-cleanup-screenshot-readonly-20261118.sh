@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Export accepted and SHA-checked real Chromium screenshot as base64; read-only.
-[[ $# -eq 2 && "$1" == 'ratcj-clean-3width-20261118-r1' ]] || exit 64
+[[ $# -eq 2 && "$1" == 'ratcj-clean-3width-20261118-r2' ]] || exit 64
 case "$2" in
  cj-investigates-1440-search-after-refresh.jpg|cj-investigates-768-search-after-refresh.jpg|cj-investigates-390-search-after-refresh.jpg|cj-investigates-1440-workspace-after-refresh.jpg|cj-investigates-768-workspace-after-refresh.jpg|cj-investigates-390-workspace-after-refresh.jpg) ;;
  *) exit 78 ;;
