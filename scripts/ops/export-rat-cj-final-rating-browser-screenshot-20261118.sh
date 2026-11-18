@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Export only accepted real CJ rating browser JPEG screenshots verified by the full acceptance manifest.
-[[ $# -eq 2 && "$1" == 'ratcj-owner-rating-final-browser-20261118-r2' ]] || exit 64
+[[ $# -eq 2 && "$1" == 'ratcj-owner-rating-final-browser-20261118-r3' ]] || exit 64
 case "$2" in
  cj-owner-rating-1440-search-refreshed.jpg|cj-owner-rating-1440-workspace-refreshed.jpg|cj-owner-rating-1440-see-ratings-refreshed.jpg|cj-owner-rating-390-search-refreshed.jpg|cj-owner-rating-390-workspace-refreshed.jpg|cj-owner-rating-390-see-ratings-refreshed.jpg) ;;
  *) exit 78;;
