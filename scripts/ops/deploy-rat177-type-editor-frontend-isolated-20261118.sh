@@ -52,8 +52,8 @@ python3 - "$health" "$source_sha" <<'PY'
 import json,sys
 obj=json.loads(sys.argv[1])
 assert obj.get('status') == 'ok' and obj.get('service') == 'rum-api'
-assert sys.argv[2] == '049c9e304823e040a087ab4760bd932a98e93217', 'Unexpected frontend/source contract'
-assert '049c9e304823e040a087ab4760bd932a98e93217' in str(obj.get('version','')), obj
+assert sys.argv[2] == '712cbd7ba1a77c4b723cf312e59f1265f4cf5df6', 'Unexpected frontend/source contract'
+assert '712cbd7ba1a77c4b723cf312e59f1265f4cf5df6' in str(obj.get('version','')), obj
 PY
 
 # Hash every object/spec other than this one RAT frontend Deployment to prove
