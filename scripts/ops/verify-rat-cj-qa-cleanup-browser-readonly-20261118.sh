@@ -74,7 +74,12 @@ try{
  }
  console.log('CJ_QA_HTTP_401_DIAGNOSTIC='+JSON.stringify(http401))
  console.log('CJ_QA_CONSOLE_DIAGNOSTIC='+JSON.stringify(errors))
- assert.deepEqual(errors,[],'Browser console/page errors')
+ const selfCheck=RAT+'/api/v1/rate-anything/me'
+ assert.ok(http401.length>0 && http401.every(x=>x.method==='GET'&&x.url===selfCheck),'Unexpected HTTP401 URL')
+ const expectedConsole='Failed to load resource: the server responded with a status of 401 ()'
+ assert.equal(errors.filter(x=>x===expectedConsole).length,http401.length,'Unauthenticated GET /me consoles mismatch')
+ assert.deepEqual(errors.filter(x=>x!==expectedConsole),[],'Unexpected browser console/page errors')
+ console.log('CJ_QA_EXPECTED_ANONYMOUS_ME_401='+http401.length)
  await ctx.close()
  console.log('CJ_QA_BROWSER_ACCEPTANCE_COMPLETE=true')
 }finally{await browser.close()}
