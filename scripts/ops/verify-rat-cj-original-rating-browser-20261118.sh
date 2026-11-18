@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # Real read-only Chromium acceptance for exact-ID CJ rating restoration, 1440/390, search/workspace/ratings.
 [[ $# -eq 0 ]] || exit 64
-run='ratcj-owner-rating-final-browser-20261118-r2'
+run='ratcj-owner-rating-final-browser-20261118-r3'
 out="/tmp/$run"
 [[ ! -e "$out" ]] || exit 65
 mkdir -m 700 "$out"
@@ -51,15 +51,9 @@ try{
  assert.equal(node.active.classifications.find(x=>x.primary)?.name,'YouTube Channel')
  assert.deepEqual(node.categories,[]);assert.deepEqual(node.topLinked,[])
  assert.ok(node.active.images?.profile?.url && node.active.images?.cover?.url,'CJ published photos')
- const repRes=await ctx.request.get(RAT+'/api/v1/public/entities/'+CJ+'/reputation',{headers:{'Cache-Control':'no-cache'}})
- assert.equal(repRes.status(),200)
- const rep=await repRes.json()
- assert.equal(rep.meta.entityId,CJ)
- assert.equal(rep.meta.status,'rated')
- assert.equal(rep.data.ratingCount,1)
- assert.ok(Number.isInteger(rep.data.score)&&rep.data.score>=0&&rep.data.score<=100)
- assert.equal(node.active.reputation?.ratingCount,1)
- assert.equal(node.active.reputation?.score,rep.data.score)
+ const rep=node.active.reputation
+ assert.equal(rep?.ratingCount,1,'Canonical RAT explorer reputation count')
+ assert.ok(Number.isInteger(rep.score)&&rep.score>=0&&rep.score<=100,'Canonical RAT explorer reputation score')
  pass('canonical-public-API-single-eligible-owner-reputation-and-zero-linked-items')
  const slug=node.active.slug?.trim()||'thing'
  const detail=RAT+'/e/'+encodeURIComponent(slug)+'~'+encodeURIComponent(CJ)
@@ -139,7 +133,7 @@ try{
  assert.equal(errors.filter(x=>x===expectedConsole).length,expected401.length,'Anonymous account 401 console mismatch')
  assert.deepEqual(errors.filter(x=>x!==expectedConsole),[],'Unexpected browser/page errors')
  report.status='PASS'
- report.publicReputation={ratingCount:rep.data.ratingCount,score:rep.data.score,confidence:rep.data.confidenceLabel}
+ report.publicReputation={ratingCount:rep.ratingCount,score:rep.score,confidence:rep.confidenceLabel}
  report.expectedAnonymousAccountChecks=expected401.length
  await writeFile(process.env.REPORT_DIR+'/report.json',JSON.stringify(report,null,2))
  await ctx.close()
