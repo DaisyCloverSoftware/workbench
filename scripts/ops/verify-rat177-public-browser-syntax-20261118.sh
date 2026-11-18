@@ -14,7 +14,7 @@ import sys,pathlib
 s=pathlib.Path(sys.argv[1]).read_text()
 for p in s.split("<<'PY'\n")[1:]:
  compile(p.split("\nPY\n",1)[0],sys.argv[1],'exec')
-assert "712cbd7ba1a77c4b723cf312e59f1265f4cf5df6" in s
+assert "628296e5c57665814799bfedf1ab3ef8f6f163df" in s
 assert "r.abort('blockedbyclient')" in s
 print("RAT177_PUBLIC_READONLY_CHROMIUM_SYNTAX_PASS=true")
 PY
