@@ -4,7 +4,7 @@ set -Eeuo pipefail
 # Strictly GET/HEAD/OPTIONS; no accounts, edits, ratings or voting mutations.
 [[ $# -eq 4 ]] || exit 64
 src="$1";api="$2";rat="$3";rid="$4"
-[[ "$src" == '712cbd7ba1a77c4b723cf312e59f1265f4cf5df6' ]] || exit 78
+[[ "$src" == '628296e5c57665814799bfedf1ab3ef8f6f163df' ]] || exit 78
 [[ "$api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[a-f0-9]{64}$ ]] || exit 64
 [[ "$rat" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[a-f0-9]{64}$ ]] || exit 64
 [[ "$api" == '__RAT177_API_DIGEST_PENDING__' ]] || exit 78
