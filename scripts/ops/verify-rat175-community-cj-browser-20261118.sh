@@ -5,7 +5,7 @@ set -Eeuo pipefail
 # is rejected before network/storage, no CJ image/revision/rating/identity mutation.
 [[ $# -eq 4 ]] || { echo 'usage: source api-image rat-image unique-run-id' >&2; exit 64; }
 src="$1";api="$2";rat="$3";rid="$4"
-[[ "$src" == "e4a474e2dbcac2a92272156c7cb8446ea7b74483" ]] || exit 78
+[[ "$src" == "9c8af9fe07e9a0c4b0b1896f4be1903719b781e3" ]] || exit 78
 [[ "$api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$api" == "__CJ_COMMUNITY_API_DIGEST_UNPUBLISHED__" ]] || exit 78
 [[ "$rat" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
