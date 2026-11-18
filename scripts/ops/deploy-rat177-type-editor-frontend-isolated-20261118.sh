@@ -44,7 +44,7 @@ before="$(image)"
 }
 deployed_api="$(kctl -n rum-dev-isolated get deployment rum-api -o 'jsonpath={.spec.template.spec.containers[?(@.name=="php-fpm")].image}')"
 [[ "$deployed_api" == "$canonical_dev_api" ]] || { echo 'Blocked: canonical DEV API candidate mismatch' >&2; exit 78; }
-expected_api='__RAT177_API_DIGEST_PENDING__'
+expected_api='ghcr.io/daisycloversoftware/rum-api@sha256:c68f9e4902b7ab71abab2cf0ea50244bf80dd93809385add84b764ff1fc34d0c'
 [[ "$canonical_dev_api" == "$expected_api" ]] || { echo 'Blocked: unexpected canonical DEV API source identity' >&2; exit 78; }
 
 health="$(curl -fsS --retry 4 --retry-delay 2 --max-time 20 https://dev-rum.daisycloversoftware.uk/api/v1/health)"
