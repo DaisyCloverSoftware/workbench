@@ -162,7 +162,7 @@ try{
  await page.locator('.rat-active-card__actions').getByRole('button',{name:'Rate',exact:true}).click()
  await expect(page.locator('.rat-workspace-header h1')).toHaveText('The Professional Idiots',{timeout:30000})
  await expect(page.getByRole('dialog',{name:'Rate The Professional Idiots'})).toBeVisible({timeout:20000})
- await page.getByRole('button',{name:'Close rating'}).click()
+ await page.getByRole('button',{name:'Close rating'}).last().click()
  pass('existing-rating-navigation-opens-without-rating-submission')
  report.status='PASS'
  console.log('RAT178_REAL_CHROMIUM_ACCEPTANCE_PASS=true')
