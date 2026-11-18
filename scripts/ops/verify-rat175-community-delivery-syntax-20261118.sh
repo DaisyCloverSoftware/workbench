@@ -17,7 +17,7 @@ for path in ("scripts/ops/deploy-rat175-community-api-isolated-20261118.sh", "sc
   source=Path(path).read_text()
   for block in source.split("<<'PY'\n")[1:]:
     compile(block.split("\nPY\n",1)[0],path,'exec')
-  assert "e4a474e2dbcac2a92272156c7cb8446ea7b74483" in source
+  assert "9c8af9fe07e9a0c4b0b1896f4be1903719b781e3" in source
   assert "rollback()" in source
 print("RAT175_COMMUNITY_DELIVERY_PYTHON_SYNTAX_PASS=true")
 PY
