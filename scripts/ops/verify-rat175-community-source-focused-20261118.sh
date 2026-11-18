@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 # Exact-head source-only check; never changes application DB, deployed workloads or LIVE.
-[[ $# -eq 1 && "$1" == 'e4a474e2dbcac2a92272156c7cb8446ea7b74483' ]] || exit 64
+[[ $# -eq 1 && "$1" == '9c8af9fe07e9a0c4b0b1896f4be1903719b781e3' ]] || exit 64
 src="$1"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
