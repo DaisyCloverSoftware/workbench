@@ -19,7 +19,7 @@ RAT_HOST="dev-rum-ra.daisycloversoftware.uk"
 LIVE_HOST="rateurmate.online"
 
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source SHA" >&2; exit 64; }
-[[ "$SOURCE_SHA" == "712cbd7ba1a77c4b723cf312e59f1265f4cf5df6" ]] || { echo "blocked: unexpected RAT177 source SHA" >&2; exit 78; }
+[[ "$SOURCE_SHA" == "628296e5c57665814799bfedf1ab3ef8f6f163df" ]] || { echo "blocked: unexpected RAT177 source SHA" >&2; exit 78; }
 [[ "$API_IMAGE" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || { echo "invalid immutable API image" >&2; exit 64; }
 [[ "$API_IMAGE" == "__RAT177_API_DIGEST_PENDING__" ]] || { echo "Blocked: unexpected RAT177 API candidate digest" >&2; exit 78; }
 
