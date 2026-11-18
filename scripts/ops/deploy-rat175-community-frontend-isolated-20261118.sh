@@ -15,7 +15,7 @@ candidate="$2"
 canonical_dev_api="$3"
 [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]] || exit 64
 [[ "$candidate" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
-[[ "$candidate" == '__CJ_COMMUNITY_RAT_DIGEST_UNPUBLISHED__' ]] || { echo 'Blocked: RAT175 image digest not attested' >&2; exit 78; }
+[[ "$candidate" == 'ghcr.io/daisycloversoftware/rum-rate-anything@sha256:3938ed73de97546fccc527f9025cd5b7b21fb56d69bd4eb9be3a7ebabffb3919' ]] || { echo 'Blocked: RAT175 image digest not attested' >&2; exit 78; }
 [[ "$canonical_dev_api" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 
 namespace='rum-rate-anything-preview'
@@ -44,7 +44,7 @@ before="$(image)"
 }
 deployed_api="$(kctl -n rum-dev-isolated get deployment rum-api -o 'jsonpath={.spec.template.spec.containers[?(@.name=="php-fpm")].image}')"
 [[ "$deployed_api" == "$canonical_dev_api" ]] || { echo 'Blocked: canonical DEV API candidate mismatch' >&2; exit 78; }
-expected_api='__CJ_COMMUNITY_API_DIGEST_UNPUBLISHED__'
+expected_api='ghcr.io/daisycloversoftware/rum-api@sha256:76731a87574a11547938a398dc15ecf87ced56d63b6622cd50bab5836dfeee71'
 [[ "$canonical_dev_api" == "$expected_api" ]] || { echo 'Blocked: unexpected canonical DEV API source identity' >&2; exit 78; }
 
 health="$(curl -fsS --retry 4 --retry-delay 2 --max-time 20 https://dev-rum.daisycloversoftware.uk/api/v1/health)"
