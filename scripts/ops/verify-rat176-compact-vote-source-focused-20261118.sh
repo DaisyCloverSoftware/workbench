@@ -12,6 +12,6 @@ git -C "$tmp" checkout -q --detach FETCH_HEAD
 [[ "$(git -C "$tmp" rev-parse HEAD)" == "$src" ]] || exit 78
 cd "$tmp/apps/rate-anything"
 npm ci --ignore-scripts --no-audit --no-fund >/dev/null
-npx vitest run src/ratJudgeWorkspace.test.ts src/ratThingJudgeApi.test.ts
+npx vitest run src/ratJudgeWorkspace.test.ts src/ratRatingRoute.test.ts
 npx tsc -b --pretty false
 echo RAT176_COMPACT_VOTE_SOURCE_FOCUSED_PASS=true
