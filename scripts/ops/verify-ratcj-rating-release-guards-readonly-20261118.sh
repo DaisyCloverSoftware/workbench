@@ -6,7 +6,11 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for file in \
  "$root/deploy-ratcj-public-rating-contract-isolated-20261118.sh" \
  "$root/verify-ratcj-public-rating-3width-chromium-20261118.sh" \
- "$root/export-ratcj-final-rating-3width-screenshot-20261118.sh";do
+ "$root/export-ratcj-final-rating-3width-screenshot-20261118.sh" \
+ "$root/stage-ratcj-independent-accepted-card-qa-20261119.sh" \
+ "$root/retire-ratcj-independent-accepted-card-qa-20261119.sh" \
+ "$root/verify-ratcj-independent-accepted-qa-browser-20261119.sh" \
+ "$root/export-ratcj-accepted-qa-3width-screenshot-20261119.sh";do
  [[ -f "$file" && ! -L "$file" ]] || exit 78
  bash -n "$file"
 done
