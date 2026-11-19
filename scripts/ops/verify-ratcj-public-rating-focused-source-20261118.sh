@@ -29,6 +29,6 @@ done
 echo RATCJ_PR179_EXACT_SOURCE_PHP_SYNTAX_PASS=true
 cd "$tmp/apps/rate-anything"
 npm ci --ignore-scripts --no-audit --no-fund >/dev/null
-npx vitest run src/ratPublicRatings.test.ts
+npx vitest run src/ratPublicRatings.test.ts src/ratJudgeWorkspace.test.ts
 npx tsc -b --pretty false
 echo RATCJ_PR179_EXACT_SOURCE_FRONTEND_TYPE_AND_FOCUSED_TESTS_PASS=true
