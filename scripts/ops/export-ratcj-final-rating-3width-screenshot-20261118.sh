@@ -17,7 +17,7 @@ report=json.loads(Path(sys.argv[1]).read_text())
 assert report["status"]=="PASS" and report["run"]==sys.argv[2] and report["issues"]==[]
 assert report["entityId"]=="01m07d2f9fj05f4ypdbwp087qj"
 assert report["originalRating"]=="01m0mvrxv8c3s12q0w7gwmzt03"
-assert len(report["checks"])==8 and len(report["screenshots"])==6
+assert len(report["checks"])==9 and len(report["screenshots"])==6
 for width in [1440,768,390]:
  assert 'search-'+str(width)+'-no-ineligible-score-or-test-links-and-refresh' in report["checks"]
  assert 'thing-'+str(width)+'-one-5of5-review-0votes-pending-visible-and-refresh' in report["checks"]
