@@ -149,6 +149,26 @@ try {
   await capture(width,'thing-see-ratings-refreshed')
   pass('thing-'+width+'-one-5of5-review-0votes-pending-visible-and-refresh')
  }
+ // A new anonymous browser context must independently resolve the
+ // direct ratings deep-link with no cached login/session or prior React state.
+ const freshContext=await browser.newContext({viewport:{width:390,height:850}})
+ const freshPage=await freshContext.newPage()
+ freshPage.on('pageerror',e=>errors.push(e.message))
+ freshPage.on('console',m=>{if(m.type()==='error')errors.push(m.text())})
+ freshPage.on('response',r=>{
+  if(r.status()===401)anonymous.push({method:r.request().method(),url:r.url()})
+  else if(r.status()>=400)httpFailures.push({status:r.status(),url:r.url(),method:r.request().method()})
+ })
+ await freshPage.route('**/*',r=>['GET','HEAD','OPTIONS'].includes(r.request().method())?r.continue():r.abort('blockedbyclient'))
+ await freshPage.goto(detail+'#ratings',{waitUntil:'domcontentloaded',timeout:45000})
+ await expect(freshPage.locator('.rat-workspace-identity h1')).toHaveText('CJ Investigates',{timeout:35000})
+ await expect(freshPage.locator('#ratings .rat-public-rating-card')).toHaveCount(1,{timeout:35000})
+ await expect(freshPage.locator('#ratings .rat-public-rating-card')).toContainText(REVIEW)
+ await expect(freshPage.locator('#ratings .rat-public-ratings')).toContainText('0 accepted')
+ await expect(freshPage.locator('#ratings .rat-public-ratings')).toContainText('1 awaiting community verdict')
+ await expect.poll(()=>freshPage.locator('#ratings').evaluate(el=>{const b=el.getBoundingClientRect();return b.top>=-3 && b.top<innerHeight}),{timeout:25000}).toBe(true)
+ await freshContext.close()
+ pass('fresh-anonymous-context-direct-ratings-anchor-pending-original-visible')
  // Previously accepted unrelated channel grouping and branded thumbnail still hold.
  const other=await context.request.get(DEV+'/api/v1/public/entities/rat-catalogue/nodes/01m7bswfh0a3evf271ye4taaf0')
  assert.equal(other.status(),200)
