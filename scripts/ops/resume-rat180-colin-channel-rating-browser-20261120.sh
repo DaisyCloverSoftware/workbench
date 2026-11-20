@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # Resume only the previously created pending canonical channel. Never create an
 # Entity or account. Only one QA rating and one unverified public related_to edge.
-[[ $# -eq 1 && "$1" == 'rat180-colin-resume-20261120-r2' ]] || exit 64
+[[ $# -eq 1 && "$1" == 'rat180-colin-resume-20261120-r3' ]] || exit 64
 kctl(){ if command -v k3s >/dev/null 2>&1;then sudo -n k3s kubectl "$@";else kubectl "$@";fi; }
 api='ghcr.io/daisycloversoftware/rum-api@sha256:7411cc02eb6568e6c6d228b551683294bfac49a6f89c320078af5550adce5d56'
 rat='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a33ea315f52d5e14a5ece0e57895aae8d4eb4d7d7e9955110d49fc9676c64d9'
@@ -11,7 +11,7 @@ rat='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a33ea315f52d5e14a5ece
 [[ "$(curl -fsS --retry 4 --max-time 20 https://dev-rum-ra.daisycloversoftware.uk/VERSION | tr -d '\r\n')" == 'rat-candidate+061beefd23bd71cf5902ff2a7724ff78acb515f6' ]] || exit 78
 original='/tmp/rat180-colin-auth-rat180-colin-create-20261120-r1'
 [[ -f "$original/qa-account-private.json" && -f "$original/report.json" ]] || { echo 'RAT180_ORIGINAL_RECOVERY_FILES_MISSING'; exit 78; }
-out='/tmp/rat180-colin-resume-20261120-r2'
+out='/tmp/rat180-colin-resume-20261120-r3'
 [[ ! -e "$out" ]] || { echo RAT180_RESUME_ALREADY_SUBMITTED;exit 65; }
 mkdir -m 700 "$out"
 work="$(mktemp -d)";trap 'rm -rf "$work"' EXIT
@@ -52,6 +52,12 @@ try{
  browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']})
  const context=await browser.newContext({viewport:{width:1440,height:940}})
  const page=await context.newPage()
+ const visit=async(url)=>{
+  for(let attempt=1;attempt<=3;attempt++){
+   try{return await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000})}
+   catch(e){if(attempt===3||!String(e).includes('ERR_NETWORK_CHANGED'))throw e;await page.waitForTimeout(1200)}
+  }
+ }
  await page.route('**/*',async route=>{
   const req=route.request(),u=new URL(req.url()),method=req.method()
   if(['GET','HEAD','OPTIONS'].includes(method)){
@@ -78,7 +84,7 @@ try{
   return route.continue()
  })
  stage='sign-in'
- await page.goto(RAT+'/search?q=Colin%20Furze&active='+PERSON,{waitUntil:'domcontentloaded',timeout:45000})
+ await visit(RAT+'/search?q=Colin%20Furze&active='+PERSON)
  await expect(page.locator('.rat-active-card h1')).toHaveText('Colin Furze',{timeout:30000})
  await page.getByRole('button',{name:'Sign in',exact:true}).click()
  const login=page.getByRole('dialog',{name:'Sign in to RAT'})
@@ -103,7 +109,7 @@ try{
  assert.equal(root.meta.journey.state,'active')
  pass('exact-pending-channel-and-rating-journey-resumed')
  stage='rating-first'
- await page.goto(RAT+'/rate/'+CHANNEL+'?journey='+JOURNEY,{waitUntil:'domcontentloaded',timeout:45000})
+ await visit(RAT+'/rate/'+CHANNEL+'?journey='+JOURNEY)
  const flow=page.locator('.rat-rating-flow')
  await expect(flow).toBeVisible({timeout:35000})
  // Do not select while the current-rating request can still overwrite the draft.
