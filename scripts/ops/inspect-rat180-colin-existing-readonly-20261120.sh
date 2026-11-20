@@ -9,6 +9,18 @@ rum_status="$(curl -sS --retry 3 --max-time 20 -w '%{http_code}' -o "$tmp/rum.js
 printf 'RAT_CATALOGUE_HTTP=%s\\nRUM_PUBLIC_SEARCH_HTTP=%s\\n' "$rat_status" "$rum_status"
 [[ "$rat_status" == 200 ]] || exit 22
 if [[ "$rum_status" != 200 ]];then printf '{"data":[]}' > "$tmp/rum.json";fi
+channel_id='UCp68_FLety0O-n9QU6phsgw'
+channel_status="$(curl -sS --retry 3 --max-time 20 -w '%{http_code}' -o "$tmp/channel.json" -H 'Accept: application/json' "$base/api/v1/public/entities/rat-catalogue/search?q=$channel_id")"
+printf 'RAT_CHANNEL_IDENTIFIER_HTTP=%s\n' "$channel_status"
+if [[ "$channel_status" == 200 ]];then
+python3 - "$tmp/channel.json" <<'PYCHANNEL'
+import json,sys
+body=json.load(open(sys.argv[1]))
+print('RAT_CHANNEL_IDENTIFIER_FOUND='+str(body.get('meta',{}).get('found')))
+active=(body.get('data') or {}).get('active') or {}
+print('RAT_CHANNEL_IDENTIFIER_ACTIVE='+str({'id':active.get('id'),'name':active.get('name'),'entityType':active.get('entityType')}))
+PYCHANNEL
+fi
 python3 - "$tmp/rat.json" "$tmp/rum.json" <<'PY'
 import json,sys
 rat=json.load(open(sys.argv[1]))
