@@ -9,6 +9,8 @@ git -C "$tmp" fetch -q --depth=1 origin "$1"
 git -C "$tmp" checkout -q --detach FETCH_HEAD
 [[ "$(git -C "$tmp" rev-parse HEAD)" == "$1" ]] || exit 78
 cd "$tmp/apps/rate-anything"
+mkdir -m 700 "$tmp/chromium-profile-temp"
+export TMPDIR="$tmp/chromium-profile-temp"
 npm ci --ignore-scripts --no-audit --no-fund >"$tmp/npm.log" 2>&1 || { tail -n 35 "$tmp/npm.log";exit 1; }
 if ! command -v chromium >/dev/null 2>&1 && ! command -v google-chrome >/dev/null 2>&1;then
  npx playwright install chromium >"$tmp/browser.log" 2>&1 || { tail -n 35 "$tmp/browser.log";exit 1; }
