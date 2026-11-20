@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 # Resume only the previously created pending canonical channel. Never create an
 # Entity or account. Only one QA rating and one unverified public related_to edge.
-[[ $# -eq 1 && "$1" == 'rat180-colin-resume-20261120-r1' ]] || exit 64
+[[ $# -eq 1 && "$1" == 'rat180-colin-resume-20261120-r2' ]] || exit 64
 kctl(){ if command -v k3s >/dev/null 2>&1;then sudo -n k3s kubectl "$@";else kubectl "$@";fi; }
 api='ghcr.io/daisycloversoftware/rum-api@sha256:7411cc02eb6568e6c6d228b551683294bfac49a6f89c320078af5550adce5d56'
 rat='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a33ea315f52d5e14a5ece0e57895aae8d4eb4d7d7e9955110d49fc9676c64d9'
@@ -11,7 +11,7 @@ rat='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a33ea315f52d5e14a5ece
 [[ "$(curl -fsS --retry 4 --max-time 20 https://dev-rum-ra.daisycloversoftware.uk/VERSION | tr -d '\r\n')" == 'rat-candidate+061beefd23bd71cf5902ff2a7724ff78acb515f6' ]] || exit 78
 original='/tmp/rat180-colin-auth-rat180-colin-create-20261120-r1'
 [[ -f "$original/qa-account-private.json" && -f "$original/report.json" ]] || { echo 'RAT180_ORIGINAL_RECOVERY_FILES_MISSING'; exit 78; }
-out='/tmp/rat180-colin-resume-20261120-r1'
+out='/tmp/rat180-colin-resume-20261120-r2'
 [[ ! -e "$out" ]] || { echo RAT180_RESUME_ALREADY_SUBMITTED;exit 65; }
 mkdir -m 700 "$out"
 work="$(mktemp -d)";trap 'rm -rf "$work"' EXIT
@@ -106,6 +106,9 @@ try{
  await page.goto(RAT+'/rate/'+CHANNEL+'?journey='+JOURNEY,{waitUntil:'domcontentloaded',timeout:45000})
  const flow=page.locator('.rat-rating-flow')
  await expect(flow).toBeVisible({timeout:35000})
+ // Do not select while the current-rating request can still overwrite the draft.
+ await expect(flow.locator('.rating-card__status').filter({hasText:'Checking your rating account'})).toHaveCount(0,{timeout:45000})
+ pass('initial-current-rating-load-settled-before-verdict')
  const thumb=flow.getByRole('radio',{name:/^3: Good/})
  await expect(thumb).toBeEnabled({timeout:30000})
  await thumb.click()
