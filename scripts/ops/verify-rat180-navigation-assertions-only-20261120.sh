@@ -51,7 +51,7 @@ try {
    assert.equal(new URL(page.url()).searchParams.get('active'),id)
    await expect(page.locator('.rat-active-card__actions').getByRole('button',{name:'Rate',exact:true})).toBeVisible()
    await expect(page.locator('.rat-active-card__actions').getByRole('button',{name:'See ratings',exact:true})).toBeVisible()
-   assert.ok(await page.locator('.rat-active-card .rum-thumb-rating, .rat-active-card [class*=thumb]').count()>0,'No RUM thumb rating controls')
+   assert.ok(await page.locator('.rat-active-card .rum-rating img[alt="RUM Thumb"]').count()>0,'No RUM thumb rating controls')
  }
  const visit=async address=>{
    for(let attempt=1;attempt<=3;attempt++){
