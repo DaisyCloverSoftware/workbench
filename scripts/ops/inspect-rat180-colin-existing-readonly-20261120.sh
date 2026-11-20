@@ -4,8 +4,11 @@ set -Eeuo pipefail
 [[ $# -eq 0 ]] || exit 64
 base='https://dev-rum.daisycloversoftware.uk'
 tmp="$(mktemp -d)";trap 'rm -rf "$tmp"' EXIT
-curl -fsS --retry 3 --max-time 20 -H 'Accept: application/json' "$base/api/v1/public/entities/rat-catalogue/search?q=Colin%20Furze" > "$tmp/rat.json"
-curl -fsS --retry 3 --max-time 20 -H 'Accept: application/json' "$base/api/v1/public/entities/search?q=Colin%20Furze" > "$tmp/rum.json"
+rat_status="$(curl -sS --retry 3 --max-time 20 -w '%{http_code}' -o "$tmp/rat.json" -H 'Accept: application/json' "$base/api/v1/public/entities/rat-catalogue/search?q=Colin%20Furze")"
+rum_status="$(curl -sS --retry 3 --max-time 20 -w '%{http_code}' -o "$tmp/rum.json" -H 'Accept: application/json' "$base/api/v1/public/entities/search?q=Colin%20Furze")"
+printf 'RAT_CATALOGUE_HTTP=%s\\nRUM_PUBLIC_SEARCH_HTTP=%s\\n' "$rat_status" "$rum_status"
+[[ "$rat_status" == 200 ]] || exit 22
+if [[ "$rum_status" != 200 ]];then printf '{"data":[]}' > "$tmp/rum.json";fi
 python3 - "$tmp/rat.json" "$tmp/rum.json" <<'PY'
 import json,sys
 rat=json.load(open(sys.argv[1]))
