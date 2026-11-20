@@ -61,7 +61,7 @@ if [[ "$api_before" != "$api_candidate" ]];then
  kctl -n rum-dev-isolated set image deployment/rum-api "php-fpm=$api_candidate" >/dev/null
 fi
 kctl -n rum-dev-isolated rollout status deployment/rum-api --timeout=300s
-[[ "$(image rum-dev-isolated rum-api php-fpm)" == "$api_candidate" ]]
+[[ "$(image rum-dev-isolated rum-api php-fpm)" == "$api_candidate" ]] || { echo 'API_IMAGE_MISMATCH' >&2; false; }
 api_health="$(curl -fsS --retry 5 --retry-delay 2 --max-time 25 https://dev-rum.daisycloversoftware.uk/api/v1/health)"
 python3 - "$api_health" "$source_sha" <<'PY'
 import json,sys
@@ -74,10 +74,10 @@ if [[ "$rat_before" != "$rat_candidate" ]];then
  kctl -n rum-rate-anything-preview set image deployment/rum-rate-anything "rate-anything=$rat_candidate" >/dev/null
 fi
 kctl -n rum-rate-anything-preview rollout status deployment/rum-rate-anything --timeout=300s
-[[ "$(image rum-rate-anything-preview rum-rate-anything rate-anything)" == "$rat_candidate" ]]
+[[ "$(image rum-rate-anything-preview rum-rate-anything rate-anything)" == "$rat_candidate" ]] || { echo 'RAT_IMAGE_MISMATCH' >&2; false; }
 served="$(curl -fsS --retry 5 --retry-delay 2 --max-time 25 -H 'Cache-Control: no-cache' https://dev-rum-ra.daisycloversoftware.uk/VERSION | tr -d '\r\n')"
-[[ "$served" == "rat-candidate+$source_sha" ]] || exit 78
+[[ "$served" == "rat-candidate+$source_sha" ]] || { echo 'RAT_SERVED_SOURCE_MISMATCH' >&2; false; }
 protected_after="$(protected_snapshot)"
-[[ "$protected_before" == "$protected_after" ]] || { echo 'PROTECTED_RESOURCE_DRIFT' >&2; exit 78; }
+[[ "$protected_before" == "$protected_after" ]] || { echo 'PROTECTED_RESOURCE_DRIFT' >&2; false; }
 trap - ERR
 printf 'RAT180_ISOLATED_DEPLOYED=true\nsource=%s\napi=%s\nrat=%s\napi_before=%s\nrat_before=%s\nprotected_before=%s\nprotected_after=%s\nlive_untouched=true\nno_database_mutations=true\n' "$source_sha" "$api_candidate" "$rat_candidate" "$api_before" "$rat_before" "$protected_before" "$protected_after"
