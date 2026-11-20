@@ -113,7 +113,7 @@ try{
  stage='rating-first-continue'
  await expect(flow.getByRole('button',{name:'Continue'})).toBeEnabled({timeout:16000})
  await flow.getByRole('button',{name:'Continue'}).click()
- await expect(flow).toHaveAttribute('data-rating-step','category',{timeout:16000})
+ await expect(flow).toHaveAttribute('data-rating-step','Category',{timeout:16000})
  pass('rating-thumb-selected-and-advanced')
  stage='rating-category'
  const choices=flow.locator('.rat-rating-choice-grid button')
