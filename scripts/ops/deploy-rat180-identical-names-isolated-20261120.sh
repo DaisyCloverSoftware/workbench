@@ -5,8 +5,8 @@ set -Eeuo pipefail
 [[ $# -eq 3 ]] || { echo 'usage: <source-sha> <api-image@sha256> <rat-image@sha256>' >&2; exit 64; }
 source_sha="$1"; api_candidate="$2"; rat_candidate="$3"
 expected_source='061beefd23bd71cf5902ff2a7724ff78acb515f6'
-expected_api='__PR180_EXACT_HEAD_API_IMMUTABLE_DIGEST_PENDING__'
-expected_rat='__PR180_EXACT_HEAD_RAT_IMMUTABLE_DIGEST_PENDING__'
+expected_api='ghcr.io/daisycloversoftware/rum-api@sha256:7411cc02eb6568e6c6d228b551683294bfac49a6f89c320078af5550adce5d56'
+expected_rat='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:9a33ea315f52d5e14a5ece0e57895aae8d4eb4d7d7e9955110d49fc9676c64d9'
 [[ "$source_sha" == "$expected_source" ]] || exit 78
 [[ "$api_candidate" =~ ^ghcr\.io/daisycloversoftware/rum-api@sha256:[0-9a-f]{64}$ ]] || exit 64
 [[ "$rat_candidate" =~ ^ghcr\.io/daisycloversoftware/rum-rate-anything@sha256:[0-9a-f]{64}$ ]] || exit 64
