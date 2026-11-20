@@ -14,7 +14,7 @@ expected_rat='__PR180_EXACT_HEAD_RAT_IMMUTABLE_DIGEST_PENDING__'
 api_baseline='ghcr.io/daisycloversoftware/rum-api@sha256:56b4af9e34067b93a552c90d212f9c4b35a909507be56e606146bcca9c19e588'
 rat_baseline='ghcr.io/daisycloversoftware/rum-rate-anything@sha256:5435f2cc40608d5ba09007b0c356565670d796e288946ffc0d1d91671259a69f'
 kctl(){ if command -v k3s >/dev/null 2>&1;then sudo -n k3s kubectl "$@";else kubectl "$@";fi; }
-image(){ kctl -n "$1" get deployment "$2" -o "jsonpath={.spec.template.spec.containers[?(@.name==\\"$3\\")].image}"; }
+image(){ kctl -n "$1" get deployment "$2" -o "jsonpath={.spec.template.spec.containers[?(@.name==\"$3\")].image}"; }
 hosts(){ kctl -n "$1" get ingress -o 'jsonpath={range .items[*].spec.rules[*]}{.host}{"\n"}{end}' | sort -u; }
 for ns in rum-dev rum-dev-isolated rum-rate-anything-preview;do kctl get namespace "$ns" >/dev/null;done
 [[ "$(hosts rum-dev)" == 'rateurmate.online' ]] || exit 78
