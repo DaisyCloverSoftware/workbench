@@ -102,6 +102,9 @@ try{
   const seed=randomBytes(6).toString('hex')
   const username='rat180qa'+seed
   const password=randomBytes(24).toString('base64url')+'aA1!'
+  // Keep QA recovery credentials exclusively in a private runner-local file,
+  // never in GitHub, terminal output, reports or screenshot metadata.
+  await writeFile(dir+'/qa-account-private.json',JSON.stringify({username,email:username+'@example.com',password}),{mode:0o600})
   await dialog.getByLabel('Email',{exact:true}).fill(username+'@example.com')
   await dialog.getByLabel('Username',{exact:true}).fill(username)
   await dialog.getByLabel('Password',{exact:true}).fill(password)
