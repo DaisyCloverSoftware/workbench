@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ $# == 0 ]] || exit 64
+branch=fix/rat-persist-explicit-linked-things-20261122
+old=24bcceb6bba37e16bf6416ccd1df946cfed5a422
+t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
+git -C "$t" init -q; git -C "$t" remote add origin https://github.com/DaisyCloverSoftware/rum.git; git -C "$t" fetch -q --depth=1 origin "$branch"; cd "$t"; git checkout -q --detach FETCH_HEAD; [[ $(git rev-parse HEAD) == "$old" ]] || exit 78
+python3 - <<'PY'
+from pathlib import Path
+base=Path('apps/api')
+def edit(path,old,new):
+ p=base/path;s=p.read_text();assert s.count(old)==1,path;p.write_text(s.replace(old,new))
+model='app/Models/RatingJourney.php'
+edit(model,'    /** @return BelongsTo<User, $this> */','''    /** @return array<string,string>|null */
+    public function connectionIntent(): ?array
+    {
+        $metadata = $this->getAttribute('metadata');
+        $intent = is_array($metadata) ? ($metadata['connectionIntent'] ?? null) : null;
+        if (! is_array($intent)) {
+            return null;
+        }
+        $result = [];
+        foreach (['sourceId', 'targetId', 'actorId', 'type', 'direction', 'state'] as $key) {
+            $value = $intent[$key] ?? null;
+            if (! is_string($value) || $value === '') {
+                return null;
+            }
+            $result[$key] = $value;
+        }
+        if (! in_array($result['state'], ['pending', 'retry', 'recorded'], true)
+            || ! in_array($result['type'], ['related_to', 'manufactured_by', 'located_on'], true)
+            || ! in_array($result['direction'], ['incoming', 'outgoing'], true)) {
+            return null;
+        }
+        if ($result['state'] === 'recorded') {
+            $id = $intent['relationshipId'] ?? null;
+            if (! is_string($id) || $id === '') {
+                return null;
+            }
+            $result['relationshipId'] = $id;
+        }
+
+        return $result;
+    }
+
+    /** @return BelongsTo<User, $this> */''')
+ctl='app/Http/Controllers/Api/V1/StandaloneThingController.php'
+edit(ctl,"isset($locked->metadata['connectionIntent'])","$locked->connectionIntent() !== null")
+edit(ctl,"$journey?->metadata['connectionIntent'] ?? null","$journey?->connectionIntent()")
+edit('app/Services/RatingJourneyService.php',"isset($journey->metadata['connectionIntent']) && $journey->root_entity_id === $entity->id","$journey->root_entity_id === $entity->id && $journey->connectionIntent() !== null")
+edit('app/Services/StandaloneConnectionIntent.php',"$intent = $metadata['connectionIntent'] ?? null;\n        if (! is_array($intent)","$intent = $journey->connectionIntent();\n        if ($intent === null")
+test='tests/Feature/Entity/StandaloneConnectionIntentTest.php'
+edit(test,'use App\\Models\\EntityType;', 'use App\\Models\\EntityType;\nuse App\\Models\\RatingJourney;')
+edit(test,'    /** @return array{User,Entity} */','''    public function test_legacy_or_malformed_metadata_is_not_a_connection_request(): void
+    {
+        foreach ([null, 'legacy', [], ['standaloneCreation' => []], ['connectionIntent' => 1], ['connectionIntent' => ['state' => 'pending']]] as $metadata) {
+            $journey = new RatingJourney;
+            $journey->setAttribute('metadata', $metadata);
+            $this->assertNull($journey->connectionIntent());
+        }
+    }
+
+    /** @return array{User,Entity} */''')
+PY
+git diff --check; git diff --stat; git add apps/api; git -c user.name='Workbench' -c user.email='workbench-relay@users.noreply.github.com' commit -qm 'Validate cast journey metadata before reading an explicit connection intent'; git push origin "HEAD:refs/heads/$branch"; git rev-parse HEAD
