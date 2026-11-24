@@ -19,7 +19,7 @@ assert len(jobs)==9 and all(x['conclusion']=='success' for x in jobs)
 print('EXACT_HEAD_NINE_JOBS_GREEN',r['id'],r['run_attempt'],sha)
 for component in ('api','rate-anything'):
  j=next(x for x in jobs if x['name']==f'RAT candidate image ({component})');(p/(component+'.job')).write_text(str(j['id']))
-j=next(x for x in jobs if x['name']=='api');assert any(s['name']=='vendor/bin/phpunit' and s['conclusion']=='success' for s in j['steps']);(p/'api-check.job').write_text(str(j['id']))
+j=next(x for x in jobs if x['name']=='api');assert any(s['name']=='Run vendor/bin/phpunit' and s['conclusion']=='success' for s in j['steps']);(p/'api-check.job').write_text(str(j['id']))
 PY
 gh api "repos/$repo/actions/jobs/$(cat "$t/api-check.job")/logs" >"$t/api-check.log"
 python3 - "$t/api-check.log" <<'PY'
