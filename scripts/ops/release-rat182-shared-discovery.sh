@@ -5,6 +5,19 @@ pr=$1;sha=$2;run=$3;repo=DaisyCloverSoftware/rum;ops=$(cd "$(dirname "$0")" && p
 t=$(mktemp -d);umask 077;trap 'rm -rf "$t"' EXIT
 exec 9>"${TMPDIR:-/tmp}/rat182-shared-discovery-release.lock";flock -n 9 || { echo CONCURRENT_RELEASE_NO_WRITE;exit 75; }
 # Ordinary configured GitHub access only. No credential retrieval or logging.
+# One bounded wait for existing publication jobs. Never retry or rebuild successful work.
+gh api "repos/$repo/actions/runs/$run" >"$t/run";gh api "repos/$repo/actions/runs/$run/jobs?per_page=100" >"$t/jobs"
+python3 - "$t" "$sha" "$pr" <<'PY'
+from pathlib import Path
+import json,sys
+p=Path(sys.argv[1]);r=json.loads((p/'run').read_text());jobs=json.loads((p/'jobs').read_text())['jobs']
+assert r['head_sha']==sys.argv[2] and r['head_branch']=='feat/rat-shared-persona-discovery-20261124' and any(x['number']==int(sys.argv[3]) for x in r['pull_requests'])
+checks={x['name']:x for x in jobs};assert all(checks[name]['conclusion']=='success' for name in ['api','rate-anything','web','specification','admin','preview-browser'])
+print('SIX_VALIDATORS_GREEN_AWAITING_EXISTING_PUBLICATIONS',r['id'],r['status'])
+PY
+if [[ $(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["status"])' "$t/run") != completed ]];then
+ timeout 600s gh run watch "$run" --repo "$repo" --interval 40 --exit-status >"$t/watch" 2>&1 || { tail -20 "$t/watch";echo CI_NOT_CONFIRMED_NO_DEPLOYMENT;exit 75; }
+fi
 gh api "repos/$repo/pulls/$pr" >"$t/pr";gh api "repos/$repo/actions/runs/$run" >"$t/run";gh api "repos/$repo/actions/runs/$run/jobs?per_page=100" >"$t/jobs"
 python3 - "$t" "$pr" "$sha" <<'PY'
 from pathlib import Path
