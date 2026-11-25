@@ -8,12 +8,15 @@ from pathlib import Path
 import sys
 p=Path(sys.argv[1]);s=p.read_text()
 s=s.replace("import {chromium,expect} from '@playwright/test';", "import {chromium,expect as baseExpect} from '@playwright/test';const expect=baseExpect.configure({timeout:30000});")
-s=s.replace("async function readOnlyRoutes(){", "async function readOnlyRoutes(){page.on('requestfailed',q=>console.log('READONLY_REQUEST_FAILED',q.method(),new URL(q.url()).pathname,q.failure()?.errorText));page.on('response',r=>{if(r.status()>=400&&new URL(r.url()).pathname!=='/api/v1/rate-anything/me')console.log('READONLY_HTTP_ERROR',r.status(),new URL(r.url()).pathname);});")
+s=s.replace("async function readOnlyRoutes(){", "async function readOnlyRoutes(){page.on('requestfailed',q=>console.log('READONLY_REQUEST_FAILED',q.method(),new URL(q.url()).origin,new URL(q.url()).pathname,q.failure()?.errorText));page.on('response',r=>{if(r.status()>=400&&new URL(r.url()).pathname!=='/api/v1/rate-anything/me')console.log('READONLY_HTTP_ERROR',r.status(),new URL(r.url()).pathname);});page.on('console',m=>{if(m.type()==='error')console.log('PUBLIC_BROWSER_CONSOLE',m.text().slice(0,600));});")
+# A clicked canonical URL must already be correct before an allowed reload retry.
 old="async function workspace(id){await page.goto(rat+'/e/thing~'+id+'#connections');await expect(page.locator('.rat-workspace-id')).toHaveText(id);}"
-new="""async function workspace(id){for(let attempt=0;attempt<2;attempt++){await page.goto(rat+'/e/thing~'+id+'#connections');try{await expect(page.locator('.rat-workspace-id')).toHaveText(id);return;}catch(error){const message=await page.locator('body').innerText();if(attempt===1||!message.includes('Failed to fetch')){console.log('WORKSPACE_LOAD_FAILURE',id,message.slice(-1000));throw error;}console.log('BOUNDED_READONLY_NETWORK_RETRY',id);await page.waitForTimeout(2000);}}}"""
-assert s.count(old)==1;s=s.replace(old,new)
-# The published API URL may be http; Chromium upgrades mixed image requests to https.
-# Match the same exact host/path under either normal web scheme, not an unrelated image.
+assert s.count(old)==1
+s=s.replace("await expect(page.locator('.rat-workspace-id')).toHaveText(","await assertWorkspace(")
+helper="""async function assertWorkspace(id){for(let attempt=0;attempt<2;attempt++){try{await expect(page.locator('.rat-workspace-id')).toHaveText(id);return;}catch(error){const message=await page.locator('body').innerText();if(attempt===1||!message.includes('Failed to fetch')||!new URL(page.url()).pathname.endsWith('~'+id)){console.log('WORKSPACE_LOAD_FAILURE',id,message.slice(-1000));throw error;}console.log('BOUNDED_READONLY_NETWORK_RETRY',id);await page.waitForTimeout(2000);await page.reload({waitUntil:'domcontentloaded'});}}}
+"""
+s=s.replace('async function workspace(id){',helper+'async function workspace(id){')
+# Chromium upgrades published http image URLs to https before requesting them.
 old='const imageRequest=u=>u.href===photo;';new="const imageRequest=u=>['http:','https:'].includes(u.protocol)&&u.hostname===new URL(photo).hostname&&u.pathname===new URL(photo).pathname;";assert s.count(old)==1;s=s.replace(old,new)
 s=s.replace("blockedProfileRequests++;return r.abort('failed');", "blockedProfileRequests++;console.log('BLOCKED_EXACT_PUBLISHED_PROFILE_IMAGE',new URL(r.request().url()).protocol,new URL(r.request().url()).pathname);return r.abort('failed');")
 s=s.replace("const path=u=>u.href===dev+'/api/v1/public/entities/rat-catalogue/nodes/'+person;", "const path=u=>[dev,rat].includes(u.origin)&&u.pathname==='/api/v1/public/entities/rat-catalogue/nodes/'+person;")
