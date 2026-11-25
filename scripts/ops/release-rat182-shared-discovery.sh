@@ -58,8 +58,8 @@ from pathlib import Path
 import sys
 s=Path(sys.argv[1]).read_text()
 for old,new in [
- ('7411cc02eb6568e6c6d228b551683294bfac49a6f89c320078af5550adce5d56','8f22ae6cbe62f06e3363cf3ec897d769c59e4e6522d87f919a62f443943ac894'),
- ('9a33ea315f52d5e14a5ece0e57895aae8d4eb4d7d7e9955110d49fc9676c64d9','6d6253ee6ab8f1709ad7f013a83943c3c6674621a53f7a7c3cdf18c26c09ebc2'),
+ ('7411cc02eb6568e6c6d228b551683294bfac49a6f89c320078af5550adce5d56','6ad2db06b44acca08d26ac4e062bc77d279513e45a62e862d4bb85e10a21d450'),
+ ('9a33ea315f52d5e14a5ece0e57895aae8d4eb4d7d7e9955110d49fc9676c64d9','672f775608943603548c7b3269e41c68ba31a806070705e224a1b1f073950a54'),
  ('refs/heads/fix/rat-persist-explicit-linked-things-20261122','refs/heads/feat/rat-shared-persona-discovery-20261124'),
  ('PR181_DEPLOYED','PR182_DEPLOYED')]:
  assert s.count(old)==1,old;s=s.replace(old,new)
