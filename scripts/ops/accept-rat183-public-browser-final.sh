@@ -12,7 +12,10 @@ s=s.replace("async function readOnlyRoutes(){", "async function readOnlyRoutes()
 old="async function workspace(id){await page.goto(rat+'/e/thing~'+id+'#connections');await expect(page.locator('.rat-workspace-id')).toHaveText(id);}"
 new="""async function workspace(id){for(let attempt=0;attempt<2;attempt++){await page.goto(rat+'/e/thing~'+id+'#connections');try{await expect(page.locator('.rat-workspace-id')).toHaveText(id);return;}catch(error){const message=await page.locator('body').innerText();if(attempt===1||!message.includes('Failed to fetch')){console.log('WORKSPACE_LOAD_FAILURE',id,message.slice(-1000));throw error;}console.log('BOUNDED_READONLY_NETWORK_RETRY',id);await page.waitForTimeout(2000);}}}"""
 assert s.count(old)==1;s=s.replace(old,new)
-old='const imageRequest=u=>u.href===photo;';new='const imageRequest=u=>u.origin===new URL(photo).origin&&u.pathname===new URL(photo).pathname;';assert s.count(old)==1;s=s.replace(old,new)
+# The published API URL may be http; Chromium upgrades mixed image requests to https.
+# Match the same exact host/path under either normal web scheme, not an unrelated image.
+old='const imageRequest=u=>u.href===photo;';new="const imageRequest=u=>['http:','https:'].includes(u.protocol)&&u.hostname===new URL(photo).hostname&&u.pathname===new URL(photo).pathname;";assert s.count(old)==1;s=s.replace(old,new)
+s=s.replace("blockedProfileRequests++;return r.abort('failed');", "blockedProfileRequests++;console.log('BLOCKED_EXACT_PUBLISHED_PROFILE_IMAGE',new URL(r.request().url()).protocol,new URL(r.request().url()).pathname);return r.abort('failed');")
 s=s.replace("const path=u=>u.href===dev+'/api/v1/public/entities/rat-catalogue/nodes/'+person;", "const path=u=>[dev,rat].includes(u.origin)&&u.pathname==='/api/v1/public/entities/rat-catalogue/nodes/'+person;")
 s=s.replace("evidence.imageFailureFallsBackAndReloadRecovers=true;", "evidence.imageFailureFallsBackAndReloadRecovers=true;console.log('REAL_IMAGE_NETWORK_FAILURE_FALLBACK_PASS',blockedProfileRequests);")
 p.write_text(s)
